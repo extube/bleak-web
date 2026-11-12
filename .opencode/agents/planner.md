@@ -12,6 +12,9 @@ permissions:
   - action: subagent
     resource: tester
     effect: allow
+  - action: subagent
+    resource: architect
+    effect: allow
   - action: shell
     resource: "*"
     effect: deny
@@ -35,6 +38,12 @@ permissions:
     effect: deny
   - action: edit
     resource: docs/**
+    effect: allow
+  - action: edit
+    resource: .opencode/agents/worker.md
+    effect: allow
+  - action: edit
+    resource: .opencode/agents/tester.md
     effect: allow
 ---
 
@@ -92,3 +101,23 @@ You may **not** set `in-progress`, `ready-for-test`, `testing`, `done`, or
 - A task is `done` only after tester approval (set by the tester in the DB).
 - When reporting to the parent, give the task id, hash, status, and any
   decision you need.
+
+## Advice, permissions and escalation
+
+No sub-agent ever asks the user anything (Communication & escalation policy
+in AGENTS.md) — that right belongs to the concept agent alone.
+
+- **Advice:** when a worker or tester marks a request "ADVICE NEEDED" in its
+  report/log, consult the architect — resume the architect's stored session
+  if one exists, otherwise spawn a short consult instance — and pass the
+  answer back with your next message to the requester.
+- **Permission grants:** you are the process manager of your worker and
+  tester instances. If one is blocked by missing permissions and the fix is
+  in `.opencode/agents/worker.md` or `.opencode/agents/tester.md` (the only
+  agent configs you may edit), widen the permission, set the card back to
+  `in-progress` (blocked → in-progress), and resume the agent's stored
+  session so it continues where it stopped.
+- **Escalation:** if the needed grant is outside your reach (global config
+  in `opencode.jsonc`, another role's file, or a user decision), leave the
+  card `blocked` and report the exact missing grant to the concept agent —
+  it decides.

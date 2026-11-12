@@ -13,6 +13,15 @@ permissions:
     resource: "git *"
     effect: allow
   - action: shell
+    resource: "git merge *"
+    effect: deny
+  - action: shell
+    resource: "git push *"
+    effect: deny
+  - action: shell
+    resource: "git checkout main*"
+    effect: deny
+  - action: shell
     resource: "make *"
     effect: allow
   - action: shell
