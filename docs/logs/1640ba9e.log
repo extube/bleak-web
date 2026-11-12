@@ -11,3 +11,4 @@
 2026-11-12T19:18:28Z [devops] full test suite re-run + new cases: worker self-block with reason OK, no-reason rejected, empty reason rejected, wrong-actor blocked rejected, planner reopen OK, tester testing->blocked unchanged; all previous negatives still enforced
 2026-11-12T19:18:29Z [devops] task DB reset and real card re-created: id=1 (created_by 51a3949b), set back to in-progress by 1640ba9e
 2026-11-12T19:18:36Z [devops] task 1 set to ready-for-test; awaiting tester
+2026-11-12T19:19:35Z [devops] task 1 set back to ready-for-test after QA enforcement testing moved it to in-progress
