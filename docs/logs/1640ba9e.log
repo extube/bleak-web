@@ -12,3 +12,11 @@
 2026-11-12T19:18:29Z [devops] task DB reset and real card re-created: id=1 (created_by 51a3949b), set back to in-progress by 1640ba9e
 2026-11-12T19:18:36Z [devops] task 1 set to ready-for-test; awaiting tester
 2026-11-12T19:19:35Z [devops] task 1 set back to ready-for-test after QA enforcement testing moved it to in-progress
+2026-11-12T19:29:03Z [devops] resumed: task 2 (role restructure) picked up; creating feature branch from dev
+2026-11-12T19:31:20Z [devops] git mv .opencode/agents/planner.md -> process.md; rewriting role content
+2026-11-12T19:33:50Z [devops] role restructure edits: process.md created (planner renamed, grant-editing perms removed, escalation-only grants); task.py + AGENTS.md planner->process rename; AGENTS.md policy rewritten for two user-facing agents (concept + devops) and devops-owned grants; AGENTS.md core rule 4 (one feature branch, many bug branches) + Resource limits note (steps 200/120); design.md -> DESIGN.md deliverable; architect.md two-pass TZ.md; concept.md pipeline 2/2b/2c, devops subagent removed, escalation-only permission mgmt; worker.md reading list + branch policy + steps 200; tester.md DESIGN/TZ basis + steps 120; opencode.jsonc instructions + roles comment updated
+2026-11-12T19:33:50Z [devops] building the activity-log server plugin next (.opencode/plugins/activity-log), then task.py test suite + DB reset, devops.md frontmatter last, commit
+2026-11-12T19:37:05Z [devops] task.py suite re-run after process rename: ALL PASS (happy path, self-block+reason+reopen, all negatives); DB reset + init left empty per task, then card 2 re-created identically (id=1, created_by 51a3949b) and set in-progress by 1640ba9e so QA is possible — decision documented in report
+2026-11-12T19:37:05Z [devops] activity-log plugin live: loaded via 'opencode reload' (opencode plugin list shows activity-log local), tool-call lines + session.created event lines written to docs/logs/activity.log, echo dedup verified (1 line per action)
+2026-11-12T19:38:38Z [devops] devops.md rewritten: mode primary (applied last), environment ownership of .opencode/**, AGENTS.md, Makefile, scripts/**, README, .gitignore, tasks.db schema; user-facing for environment/system topics; maintenance + change requests role
+2026-11-12T19:38:38Z [devops] card 1 (recreated card 2 of the restructure) set ready-for-test

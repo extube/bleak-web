@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS bugs (
 """
 
 # Transitions: (from_status, to_status) -> role required
-# Role 'planner'  = task.created_by
+# Role 'process'  = task.created_by
 # Role 'worker'   = task.worker_hash
 # Role 'tester'   = task.tester_hash
 TRANSITIONS = {
@@ -64,7 +64,7 @@ TRANSITIONS = {
     ("ready-for-test", "testing"): "tester",
     ("testing", "done"): "tester",
     ("testing", "blocked"): "tester",
-    ("blocked", "in-progress"): "planner",
+    ("blocked", "in-progress"): "process",
 }
 
 # Transitions that require a mandatory --reason "<text>" flag.
@@ -107,7 +107,7 @@ def get_task(con, task_id):
 
 def actor_for(task, role):
     return {
-        "planner": task["created_by"],
+        "process": task["created_by"],
         "worker": task["worker_hash"],
         "tester": task["tester_hash"],
     }[role]
@@ -126,17 +126,17 @@ def cmd_init(args):
 
 
 def cmd_new(args):
-    # new <title> <tz_section> <branch> <worker_hash> <depends_on> --as <plannerHash>
+    # new <title> <tz_section> <branch> <worker_hash> <depends_on> --as <processHash>
     as_idx = args.index("--as") if "--as" in args else -1
     if as_idx == -1:
-        die("missing --as <plannerHash>")
-    planner = args[as_idx + 1] if len(args) > as_idx + 1 else ""
+        die("missing --as <processHash>")
+    process = args[as_idx + 1] if len(args) > as_idx + 1 else ""
     positional = args[:as_idx]
     if len(positional) != 5:
-        die("usage: task.py new <title> <tz_section> <branch> <worker_hash> <depends_on> --as <plannerHash>")
+        die("usage: task.py new <title> <tz_section> <branch> <worker_hash> <depends_on> --as <processHash>")
     title, tz_section, branch, worker_hash, depends_on = positional
-    if not HEX8.match(planner):
-        die(f"planner hash '{planner}' must be 8 lowercase hex chars")
+    if not HEX8.match(process):
+        die(f"process hash '{process}' must be 8 lowercase hex chars")
     if not HEX8.match(worker_hash):
         die(f"worker hash '{worker_hash}' must be 8 lowercase hex chars")
     branch = branch.strip()
@@ -155,10 +155,10 @@ def cmd_new(args):
         "INSERT INTO tasks (hash, title, branch, tz_section, status, created_by,"
         " worker_hash, depends_on, created_at, updated_at)"
         " VALUES (?,?,?,?,?,?,?,?,?,?)",
-        (worker_hash, title, branch, tz_section, "todo", planner, worker_hash, depends_on, ts, ts),
+        (worker_hash, title, branch, tz_section, "todo", process, worker_hash, depends_on, ts, ts),
     )
     task_id = cur.lastrowid
-    log(con, task_id, planner, "create", f"task created as todo, branch={branch}")
+    log(con, task_id, process, "create", f"task created as todo, branch={branch}")
     con.commit()
     con.close()
     print(task_id)
@@ -167,24 +167,24 @@ def cmd_new(args):
 def cmd_assign_tester(args):
     as_idx = args.index("--as") if "--as" in args else -1
     if as_idx == -1:
-        die("missing --as <plannerHash>")
-    planner = args[as_idx + 1] if len(args) > as_idx + 1 else ""
+        die("missing --as <processHash>")
+    process = args[as_idx + 1] if len(args) > as_idx + 1 else ""
     positional = args[:as_idx]
     if len(positional) != 2:
-        die("usage: task.py assign-tester <id> <testerHash> --as <plannerHash>")
+        die("usage: task.py assign-tester <id> <testerHash> --as <processHash>")
     task_id, tester_hash = positional
-    if not HEX8.match(planner):
-        die(f"planner hash '{planner}' must be 8 lowercase hex chars")
+    if not HEX8.match(process):
+        die(f"process hash '{process}' must be 8 lowercase hex chars")
     if not HEX8.match(tester_hash):
         die(f"tester hash '{tester_hash}' must be 8 lowercase hex chars")
 
     con = connect()
     task = get_task(con, task_id)
-    if task["created_by"] != planner:
-        die(f"only the planner ({task['created_by']}) may assign a tester for task {task['id']}, not '{planner}'")
+    if task["created_by"] != process:
+        die(f"only the process ({task['created_by']}) may assign a tester for task {task['id']}, not '{process}'")
     con.execute("UPDATE tasks SET tester_hash=?, updated_at=? WHERE id=?",
                 (tester_hash, NOW(), task["id"]))
-    log(con, task["id"], planner, "assign-tester", f"tester={tester_hash}")
+    log(con, task["id"], process, "assign-tester", f"tester={tester_hash}")
     con.commit()
     con.close()
     print(f"task {int(task_id)}: tester set to {tester_hash}")
@@ -344,7 +344,7 @@ def cmd_show(args):
     print(f"  branch:      {t['branch']}")
     print(f"  tz_section:  {t['tz_section']}")
     print(f"  criteria:    {t['criteria'] or '(none)'}")
-    print(f"  created_by:  {t['created_by']} (planner)")
+    print(f"  created_by:  {t['created_by']} (process)")
     print(f"  worker:      {t['worker_hash']}")
     print(f"  tester:      {t['tester_hash'] or '(unassigned)'}")
     print(f"  depends_on:  {t['depends_on']}")
