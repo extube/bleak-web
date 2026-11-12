@@ -23,6 +23,22 @@
     { "action": "shell", "resource": "git push * main", "effect": "ask" },
     { "action": "shell", "resource": "git push * main:*", "effect": "ask" },
     { "action": "shell", "resource": "git checkout main*", "effect": "ask" },
-    { "action": "shell", "resource": "git merge *", "effect": "ask" }
+    { "action": "shell", "resource": "git merge *", "effect": "ask" },
+    // Commit identity is fixed (see AGENTS.md "Commit identity"):
+    // repo-local git config is the single source; nobody may override it.
+    { "action": "shell", "resource": "git config user.*", "effect": "deny" },
+    { "action": "shell", "resource": "git config --global*", "effect": "deny" },
+    { "action": "shell", "resource": "git config --local*", "effect": "deny" },
+    { "action": "shell", "resource": "git config --add*", "effect": "deny" },
+    { "action": "shell", "resource": "git config --replace*", "effect": "deny" },
+    { "action": "shell", "resource": "git commit --author=*", "effect": "deny" },
+    { "action": "shell", "resource": "git -c *user*", "effect": "deny" },
+    { "action": "shell", "resource": "git -c *author*", "effect": "deny" },
+    { "action": "shell", "resource": "git -c *committer*", "effect": "deny" },
+    { "action": "shell", "resource": "GIT_AUTHOR_NAME=*", "effect": "deny" },
+    { "action": "shell", "resource": "GIT_AUTHOR_EMAIL=*", "effect": "deny" },
+    { "action": "shell", "resource": "GIT_COMMITTER_NAME=*", "effect": "deny" },
+    { "action": "shell", "resource": "GIT_COMMITTER_EMAIL=*", "effect": "deny" },
+    { "action": "shell", "resource": "GIT_CONFIG_*", "effect": "deny" }
   ]
 }
