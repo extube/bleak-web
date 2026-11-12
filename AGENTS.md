@@ -63,6 +63,22 @@ The workflow is based on a `dev` branch with feature and bugfix branches.
 | Pushing `dev` and feature/bug branches | Allowed to the project remote at the user's direction. |
 | Merging into `dev` is allowed | You may merge `feature/*` and `bug/*` branches into `dev`. |
 
+### Commit identity
+
+- `.env` (gitignored, canonical source) holds the project identity:
+  `GITHUB_USERNAME=extube`, `GITHUB_EMAIL=extube@proton.me`.
+- **All commits — by humans and every agent — are created only with this
+  identity.** It is enforced by the repo-local git config
+  (`user.name=extube`, `user.email=extube@proton.me`), which every commit in
+  this checkout picks up automatically.
+- **No agent may override the commit identity.** Denied mechanically
+  (see `.opencode/opencode.jsonc`): `git config user.*` / `--global` /
+  `--local` / `--add` / `--replace`, `git commit --author=…`, `git -c …user…`
+  / `…author…` / `…committer…`, and the `GIT_AUTHOR_*` / `GIT_COMMITTER_*` /
+  `GIT_CONFIG_*` environment-variable prefixes.
+- If the identity ever needs to change, the user directs the **devops
+  agent**, which updates `.env` and the repo-local git config.
+
 ### Remotes & publishing
 
 - The project remote is `origin` = `https://github.com/extube/bleak-web.git`,
