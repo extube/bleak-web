@@ -1,0 +1,29 @@
+# Node / dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+.vite/
+.output/
+coverage/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Editor / OS junk
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Runtime state — task DB is not committed (durable trail: task_log,
+# docs/sessions/, docs/logs/)
+tasks.db
+tasks.db-wal
+tasks.db-shm
