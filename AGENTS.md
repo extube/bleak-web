@@ -2,6 +2,45 @@
 
 Rules for AI agents and contributors working in the **bleak-node front-end** repository.
 
+## Communication & escalation policy
+
+**The no-ask rule:** with the single exception below, no agent ever asks the
+user anything. The user is only reached through the concept agent.
+
+1. **Only the concept agent** (the single primary agent) may ask the user
+   questions or request approvals — and only for decisions that genuinely
+   block the working stream: concept approval, TZ review, per-feature gates,
+   and escalation of grants it cannot make itself.
+2. **Every other agent must never ask the user anything in chat.** If an
+   agent lacks a permission for something, it first tries to solve the task
+   without that permission (workaround within its allowed tools and files).
+   Permission prompts ("ask" effects) must never be triggered by sub-agents.
+3. **Advice requests** go to the architect, routed through the agent's
+   process manager: worker/tester instances route via the **planner**,
+   architect/design/devops instances route via the **concept agent**. Advice
+   requests are logged via `scripts/log.sh` and marked **"ADVICE NEEDED"** in
+   the agent's report.
+4. **Self-block on impossibility:** if a task is impossible with the current
+   permissions, the agent blocks its own card, closes its session record as
+   `blocked`, and stops cleanly:
+   ```bash
+   python3 scripts/task.py status <id> blocked --as <hash> --reason "<missing>"
+   ```
+5. **Grants by the process manager:** the process manager of the blocked
+   instance may grant the missing permission by editing the agent's
+   `.opencode` config, provided the grant is reasonable:
+   - the **planner** is the process manager of worker/tester instances and
+     may edit exactly `.opencode/agents/worker.md` and
+     `.opencode/agents/tester.md`;
+   - the **concept agent** is the process manager of architect/design/devops
+     instances and may edit any agent config.
+   After granting, the manager sets the card back to `in-progress`
+   (`blocked → in-progress`) and resumes the instance's stored OpenCode
+   session (the `opencode-session` field in `docs/sessions/<hash>.md`) so it
+   continues where it stopped. If the grant is out of the manager's reach,
+   the card stays `blocked` and escalates to the concept agent — which may
+   then ask the user.
+
 ## Git Flow Rules
 
 The workflow is based on a `dev` branch with feature and bugfix branches.
@@ -95,6 +134,7 @@ Schema:
 | (new) | todo | planner (`created_by`) |
 | todo → in-progress | worker (`worker_hash`) |
 | in-progress → ready-for-test | worker (`worker_hash`) |
+| in-progress → blocked | worker (`worker_hash`, `--reason` required) |
 | ready-for-test → testing | tester (`tester_hash`) |
 | testing → done \| blocked | tester (`tester_hash`) |
 | blocked → in-progress | planner (`created_by`) |
@@ -118,6 +158,11 @@ python3 scripts/task.py assign-tester 1 ef56ab78 --as ab12cd34
 # Worker starts / hands over for test (worker_hash must match --as):
 python3 scripts/task.py status 1 in-progress --as 1640ba9e
 python3 scripts/task.py status 1 ready-for-test --as 1640ba9e
+
+# Worker blocks its own card when the task is impossible with the current
+# permissions (--reason is mandatory; see "Communication & escalation policy"):
+python3 scripts/task.py status 1 blocked --as 1640ba9e \
+  --reason "needs write access to the API contract to fix the endpoint"
 
 # Tester picks it up and closes it (tester_hash must match --as):
 python3 scripts/task.py status 1 testing --as ef56ab78

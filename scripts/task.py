@@ -60,11 +60,15 @@ CREATE TABLE IF NOT EXISTS bugs (
 TRANSITIONS = {
     ("todo", "in-progress"): "worker",
     ("in-progress", "ready-for-test"): "worker",
+    ("in-progress", "blocked"): "worker",
     ("ready-for-test", "testing"): "tester",
     ("testing", "done"): "tester",
     ("testing", "blocked"): "tester",
     ("blocked", "in-progress"): "planner",
 }
+
+# Transitions that require a mandatory --reason "<text>" flag.
+REQUIRES_REASON = {("in-progress", "blocked")}
 
 VALID_STATUSES = ["todo", "in-progress", "ready-for-test", "testing", "done", "blocked"]
 HEX8 = re.compile(r"^[0-9a-f]{8}$")
@@ -187,18 +191,39 @@ def cmd_assign_tester(args):
 
 
 def cmd_status(args):
-    as_idx = args.index("--as") if "--as" in args else -1
-    if as_idx == -1:
+    # status <id> <new-status> --as <hash> [--reason "<text>"]
+    actor = None
+    reason = None
+    positional = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--as":
+            if i + 1 >= len(args):
+                die("--as requires a hash value")
+            actor = args[i + 1]
+            i += 2
+        elif arg == "--reason":
+            if i + 1 >= len(args):
+                die('--reason requires a quoted text value')
+            reason = args[i + 1]
+            i += 2
+        elif arg.startswith("--"):
+            die(f"unknown flag '{arg}' (supported: --as <hash>, --reason \"<text>\")")
+        else:
+            positional.append(arg)
+            i += 1
+    if actor is None:
         die("missing --as <hash>")
-    actor = args[as_idx + 1] if len(args) > as_idx + 1 else ""
-    positional = args[:as_idx]
     if len(positional) != 2:
-        die("usage: task.py status <id> <new-status> --as <hash>")
+        die('usage: task.py status <id> <new-status> --as <hash> [--reason "<text>"]')
     task_id, new_status = positional
     if not HEX8.match(actor):
         die(f"actor hash '{actor}' must be 8 lowercase hex chars")
     if new_status not in VALID_STATUSES:
         die(f"invalid status '{new_status}'. Valid: {', '.join(VALID_STATUSES)}")
+    if reason is not None and not reason.strip():
+        die('--reason must be a non-empty text explaining what is missing')
 
     con = connect()
     task = get_task(con, task_id)
@@ -212,12 +237,19 @@ def cmd_status(args):
     if actor != actor_for(task, rule):
         die(f"transition {cur} -> {new_status} requires the {rule} "
             f"(hash {actor_for(task, rule)}), not '{actor}'")
+    if (cur, new_status) in REQUIRES_REASON and (reason is None or not reason.strip()):
+        die(f'transition {cur} -> {new_status} requires --reason "<text>" '
+            f"describing the missing permission or input")
+    detail = f"{cur} -> {new_status}"
+    if reason:
+        detail += f" | reason: {reason}"
     con.execute("UPDATE tasks SET status=?, updated_at=? WHERE id=?",
                 (new_status, NOW(), task["id"]))
-    log(con, task["id"], actor, "status", f"{cur} -> {new_status}")
+    log(con, task["id"], actor, "status", detail)
     con.commit()
     con.close()
-    print(f"task {int(task_id)}: {cur} -> {new_status}")
+    suffix = f" (reason: {reason})" if reason else ""
+    print(f"task {int(task_id)}: {cur} -> {new_status}{suffix}")
 
 
 def cmd_bug(args):
@@ -255,6 +287,19 @@ def cmd_bug(args):
     print(f"bug {bug_id} registered for task {int(task_id)} -> branch {branch}")
 
 
+def blocked_reason(con, task_id):
+    """Latest 'reason:' stored with a -> blocked transition, or ''. """
+    row = con.execute(
+        "SELECT detail FROM task_log WHERE task_id=? AND action='status'"
+        " AND detail LIKE '%-> blocked%' ORDER BY id DESC LIMIT 1",
+        (task_id,),
+    ).fetchone()
+    if row is None:
+        return ""
+    detail = row["detail"]
+    return detail.split("| reason: ", 1)[1] if "| reason: " in detail else ""
+
+
 def cmd_list(args):
     if len(args) > 1:
         die("usage: task.py list [status]")
@@ -266,6 +311,8 @@ def cmd_list(args):
         rows = con.execute("SELECT * FROM tasks WHERE status=? ORDER BY id", (status,)).fetchall()
     else:
         rows = con.execute("SELECT * FROM tasks ORDER BY id").fetchall()
+    reasons = {r["id"]: blocked_reason(con, r["id"]) if r["status"] == "blocked" else ""
+               for r in rows}
     con.close()
     if not rows:
         print("no tasks")
@@ -275,6 +322,8 @@ def cmd_list(args):
     for r in rows:
         print(f"{r['id']:<4} {r['status']:<15} {r['worker_hash']:<9} "
               f"{r['tester_hash'] or '-':<9} {r['branch']:<40} {r['title']}")
+        if reasons.get(r["id"]):
+            print(f"{'':<4} {'':<15} {'':<9} {'':<9} blocked reason: {reasons[r['id']]}")
 
 
 def cmd_show(args):
@@ -284,10 +333,14 @@ def cmd_show(args):
     t = get_task(con, args[0])
     bugs = con.execute("SELECT * FROM bugs WHERE task_id=? ORDER BY id", (t["id"],)).fetchall()
     tlog = con.execute("SELECT * FROM task_log WHERE task_id=? ORDER BY id", (t["id"],)).fetchall()
+    breason = blocked_reason(con, t["id"]) if t["status"] == "blocked" else ""
     con.close()
 
     print(f"task {t['id']}: {t['title']}")
     print(f"  status:      {t['status']}")
+    if t["status"] == "blocked":
+        if breason:
+            print(f"  blocked reason: {breason}")
     print(f"  branch:      {t['branch']}")
     print(f"  tz_section:  {t['tz_section']}")
     print(f"  criteria:    {t['criteria'] or '(none)'}")

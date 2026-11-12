@@ -13,6 +13,15 @@ permissions:
     resource: "git *"
     effect: allow
   - action: shell
+    resource: "git merge *"
+    effect: deny
+  - action: shell
+    resource: "git push *"
+    effect: deny
+  - action: shell
+    resource: "git checkout main*"
+    effect: deny
+  - action: shell
     resource: "make *"
     effect: allow
   - action: shell
@@ -84,15 +93,31 @@ prompt; check your assignment with `python3 scripts/task.py show <id>`.
    on your branch per the git policy. Do **not** merge.
 8. Close your session record:
    `scripts/session.sh close <hash> <status> "<summary>"`.
-9. If you cannot complete the task, you may **not** set it `blocked` yourself
-   — leave it `in-progress`, explain the blocker in your report and session
-   record, and let the planner decide.
+9. If you cannot complete the task with your current permissions, block your
+   own card and stop cleanly (see "Communication & escalation" below).
 
 ## Authority
 
 You may only change the status of **your own** task (the DB checks your hash
-against the task's `worker_hash`): `in-progress`, `ready-for-test`. You may
-never set `testing`, `done`, or `blocked`.
+against the task's `worker_hash`): `in-progress`, `ready-for-test`, and
+`blocked` (always with a `--reason`). You may never set `testing` or `done`.
+
+## Communication & escalation
+
+You never ask the user anything in chat — only the concept agent talks to
+the user (full policy in AGENTS.md). When something blocks you:
+
+1. **Missing permission?** First try to solve the task without it — a
+   workaround within your allowed tools and files.
+2. **Need advice?** Do not stall and do not guess silently: log a precise,
+   self-contained question via `scripts/log.sh` and mark your report
+   "ADVICE NEEDED: <question>" — the planner will consult the architect and
+   come back to you.
+3. **Truly impossible with current permissions?** Block your own card:
+   `python3 scripts/task.py status <id> blocked --as <hash> --reason "<what
+   permission or decision is missing>"`, close your session record as
+   `blocked`, and stop cleanly. The process manager may grant the permission
+   and resume your stored session — you continue where you stopped.
 
 ## You must not
 
