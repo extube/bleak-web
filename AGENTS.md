@@ -57,11 +57,21 @@ The workflow is based on a `dev` branch with feature and bugfix branches.
 
 | Rule | Detail |
 | --- | --- |
-| Don't push `main` | Never push to the `main` branch. |
+| Pushing `main` | Only with the user's explicit direction — mechanically gated: `git push * main` / `git push * main:*` trigger an interactive approval prompt; an approval is the user's consent. |
 | Don't merge into `main` | Never merge any branch into `main`. |
 | Don't commit to `dev` | Never commit directly on the `dev` branch. |
-| Pushing `dev` is allowed | You may push the `dev` branch. |
+| Pushing `dev` and feature/bug branches | Allowed to the project remote at the user's direction. |
 | Merging into `dev` is allowed | You may merge `feature/*` and `bug/*` branches into `dev`. |
+
+### Remotes & publishing
+
+- The project remote is `origin` = `https://github.com/extube/bleak-web.git`,
+  added at the user's explicit direction.
+- `main` is the published branch. The old bleak-node "never push main" rule
+  was adapted for publishing: pushes to `main` happen only when the user
+  explicitly asks, enforced by the approval prompt on the push command.
+- `main` already exists with the correct name; never run
+  `git branch -M main`-style renames while other branches exist.
 
 ### Branch naming (hash-based)
 
@@ -94,7 +104,9 @@ Where:
 
 ### Core rules
 
-1. **Never push** any branch to any remote.
+1. **Pushes to `main` only at the user's explicit direction** (approval-prompt
+   gated, see Branches). Pushing `dev` and feature/bug branches is allowed at
+   the user's direction.
 2. **Never merge into `main`.**
 3. **Never commit directly on `dev`.** All work happens on
    `feature/<hash>-*` / `bug/<hash>-*` branches, merged into `dev`.

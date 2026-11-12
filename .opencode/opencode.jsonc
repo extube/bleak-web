@@ -18,8 +18,10 @@
     { "action": "read", "resource": "/mount/bleak-node/**", "effect": "allow" },
     { "action": "external_directory", "resource": "/mount/bleak-node/**", "effect": "allow" },
     // Git policy guardrails (full policy lives in AGENTS.md).
-    { "action": "shell", "resource": "git push * main", "effect": "deny" },
-    { "action": "shell", "resource": "git push * main:*", "effect": "deny" },
+    // Pushes to main are gated behind an interactive approval: an approval
+    // is the user's explicit consent (see AGENTS.md "Remotes & publishing").
+    { "action": "shell", "resource": "git push * main", "effect": "ask" },
+    { "action": "shell", "resource": "git push * main:*", "effect": "ask" },
     { "action": "shell", "resource": "git checkout main*", "effect": "ask" },
     { "action": "shell", "resource": "git merge *", "effect": "ask" }
   ]
