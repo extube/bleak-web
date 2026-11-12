@@ -3,7 +3,7 @@
   // Multi-agent architecture for the bleak-node front-end project.
   // Roles: main (orchestrator + concept interview), devops, architect,
   // design, planner, worker, tester. See .opencode/agents/*.md
-  "default_agent": "main",
+  "default_agent": "concept",
   // Shared project artifacts: every agent sees these once they exist.
   "instructions": [
     "docs/Concept.md",
