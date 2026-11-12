@@ -81,8 +81,11 @@ The workflow is based on a `dev` branch with feature and bugfix branches.
 
 ### Remotes & publishing
 
-- The project remote is `origin` = `https://github.com/extube/bleak-web.git`,
-  added at the user's explicit direction.
+- The project remote is `origin` = `git@github.com:extube/bleak-web.git`
+  (added at the user's explicit direction; HTTPS was replaced by SSH because
+  the environment authenticates via the SSH key `/root/.ssh/id_a_key`,
+  configured for `github.com` in `/root/.ssh/config` — key and config are
+  environment, owned by devops).
 - `main` is the published branch. The old bleak-node "never push main" rule
   was adapted for publishing: pushes to `main` happen only when the user
   explicitly asks, enforced by the approval prompt on the push command.
