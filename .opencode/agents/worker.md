@@ -1,6 +1,7 @@
 ---
-description: Worker — implements exactly one assigned task: code, tests, styles per TZ.md design
+description: Worker — implements exactly one assigned task: code, tests, styles per its TZ.md implementation section and DESIGN.md page design; one feature branch, any number of bug branches
 mode: subagent
+steps: 200
 color: "#90a4ae"
 permissions:
   - action: subagent
@@ -73,19 +74,26 @@ prompt; check your assignment with `python3 scripts/task.py show <id>`.
 ## Process
 
 1. Read `AGENTS.md`, `docs/Concept.md`, `docs/ARCHITECTURE.md`, `docs/TZ.md`
-   (your task's TZ section), and your task record from the DB (including its
-   acceptance criteria — your definition of done).
+   (your task's **implementation** section — components, state, API calls,
+   testing points), `docs/DESIGN.md` (your task's **page design** section —
+   layout, states, responsive, a11y, acceptance criteria), and your task
+   record from the DB (including its acceptance criteria — your definition
+   of done).
 2. Take ownership of the status:
    `python3 scripts/task.py status <id> in-progress --as <hash>`.
 3. Log your work after every significant step:
    `scripts/log.sh <hash> "<what was done>"`.
-4. Create and switch to your branch — `feature/<hash>-<slug>` for a new
-   feature, or `bug/<hash>-<slug>` for a bugfix you were sent back for
-   (branched from `dev`, named exactly as instructed in your prompt,
-   following AGENTS.md rules).
-5. Implement the feature: code, styles, and the design described in the
-   task's TZ.md section, following ARCHITECTURE.md conventions. Write the
-   business logic and its tests together; satisfy every acceptance criterion.
+4. Create and switch to your **feature branch** —
+   `feature/<hash>-<slug>` (branched from `dev`, named exactly as instructed
+   in your prompt, following AGENTS.md rules). Your instance works on
+   exactly **one** feature branch. For bugs found in QA you may create
+   additional **bug branches** `bug/<hash>-<slug>`, each branched from
+   `dev`, reusing your feature hash — one feature branch, any number of bug
+   branches.
+5. Implement the feature: code, styles, and the design described in your
+   task's TZ.md implementation section and DESIGN.md page design section,
+   following ARCHITECTURE.md conventions. Write the business logic and its
+   tests together; satisfy every acceptance criterion.
 6. Run the test suite and build (`make test`, `make build`, or the stack's
    equivalents). Everything must pass.
 7. Hand over for QA:
@@ -111,13 +119,16 @@ the user (full policy in AGENTS.md). When something blocks you:
    workaround within your allowed tools and files.
 2. **Need advice?** Do not stall and do not guess silently: log a precise,
    self-contained question via `scripts/log.sh` and mark your report
-   "ADVICE NEEDED: <question>" — the planner will consult the architect and
-   come back to you.
+   "ADVICE NEEDED: <question>" — the process manager will consult the
+   architect and come back to you.
 3. **Truly impossible with current permissions?** Block your own card:
    `python3 scripts/task.py status <id> blocked --as <hash> --reason "<what
    permission or decision is missing>"`, close your session record as
-   `blocked`, and stop cleanly. The process manager may grant the permission
-   and resume your stored session — you continue where you stopped.
+   `blocked`, and stop cleanly. The process manager escalates the missing
+   grant (never edits configs itself) to the concept agent; the user directs
+   the devops agent to grant it. Once granted, the process manager reopens
+   the card and resumes your stored session — you continue where you
+   stopped.
 
 ## You must not
 

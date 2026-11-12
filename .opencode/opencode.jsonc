@@ -1,13 +1,15 @@
 {
   "$schema": "https://opencode.ai/config.json",
   // Multi-agent architecture for the bleak-node front-end project.
-  // Roles: main (orchestrator + concept interview), devops, architect,
-  // design, planner, worker, tester. See .opencode/agents/*.md
+  // Roles: concept (primary orchestrator + concept interview), devops
+  // (primary, environment owner), architect, design, process, worker,
+  // tester. See .opencode/agents/*.md
   "default_agent": "concept",
   // Shared project artifacts: every agent sees these once they exist.
   "instructions": [
     "docs/Concept.md",
     "docs/ARCHITECTURE.md",
+    "docs/DESIGN.md",
     "docs/TZ.md"
   ],
   "permissions": [

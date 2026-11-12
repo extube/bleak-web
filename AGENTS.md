@@ -4,20 +4,24 @@ Rules for AI agents and contributors working in the **bleak-node front-end** rep
 
 ## Communication & escalation policy
 
-**The no-ask rule:** with the single exception below, no agent ever asks the
-user anything. The user is only reached through the concept agent.
+**The no-ask rule:** with the two exceptions below, no agent ever asks the
+user anything. The user is reached only through the two primary agents.
 
-1. **Only the concept agent** (the single primary agent) may ask the user
-   questions or request approvals — and only for decisions that genuinely
-   block the working stream: concept approval, TZ review, per-feature gates,
-   and escalation of grants it cannot make itself.
+1. **Two agents may talk to the user**, each in its own scope:
+   - the **concept agent** — project/product working-stream decisions only:
+     concept approval, DESIGN/TZ review, per-feature gates, and escalations
+     of grants or decisions it cannot make itself;
+   - the **devops agent** — environment, system rules, and processes: the
+     user interacts with devops **directly** to change system rules,
+     processes, and environment settings. Devops is exempt from the no-ask
+     rule for that scope only.
 2. **Every other agent must never ask the user anything in chat.** If an
    agent lacks a permission for something, it first tries to solve the task
    without that permission (workaround within its allowed tools and files).
    Permission prompts ("ask" effects) must never be triggered by sub-agents.
 3. **Advice requests** go to the architect, routed through the agent's
-   process manager: worker/tester instances route via the **planner**,
-   architect/design/devops instances route via the **concept agent**. Advice
+   process manager: worker/tester instances route via the **process**,
+   architect/design instances route via the **concept agent**. Advice
    requests are logged via `scripts/log.sh` and marked **"ADVICE NEEDED"** in
    the agent's report.
 4. **Self-block on impossibility:** if a task is impossible with the current
@@ -26,20 +30,24 @@ user anything. The user is only reached through the concept agent.
    ```bash
    python3 scripts/task.py status <id> blocked --as <hash> --reason "<missing>"
    ```
-5. **Grants by the process manager:** the process manager of the blocked
-   instance may grant the missing permission by editing the agent's
-   `.opencode` config, provided the grant is reasonable:
-   - the **planner** is the process manager of worker/tester instances and
-     may edit exactly `.opencode/agents/worker.md` and
-     `.opencode/agents/tester.md`;
-   - the **concept agent** is the process manager of architect/design/devops
-     instances and may edit any agent config.
-   After granting, the manager sets the card back to `in-progress`
-   (`blocked → in-progress`) and resumes the instance's stored OpenCode
-   session (the `opencode-session` field in `docs/sessions/<hash>.md`) so it
-   continues where it stopped. If the grant is out of the manager's reach,
-   the card stays `blocked` and escalates to the concept agent — which may
-   then ask the user.
+5. **Grants — devops only, at the user's direction:** no agent edits
+   environment settings to grant itself or anyone else permissions. Only the
+   **devops agent** changes environment settings (`.opencode/**` agent
+   configs, `opencode.jsonc`, plugins, plus `AGENTS.md`, `Makefile`,
+   `scripts/**`, and the task DB schema), always at the user's direction.
+   Process managers escalate instead of granting:
+   - the **process** is the process manager of worker/tester instances — it
+     leaves a blocked-permission card `blocked` and reports the exact missing
+     grant to the **concept agent**;
+   - the **concept agent** is the process manager of architect/design
+     instances — likewise, it informs the user, who directs **devops** to
+     make the grant.
+   After devops has granted, the process manager sets the card back to
+   `in-progress` (`blocked → in-progress`) and resumes the instance's stored
+   OpenCode session (the `opencode-session` field in
+   `docs/sessions/<hash>.md`) so it continues where it stopped. If the change
+   needs something devops cannot do at the user's direction, the card stays
+   `blocked` and the concept agent brings it to the user.
 
 ## Git Flow Rules
 
@@ -90,9 +98,13 @@ Where:
 2. **Never merge into `main`.**
 3. **Never commit directly on `dev`.** All work happens on
    `feature/<hash>-*` / `bug/<hash>-*` branches, merged into `dev`.
-4. **One sub-agent instance = one feature = one hash.** The instance hash is
-   used for its branch names, its task-DB records, its session record and its
-   log file, so the whole history of an instance is traceable.
+4. **One sub-agent instance = one feature = one hash:** the instance works on
+   exactly **one feature branch** (`feature/<hash>-<slug>`), but may create
+   **any number of bug branches** (`bug/<hash>-<slug>`, each branched from
+   `dev`) — e.g. 1 feature branch + 3 bug branches — all attributable to the
+   same instance. The hash is used for its branch names, its task-DB records,
+   its session record and its log file, so the whole history of an instance
+   is traceable.
 
 ---
 
@@ -131,16 +143,16 @@ Schema:
 
 | From | To | Allowed for |
 | --- | --- | --- |
-| (new) | todo | planner (`created_by`) |
+| (new) | todo | process (`created_by`) |
 | todo → in-progress | worker (`worker_hash`) |
 | in-progress → ready-for-test | worker (`worker_hash`) |
 | in-progress → blocked | worker (`worker_hash`, `--reason` required) |
 | ready-for-test → testing | tester (`tester_hash`) |
 | testing → done \| blocked | tester (`tester_hash`) |
-| blocked → in-progress | planner (`created_by`) |
+| blocked → in-progress | process (`created_by`) |
 
 Every other transition is rejected with a clear error, and each transition is
-only allowed for the actor recorded on the task (planner = `created_by`,
+only allowed for the actor recorded on the task (process = `created_by`,
 worker = `worker_hash`, tester = `tester_hash`). Acceptance criteria text
 lives in the `criteria` column — **the DB is the single source of truth for
 task state.**
@@ -148,11 +160,11 @@ task state.**
 #### CLI examples
 
 ```bash
-# Planner creates a task (status todo), printing its id:
+# Process creates a task (status todo), printing its id:
 python3 scripts/task.py new "Task table component" "TZ-3.1" \
   feature/1640ba9e-task-table 1640ba9e - --as ab12cd34
 
-# Planner assigns a tester:
+# Process assigns a tester:
 python3 scripts/task.py assign-tester 1 ef56ab78 --as ab12cd34
 
 # Worker starts / hands over for test (worker_hash must match --as):
@@ -169,7 +181,7 @@ python3 scripts/task.py status 1 testing --as ef56ab78
 python3 scripts/task.py status 1 done --as ef56ab78
 python3 scripts/task.py status 1 blocked --as ef56ab78   # or: done
 
-# Planner reopens a blocked task:
+# Process reopens a blocked task:
 python3 scripts/task.py status 1 in-progress --as ab12cd34
 
 # Tester registers a bug (branch will be bug/<featureHash>-<slug>):
@@ -216,3 +228,12 @@ The DB is runtime state. To reset it to empty for real use:
 rm -f tasks.db tasks.db-wal tasks.db-shm
 python3 scripts/task.py init     # recreates an empty schema
 ```
+
+### Resource limits
+
+Worker and tester sessions are bounded by **steps caps** in their agent
+configs (`steps: 200` for worker, `steps: 120` for tester) plus OpenCode's
+automatic compaction. OpenCode V2 does not support a per-agent token-context
+cap (agent options are model/steps/permissions only), so the 250k-token limit
+is approximated by these levers. Ask the **devops agent** to tune the caps
+(they are environment settings, user-tunable at the user's direction).
