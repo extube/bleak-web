@@ -89,30 +89,45 @@ The owner defined the product as a **real-world networking application for event
 
 ---
 
-## 4. Visual language — ✅ APPROVED (palette revised per owner)
+## 4. Visual language — ✅ APPROVED (revised per owner: template-based dark pixel style)
 
-**Concept — "a warm world; connection in terracotta."** The interface carries a muted orange mood throughout — warm cream surfaces and terracotta accents that are present but never glare. Type mirrors the split: the human layer in a friendly sans, the machine layer (addresses, tx ids, agent turns) in monospace.
+**Source of truth:** the owner's reference template (`/workspace/design-template.png` — "Snifti Gallery" login). Direction: **dark retro-pixel meets modern soft UI** — a "cozy terminal" mood that makes the pixel-agent concept systemic rather than decorative.
 
-**Palette (light theme, primary — terracotta cream):**
+**Palette (dark theme, v1 default — exact sampled values):**
 
 | Role | Hex | Use |
 | --- | --- | --- |
-| Background | `#FAF1E7` | App background (warm cream) |
-| Surface | `#F3DFCB` | Cards, highlights, soft orange-tinted surfaces |
-| Ink (text) | `#2A211A` | Primary text, headings |
-| Muted | `#8A7263` | Secondary text, captions |
-| Hairline | `#E8D5C2` | Borders, dividers, card edges |
-| **Terracotta (accent)** | `#C75A1E` | Handshake actions, live indicators, primary CTAs |
-| Success | `#3E8E5A` | Confirmations, "agents are talking" |
-| Danger | `#B8432E` | Destructive actions, errors |
+| Background | `#1A1C20` | Page background (dark, slightly cool charcoal) |
+| Surface | `#101213` | Cards, inputs (near-black) |
+| Elevated surface | `#292C2D` | Segmented-control tracks, disabled elements |
+| **Accent** | `#FEDC5C` | Warm yellow — active tabs, handshakes, live indicators, labels, primary CTAs |
+| Text primary | `#F0F0F0` | Logo, headings, primary copy |
+| Text muted | `#919397` | Secondary copy, hints |
+| Text disabled | `#4A4C4E` / `#606264` | Inactive elements |
 
-**Typography mood:** modern grotesk — Space Grotesk for headings, Inter for body/UI; JetBrains Mono reserved exclusively for the machine layer (`0x…` addresses, tx ids, agent message turns).
+**Accent discipline:** yellow only on interactive/active elements; everything else stays in the charcoal range.
 
-**Shapes & density:** soft cards (12–16px radius), generous whitespace, **pill chips for interests**, airy mobile-first layout, large touch targets (AA basics per Topic 2).
+**Typography:** everything in pixel/bitmap typefaces — **Pixelify Sans** for body/UI (rounded chunky pixels), **Silkscreen Bold** for the logo/headings display. No conventional sans.
 
-**Agent identity:** **pixel-shaped agent icons** (pixel-art glyphs) as avatars for agents — a memorable, conceptual touch that visually marks the "machine actor" vs the human.
+**Shapes & signature detail:** large rounded corners (~20–24px) with **dithered/stepped pixel edges**; pill-shaped segmented controls; generous vertical spacing; wide letter-spacing on body; large touch targets (AA basics per Topic 2).
 
-**Theme:** light-only in v1; dark mode deferred to v1.1.
+**Icons & agent identity:** pixel-art glyphs for icons (close, info…) **and** for agent avatars — one conceptual pixel language across logo, icons, and text.
+
+**Theme:** dark-only in v1; a light variant (the earlier terracotta-cream palette may be revisited later) deferred.
+
+**Prior terracotta-cream proposal (superseded, kept for the record):** light cream `#FAF1E7` / surface `#F3DFCB` / terracotta accent `#C75A1E` with Space Grotesk/Inter + JetBrains Mono — replaced by the owner's template direction above.
+
+### 4b. Owner's reference materials (✅ provided 2026-11-13)
+
+Three reference images kept locally at **`docs/refs/`** (gitignored by owner decision — present on this machine, not in the repo); the **design agent must treat these as the primary visual brief** — layout/pattern/avatar guidance is binding, palette follows topic 4 (dark pixel):
+
+1. **`docs/refs/design-concept.png`** — UX patterns for the event flow (its light colorful palette is *not* adopted; patterns are):
+   - **Event badge card:** name, role, company, personal QR code, stat counters ("contacts today" / "added you"), quick actions (scan/tap).
+   - **Contacts list:** stacked colored cards, each tagged with a location pill (Hall A/B, Lounge) + timestamp.
+   - **Incoming request:** "Added you" detail card with **Accept / Decline**.
+   - Mapping to bleak-web: badge ↔ persona card (greeting, interests chips, personal QR); location pills ↔ interest/attribute chips; "Added you" ↔ incoming handshake request; stats ↔ room/handshake counters.
+2. **`docs/refs/icons-personage.png`** — avatar art style: **chunky pixel-art portraits** ("pixel people": hair, glasses, beards at low resolution, solid-color backdrop). All user/agent avatars in bleak-web are generated pixel portraits in this style.
+3. **`docs/refs/searching.png`** — the **room page = radar / "Around me" view**: concentric rings around the center "Me" chip ("N around you"), other attendees as pixel avatars placed on the rings with names, dark top bar, **bottom tab navigation** (the IA hint: Around me · Contacts · Requests · Activity · Settings — bleak-web's tabs will be adapted to its own flow: Room/Around, People, Chats, Profile, and Host where applicable).
 
 ---
 
