@@ -2,3 +2,6 @@
 2026-11-12T19:19:23Z [concept] QA of card 1 passed: worker self-block enforced (reason mandatory, hash authority), reopen planner-only
 2026-11-12T19:28:31Z [concept] opened card 2 (role restructure) for devops
 2026-11-12T19:39:35Z [concept] QA of card 1 (role restructure): roster, plugin, task.py rename, steps caps, DESIGN/TZ split verified
+2026-11-12T19:44:30Z [concept] opened card 2 (publish repo) for devops
+2026-11-12T19:47:15Z [concept] commit identity policy: .env extube, repo-local git config, override denies in opencode.jsonc + AGENTS.md
+2026-11-13T17:56:37Z [concept] project default model set to opencode-go/glm-5.3-flash at user direction

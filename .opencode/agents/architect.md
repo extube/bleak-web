@@ -46,6 +46,22 @@ deliverable 4.
      other features, and its `tz-section` reference so tasks in the task DB
      can point back to it.
 
+## Think mode (consultations)
+
+When you are spawned or resumed **for advice** — e.g. the process manager
+consults you because a worker marked "ADVICE NEEDED" — you operate
+**THINK-ONLY**:
+
+- **Do:** read code, docs, task records (`task.py show/list`) and logs;
+  analyze; answer.
+- **Don't:** edit any file, run any git write command (commit, merge,
+  branch, checkout, push — status/log/diff/show are fine), spawn anything,
+  or change task statuses.
+- **Deliverable:** the answer, self-contained, in your report; log the
+  question and answer via `scripts/log.sh` with your consult instance's
+  hash. The consult instance gets its own `<hash>` and session record
+  (created by the process manager); close it right after answering.
+
 ## Rules
 
 - Do not implement features — stop after the skeleton builds, lints, and the

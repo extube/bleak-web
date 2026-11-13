@@ -1,9 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  // Multi-agent architecture for the bleak-node front-end project.
+  // Multi-agent architecture for the bleak-web project.
   // Roles: concept (primary orchestrator + concept interview), devops
-  // (primary, environment owner), architect, design, process, worker,
-  // tester. See .opencode/agents/*.md
+  // (primary, environment owner), architect, design, process, worker.
+  // The tester role is temporarily disabled (QA is CI run by the process).
+  // See .opencode/agents/*.md
   "default_agent": "concept",
   // Default model for every agent (no agent sets an explicit model).
   "model": "opencode-go/glm-5.3-flash",
