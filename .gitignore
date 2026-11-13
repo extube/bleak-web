@@ -28,3 +28,6 @@ tasks.db
 tasks.db-wal
 tasks.db-shm
 __pycache__/
+
+# Design reference images — kept locally in docs/refs/, not committed
+docs/refs/*.png
