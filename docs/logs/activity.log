@@ -165,3 +165,49 @@
 2026-11-13T18:03:37Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:shell | command=cd /workspace && git status --short && git log --oneline -3 && git branch --show-current && git diff --stat AGENTS.md | cat
 2026-11-13T18:03:55Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:shell | command=cd /workspace && git checkout feature/1640ba9e-ci-flow && git status --short && chmod +x scripts/open-feature.sh scripts/task.py && git log --oneline -1
 2026-11-13T18:03:59Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:shell | command=cd /workspace && git add scripts/task.py scripts/open-feature.sh docs/sessions/1640ba9e.md docs/logs/1640ba9e.log docs/logs/51a3949b.log docs/logs/activity.log 
+2026-11-13T18:04:01Z | ses_e2f4d17f2ffezFBp5lwSvUPb2r | - | session.execution.started | {"sessionID":"ses_e2f4d17f2ffezFBp5lwSvUPb2r"}
+2026-11-13T18:04:04Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:shell | command=cd /workspace && git branch --show-current && git status --short && git log --oneline -5 && git diff --stat | cat && grep -n "Primary agents" AGENTS.md | head -
+2026-11-13T18:04:19Z | ses_e2f4d17f2ffezFBp5lwSvUPb2r | build | tool:shell | command=opencode api post /api/session/ses_e29f56084ffe94oFMuPdQRgIV6/prompt --data '{"text":"ADDITION (user-directed, fold into your current work on the same branch): 
+2026-11-13T18:04:29Z | ses_e2f4d17f2ffezFBp5lwSvUPb2r | - | session.execution.succeeded | {"sessionID":"ses_e2f4d17f2ffezFBp5lwSvUPb2r"}
+2026-11-13T18:04:55Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:write | path=/workspace/scripts/test-task.sh
+2026-11-13T18:04:58Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:shell | command=cd /workspace && chmod +x scripts/test-task.sh && bash scripts/test-task.sh
+2026-11-13T18:05:44Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/scripts/open-feature.sh
+2026-11-13T18:05:50Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/scripts/test-task.sh
+2026-11-13T18:05:55Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/scripts/test-task.sh
+2026-11-13T18:05:59Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/scripts/test-task.sh
+2026-11-13T18:06:07Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/scripts/test-task.sh
+2026-11-13T18:06:17Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/scripts/test-task.sh
+2026-11-13T18:06:20Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:shell | command=cd /workspace && bash scripts/test-task.sh 2>&1 | tail -25
+2026-11-13T18:06:28Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/scripts/test-task.sh
+2026-11-13T18:06:30Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:shell | command=cd /workspace && bash scripts/test-task.sh 2>&1 | tail -3
+2026-11-13T18:06:40Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:shell | command=cd /workspace && git branch --show-current && git add scripts/task.py scripts/open-feature.sh scripts/test-task.sh && git commit -m "feat: task.py CI lifecycle 
+2026-11-13T18:06:44Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/.opencode/agents/tester.md
+2026-11-13T18:07:32Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/.opencode/agents/process.md
+2026-11-13T18:07:54Z | ses_e2f4d17f2ffezFBp5lwSvUPb2r | - | session.execution.started | {"sessionID":"ses_e2f4d17f2ffezFBp5lwSvUPb2r"}
+2026-11-13T18:08:13Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/.opencode/agents/worker.md
+2026-11-13T18:08:17Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:read | path=/workspace/.opencode/agents/architect.md
+2026-11-13T18:08:18Z | ses_e2f4d17f2ffezFBp5lwSvUPb2r | - | session.execution.succeeded | {"sessionID":"ses_e2f4d17f2ffezFBp5lwSvUPb2r"}
+2026-11-13T18:08:23Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/.opencode/agents/architect.md
+2026-11-13T18:08:34Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/.opencode/agents/design.md
+2026-11-13T18:08:42Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/.opencode/agents/concept.md
+2026-11-13T18:08:47Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/.opencode/agents/concept.md
+2026-11-13T18:08:52Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/.opencode/agents/concept.md
+2026-11-13T18:08:57Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/.opencode/agents/concept.md
+2026-11-13T18:08:57Z | ses_e2f4d17f2ffezFBp5lwSvUPb2r | - | session.execution.started | {"sessionID":"ses_e2f4d17f2ffezFBp5lwSvUPb2r"}
+2026-11-13T18:09:01Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/.opencode/opencode.jsonc
+2026-11-13T18:09:14Z | ses_e2f4d17f2ffezFBp5lwSvUPb2r | build | tool:shell | command=opencode api get /api/session/ses_e29f56084ffe94oFMuPdQRgIV6 2>/dev/null | python3 -c " import json,sys,time d=json.load(sys.stdin); s=d.get('data',d) t=s.get('
+2026-11-13T18:09:18Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/AGENTS.md
+2026-11-13T18:09:21Z | ses_e2f4d17f2ffezFBp5lwSvUPb2r | build | tool:shell | command=git branch --list "*ci-flow*" && git log --oneline feature/1640ba9e-ci-flow -3 2>/dev/null || echo "(no commits yet on ci-flow)"
+2026-11-13T18:09:31Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/AGENTS.md
+2026-11-13T18:09:34Z | ses_e2f4d17f2ffezFBp5lwSvUPb2r | - | session.execution.succeeded | {"sessionID":"ses_e2f4d17f2ffezFBp5lwSvUPb2r"}
+2026-11-13T18:09:52Z | ses_e2f4d17f2ffezFBp5lwSvUPb2r | - | session.execution.started | {"sessionID":"ses_e2f4d17f2ffezFBp5lwSvUPb2r"}
+2026-11-13T18:10:00Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/AGENTS.md
+2026-11-13T18:10:09Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/AGENTS.md
+2026-11-13T18:10:10Z | ses_e2f4d17f2ffezFBp5lwSvUPb2r | build | tool:shell | command=ls .opencode/agents/ && grep -H "mode:\|disabled:" .opencode/agents/*.md | sed 's|.opencode/agents/||' && echo "--- global agents dir:" && ls /root/.config/open
+2026-11-13T18:10:14Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:edit | path=/workspace/AGENTS.md
+2026-11-13T18:10:24Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:shell | command=cd /workspace && git branch --show-current && git status --short && git add .opencode/agents/tester.md .opencode/agents/process.md .opencode/agents/worker.md .o
+2026-11-13T18:10:33Z | ses_e2f4d17f2ffezFBp5lwSvUPb2r | - | session.execution.succeeded | {"sessionID":"ses_e2f4d17f2ffezFBp5lwSvUPb2r"}
+2026-11-13T18:10:37Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:shell | command=cd /workspace && bash scripts/test-task.sh 2>&1 | tail -2 && bash -n scripts/open-feature.sh && bash -n scripts/test-task.sh && bash -n scripts/session.sh && ba
+2026-11-13T18:10:52Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:shell | command=cd /workspace && rm -f tasks.db tasks.db-wal tasks.db-shm && python3 scripts/task.py init && \ python3 scripts/task.py new "Role restructure: process rename, DE
+2026-11-13T18:11:00Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:shell | command=cd /workspace && python3 scripts/task.py show 3 | head -20 && scripts/log.sh log 1640ba9e "DB reset to new schema; cards re-created with annotated historical re
+2026-11-13T18:11:24Z | ses_e29f56084ffe94oFMuPdQRgIV6 | devops | tool:shell | command=cd /workspace && python3 - <<'EOF' import re p = "docs/sessions/1640ba9e.md" s = open(p).read() s = re.sub(r"^status: .*$", "status: done", s, count=1, flags=re
