@@ -1,5 +1,6 @@
 ---
-description: Tester — verifies a completed task against its acceptance criteria in the task DB plus its TZ.md and DESIGN.md sections, drives QA status in the task DB, files bugs
+description: Tester — DISABLED (temporary): QA is CI run by the process (make lint/test/build on dev after merge); kept for reference while the CI-in-process flow is in place
+disabled: true
 mode: subagent
 steps: 120
 color: "#ef5350"

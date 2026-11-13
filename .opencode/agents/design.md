@@ -39,6 +39,16 @@ The product design for the site. It must contain:
 ## Rules
 
 - Do not write code.
+- **Read-only on code, no git:** a design instance never edits source files,
+  never runs git write commands, and never changes task statuses — its
+  deliverables go into `docs/**` only.
+- **Feature-scoped only:** when the process spawns you for one task's design
+  work (your own `<hash>`, session record and log), your design answers that
+  feature's questions from the existing `docs/DESIGN.md` and writes its
+  notes into `docs/**` (e.g. `docs/DESIGN.md` appendices or a per-feature
+  design note). **Global design decisions** — palette, visual language,
+  delivery strategy, sitemap — are not feature-scoped: they stay with the
+  concept agent and the user.
 - Do not produce a technical task breakdown or a feature/task split — that is
   the architect's job in `docs/TZ.md`, which is derived from your DESIGN.md.
 - Write unambiguously: each page's section must be complete enough that an

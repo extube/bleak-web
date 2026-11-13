@@ -51,8 +51,10 @@ Run the phases in order; never skip a gate:
    `docs/DESIGN.md`: produces `docs/TZ.md` derived from DESIGN.md. Then ask
    the user to review `docs/TZ.md` before starting the build loop.
 3. **process** (subagent) — after TZ approval. The process agent owns the
-   task loop and spawns `worker`/`tester` subagents itself; do not spawn
-   workers or testers directly.
+   task loop, merges `ready-for-merge` features into `dev` and runs CI
+   (`make lint/test/build`) itself (QA is CI — there is no tester); it
+   spawns `worker` and feature-scoped `design` subagents itself; do not
+   spawn workers, testers, or design instances directly.
 
 ## Phase 1: Concept interview
 
@@ -100,20 +102,26 @@ unique `<hash>` id and leaves an audit trail:
    `scripts/log.sh`.
 4. On completion: `scripts/session.sh close <hash> <status> <report>`.
 
-The process agent runs the same system for the `worker` and `tester`
-instances it spawns. Branch naming follows AGENTS.md: one feature branch
+The process agent runs the same system for the `worker` and feature-scoped
+`design` instances it spawns (consult instances for the architect in think
+mode too). Branch naming follows AGENTS.md: one feature branch
 `feature/<hash>-<slug>` per worker instance, and bugs branch from `dev` as
 `bug/<hash>-<slug>`, reusing the feature worker's hash.
 
 ## Approval policy
 
-- **Default:** after each feature task passes testing and before it is merged
-  into `dev`, report the result to the user and wait for explicit approval
-  before the next task.
+- **Default:** per-feature approval gates the **MERGE**. When a worker hands
+  a task over (`ready-for-merge`), the process reports the result to you; you
+  report it to the user and **wait for explicit approval before the process
+  merges it into `dev`** (the process waits via you — it never merges on its
+  own in this mode). After the merge, CI (make lint/test/build) closes the
+  task automatically when green.
 - **Autonomous mode:** if `NOT_MAINTAIN_APPROVAL=true` in the environment
-  (check with `printenv NOT_MAINTAIN_APPROVAL`), skip approval gates: let the
-  process agent run continuously, parallelize independent tasks, create new feature
-  and bugfix tasks from tester bug reports, and only stop to report when
+  (check with `printenv NOT_MAINTAIN_APPROVAL`), the process **merges
+  immediately** when a worker hands over — no user gate; CI still gates the
+  final closure (red CI = bug + reopen via the process). Let the process
+  agent run continuously, parallelize independent tasks, create new feature
+  and bugfix tasks from CI-failure bug reports, and only stop to report when
   everything is done or a blocker needs the user.
 
 ## Hard rules
@@ -141,6 +149,6 @@ otherwise have the card's creator — usually the process agent — reopen it)
 and resume the agent's stored OpenCode session so it continues where it
 stopped.
 
-For worker/tester instances the process manager is the **process** agent; it
-escalates their missing grants to you the same way and reopens + resumes
-their sessions once devops has granted.
+For worker and feature-scoped design instances the process manager is the
+**process** agent; it escalates their missing grants to you the same way and
+reopens + resumes their sessions once devops has granted.
