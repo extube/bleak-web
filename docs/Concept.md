@@ -107,7 +107,7 @@ The owner defined the product as a **real-world networking application for event
 
 **Accent discipline:** yellow only on interactive/active elements; everything else stays in the charcoal range.
 
-**Typography:** **pixel typefaces for titles only** — Silkscreen Bold for the logo and screen titles. All other text (body copy, chat messages, UI labels, buttons, inputs) uses a clean, relevant sans — **Inter** — for readability at small sizes and in long chat transcripts. Alternatives if Inter feels too neutral: Nunito Sans (rounder, friendlier) or Space Grotesk (more techy). No pixel fonts in body/chat text.
+**Typography (Cyrillic-safe — RU is the primary UI language):** **pixel typefaces for titles only** — **Handjet** (element-based variable pixel font, full Cyrillic) for the logo and screen titles; if a harsher arcade look is ever preferred, Press Start 2P (also Cyrillic) is the fallback. All other text (body copy, chat messages, UI labels, buttons, inputs) uses a clean, relevant sans — **Inter** (full Cyrillic) — for readability at small sizes and in long chat transcripts. No pixel fonts in body/chat text. Silkscreen (Latin-only) and Pixelify Sans (missing О/П glyphs in Cyrillic) were rejected for lack of usable Cyrillic.
 
 **Shapes & signature detail:** large rounded corners (~20–24px) with **dithered/stepped pixel edges**; pill-shaped segmented controls; generous vertical spacing; wide letter-spacing on body; large touch targets (AA basics per Topic 2).
 
