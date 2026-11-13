@@ -63,6 +63,14 @@ The workflow is based on a `dev` branch with feature and bugfix branches.
 | Pushing `dev` and feature/bug branches | Allowed to the project remote at the user's direction. |
 | Merging into `dev` is allowed | You may merge `feature/*` and `bug/*` branches into `dev`. |
 
+### Local clones
+
+- After cloning bleak-web on a workstation, if git reports
+  *"detected dubious ownership in repository at …"* (the clone directory is
+  owned by a different user than the one running git), add an exception:
+  `git config --global --add safe.directory /path/to/bleak-web`.
+  This is a per-machine git setting; it is not part of the repository.
+
 ### Commit identity
 
 - `.env` (gitignored, canonical source) holds the project identity:
