@@ -5,6 +5,8 @@
   // (primary, environment owner), architect, design, process, worker,
   // tester. See .opencode/agents/*.md
   "default_agent": "concept",
+  // Default model for every agent (no agent sets an explicit model).
+  "model": "opencode-go/glm-5.3-flash",
   // Shared project artifacts: every agent sees these once they exist.
   "instructions": [
     "docs/Concept.md",
