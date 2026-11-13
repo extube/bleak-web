@@ -19,7 +19,13 @@
     { "action": "edit", "resource": "/mount/bleak-node/**", "effect": "deny" },
     { "action": "read", "resource": "/mount/bleak-node/**", "effect": "allow" },
     { "action": "external_directory", "resource": "/mount/bleak-node/**", "effect": "allow" },
-    // Git policy guardrails (full policy lives in AGENTS.md).
+    // Primary agents are selected by the user in the TUI: devops for
+  // environment/system changes, concept for product changes. No agent may
+  // spawn them (they are mode: primary anyway — this makes the intent
+  // explicit and mechanically enforced).
+  { "action": "subagent", "resource": "concept", "effect": "deny" },
+  { "action": "subagent", "resource": "devops", "effect": "deny" },
+  // Git policy guardrails (full policy lives in AGENTS.md).
     // Pushes to main are gated behind an interactive approval: an approval
     // is the user's explicit consent (see AGENTS.md "Remotes & publishing").
     { "action": "shell", "resource": "git push * main", "effect": "ask" },
