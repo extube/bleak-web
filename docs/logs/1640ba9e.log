@@ -20,3 +20,4 @@
 2026-11-12T19:37:05Z [devops] activity-log plugin live: loaded via 'opencode reload' (opencode plugin list shows activity-log local), tool-call lines + session.created event lines written to docs/logs/activity.log, echo dedup verified (1 line per action)
 2026-11-12T19:38:38Z [devops] devops.md rewritten: mode primary (applied last), environment ownership of .opencode/**, AGENTS.md, Makefile, scripts/**, README, .gitignore, tasks.db schema; user-facing for environment/system topics; maintenance + change requests role
 2026-11-12T19:38:38Z [devops] card 1 (recreated card 2 of the restructure) set ready-for-test
+2026-11-13T17:59:12Z [devops] card 3 opened (created_by 51a3949b), taken in-progress as worker; branch feature/1640ba9e-ci-flow created from dev; work started: tester disable, CI-in-process flow, auto task lifecycle
