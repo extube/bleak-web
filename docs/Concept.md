@@ -107,7 +107,7 @@ The owner defined the product as a **real-world networking application for event
 
 **Accent discipline:** yellow only on interactive/active elements; everything else stays in the charcoal range.
 
-**Typography:** everything in pixel/bitmap typefaces — **Pixelify Sans** for body/UI (rounded chunky pixels), **Silkscreen Bold** for the logo/headings display. No conventional sans.
+**Typography:** **pixel typefaces for titles only** — Silkscreen Bold for the logo and screen titles. All other text (body copy, chat messages, UI labels, buttons, inputs) uses a clean, relevant sans — **Inter** — for readability at small sizes and in long chat transcripts. Alternatives if Inter feels too neutral: Nunito Sans (rounder, friendlier) or Space Grotesk (more techy). No pixel fonts in body/chat text.
 
 **Shapes & signature detail:** large rounded corners (~20–24px) with **dithered/stepped pixel edges**; pill-shaped segmented controls; generous vertical spacing; wide letter-spacing on body; large touch targets (AA basics per Topic 2).
 
