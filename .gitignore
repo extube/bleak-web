@@ -27,3 +27,4 @@ Thumbs.db
 tasks.db
 tasks.db-wal
 tasks.db-shm
+__pycache__/
