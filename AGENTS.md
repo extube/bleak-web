@@ -71,6 +71,18 @@ The workflow is based on a `dev` branch with feature and bugfix branches.
   `git config --global --add safe.directory /path/to/bleak-web`.
   This is a per-machine git setting; it is not part of the repository.
 
+### Primary agents — user-selected in the TUI
+
+- Only two agents talk to the user, and the **user selects them in the
+  OpenCode TUI**; no agent spawns them:
+  - **concept** — when the user wants to change or drive the **product**
+    (concept, reviews, approvals, build-loop decisions);
+  - **devops** — when the user wants to change the **environment** (system
+    rules, processes, configs, tooling).
+- Spawning `concept` or `devops` as subagents is mechanically denied
+  (global `subagent` deny rules in `.opencode/opencode.jsonc`; both are
+  also `mode: primary` and therefore not spawnable anyway).
+
 ### Commit identity
 
 - `.env` (gitignored, canonical source) holds the project identity:
