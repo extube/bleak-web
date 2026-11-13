@@ -1,6 +1,8 @@
 ---
-description: Tester — verifies a completed task against its acceptance criteria, drives QA status in the task DB, files bugs
+description: Tester — DISABLED (temporary): QA is CI run by the process (make lint/test/build on dev after merge); kept for reference while the CI-in-process flow is in place
+disabled: true
 mode: subagent
+steps: 120
 color: "#ef5350"
 permissions:
   - action: subagent
@@ -12,6 +14,15 @@ permissions:
   - action: shell
     resource: "git *"
     effect: allow
+  - action: shell
+    resource: "git merge *"
+    effect: deny
+  - action: shell
+    resource: "git push *"
+    effect: deny
+  - action: shell
+    resource: "git checkout main*"
+    effect: deny
   - action: shell
     resource: "make *"
     effect: allow
@@ -64,7 +75,9 @@ fix product code.
 ## Process
 
 1. Read your task record: `python3 scripts/task.py show <id>` (criteria,
-   branch, bug history), the TZ.md section it came from, `AGENTS.md`, and
+   branch, bug history), the **TZ.md implementation section** it came from,
+   the matching **DESIGN.md page design section** (its acceptance criteria
+   are part of the task's definition of done), `AGENTS.md`, and
    `docs/ARCHITECTURE.md` conventions.
 2. Start QA: `python3 scripts/task.py status <id> testing --as <hash>`.
 3. Log every check as you go: `scripts/log.sh <hash> "<what was checked>"`.

@@ -1,8 +1,22 @@
 #!/usr/bin/env python3
-"""Task database interface for bleak-node front-end (stdlib only, SQLite WAL).
+"""Task database interface for bleak-web (stdlib only, SQLite WAL).
 
 Every mutation is appended to the task_log table. The lifecycle/authority
 rules are enforced here — the DB is the single source of truth for task state.
+
+QA is CI, run by the process (make lint/test/build on dev after the merge);
+there is no tester step. Lifecycle:
+
+    todo -> in-progress -> ready-for-merge -> merged -> done
+                       \\-> blocked                 \\-> in-progress (CI red)
+
+Authority: process = created_by, worker = worker_hash. When the worker sets
+ready-for-merge, an MR record (merges table) is opened automatically — the
+worker does one action only. The process merges (ready-for-merge -> merged,
+this IS the merge moment), runs CI and records the outcome with `ci`:
+green auto-closes the task (merged -> done); red leaves the task merged so
+the process can file a bug (with the saved docs/bugs/ci-<slug>-N.log as
+error context) and reopen it (merged -> in-progress).
 """
 
 import re
@@ -23,8 +37,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     tz_section   TEXT NOT NULL DEFAULT '',
     criteria     TEXT NOT NULL DEFAULT '',
     status       TEXT NOT NULL DEFAULT 'todo'
-                 CHECK (status IN ('todo','in-progress','ready-for-test',
-                                   'testing','done','blocked')),
+                 CHECK (status IN ('todo','in-progress','ready-for-merge',
+                                   'merged','done','blocked')),
     created_by   TEXT NOT NULL,
     worker_hash  TEXT NOT NULL,
     tester_hash  TEXT NOT NULL DEFAULT '',
@@ -51,23 +65,42 @@ CREATE TABLE IF NOT EXISTS bugs (
     status     TEXT NOT NULL DEFAULT 'open',
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS merges (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id   INTEGER NOT NULL REFERENCES tasks(id),
+    branch    TEXT NOT NULL,
+    status    TEXT NOT NULL DEFAULT 'open'
+              CHECK (status IN ('open','merged','failed')),
+    opened_at TEXT NOT NULL,
+    merged_at TEXT NOT NULL DEFAULT '',
+    ci_result TEXT NOT NULL DEFAULT '',
+    ci_log    TEXT NOT NULL DEFAULT ''
+);
 """
 
 # Transitions: (from_status, to_status) -> role required
-# Role 'planner'  = task.created_by
-# Role 'worker'   = task.worker_hash
-# Role 'tester'   = task.tester_hash
+# Role 'process' = task.created_by
+# Role 'worker'  = task.worker_hash
+# (tester_hash is kept as a column but unused: QA is CI run by the process.)
 TRANSITIONS = {
     ("todo", "in-progress"): "worker",
-    ("in-progress", "ready-for-test"): "worker",
-    ("ready-for-test", "testing"): "tester",
-    ("testing", "done"): "tester",
-    ("testing", "blocked"): "tester",
-    ("blocked", "in-progress"): "planner",
+    ("in-progress", "ready-for-merge"): "worker",
+    ("in-progress", "blocked"): "worker",
+    ("ready-for-merge", "merged"): "process",
+    ("merged", "done"): "process",
+    ("merged", "in-progress"): "process",
+    ("blocked", "in-progress"): "process",
 }
 
-VALID_STATUSES = ["todo", "in-progress", "ready-for-test", "testing", "done", "blocked"]
+# Transitions that require a mandatory --reason "<text>" flag.
+REQUIRES_REASON = {("in-progress", "blocked")}
+
+# merged -> in-progress requires a bug filed after the merge moment.
+REQUIRES_BUG = {("merged", "in-progress")}
+
+VALID_STATUSES = ["todo", "in-progress", "ready-for-merge", "merged", "done", "blocked"]
 HEX8 = re.compile(r"^[0-9a-f]{8}$")
+SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 
 def die(msg, code=1):
@@ -103,10 +136,26 @@ def get_task(con, task_id):
 
 def actor_for(task, role):
     return {
-        "planner": task["created_by"],
+        "process": task["created_by"],
         "worker": task["worker_hash"],
-        "tester": task["tester_hash"],
     }[role]
+
+
+def parse_as(args, role_hint):
+    as_idx = args.index("--as") if "--as" in args else -1
+    if as_idx == -1:
+        die(f"missing --as <{role_hint}>")
+    actor = args[as_idx + 1] if len(args) > as_idx + 1 else ""
+    return actor, args[:as_idx]
+
+
+def latest_merge(con, task_id, statuses=("open", "merged", "failed")):
+    qmarks = ",".join("?" * len(statuses))
+    return con.execute(
+        f"SELECT * FROM merges WHERE task_id=? AND status IN ({qmarks})"
+        " ORDER BY id DESC LIMIT 1",
+        (task_id, *statuses),
+    ).fetchone()
 
 
 # --- commands ---------------------------------------------------------------
@@ -122,17 +171,13 @@ def cmd_init(args):
 
 
 def cmd_new(args):
-    # new <title> <tz_section> <branch> <worker_hash> <depends_on> --as <plannerHash>
-    as_idx = args.index("--as") if "--as" in args else -1
-    if as_idx == -1:
-        die("missing --as <plannerHash>")
-    planner = args[as_idx + 1] if len(args) > as_idx + 1 else ""
-    positional = args[:as_idx]
+    # new <title> <tz_section> <branch> <worker_hash> <depends_on> --as <processHash>
+    process, positional = parse_as(args, "processHash")
     if len(positional) != 5:
-        die("usage: task.py new <title> <tz_section> <branch> <worker_hash> <depends_on> --as <plannerHash>")
+        die("usage: task.py new <title> <tz_section> <branch> <worker_hash> <depends_on> --as <processHash>")
     title, tz_section, branch, worker_hash, depends_on = positional
-    if not HEX8.match(planner):
-        die(f"planner hash '{planner}' must be 8 lowercase hex chars")
+    if not HEX8.match(process):
+        die(f"process hash '{process}' must be 8 lowercase hex chars")
     if not HEX8.match(worker_hash):
         die(f"worker hash '{worker_hash}' must be 8 lowercase hex chars")
     branch = branch.strip()
@@ -151,54 +196,87 @@ def cmd_new(args):
         "INSERT INTO tasks (hash, title, branch, tz_section, status, created_by,"
         " worker_hash, depends_on, created_at, updated_at)"
         " VALUES (?,?,?,?,?,?,?,?,?,?)",
-        (worker_hash, title, branch, tz_section, "todo", planner, worker_hash, depends_on, ts, ts),
+        (worker_hash, title, branch, tz_section, "todo", process, worker_hash, depends_on, ts, ts),
     )
     task_id = cur.lastrowid
-    log(con, task_id, planner, "create", f"task created as todo, branch={branch}")
+    log(con, task_id, process, "create", f"task created as todo, branch={branch}")
     con.commit()
     con.close()
     print(task_id)
 
 
-def cmd_assign_tester(args):
-    as_idx = args.index("--as") if "--as" in args else -1
-    if as_idx == -1:
-        die("missing --as <plannerHash>")
-    planner = args[as_idx + 1] if len(args) > as_idx + 1 else ""
-    positional = args[:as_idx]
-    if len(positional) != 2:
-        die("usage: task.py assign-tester <id> <testerHash> --as <plannerHash>")
-    task_id, tester_hash = positional
-    if not HEX8.match(planner):
-        die(f"planner hash '{planner}' must be 8 lowercase hex chars")
-    if not HEX8.match(tester_hash):
-        die(f"tester hash '{tester_hash}' must be 8 lowercase hex chars")
+def cmd_criteria(args):
+    # criteria <id> <acceptance criteria text> --as <processHash>
+    process, positional = parse_as(args, "processHash")
+    if len(positional) < 2:
+        die("usage: task.py criteria <id> <acceptance criteria text> --as <processHash>")
+    if not HEX8.match(process):
+        die(f"process hash '{process}' must be 8 lowercase hex chars")
+    task_id = positional[0]
+    text = " ".join(positional[1:]).strip()
+    if not text:
+        die("criteria text must be non-empty")
 
     con = connect()
     task = get_task(con, task_id)
-    if task["created_by"] != planner:
-        die(f"only the planner ({task['created_by']}) may assign a tester for task {task['id']}, not '{planner}'")
-    con.execute("UPDATE tasks SET tester_hash=?, updated_at=? WHERE id=?",
-                (tester_hash, NOW(), task["id"]))
-    log(con, task["id"], planner, "assign-tester", f"tester={tester_hash}")
+    if task["created_by"] != process:
+        die(f"only the process ({task['created_by']}) may set criteria for task {task['id']}, not '{process}'")
+    con.execute("UPDATE tasks SET criteria=?, updated_at=? WHERE id=?",
+                (text, NOW(), task["id"]))
+    log(con, task["id"], process, "criteria", text)
     con.commit()
     con.close()
-    print(f"task {int(task_id)}: tester set to {tester_hash}")
+    print(f"task {int(task_id)}: criteria set ({len(text)} chars)")
+
+
+def cmd_assign_tester(args):
+    die("assign-tester is deprecated: QA is CI run by the process; "
+        "the tester_hash column is kept but unused")
+
+
+def open_mr(con, task):
+    con.execute(
+        "INSERT INTO merges (task_id, branch, status, opened_at) VALUES (?,?,?,?)",
+        (task["id"], task["branch"], "open", NOW()),
+    )
+    return con.execute("SELECT id FROM merges WHERE task_id=? ORDER BY id DESC LIMIT 1",
+                       (task["id"],)).fetchone()["id"]
 
 
 def cmd_status(args):
-    as_idx = args.index("--as") if "--as" in args else -1
-    if as_idx == -1:
+    # status <id> <new-status> --as <hash> [--reason "<text>"]
+    actor = None
+    reason = None
+    positional = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--as":
+            if i + 1 >= len(args):
+                die("--as requires a hash value")
+            actor = args[i + 1]
+            i += 2
+        elif arg == "--reason":
+            if i + 1 >= len(args):
+                die('--reason requires a quoted text value')
+            reason = args[i + 1]
+            i += 2
+        elif arg.startswith("--"):
+            die(f"unknown flag '{arg}' (supported: --as <hash>, --reason \"<text>\")")
+        else:
+            positional.append(arg)
+            i += 1
+    if actor is None:
         die("missing --as <hash>")
-    actor = args[as_idx + 1] if len(args) > as_idx + 1 else ""
-    positional = args[:as_idx]
     if len(positional) != 2:
-        die("usage: task.py status <id> <new-status> --as <hash>")
+        die('usage: task.py status <id> <new-status> --as <hash> [--reason "<text>"]')
     task_id, new_status = positional
     if not HEX8.match(actor):
         die(f"actor hash '{actor}' must be 8 lowercase hex chars")
     if new_status not in VALID_STATUSES:
         die(f"invalid status '{new_status}'. Valid: {', '.join(VALID_STATUSES)}")
+    if reason is not None and not reason.strip():
+        die('--reason must be a non-empty text explaining what is missing')
 
     con = connect()
     task = get_task(con, task_id)
@@ -212,47 +290,167 @@ def cmd_status(args):
     if actor != actor_for(task, rule):
         die(f"transition {cur} -> {new_status} requires the {rule} "
             f"(hash {actor_for(task, rule)}), not '{actor}'")
+    if (cur, new_status) in REQUIRES_REASON and (reason is None or not reason.strip()):
+        die(f'transition {cur} -> {new_status} requires --reason "<text>" '
+            f"describing the missing permission or input")
+    if (cur, new_status) in REQUIRES_BUG:
+        # A bug must have been filed after the merge moment (task_log ids are
+        # strictly increasing, so this is robust against second-granularity
+        # timestamps).
+        merge_log = con.execute(
+            "SELECT id FROM task_log WHERE task_id=? AND action='status'"
+            " AND detail LIKE '%-> merged | mr %' ORDER BY id DESC LIMIT 1",
+            (task["id"],),
+        ).fetchone()
+        merge_log_id = merge_log["id"] if merge_log else 0
+        bug = con.execute(
+            "SELECT id FROM task_log WHERE task_id=? AND action='bug' AND id > ?"
+            " ORDER BY id DESC LIMIT 1",
+            (task["id"], merge_log_id),
+        ).fetchone()
+        if bug is None:
+            die(f"transition {cur} -> {new_status} requires a bug filed after the "
+                f"merge moment (CI red): save the CI output to "
+                f"docs/bugs/ci-<slug>-N.log and run "
+                f"'task.py bug {task['id']} <hash> <slug> <severity> <file> "
+                f"--as {task['created_by']}' first")
+
+    detail = f"{cur} -> {new_status}"
+    if reason:
+        detail += f" | reason: {reason}"
+    extra = ""
+    if (cur, new_status) == ("in-progress", "ready-for-merge"):
+        mr_id = open_mr(con, task)
+        extra = f" | mr #{mr_id} auto-opened for branch {task['branch']}"
+    elif (cur, new_status) == ("ready-for-merge", "merged"):
+        mr = latest_merge(con, task["id"], ("open",))
+        if mr is None:
+            die(f"no open MR record for task {task['id']} — cannot record the merge")
+        con.execute("UPDATE merges SET status='merged', merged_at=? WHERE id=?",
+                    (NOW(), mr["id"]))
+        extra = f" | mr #{mr['id']} merged"
     con.execute("UPDATE tasks SET status=?, updated_at=? WHERE id=?",
                 (new_status, NOW(), task["id"]))
-    log(con, task["id"], actor, "status", f"{cur} -> {new_status}")
+    log(con, task["id"], actor, "status", detail + extra)
     con.commit()
     con.close()
-    print(f"task {int(task_id)}: {cur} -> {new_status}")
+    suffix = f" (reason: {reason})" if reason else ""
+    print(f"task {int(task_id)}: {cur} -> {new_status}{suffix}")
 
 
 def cmd_bug(args):
-    as_idx = args.index("--as") if "--as" in args else -1
-    if as_idx == -1:
-        die("missing --as <testerHash>")
-    tester = args[as_idx + 1] if len(args) > as_idx + 1 else ""
-    positional = args[:as_idx]
+    # bug <id> <hash> <slug> <severity> <context-file> --as <processHash>
+    # The context file is the saved CI output, conventionally
+    # docs/bugs/ci-<slug>-N.log; it must already exist on disk.
+    process, positional = parse_as(args, "processHash")
     if len(positional) != 5:
-        die("usage: task.py bug <id> <hash> <slug> <severity> <file> --as <testerHash>")
-    task_id, worker_hash, slug, severity, file = positional
-    if not HEX8.match(tester):
-        die(f"tester hash '{tester}' must be 8 lowercase hex chars")
+        die("usage: task.py bug <id> <hash> <slug> <severity> <context-file> --as <processHash>")
+    task_id, worker_hash, slug, severity, context_file = positional
+    if not HEX8.match(process):
+        die(f"process hash '{process}' must be 8 lowercase hex chars")
     if not HEX8.match(worker_hash):
         die(f"bug branch hash '{worker_hash}' must be 8 lowercase hex chars")
+    if not SLUG.match(slug):
+        die(f"invalid slug '{slug}' (lowercase letters/digits, hyphens)")
     if severity not in ("low", "medium", "high", "critical"):
         die(f"invalid severity '{severity}' (low|medium|high|critical)")
+    context_file = context_file.strip()
+    if not context_file:
+        die("context file is required (the saved CI output, e.g. docs/bugs/ci-<slug>-N.log)")
 
     con = connect()
     task = get_task(con, task_id)
-    if task["tester_hash"] != tester:
-        die(f"only the assigned tester ({task['tester_hash'] or 'unassigned'}) may register bugs for task {task['id']}, not '{tester}'")
+    if task["created_by"] != process:
+        die(f"only the process ({task['created_by']}) may register bugs for task "
+            f"{task['id']} — QA is CI run by the process, not '{process}'")
+    if task["status"] not in ("merged", "in-progress"):
+        die(f"bugs are filed from CI failures: task {task['id']} is "
+            f"'{task['status']}', expected 'merged' (or 'in-progress' on a reopened task)")
+    import os
+    if not os.path.isfile(context_file):
+        die(f"context file '{context_file}' does not exist — save the CI output "
+            f"first (docs/bugs/ci-<slug>-N.log)")
+    branch = f"bug/{worker_hash}-{slug}"
     cur = con.execute(
         "INSERT INTO bugs (task_id, hash, slug, file, severity, status, created_at)"
         " VALUES (?,?,?,?,?,?,?)",
-        (task["id"], worker_hash, slug, file, severity, "open", NOW()),
+        (task["id"], worker_hash, slug, context_file, severity, "open", NOW()),
     )
     bug_id = cur.lastrowid
-    branch = f"bug/{worker_hash}-{slug}"
-    con.execute("UPDATE tasks SET bug_branches=?, updated_at=? WHERE id=?",
-                (branch, NOW(), task["id"]))
-    log(con, task["id"], tester, "bug", f"bug #{bug_id} {branch} severity={severity} file={file}")
+    branches = [b.strip() for b in task["bug_branches"].split(",") if b.strip()]
+    if branch not in branches:
+        branches.append(branch)
+    con.execute("UPDATE tasks SET bug_branches=?, branch=?, updated_at=? WHERE id=?",
+                (", ".join(branches), branch, NOW(), task["id"]))
+    log(con, task["id"], process, "bug",
+        f"bug #{bug_id} {branch} severity={severity} file={context_file}")
     con.commit()
     con.close()
-    print(f"bug {bug_id} registered for task {int(task_id)} -> branch {branch}")
+    print(f"bug {bug_id} registered for task {int(task_id)} -> branch {branch} "
+          f"(context: {context_file})")
+
+
+def cmd_ci(args):
+    # ci <id> <green|red> [logfile] --as <processHash>
+    # green: the CI passed on dev — the task is closed automatically
+    #        (merged -> done). red: the MR record is marked failed; file a
+    #        bug and reopen the task (merged -> in-progress).
+    process, positional = parse_as(args, "processHash")
+    if len(positional) not in (2, 3):
+        die("usage: task.py ci <id> <green|red> [logfile] --as <processHash>")
+    if not HEX8.match(process):
+        die(f"process hash '{process}' must be 8 lowercase hex chars")
+    task_id, result = positional[0], positional[1]
+    logfile = positional[2] if len(positional) == 3 else ""
+    if result not in ("green", "red"):
+        die(f"invalid CI result '{result}' (green|red)")
+    if result == "red" and not logfile:
+        die("a red CI run requires a logfile (the saved docs/bugs/ci-<slug>-N.log path)")
+
+    con = connect()
+    task = get_task(con, task_id)
+    if task["created_by"] != process:
+        die(f"only the process ({task['created_by']}) may record CI results for "
+            f"task {task['id']}, not '{process}'")
+    if task["status"] != "merged":
+        die(f"CI results are recorded on merged tasks: task {task['id']} is "
+            f"'{task['status']}', expected 'merged'")
+    mr = latest_merge(con, task["id"], ("merged",))
+    if mr is None:
+        die(f"no merged MR record for task {task['id']} — cannot record CI")
+    if result == "green":
+        con.execute("UPDATE merges SET ci_result='green', ci_log=? WHERE id=?",
+                    (logfile, mr["id"]))
+        con.execute("UPDATE tasks SET status='done', updated_at=? WHERE id=?",
+                    (NOW(), task["id"]))
+        log(con, task["id"], process, "ci",
+            f"green | mr #{mr['id']} | log={logfile or '(inline)'} | "
+            f"task auto-closed merged -> done")
+        con.commit()
+        con.close()
+        print(f"task {int(task_id)}: CI green on mr #{mr['id']} — auto-closed (done)")
+    else:
+        con.execute("UPDATE merges SET status='failed', ci_result='red', ci_log=? WHERE id=?",
+                    (logfile, mr["id"]))
+        log(con, task["id"], process, "ci",
+            f"red | mr #{mr['id']} | log={logfile}")
+        con.commit()
+        con.close()
+        print(f"task {int(task_id)}: CI red on mr #{mr['id']} — file a bug "
+              f"(docs/bugs/ci-<slug>-N.log saved) and reopen the task")
+
+
+def blocked_reason(con, task_id):
+    """Latest 'reason:' stored with a -> blocked transition, or ''. """
+    row = con.execute(
+        "SELECT detail FROM task_log WHERE task_id=? AND action='status'"
+        " AND detail LIKE '%-> blocked%' ORDER BY id DESC LIMIT 1",
+        (task_id,),
+    ).fetchone()
+    if row is None:
+        return ""
+    detail = row["detail"]
+    return detail.split("| reason: ", 1)[1].split(" |", 1)[0] if "| reason: " in detail else ""
 
 
 def cmd_list(args):
@@ -266,15 +464,19 @@ def cmd_list(args):
         rows = con.execute("SELECT * FROM tasks WHERE status=? ORDER BY id", (status,)).fetchall()
     else:
         rows = con.execute("SELECT * FROM tasks ORDER BY id").fetchall()
+    reasons = {r["id"]: blocked_reason(con, r["id"]) if r["status"] == "blocked" else ""
+               for r in rows}
     con.close()
     if not rows:
         print("no tasks")
         return
-    print(f"{'id':<4} {'status':<15} {'worker':<9} {'tester':<9} {'branch':<40} title")
+    print(f"{'id':<4} {'status':<16} {'worker':<9} {'branch':<40} title")
     print("-" * 100)
     for r in rows:
-        print(f"{r['id']:<4} {r['status']:<15} {r['worker_hash']:<9} "
-              f"{r['tester_hash'] or '-':<9} {r['branch']:<40} {r['title']}")
+        print(f"{r['id']:<4} {r['status']:<16} {r['worker_hash']:<9} "
+              f"{r['branch']:<40} {r['title']}")
+        if reasons.get(r["id"]):
+            print(f"{'':<4} {'':<16} {'':<9} blocked reason: {reasons[r['id']]}")
 
 
 def cmd_show(args):
@@ -283,25 +485,36 @@ def cmd_show(args):
     con = connect()
     t = get_task(con, args[0])
     bugs = con.execute("SELECT * FROM bugs WHERE task_id=? ORDER BY id", (t["id"],)).fetchall()
+    mrs = con.execute("SELECT * FROM merges WHERE task_id=? ORDER BY id", (t["id"],)).fetchall()
     tlog = con.execute("SELECT * FROM task_log WHERE task_id=? ORDER BY id", (t["id"],)).fetchall()
+    breason = blocked_reason(con, t["id"]) if t["status"] == "blocked" else ""
     con.close()
 
     print(f"task {t['id']}: {t['title']}")
     print(f"  status:      {t['status']}")
+    if t["status"] == "blocked" and breason:
+        print(f"  blocked reason: {breason}")
     print(f"  branch:      {t['branch']}")
     print(f"  tz_section:  {t['tz_section']}")
     print(f"  criteria:    {t['criteria'] or '(none)'}")
-    print(f"  created_by:  {t['created_by']} (planner)")
+    print(f"  created_by:  {t['created_by']} (process)")
     print(f"  worker:      {t['worker_hash']}")
-    print(f"  tester:      {t['tester_hash'] or '(unassigned)'}")
     print(f"  depends_on:  {t['depends_on']}")
     print(f"  bug_branches:{(' ' + t['bug_branches']) if t['bug_branches'] else ' (none)'}")
     print(f"  created_at:  {t['created_at']}")
     print(f"  updated_at:  {t['updated_at']}")
+    if mrs:
+        print("  merges (MR records):")
+        for m in mrs:
+            ci = f" ci={m['ci_result']}" if m["ci_result"] else ""
+            logf = f" log={m['ci_log']}" if m["ci_log"] else ""
+            merged = f" merged_at={m['merged_at']}" if m["merged_at"] else ""
+            print(f"    mr #{m['id']} [{m['status']}] {m['branch']}{merged}{ci}{logf}")
     if bugs:
         print("  bugs:")
         for b in bugs:
-            print(f"    #{b['id']} [{b['severity']}] {b['status']} bug/{b['hash']}-{b['slug']} ({b['file']})")
+            print(f"    #{b['id']} [{b['severity']}] {b['status']} bug/{b['hash']}-{b['slug']}"
+                  f" (context: {b['file']})")
     if tlog:
         print("  history:")
         for e in tlog:
@@ -311,9 +524,11 @@ def cmd_show(args):
 COMMANDS = {
     "init": cmd_init,
     "new": cmd_new,
+    "criteria": cmd_criteria,
     "assign-tester": cmd_assign_tester,
     "status": cmd_status,
     "bug": cmd_bug,
+    "ci": cmd_ci,
     "list": cmd_list,
     "show": cmd_show,
 }

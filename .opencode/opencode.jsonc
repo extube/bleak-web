@@ -1,13 +1,18 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  // Multi-agent architecture for the bleak-node front-end project.
-  // Roles: main (orchestrator), concept (interactive), devops, architect,
-  // design, planner, worker, tester. See .opencode/agents/*.md
-  "default_agent": "main",
+  // Multi-agent architecture for the bleak-web project.
+  // Roles: concept (primary orchestrator + concept interview), devops
+  // (primary, environment owner), architect, design, process, worker.
+  // The tester role is temporarily disabled (QA is CI run by the process).
+  // See .opencode/agents/*.md
+  "default_agent": "concept",
+  // Default model for every agent (no agent sets an explicit model).
+  "model": "opencode-go/glm-5.3-flash",
   // Shared project artifacts: every agent sees these once they exist.
   "instructions": [
     "docs/Concept.md",
     "docs/ARCHITECTURE.md",
+    "docs/DESIGN.md",
     "docs/TZ.md"
   ],
   "permissions": [
@@ -15,10 +20,34 @@
     { "action": "edit", "resource": "/mount/bleak-node/**", "effect": "deny" },
     { "action": "read", "resource": "/mount/bleak-node/**", "effect": "allow" },
     { "action": "external_directory", "resource": "/mount/bleak-node/**", "effect": "allow" },
-    // Git policy guardrails (full policy lives in AGENTS.md).
-    { "action": "shell", "resource": "git push * main", "effect": "deny" },
-    { "action": "shell", "resource": "git push * main:*", "effect": "deny" },
+    // Primary agents are selected by the user in the TUI: devops for
+  // environment/system changes, concept for product changes. No agent may
+  // spawn them (they are mode: primary anyway — this makes the intent
+  // explicit and mechanically enforced).
+  { "action": "subagent", "resource": "concept", "effect": "deny" },
+  { "action": "subagent", "resource": "devops", "effect": "deny" },
+  // Git policy guardrails (full policy lives in AGENTS.md).
+    // Pushes to main are gated behind an interactive approval: an approval
+    // is the user's explicit consent (see AGENTS.md "Remotes & publishing").
+    { "action": "shell", "resource": "git push * main", "effect": "ask" },
+    { "action": "shell", "resource": "git push * main:*", "effect": "ask" },
     { "action": "shell", "resource": "git checkout main*", "effect": "ask" },
-    { "action": "shell", "resource": "git merge *", "effect": "ask" }
+    { "action": "shell", "resource": "git merge *", "effect": "ask" },
+    // Commit identity is fixed (see AGENTS.md "Commit identity"):
+    // repo-local git config is the single source; nobody may override it.
+    { "action": "shell", "resource": "git config user.*", "effect": "deny" },
+    { "action": "shell", "resource": "git config --global*", "effect": "deny" },
+    { "action": "shell", "resource": "git config --local*", "effect": "deny" },
+    { "action": "shell", "resource": "git config --add*", "effect": "deny" },
+    { "action": "shell", "resource": "git config --replace*", "effect": "deny" },
+    { "action": "shell", "resource": "git commit --author=*", "effect": "deny" },
+    { "action": "shell", "resource": "git -c *user*", "effect": "deny" },
+    { "action": "shell", "resource": "git -c *author*", "effect": "deny" },
+    { "action": "shell", "resource": "git -c *committer*", "effect": "deny" },
+    { "action": "shell", "resource": "GIT_AUTHOR_NAME=*", "effect": "deny" },
+    { "action": "shell", "resource": "GIT_AUTHOR_EMAIL=*", "effect": "deny" },
+    { "action": "shell", "resource": "GIT_COMMITTER_NAME=*", "effect": "deny" },
+    { "action": "shell", "resource": "GIT_COMMITTER_EMAIL=*", "effect": "deny" },
+    { "action": "shell", "resource": "GIT_CONFIG_*", "effect": "deny" }
   ]
 }
