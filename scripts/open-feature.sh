@@ -38,6 +38,11 @@ while [ $# -gt 0 ]; do
     --as)
       [ $# -ge 2 ] || usage
       process="$2"; shift 2 ;;
+    -) # placeholder depends (no dependency)
+      if [ -z "$slug" ]; then slug="-"; shift
+      elif [ "$depends" = "-" ]; then shift
+      else usage
+      fi ;;
     -*)
       usage ;;
     *)
@@ -51,6 +56,7 @@ done
 
 [ -n "$slug" ] || usage
 [ -n "$process" ] || usage
+[ "$slug" != "-" ] || { echo "error: slug is required" >&2; exit 1; }
 [[ "$slug" =~ $SLUG_RE ]] || { echo "error: slug must be lowercase letters/digits with hyphens, got '$slug'" >&2; exit 1; }
 [[ "$process" =~ $HEX_RE ]] || { echo "error: process hash must be 8 lowercase hex chars" >&2; exit 1; }
 
