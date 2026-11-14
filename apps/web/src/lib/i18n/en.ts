@@ -35,6 +35,10 @@ export const en = {
   'join.form.private_bio': 'For your agent only',
   'join.error.name_taken': 'That name is already taken in the room.',
   'join.error.gone': 'This event is no longer available.',
+  'join.error.name_required': 'Enter your name.',
+  'join.import.title': 'Previous events',
+  'join.import.pick_persona': 'Choose a persona',
+  'join.import.empty': 'No previous events.',
   'join.resume.title': 'Continue to {room}',
   'join.resume.another': 'Join another event',
 
@@ -154,6 +158,7 @@ export const en = {
 
   /* --- common (DESIGN §2.1, §4.7) --- */
   'common.loading': 'Loading…',
+  'common.locale': 'Interface language',
   'common.error': 'Something went wrong.',
   'common.error.network': 'Connection lost. Check the Wi-Fi — we keep retrying.',
   'common.error.api': 'Server error',

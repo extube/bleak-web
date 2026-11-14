@@ -36,6 +36,10 @@ export const ru: Record<MessageKey, string> = {
   'join.form.private_bio': 'Только для вашего агента',
   'join.error.name_taken': 'Такое имя в комнате уже занято.',
   'join.error.gone': 'Событие больше не доступно.',
+  'join.error.name_required': 'Введите имя.',
+  'join.import.title': 'Прошлые события',
+  'join.import.pick_persona': 'Выберите персону',
+  'join.import.empty': 'Нет прошлых событий.',
   'join.resume.title': 'Продолжить в «{room}»',
   'join.resume.another': 'Присоединиться к другому событию',
 
@@ -155,6 +159,7 @@ export const ru: Record<MessageKey, string> = {
 
   /* --- common --- */
   'common.loading': 'Загрузка…',
+  'common.locale': 'Язык интерфейса',
   'common.error': 'Что-то пошло не так.',
   'common.error.network': 'Нет связи. Проверьте Wi-Fi — мы продолжаем попытки.',
   'common.error.api': 'Ошибка сервера',
