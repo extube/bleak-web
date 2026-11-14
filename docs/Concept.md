@@ -179,5 +179,6 @@ Three reference images kept locally at **`docs/refs/`** (gitignored by owner dec
 - [x] Owner approved the complete document — **2026-11-13** (visual language later revised same day to the owner's dark-pixel template; typography made Cyrillic-safe on 2026-11-13).
 - [x] Owner rulings §1c — **2026-11-14**.
 - [x] Owner approved **docs/ARCHITECTURE.md** and **docs/DESIGN.md** (rev. 2) — **2026-11-14** → TZ pass authorized.
-- [x] Architect (acff3ab8) — architecture + scaffolding **done**; resumed for the TZ pass.
-- [ ] TZ review → build loop (process agent).
+- [x] Architect (acff3ab8) — architecture + scaffolding **done**; TZ pass done (`docs/TZ.md`).
+- [x] Owner approved **docs/TZ.md** (conservative flag interpretations accepted) — **2026-11-14** → **build loop authorized** (process agent; default per-feature merge-approval mode).
+- [ ] Build loop → v1 done (TZ §6 Definition of Done).
