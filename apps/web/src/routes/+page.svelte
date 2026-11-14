@@ -45,13 +45,13 @@
   });
 
   // Persona deep link (AC 14): only meaningful with an existing identity.
+  // Open state is a derived (overlay cannot be bound to a derived — the
+  // placeholder sets its local open on close, we just record the dismissal).
   const personaLink = $derived(
     me !== null && deepLink?.kind === 'user' ? deepLink.userAddress : null
   );
-  let personaScannerOpen = $state(false);
-  $effect(() => {
-    personaScannerOpen = personaLink !== null;
-  });
+  let personaScanDismissed = $state(false);
+  const personaScannerOpen = $derived(personaLink !== null && !personaScanDismissed);
 
   // Member list for the persona-context scanner (§3.8 checks scan targets
   // against the room's members); fetched once while the overlay is active.
@@ -104,10 +104,10 @@
   <!-- §3.8 context (b) via deep link: the scanner runs the ruling-3
        mutual-handshake routine (placeholder panel until TZ-04). -->
   <QrScanner
-    bind:open={personaScannerOpen}
+    open={personaScannerOpen}
     context="persona"
     members={personaMembers}
-    onClosed={() => (personaScannerOpen = false)}
+    onClosed={() => (personaScanDismissed = true)}
   />
 {:else}
   <JoinFlow deepLinkCode={deepLink?.kind === 'code' ? deepLink.code : null} />

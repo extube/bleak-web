@@ -42,10 +42,12 @@
 
   let { deepLinkCode = null }: Props = $props();
 
-  let state = $state<JoinState>({
-    ...initialJoinState,
-    code: deepLinkCode !== null && isValidInviteCode(deepLinkCode) ? deepLinkCode : ''
-  });
+  // Deep-link prefill (?code=NNNNNN): captured once — the auto-submit runs
+  // exactly once (the effect below guards it).
+  const initialCode: string =
+    deepLinkCode !== null && isValidInviteCode(deepLinkCode) ? deepLinkCode : '';
+
+  let flow: JoinState = $state({ ...initialJoinState, code: initialCode });
 
   let resolving = $state(false);
   let creating = $state(false);
@@ -68,7 +70,7 @@
     gone = false;
     banner = null;
     codeError = null;
-    state = reduce(state, { type: 'change-code' });
+    flow = reduce(flow, { type: 'change-code' });
   }
 
   // --- Step 1: code resolution --------------------------------------------
@@ -85,7 +87,7 @@
     resolving = true;
     try {
       const { room, members } = await resolveRoomByCode(code);
-      state = reduce(state, { type: 'resolved', room, members });
+      flow = reduce(flow, { type: 'resolved', room, members });
     } catch (err) {
       handleError(err);
     } finally {
@@ -117,7 +119,7 @@
       deepLinkCode !== null &&
       isValidInviteCode(deepLinkCode) &&
       !resolving &&
-      state.step === 'code'
+      flow.step === 'code'
     ) {
       autoSubmitted = true;
       void submitCode(deepLinkCode);
@@ -128,19 +130,19 @@
 
   function chooseCreate(): void {
     personaError = null;
-    state = reduce(state, { type: 'choose-create' });
+    flow = reduce(flow, { type: 'choose-create' });
   }
 
   async function chooseImport(): Promise<void> {
     personaError = null;
-    state = reduce(state, { type: 'choose-import' });
+    flow = reduce(flow, { type: 'choose-import' });
     importLoading = true;
     try {
       importRooms = await listImportRooms();
     } catch (err) {
       const mapped = listErrorOf(err);
       banner = mapped;
-      state = reduce(state, { type: 'back' });
+      flow = reduce(flow, { type: 'back' });
     } finally {
       importLoading = false;
     }
@@ -152,7 +154,7 @@
     importLoading = true;
     try {
       const users = await listImportPersonas(room.address);
-      state = reduce(state, { type: 'import-room-picked', room, users });
+      flow = reduce(flow, { type: 'import-room-picked', room, users });
     } catch (err) {
       banner = listErrorOf(err);
     } finally {
@@ -161,13 +163,13 @@
   }
 
   async function pickImportUser(userAddress: string): Promise<void> {
-    const room = state.importRoom;
+    const room = flow.importRoom;
     if (!room) return;
     importLoading = true;
     try {
       // Read 2 of the copy: the persona itself (client-side copy source).
       const user = await readImportPersona(room.address, userAddress);
-      state = reduce(state, { type: 'import-user-picked', user });
+      flow = reduce(flow, { type: 'import-user-picked', user });
     } catch (err) {
       banner = listErrorOf(err);
     } finally {
@@ -178,7 +180,7 @@
   // --- Step 3a/3b submit: create the persona --------------------------------
 
   async function submitPersona(draft: PersonaDraft): Promise<void> {
-    const room = state.room;
+    const room = flow.room;
     if (!room || creating) return;
     personaError = null;
     creating = true;
@@ -203,7 +205,7 @@
   function handleInviteCode(code: string): void {
     // A detected invite code enters Step 1 exactly as if typed (AC 13):
     // scanner closed by itself, digits filled, auto-resolution.
-    state = reduce(state, { type: 'code-input', code });
+    flow = reduce(flow, { type: 'code-input', code });
     void submitCode(code);
   }
 
@@ -231,55 +233,55 @@
         kind={banner.kind}
         message={banner.text}
         onretry={() => {
-          if (state.step === 'code') void submitCode(state.code);
+          if (flow.step === 'code') void submitCode(flow.code);
         }}
       />
     {/if}
 
-    {#if state.step !== 'code'}
+    {#if flow.step !== 'code'}
       <h1 class="vh">{translate($locale, 'join.title')}</h1>
     {/if}
 
     <section class="card pixel-corners">
-      {#if state.step === 'code'}
+      {#if flow.step === 'code'}
         <CodeEntry
           bind:this={codeEntry}
-          bind:code={state.code}
+          bind:code={flow.code}
           disabled={resolving}
           error={codeError}
           {shakeKey}
           onsubmit={(code) => void submitCode(code)}
           onscan={() => (scannerOpen = true)}
         />
-      {:else if state.step === 'room' && state.room}
+      {:else if flow.step === 'room' && flow.room}
         <RoomPreview
-          room={state.room}
-          memberCount={state.members.length}
+          room={flow.room}
+          memberCount={flow.members.length}
           oncreate={chooseCreate}
           onimport={() => void chooseImport()}
           onchange={backToStep1}
         />
-      {:else if state.step === 'persona'}
+      {:else if flow.step === 'persona'}
         <PersonaForm
-          prefill={state.prefill}
+          prefill={flow.prefill}
           error={personaError}
           pending={creating}
           onsubmit={(draft) => void submitPersona(draft)}
-          onback={() => (state = reduce(state, { type: 'back' }))}
+          onback={() => (flow = reduce(flow, { type: 'back' }))}
         />
-      {:else if state.step === 'rooms'}
+      {:else if flow.step === 'rooms'}
         <ImportRooms
           rooms={importRooms}
           loading={importLoading}
           onpick={(room) => void pickImportRoom(room)}
-          onback={() => (state = reduce(state, { type: 'back' }))}
+          onback={() => (flow = reduce(flow, { type: 'back' }))}
         />
-      {:else if state.step === 'users'}
+      {:else if flow.step === 'users'}
         <ImportUsers
-          users={state.importUsers}
+          users={flow.importUsers}
           loading={importLoading}
           onpick={(user) => void pickImportUser(user.address)}
-          onback={() => (state = reduce(state, { type: 'back' }))}
+          onback={() => (flow = reduce(flow, { type: 'back' }))}
         />
       {/if}
     </section>

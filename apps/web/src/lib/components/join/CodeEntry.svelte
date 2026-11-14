@@ -62,7 +62,7 @@
   <p class="subtitle">{translate($locale, 'join.subtitle')}</p>
 
   <div class="cells" bind:this={cellsWrap} class:shaking>
-    <DigitInput bind:value {disabled} />
+    <DigitInput bind:value={code} {disabled} />
   </div>
 
   {#if error}

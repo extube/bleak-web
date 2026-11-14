@@ -78,6 +78,17 @@ function pasteCode(code: string): void {
   });
 }
 
+/**
+ * Submit the active join form the way a browser does when the CTA (or Enter
+ * in a cell) is used: click the CTA, then dispatch the form submit event
+ * (happy-dom does not dispatch `submit` on programmatic button clicks; a
+ * second dispatch is a no-op while `resolving` guards double submits).
+ */
+async function submitViaCta(): Promise<void> {
+  await screen.getByRole('button', { name: ru['join.enter'] }).click();
+  fireEvent.submit(document.querySelector('form') as HTMLFormElement);
+}
+
 beforeEach(() => {
   localStorage.clear();
   identity.set(null);
@@ -103,6 +114,7 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
     expect(cells().map((c) => c.value).join('')).toBe('123456');
     // …the CTA submits, the helper resolves, and the room card replaces
     // the code entry (AC 2) — same document, no navigation.
+    await submitViaCta();
     await screen.findByText(room.name);
     expect(mockedResolve).toHaveBeenCalledWith('123456');
     expect(screen.getByText('Митап по пиксель-арту')).toBeTruthy();
@@ -130,7 +142,7 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
 
     render(JoinFlow, { props: {} });
     pasteCode('999999');
-    await screen.getByRole('button', { name: ru['join.enter'] }).click();
+    await submitViaCta();
     await tick();
     await screen.findByText(ru['join.error.unknown']);
     expect(cells().map((c) => c.value).join('')).toBe('999999');
@@ -143,7 +155,7 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
 
     render(JoinFlow, { props: {} });
     pasteCode('111111');
-    await screen.getByRole('button', { name: ru['join.enter'] }).click();
+    await submitViaCta();
     await screen.findByText(ru['common.error.network']);
     expect(cells().map((c) => c.value).join('')).toBe('111111');
     // Retry re-runs the resolution with the preserved digits.
@@ -161,6 +173,7 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
 
     render(JoinFlow, { props: {} });
     pasteCode('123456');
+    await submitViaCta();
     await screen.findByText(room.name);
     await screen.getByRole('button', { name: ru['join.change_code'] }).click();
     await screen.findByText(ru['join.title']);
@@ -175,6 +188,7 @@ describe('JoinFlow — persona form', () => {
     mockedApi.listRoomUsers.mockResolvedValue([]);
     render(JoinFlow, { props: {} });
     pasteCode('123456');
+    await submitViaCta();
     await screen.findByText(room.name);
     await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
     await screen.findByText(ru['join.form.name']);
@@ -182,7 +196,7 @@ describe('JoinFlow — persona form', () => {
 
   it('blocks the empty-name submit client-side with the field error (AC 6)', async () => {
     await openForm();
-    await screen.getByRole('button', { name: ru['join.enter'] }).click();
+    await submitViaCta();
     await tick();
     expect(screen.getByText(ru['join.error.name_required'])).toBeTruthy();
     expect(mockedApi.createRoomUser).not.toHaveBeenCalled();
@@ -195,10 +209,13 @@ describe('JoinFlow — persona form', () => {
 
     const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
     fireEvent.input(nameInput, { target: { value: 'Я' } });
-    await screen.getByRole('button', { name: ru['join.enter'] }).click();
+    await submitViaCta();
 
     await waitFor(() => expect(mockedApi.createRoomUser).toHaveBeenCalled());
     expect(mockedApi.createRoomUser).toHaveBeenCalledWith(room.address, { name: 'Я' });
+    // Flush the createRoomUser promise continuation (saveIdentity + goto).
+    await tick();
+    await tick();
     expect(JSON.parse(localStorage.getItem('bleak.identity') ?? 'null')).toEqual({
       roomAddress: room.address,
       userAddress: '0xme'
@@ -213,7 +230,7 @@ describe('JoinFlow — persona form', () => {
     await openForm();
     const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
     fireEvent.input(nameInput, { target: { value: 'Дубль' } });
-    await screen.getByRole('button', { name: ru['join.enter'] }).click();
+    await submitViaCta();
     await screen.findByText(ru['join.error.name_taken']);
   });
 });
@@ -245,7 +262,7 @@ describe('JoinFlow — scanner mount (context *a*, QrScanner public API)', () =>
     // if typed. Manual entry continues to work identically.
     await screen.getByRole('button', { name: ru['common.close'] }).click();
     pasteCode('123456');
-    await screen.getByRole('button', { name: ru['join.enter'] }).click();
+    await submitViaCta();
     await screen.findByText(room.name);
     expect(mockedResolve).toHaveBeenCalledWith('123456');
   });

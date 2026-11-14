@@ -162,7 +162,8 @@ export function apiErrorText(err: ApiError): string {
 
 export type DeepLink = { kind: 'code'; code: string } | { kind: 'user'; userAddress: string } | null;
 
-export function parseJoinDeepLink(params: URLSearchParams): DeepLink {
+/** Accepts URLSearchParams or SvelteKit's ReadonlyURLSearchParams. */
+export function parseJoinDeepLink(params: { get(name: string): string | null }): DeepLink {
   const code = params.get('code');
   if (code !== null && isValidInviteCode(code)) return { kind: 'code', code };
   const user = params.get('u');
