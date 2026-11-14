@@ -1,0 +1,30 @@
+{
+  "name": "@bleak/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "bleak-web SPA: live event networking app on bleak-node",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev --port 5173",
+    "build": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && vite build",
+    "preview": "vite preview --port 4173",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@bleak/api-client": "*",
+    "@fontsource-variable/handjet": "^5.3.1",
+    "@fontsource-variable/inter": "^5.3.0"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "^4.0.1",
+    "@sveltejs/kit": "^3.2.0",
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "@types/node": "^26.6.6",
+    "happy-dom": "^21.0.4",
+    "svelte": "^5.57.3",
+    "svelte-check": "^4.7.8",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}

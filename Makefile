@@ -1,30 +1,44 @@
 # bleak-node front-end — developer tasks
+#
+# Stack: npm-workspaces monorepo (apps/web SvelteKit SPA, apps/helper thin
+# service, packages/api-client). See docs/ARCHITECTURE.md.
 
 .DEFAULT_GOAL := help
 TASK_DB := tasks.db
 
-.PHONY: help setup dev build test lint task-list task-show session-list log-tail
+.PHONY: help setup dev dev-helper dev-web build test lint fmt clean task-list task-show session-list log-tail
 
 help: ## Show this help
 	@echo "bleak-node front-end"
 	@echo
-	@echo "Feature targets (placeholders — the architect makes them real):"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-14s %s\n", $$1, $$2}'
 
-setup: ## Install dependencies (placeholder)
-	@echo "placeholder: npm/pnpm install — implemented by the architect"
+setup: ## Install all workspace dependencies
+	npm install
 
-dev: ## Run the dev server (placeholder)
-	@echo "placeholder: dev server — implemented by the architect"
+dev: ## Run helper (:8787) + web dev server (:5173, proxies /api and /h)
+	npm run dev
 
-build: ## Production build (placeholder)
-	@echo "placeholder: production build — implemented by the architect"
+dev-web: ## Run only the SPA dev server
+	npm run dev -w @bleak/web
 
-test: ## Run tests (placeholder)
-	@echo "placeholder: test runner — implemented by the architect"
+dev-helper: ## Run only the helper service
+	npm run dev -w @bleak/helper
 
-lint: ## Run linter (placeholder)
-	@echo "placeholder: linter — implemented by the architect"
+build: ## Production build (typecheck + static SPA bundle + helper dist)
+	npm run build
+
+test: ## Run the unit test suite (vitest, all workspaces)
+	npm run test
+
+lint: ## Lint everything (eslint flat config)
+	npm run lint
+
+fmt: ## Check formatting-adjacent issues via eslint --fix
+	npx eslint . --fix
+
+clean: ## Remove build artifacts
+	rm -rf apps/web/build apps/web/.svelte-kit apps/helper/dist packages/*/dist
 
 # --- coordination wrappers -------------------------------------------------
 
