@@ -1,11 +1,19 @@
 # bleak-web — Product Design (v1)
 
 Design instance: `fd19a963` (2026-11-14). Authority chain: `docs/Concept.md`
-(owner-approved v1, §1/§2/§4/§4b binding) → `docs/ARCHITECTURE.md` (routes,
-tokens, polling, mocked shapes) → this document. API contract:
-`/mount/bleak-node/docs/swagger.json` (bleak-node v0.1.0). Visual brief: the
-three reference images in `docs/refs/` (patterns binding, re-styled into the
-dark pixel palette of Concept §4).
+(owner-approved v1, §1/§2/§4/§4b binding; **§1c owner rulings of 2026-11-14
+binding**) → `docs/ARCHITECTURE.md` (routes, tokens, polling, mocked shapes) →
+this document. API contract: `/mount/bleak-node/docs/swagger.json` (bleak-node
+v0.1.0). Visual brief: the three reference images in `docs/refs/` (patterns
+binding, re-styled into the dark pixel palette of Concept §4).
+
+> **Revision 2 (2026-11-14):** owner rulings on the flagged gaps are applied —
+> the **camera QR scanner is now in v1** (two contexts: invite-QR join and
+> scan-a-person mutual handshake), the **personal QR ships on the profile
+> badge**, the **no-composer rule is strict and permanent**, decline is
+> confirmed as local dismissal, auto-matchmaking is a documented future
+> mechanic, and the import/ownership risk is owner-accepted. §3.8 (scanner
+> overlay) is new; §6 flags are renumbered after resolving 2, 5, 6, 7.
 
 This document is self-contained: a worker must be able to implement any page
 from its section alone without reading the references.
@@ -17,11 +25,13 @@ from its section alone without reading the references.
 bleak-web v1 is a live event-networking app. An attendee scans a QR / enters a
 6-digit invite code, lands in the event **room**, creates (or imports) a
 **persona** — an agent defined by a greeting and bios — browses other
-attendees, sends **handshakes**; when a handshake is mutual, bleak-node
+attendees, sends **handshakes** (or scans another attendee's personal QR for
+an instant mutual handshake); when a handshake is mutual, bleak-node
 auto-creates a **chat** and the two attendees' agents hold a conversation which
-both attendees read live. The event **host** creates the room with a host
-token, receives the QR + invite code to share, and observes the room. The SPA
-is a thin, contract-driven client of bleak-node; the only component we own
+both attendees read live — **agents are the only speakers; humans never type
+messages** (Concept §1c ruling 4). The event **host** creates the room with a
+host token, receives the QR + invite code to share, and observes the room. The
+SPA is a thin, contract-driven client of bleak-node; the only component we own
 server-side is the invite-code helper (§ ARCHITECTURE 6).
 
 ---
@@ -32,12 +42,12 @@ server-side is the invite-code helper (§ ARCHITECTURE 6).
 
 | Route | File (SvelteKit) | Audience | Tab bar? | Purpose |
 | --- | --- | --- | --- | --- |
-| `/` | `routes/+page.svelte` | attendee | no | Join by 6-digit code / deep link → persona creation (new or imported) |
-| `/room` | `routes/room/+page.svelte` | attendee | yes | Radar "Around me" — live spatial view of the room |
+| `/` | `routes/+page.svelte` | attendee | no | Join by 6-digit code / QR scan / deep link → persona creation (new or imported) |
+| `/room` | `routes/room/+page.svelte` | attendee | yes | Radar "Around me" — live spatial view of the room; scan-a-person entry |
 | `/people` | `routes/people/+page.svelte` | attendee | yes | Full attendee list, search, filters, handshake actions |
 | `/chats` | `routes/chats/+page.svelte` | attendee | yes | List of agent dialogs (mutual handshakes) |
 | `/chats/[address]` | `routes/chats/[address]/+page.svelte` | attendee | no | Dialog transcript (read-only) + kickoff |
-| `/profile` | `routes/profile/+page.svelte` | attendee | yes | Persona badge card, editing, stats, locale, leave room |
+| `/profile` | `routes/profile/+page.svelte` | attendee | yes | Persona badge card (with personal QR), editing, stats, locale, leave room |
 | `/host` | `routes/host/+page.svelte` | host | yes* | Host console: token, create room, QR/code share, live room view |
 
 *The Host tab is always visible in the tab bar (an attendee may also be the
@@ -48,6 +58,18 @@ Parameterized routes: only `/chats/[address]` — `address` is a chat address
 
 Deep link: `/` accepts `/?code=NNNNNN` (this is what the host's QR encodes,
 via `INVITE_URL_BASE`). Unknown/absent `code` → normal manual entry state.
+
+**Scanner overlay — deliberately NOT a route.** The camera scanner is the
+shared `QrScanner` overlay component (§3.8), mounted on `/` (invite-QR join,
+ruling 6a) and `/room` (scan-a-person, ruling 6b). Rationale: an overlay keeps
+the camera lifecycle bound to a component mount/unmount (stream stopped the
+moment the overlay closes, on any navigation), avoids route churn mid-flow
+(join Step 1 → scanner → back to Step 1 with state intact), and there is no
+scannable state worth bookmarking — a scanner URL would be a dead deep link.
+The **persona QR deep link** is still honored without the scanner: `/` accepts
+`/?u={userAddress}` (what a persona QR encodes) and runs the mutual-handshake
+routine of §3.8 when an identity exists (graceful fallback if a persona QR is
+opened by the phone's camera app instead of scanned in-app).
 
 ### 1.2 Bottom tab anatomy (adapted from `docs/refs/searching.png`)
 
@@ -194,6 +216,39 @@ skeleton pulse; state changes become instant. Full rules in §4.6.
 - Contrast: body text ≥ 4.5:1 (charcoal palette passes; muted text only at
   ≥ 14px), text on accent uses `--color-accent-ink` (#101213 on #FEDC5C ≈ 12:1).
 
+### 2.7 Camera scanner — cross-cutting rules (Concept §1c rulings 3 & 6)
+
+The camera scanner is in v1, in two contexts (§3.8 owns the full UX spec):
+**(a)** scanning an **invite QR** opens the join flow on `/`; **(b)** scanning
+a **persona QR** (another attendee's badge) sends BOTH handshake calls
+(A→B and B→A) and ends in the mutual-chat success state. Rules that apply
+wherever the scanner runs:
+
+- **One component, two contexts:** the `QrScanner` overlay is context-aware
+  (hint text, fallback action, result handling differ per context); the
+  viewfinder, permission handling and detection loop are identical.
+- **Manual fallback is always one tap away** (owner ruling 6): every scanner
+  state — including mid-scan — offers the manual path (enter the 6-digit code
+  on `/`; close the scanner and use the People/radar lists on `/room`).
+- **Camera is privileged and short-lived:** the stream starts only after an
+  explicit user tap (never on overlay mount), and `MediaStreamTrack.stop()`
+  runs on close, on result, and on navigation — the camera light must always
+  go off.
+- **Deployment footnote (architecture-relevant):** camera access requires a
+  **secure context (HTTPS, or localhost for dev)** — `navigator.mediaDevices`
+  is undefined on plain HTTP, and the overlay must degrade to its
+  no-camera state, not crash. QR detection uses the `BarcodeDetector` API
+  where available (Android Chrome) and lazy-loads a JS decoder fallback
+  (`jsQR`, ~14 kB gzip, dynamically imported only when needed) — iOS Safari
+  and Firefox always take the fallback path. See §3.8 for the full spec.
+- **Performance:** the scanner adds zero cost when unused — the fallback
+  decoder and the overlay are code-split; nothing QR-related loads until the
+  overlay is opened.
+- **Ruling 3 (mutual handshake by scan) lives client-side:** the scanner's
+  client sends **both** `POST /api/handshake` calls (A→B and B→A) when a
+  persona QR is read — impersonation risk (no auth anywhere) is owner-accepted;
+  a server-side mutual-QR endpoint is a backend TODO (Concept §1c ledger).
+
 ---
 
 ## 3. Pages
@@ -208,7 +263,8 @@ the room with my persona" in under 60 seconds, on a phone, over bad Wi-Fi.
 This is the conversion screen; every extra field costs attendees.
 
 **Primary jobs.**
-1. Enter or deep-link a 6-digit invite code and resolve it to a room.
+1. Enter, deep-link, or **scan (invite QR)** a 6-digit invite code and resolve
+   it to a room.
 2. Create a persona in that room — or import one from a previous event's room.
 3. Land on `/room` with identity saved.
 
@@ -237,7 +293,17 @@ No tab bar. Regions top→bottom:
      invalid chars rejected silently; when 6 digits present the CTA enables.
    - CTA «Войти в комнату» / "Enter the room" (pill, accent) — disabled until
      6 digits.
-   - Deep link: `?code=NNNNNN` prefills the cells and auto-submits.
+   - **Scan entry** (ruling 6a): below the CTA, a divider line and a
+     secondary text-button with the scan pixel glyph — «Или отсканировать
+     QR-код» / "Or scan a QR code" — that opens the `QrScanner` overlay
+     (§3.8, context *a*). A detected invite code enters Step 1 exactly as if
+     typed: cells filled, CTA enabled, auto-submit; the scanner closes first.
+     Permission/no-camera/fallback states are owned by the overlay (§3.8);
+     the manual fallback action in this context = close the scanner and
+     focus the digit cells.
+   - Deep link: `?code=NNNNNN` prefills the cells and auto-submits. A persona
+     deep link `?u={userAddress}` (from a persona QR opened by the phone's
+     camera app instead of the in-app scanner) is handled per §3.8.
    - Footer row: locale `SegmentedControl` RU | EN (bottom-left of the card).
 3. **Step 2 — room card**: after resolution the card content swaps to the room
    preview: room `name` (Handjet), `description`, a meta row «Язык агентов:
@@ -258,7 +324,12 @@ No tab bar. Regions top→bottom:
    persona form (fields from `getRoomUser`) with a notice «Персона будет
    скопирована в это событие» / "The persona will be copied into this event"
    → same submit as 3a. Import is a client-side copy (architecture §8.4) —
-   it creates a NEW user in the new room.
+   it creates a NEW user in the new room. **Ruling 5 (owner-accepted risk):**
+   a proper ownership-token mechanism is a backend TODO; in v1 the attendee's
+   identity lives in `localStorage` and import reads a stored persona and
+   re-creates it with no proof of ownership — anyone holding an address can
+   copy that persona. The owner explicitly accepted this risk for v1; do not
+   invent client-side gates around it.
 
 **Interaction states.**
 
@@ -306,6 +377,15 @@ title after successful resolution.
     persists across reloads.
 11. All six digit cells are keyboard-reachable; paste of a 6-digit string fills
     all cells.
+12. The "Or scan a QR code" button opens the `QrScanner` overlay (§3.8,
+    context *a*); closing it (X, Escape, or the manual-fallback link) returns
+    to Step 1 with the entered digits intact and focuses the cells.
+13. Scanning an invite QR (URL containing `?code=NNNNNN`) closes the scanner
+    and continues the normal flow: digits filled, `GET /h/rooms/{code}`
+    resolution, room preview — identical to manual entry.
+14. Opening a persona deep link `/?u={userAddress}` with an existing identity
+    runs the §3.8 mutual-handshake routine (success or per-case states);
+    without an identity it is ignored and the normal join card renders.
 
 ---
 
@@ -333,8 +413,14 @@ Also the fastest path to send a handshake.
 
 **Layout (mobile-first, full-bleed).**
 1. **Top bar** (fixed, `--color-surface`, 56px): left — room `name` (Handjet,
-   truncated); right — a muted live-dot (pulsing accent dot while the poller is
-   healthy; solid muted when in error/backoff) + member count «12».
+   truncated); right — a scan icon-button (48px touch target, scan pixel
+   glyph, `aria-label` «Сканировать QR персоны» / "Scan a persona QR") that
+   opens the `QrScanner` overlay (§3.8, context *b*) — the single scan-a-person
+   entry point in v1 (placement decision: the radar is the "who's around"
+   surface and already carries the relationship context; a second entry in
+   `/people` would duplicate the gesture against the People list's own
+   per-card actions) — then the muted live-dot (pulsing accent dot while the
+   poller is healthy; solid muted when in error/backoff) + member count «12».
 2. **Radar area** (fills the viewport between top bar and tab bar,
    `--color-bg`):
    - **Center "Me" chip**: my pixel avatar (accent `#FEDC5C` backdrop — the
@@ -382,6 +468,18 @@ Also the fastest path to send a handshake.
   returns to active state.
 - Poll diffing: a user who left (soft-deleted) disappears from the radar on the
   next tick.
+- **Scan entry (ruling 6b):** the top-bar scan button opens `QrScanner`
+  (§3.8, context *b*); the overlay receives the current member list as props.
+  A successful scan ends in the mutual-chat success state (link to the new
+  chat); on close, force `poller.refresh()` so the counterpart's node appears
+  on the inner ring.
+- **Future mechanic (owner ruling 1, NOT in v1):** bleak-node will implement
+  auto-matchmaking — agents scan the room, rank users by a relevance score
+  (matched interests coefficient), raise the score on incoming handshakes, and
+  auto-send a handshake when a user crosses threshold N. **V1 ships manual
+  handshakes only; no score UI, no mock loop.** When the backend ships the
+  mechanic, the radar/people pills add score and auto-handshake states from
+  real API data (design note only; no v1 acceptance criteria depend on it).
 
 **States.**
 - **Loading**: radar area shows the Me chip + 4 skeleton dots on the rings
@@ -432,6 +530,12 @@ heading structure still exposes «Рядом со мной» as `h1`.
     Enter/Space opens the sheet.
 12. Navigating away from `/room` stops its poller (no network requests after
     teardown).
+13. The top-bar scan icon-button opens the `QrScanner` overlay (§3.8, context
+    *b*) with the current member list; closing it leaves the radar unchanged
+    until the next poll tick.
+14. A scanner success (mutual handshake created via the overlay) is reflected
+    on the radar within one refresh: the counterpart's node sits on the inner
+    ring.
 
 ---
 
@@ -453,8 +557,8 @@ on action.
 2. **Filter chips row** (horizontal scroll, `SegmentedControl`-style pills on
    `--color-surface-elevated` track): Все / All · Отправлены / Sent · Добавили
    вас / Added you · Общаемся / Chatting. Single-select; active pill =
-   accent. (Interest filters are impossible in v1 — interests are a local-only
-   mock; see §6 flags.)
+   accent. (Interest filters are impossible in v1 by design — the mock
+   interests are client-side-only, architecture §8.1.)
 3. **Card list** (stacked `PersonCard`s, 12px gap):
    - Left: `PixelAvatar` (56px).
    - Main: `User.name` (16px, `--color-text`), one line `User.public_bio`
@@ -475,15 +579,25 @@ on action.
        outgoing-pill state (in-place, no reorder).
      - incoming pending → the card expands in place to reveal two buttons:
        «Ответить хендшейком» / "Handshake back" (accent) and «Закрыть» /
-       "Dismiss" (outline — collapses the card only; there is no API decline,
-       see §6 flags). This is the reference's "Added you" Accept/Decline
-       pattern adapted: **Accept = handshake back; Decline = just closing the
-       card** (nothing is sent to the server).
+       "Dismiss" (outline — collapses the card only; **ruling 2 confirmed**:
+       there is no decline server-side and the backend never has one — a
+       handshake simply stays pending until the reciprocal arrives, i.e.
+       «ожидает ответного рукопожатия» semantics). This is the reference's
+       "Added you" Accept/Decline pattern adapted: **Accept = handshake back;
+       Decline = just closing the card** (nothing is sent to the server).
+       **Copy guidance:** never imply rejection — the request still exists
+       server-side and a dismissed card may reappear (it re-expands on a
+       later poll tick / page re-entry). Dismissal is tracked in an
+       in-memory set of addresses per page visit so a dismissed card renders
+       collapsed until its state changes or the page is re-entered.
      - mutual → icon-button ▤ with `aria-label` «Открыть диалог с Алисой» /
        "Open dialog with Alice" → `/chats/{chat.address}`.
 4. Cards are keyed by `User.address`; poll updates mutate in place; **no
    reordering on poll** (order = stable: newest `created_at` first, computed
    once per data change that actually differs).
+5. **Future mechanic (owner ruling 1):** auto-matchmaking (relevance score →
+   auto-handshake) is a backend TODO only; the People list stays
+   manual-handshake-only in v1 (see the note in §3.2).
 
 **States.**
 - Loading: 3 skeleton cards.
@@ -514,7 +628,9 @@ focused via its action button, Enter expands.
 5. An incoming-pending card, when tapped, expands to reveal "Handshake back"
    and "Dismiss"; "Handshake back" sends the reverse `POST /api/handshake`
    and the card becomes «Общаемся» with a dialog link.
-6. "Dismiss" only collapses the card and sends nothing to the server.
+6. "Dismiss" only collapses the card and sends nothing to the server; the
+   request still exists server-side, so the card may re-expand on a later
+   poll tick or page re-entry — no copy or state may imply it was declined.
 7. A mutual card's ▤ action navigates to `/chats/{address}` of the existing
    chat with that user.
 8. Cards update in place from the 4 s poll; a user deleted from the room
@@ -557,7 +673,7 @@ empty.
      outline chips, verbatim server values.
    - Right: relative time of `Chat.created_at` («5 мин» / "5 min"), muted.
    - No message preview in v1 (would need one messages request per chat per
-     poll — too heavy on venue Wi-Fi; flagged §6).
+     poll — too heavy on venue Wi-Fi; rationale §5).
 3. Tap card → `/chats/{address}`.
 
 **States.**
@@ -600,9 +716,15 @@ networking · ai-future".
 
 **Purpose.** Read the live conversation between the two agents (the actual
 networking outcome), understand who is speaking, and restart the dialog
-(kickoff) if wanted. **Read-only for humans in v1** — the agents are the
-speakers (flagged §6; `POST /api/message` exists but is out of the v1 owner
-flow).
+(kickoff) if wanted.
+
+**STRICT RULE (owner ruling 4, all versions):** **humans never send messages —
+only agents communicate in messages.** A human's only actions in the product
+are handshakes and (future) contact access. **No message composer, no input
+field, no "type a reply" affordance may exist in any chat UI, in any version**;
+`POST /api/message` is never exposed to attendees in the UI. This resolves the
+former §6 flag 6: the owner ruled humans interact with nothing in messages —
+not even injecting a turn.
 
 **Route parameter.** `address` — chat address; unknown/404 → full-page not-found
 state (§ below).
@@ -698,6 +820,10 @@ traps focus, closes on Escape, returns focus to the kickoff button.
     overflows its bubble.
 11. The back control returns to `/chats`.
 12. Leaving the page stops the 2 s poller.
+13. **No-composer check (ruling 4):** the transcript UI contains no message
+    input, textarea, or send control of any kind — the only interactive
+    elements are the back control, the kickoff button (+ its confirm dialog),
+    and the disabled contact stub.
 
 ---
 
@@ -728,7 +854,7 @@ the exit door.
    - Top row: `PixelAvatar` 96px (accent backdrop — own persona) + big
      `User.name` (Handjet 28px) + muted `User.language` meta («Язык агента:
      ru» / "Agent language: ru" — **read-only**; `language` cannot be set via
-     the API, flagged §6).
+     the API, flag 3).
    - **Greeting block**: quoted block (accent 3px left bar, italic muted):
      the greeting text; caption RU «Открывает каждый новый диалог агента» /
      "Opens each of your agent's new dialogs" + edit icon-button.
@@ -742,6 +868,27 @@ the exit door.
    - **Stat counters** (reference's counters re-styled): two square tiles
      (surface-elevated, big Handjet numerals): «Хендшейки {n}» / "Handshakes
      {n}" (total) and «Диалоги {n}» / "Dialogs {n}".
+   - **Personal QR block** (ruling 3 — pulled into v1, supersedes the former
+     deferral): a `QrCodeBadge` at the bottom of the badge card — a
+     client-side-rendered QR SVG (~200px, quiet zone 4 modules) encoding
+     `{INVITE_URL_BASE}?u={identity.userAddress}` (the same join-URL shape as
+     the host invite, with `u` instead of `code` — §3.8 defines the payload).
+     Caption below (muted, 14px): «Покажите, чтобы обменяться рукопожатиями» /
+     "Show this to trade handshakes". The QR is **not** interactive (nothing
+     to tap — the other person scans it with their in-app scanner or phone
+     camera); it sits in a light frame (see rendering rules below) and is
+     regenerated only if the identity changes.
+     **Rendering approach for workers (performance-first):** use a tiny
+     dependency-free QR encoder — **`uqr` (~3 kB, zero deps, MIT,
+     synchronous, SVG output)** — statically imported only in the
+     `/profile` route chunk (code-split; zero cost for every other page).
+     Modules render `#101213` (the `--color-surface` value) on a near-white
+     frame — the same light-frame treatment the host share-kit QR already
+     uses; centralize the frame color as `--color-qr-frame` in `tokens.css`
+     (single derived token, value = the helper QR's light background) so both
+     QR treatments share one source. Scannability requires this light
+     backdrop; it is a functional exception to the dark palette, declared
+     once.
 3. **Editor** (inline swap of the badge card content, one screen at a time):
    - **Persona editor**: `name`, `public_bio`, `private_bio` fields
      (prefilled) → `PUT updateRoomUser` (omitted-field semantics: send all
@@ -811,6 +958,15 @@ disabled Save state is `aria-disabled` with the reason in the error line
    exit path works.
 9. Stat tiles announce full values to screen readers («Хендшейков: 7»).
 10. No hardcoded colors are used; all surfaces derive from the tokens.
+11. The badge card shows the personal QR block: a client-side SVG encoding
+    `{INVITE_URL_BASE}?u={userAddress}` with the caption «Покажите, чтобы
+    обменяться рукопожатиями» / "Show this to trade handshakes"; the QR is
+    not interactive and issues no network request.
+12. The badge QR is scannable: dark modules on the light `--color-qr-frame`
+    backdrop (shared token with the host share-kit frame); decoding its
+    payload in the §3.8 scanner resolves the correct user address.
+13. The QR encoder is code-split into the `/profile` route only (no QR-related
+    module loads on `/room`, `/people`, `/chats`).
 
 ---
 
@@ -850,7 +1006,7 @@ kit, right column the live room view; max-width 1080px centered.
 3. **Create room form** (card): `name` (required), `description` (optional),
    `language` select (ru | en; this sets the agents' conversation language —
    `CreateRoomRequest.language`). CTA «Создать комнату» / "Create room".
-   (`max_user` is **not** in `CreateRoomRequest` — not settable; flagged §6.)
+   (`max_user` is **not** in `CreateRoomRequest` — not settable; flag 3.)
 4. **Share kit** (after creation; also restored on revisit via
    `localStorage bleak.hostRoom` = last created code + address):
    - Big code display: 6-digit `code` in Handjet 40px, letter-spaced, on a
@@ -929,6 +1085,194 @@ warning heading.
 
 ---
 
+### 3.8 `QrScanner` — shared camera scanner overlay (no route)
+
+**Purpose.** The one camera-scanning surface in v1 (owner rulings 3 & 6), used
+in two contexts: **(a) join** — mounted on `/`, reads an **invite QR** (URL
+with `?code=NNNNNN`) and feeds the normal Step 1 flow; **(b) scan-a-person** —
+mounted on `/room`, reads a **persona QR** (URL with `?u={userAddress}`, the
+code rendered on the §3.6 badge) and executes the ruling-3 mutual handshake:
+the client sends **both** `POST /api/handshake` calls (A→B and B→A), which
+auto-creates the chat. The overlay is opened by an explicit user tap and owns
+its camera lifecycle; it is not a route (§1.1).
+
+**QR payload formats (binding).**
+
+| QR | Content | Read by |
+| --- | --- | --- |
+| Invite QR (host share kit) | `{INVITE_URL_BASE}?code=NNNNNN` | context (a); also the phone's camera app (deep link) |
+| Persona QR (profile badge) | `{INVITE_URL_BASE}?u={userAddress}` | context (b); also the phone's camera app (deep link `/?u=`) |
+
+The scanner parses the scanned text as a URL on the app's own origin
+(`INVITE_URL_BASE`); it accepts any path prefix but requires the `code` or
+`u` query parameter — unknown/foreign QR content shows the error state
+«Это не QR-код bleak-web.» / "This is not a bleak-web QR code." (with
+«Сканировать снова» / "Scan again" and the manual fallback), never a silent
+close.
+
+**Layout (full-screen overlay).**
+`position: fixed; inset: 0;` on `--color-bg`, above everything (including the
+tab bar). Top→bottom:
+1. **Overlay top bar** (56px, `--color-surface`, `.pixel-corners` bottom
+   edge): close icon-button (48px, `aria-label` «Закрыть сканер» /
+   "Close scanner", X glyph) left; title «Сканировать QR» / "Scan QR code"
+   (Handjet, 20px) centered-right.
+2. **Viewfinder** (fills remaining space): live `<video>` (`playsinline`,
+   `muted`, `autoplay`, `object-fit: cover`) from `getUserMedia`. Over it, a
+   centered **scan frame**: a 240px square outlined by four accent-yellow
+   (`--color-accent`) pixel corner brackets (8px thick steps, the signature
+   detail applied to corners only — the frame interior is untouched video).
+   Below the frame, a hint line (14px, `--color-text-muted`, centered):
+   context (a) «Наведите камеру на QR-код приглашения» / "Point the camera at
+   the invite QR"; context (b) «Наведите камеру на QR-код на карточке
+   участника» / "Point the camera at the QR on an attendee's badge".
+3. **Bottom row** (above safe-area): the **manual fallback link** — context
+   (a): «Ввести код вручную» / "Enter code manually" → closes the overlay and
+   focuses the digit cells on `/`; context (b): «Найти в списке» / "Find in
+   the list" → closes the overlay (the radar/People lists are the manual
+   path). One tap away from every scanner state (ruling 6).
+
+**Permission & capability states (state machine).**
+
+| State | Trigger | Rendering |
+| --- | --- | --- |
+| Unasked (idle) | overlay just opened | Panel (no camera yet): pixel scan glyph, copy «Для сканирования нужен доступ к камере.» / "The camera needs your permission to scan.", primary CTA «Включить камеру» / "Turn on camera", manual fallback link. The stream starts ONLY on this tap. |
+| Requesting | CTA tapped, `getUserMedia` pending | CTA spinner; nothing else changes |
+| Granted | permission allowed | Viewfinder + detection loop |
+| Denied | permission error `NotAllowedError` (or stored denial) | Copy «Доступ к камере запрещён. Разрешите его в настройках браузера — или введите код вручную.» / "Camera access is denied. Allow it in the browser settings — or enter the code manually." + manual fallback. No retry of the permission prompt (browsers block it); a «Попробовать снова» / "Try again" button re-runs `getUserMedia` for users who just changed the setting. |
+| No camera / insecure | `NotFoundError`/`OverconstrainedError`, `!navigator.mediaDevices`, or non-HTTPS origin | Copy «Камера недоступна на этом устройстве.» / "No camera available on this device." (append «Откройте сайт по HTTPS, чтобы включить камеру.» / "Open the site over HTTPS to enable the camera." when the origin is insecure) + manual fallback |
+
+**Detection loop (granted state).**
+- Detector: `new BarcodeDetector({ formats: ['qr_code'] })` when
+  `'BarcodeDetector' in window` and the format is supported; otherwise
+  **lazy-load the JS fallback `jsQR` (~14 kB gzip, dynamically imported once
+  per session)** and decode from a downscaled canvas frame. Never load the
+  decoder before the overlay opens (§2.7).
+- Frames are pulled via `requestVideoFrameCallback` (rAF fallback), decode
+  attempts throttled to ~4/s; the loop stops on result, close, or unmount.
+- On a successful decode: **stop all stream tracks immediately** (camera
+  light off), show a 120 ms flash state (frame brackets brighten), then
+  process the payload per context.
+
+**Processing — context (a), invite QR (`?code=`).**
+The scanner closes and hands the 6-digit `code` to the `/` join flow exactly
+as manual entry (§3.1 step 1): cells filled, `GET /h/rooms/{code}` resolution,
+room preview. If the scanned code fails resolution (404/400/NetworkError), the
+existing §3.1 inline error states apply — the scanner does not reopen.
+
+**Processing — context (b), persona QR (`?u=`) — ruling 3 routine.**
+Run in the overlay, on a result panel (viewfinder stopped):
+
+1. **Own QR**: `u === identity.userAddress` → info state, no request:
+   pixel glyph + «Это ваш собственный QR — покажите его кому-нибудь другому.»
+   / "That's your own QR — show it to someone else." + buttons
+   «Сканировать снова» / "Scan again" and close.
+2. **Foreign persona**: `u` is not in the current room's member list
+   (checked against the member data passed by the hosting page; on `/` the
+   overlay fetches `listRoomUsers` once for this check) → error state, no
+   request: «Эта персона из другого события.» / "This persona is from another
+   event." + scan again / close.
+3. **Known persona**: resolve `name`/avatar from the member list, show a
+   confirm card in the result panel: avatar + name + copy «Отправить
+   взаимные хендшейки и запустить агентов?» / "Send mutual handshakes and
+   start the agents?" + CTA «Обменяться рукопожатиями» / "Trade handshakes"
+   (accent) + «Отмена» / "Cancel". Confirm → send **both** calls **in
+   order**: `POST /api/handshake {from: me, to: u, status: 1}` then
+   `POST /api/handshake {from: u, to: me, status: 1}` — the second call
+   creates the chat. Both endpoints are idempotent per directed pair, so an
+   existing pair returns 200 without side effects.
+4. **Success** (both 200/201): refresh `listChatsOfUser` once, locate the
+   chat whose participants include `u`; success state with a pixel glyph of
+   two avatars: «Агенты уже общаются» / "Your agents are already talking" +
+   primary CTA «Открыть диалог» / "Open dialog" → `/chats/{chat.address}`
+   (if the chat is not yet in the refreshed list — eventual consistency —
+   the CTA links to `/chats` instead; never a dead link).
+5. **Failure**: `NetworkError` → inline error «Нет связи. Проверьте Wi-Fi.» /
+   "Connection lost. Check the Wi-Fi." + «Повторить» / "Retry" (re-runs step
+   3's POSTs; idempotency makes retry safe). `ApiError` → server text +
+   «Повторить». Neither call may fire a duplicate handshake UI error when the
+   pair already exists — 200 is success (same as §3.2 criterion 7).
+6. **Already mutual** (the hosting page's data — or the refreshed chat list —
+   shows a chat with `u` exists before step 3): skip the POSTs entirely and
+   jump straight to the success state with «Открыть диалог».
+
+**States summary (result panel).** success / own-QR info / foreign-persona
+error / network error with retry / api error with retry / confirm card /
+processing spinner (during the two POSTs). After any terminal state,
+«Сканировать снова» / "Scan again" restarts the camera (back to Granted —
+permission persists in-session).
+
+**Responsive.** Full-viewport on phones (the primary case). ≥ 720px: the
+video area is capped at 640px height, centered; the scan frame stays 240px.
+
+**Accessibility.** `role="dialog"`, `aria-modal="true"`,
+`aria-label` «Сканер QR-кодов» / "QR scanner"; focus trapped inside, moved to
+the overlay title on open, returned to the invoking button on close; Escape
+closes (stopping the camera). State changes (permission, result) announce via
+`aria-live="polite"`. The video element is `aria-hidden`; the scan frame is
+decorative (`aria-hidden`). Touch targets ≥ 48px.
+
+**Implementation notes for workers.**
+- Camera requires a **secure context (HTTPS, or localhost in dev)** — treat a
+  missing `navigator.mediaDevices` as the no-camera state, not a crash
+  (§2.7 footnote).
+- One `BarcodeDetector`/decoder instance per overlay lifetime; `jsQR` import
+  is `import('jsqr')`-style dynamic and cached.
+- The overlay must stop its loop and tracks on host-route teardown (e.g.
+  navigating away while scanning) — register cleanup on both overlay close
+  and route unmount.
+- The `uqr`/`jsQR` pair: `uqr` (encode, `/profile` badge) and `jsQR` (decode,
+  scanner) are the only QR dependencies allowed; the helper's server-side PNG
+  QR is untouched.
+
+**Acceptance criteria.**
+1. The scanner opens from `/` ("Or scan a QR code", context *a*) and from the
+   `/room` top-bar icon-button (context *b*); it is the same `QrScanner`
+   component with context-appropriate hint, fallback link, and result
+   handling.
+2. On first open (permission unasked) the camera is NOT started; it starts
+   only after the «Включить камеру» / "Turn on camera" tap.
+3. Granted state shows the live viewfinder with the accent corner-bracket
+   scan frame and the context hint; a detected QR flashes the frame, stops
+   the camera stream, and shows the result within one second.
+4. Denied permission shows the specified copy with a "Try again" action and
+   the manual fallback; no request is sent and the camera stays off.
+5. No-camera / insecure-origin (no `navigator.mediaDevices`) shows the
+   no-camera state with the HTTPS note and the manual fallback — the page
+   behind the overlay is unaffected.
+6. The manual fallback is reachable from every scanner state: context (a)
+   closes the scanner and focuses the digit cells; context (b) closes the
+   scanner.
+7. Scanning an invite QR in context (a) closes the scanner and proceeds
+   through `GET /h/rooms/{code}` exactly like manual entry (§3.1
+   criterion 13).
+8. Scanning a persona QR in context (b) shows the confirm card with the
+   scanned person's avatar and name; confirming sends BOTH
+   `POST /api/handshake` calls (A→B then B→A) and ends in the success state
+   «Агенты уже общаются» / "Your agents are already talking" with a working
+   "Open dialog" link to the created chat (or to `/chats` if the chat is not
+   yet listed).
+9. Idempotent re-scan: scanning a person whose handshake pair already exists
+   reaches the same success state (the POSTs return 200 and are treated as
+   success — no error is shown); scanning a person already in a mutual chat
+   with me skips the POSTs and shows the success state directly.
+10. Scanning my own persona QR shows the own-QR info state and sends no
+    request; scanning an address that is not in the room's member list shows
+    the foreign-persona state and sends no request; scanning a QR with
+    neither `?code=` nor `?u=` on our origin shows an invalid-QR error state.
+11. A network failure during the handshake POSTs shows the retry error state;
+    "Retry" re-sends the pair safely (idempotent) and reaches success when
+    the network recovers.
+12. Closing the overlay (X, Escape, fallback, or navigation) stops the
+    detection loop and all camera tracks — the camera indicator light turns
+    off; focus returns to the invoking button.
+13. The overlay is a focus-trapped `role="dialog"` with `aria-modal`, Escape
+    to close, and all state changes announced via `aria-live="polite"`.
+14. The scanner adds no cost when unused: no QR-related module (decoder or
+    encoder) is fetched until the overlay or the badge needs it.
+
+---
+
 ## 4. Visual system
 
 ### 4.1 Design tokens
@@ -956,7 +1300,9 @@ must remain the approved palette.
 | `Chip` | interests, `phase`/`scenario`, filters, status pills | variants: outline-muted / outline-accent / fill-accent |
 | `SegmentedControl` | locale, filters | pill track on `--color-surface-elevated` |
 | `DigitInput` | `/` | six-cell code entry |
-| `QrBlock` | `/host` | image + frame |
+| `QrScanner` | `/` (context a), `/room` (context b) | camera scanner overlay, §3.8; no route |
+| `QrBlock` | `/host` | invite QR `<img>` from the helper + frame |
+| `QrCodeBadge` | `/profile` | client-side SVG persona QR (`uqr`), light frame, §3.6 |
 | `CopyButton` / `CopyField` | `/`, `/host` | clipboard + transient «Скопировано» / "Copied" |
 | `SkeletonBlock`, `ErrorBanner`, `EmptyState` | all | §2.1 patterns |
 | `StatTile` | `/profile`, `/host` | Handjet numeral + caption |
@@ -993,7 +1339,8 @@ hair. Rules:
 Pixel-art glyphs, one conceptual language with the avatars: 16×16 grids,
 single color (currentColor), 2px visual weight. Required set v1: back (arrow),
 close (×), search, plus, dialog-lines, lock, copy, radar-dot, star (host),
-edit (pencil), refresh. Stored as inline SVG components under
+edit (pencil), refresh, **scan (viewfinder brackets)**. Stored as inline SVG
+components under
 `lib/components/icons/` (they use `currentColor` to inherit token colors —
 this is not a "hardcoded hex" violation). The TabBar's five tab glyphs are
 part of this set.
@@ -1035,7 +1382,29 @@ instant). No scroll-triggered or layout-triggered animation anywhere.
 | `join.title` | Войти на событие | Join the event |
 | `join.enter` | Войти в комнату | Enter the room |
 | `join.error.unknown` | Код не найден — уточните его у организатора. | Code not found — check with the host. |
+| `join.scan.open` | Или отсканировать QR-код | Or scan a QR code |
+| `scan.title` | Сканировать QR | Scan QR code |
+| `scan.close` | Закрыть сканер | Close scanner |
+| `scan.hint.join` | Наведите камеру на QR-код приглашения | Point the camera at the invite QR |
+| `scan.hint.person` | Наведите камеру на QR-код на карточке участника | Point the camera at the QR on an attendee's badge |
+| `scan.permission.intro` | Для сканирования нужен доступ к камере. | The camera needs your permission to scan. |
+| `scan.turn_on` | Включить камеру | Turn on camera |
+| `scan.permission.denied` | Доступ к камере запрещён. Разрешите его в настройках браузера — или введите код вручную. | Camera access is denied. Allow it in the browser settings — or enter the code manually. |
+| `scan.try_again` | Попробовать снова | Try again |
+| `scan.no_camera` | Камера недоступна на этом устройстве. | No camera available on this device. |
+| `scan.insecure` | Откройте сайт по HTTPS, чтобы включить камеру. | Open the site over HTTPS to enable the camera. |
+| `scan.fallback.enter_code` | Ввести код вручную | Enter code manually |
+| `scan.fallback.find_list` | Найти в списке | Find in the list |
+| `scan.again` | Сканировать снова | Scan again |
+| `scan.invalid_qr` | Это не QR-код bleak-web. | This is not a bleak-web QR code. |
+| `scan.own_qr` | Это ваш собственный QR — покажите его кому-нибудь другому. | That's your own QR — show it to someone else. |
+| `scan.foreign_persona` | Эта персона из другого события. | This persona is from another event. |
+| `scan.confirm.title` | Отправить взаимные хендшейки и запустить агентов? | Send mutual handshakes and start the agents? |
+| `scan.confirm.cta` | Обменяться рукопожатиями | Trade handshakes |
+| `scan.confirm.cancel` | Отмена | Cancel |
+| `scan.error.network` | Нет связи. Проверьте Wi-Fi. | Connection lost. Check the Wi-Fi. |
 | `room.around` | {n} вокруг вас | {n} around you |
+| `room.scan.open` | Сканировать QR персоны | Scan a persona QR |
 | `room.empty` | Пока никого. Попросите код приглашения у хоста — или сами поделитесь им. | Nobody here yet. Ask the host for the invite code — or share yours. |
 | `hs.send` | Отправить хендшейк | Send handshake |
 | `hs.sent` | Хендшейк отправлен | Handshake sent |
@@ -1059,6 +1428,7 @@ instant). No scroll-triggered or layout-triggered animation anywhere.
 | `profile.greeting.rule` | Приветствие открывает каждый новый диалог. Без вопросов — только утверждения. | The greeting opens every new dialog. No questions — statements only. |
 | `profile.greeting.no_questions` | Уберите вопросительные знаки — приветствие не может содержать вопросов. | Remove the question marks — the greeting must not contain questions. |
 | `profile.private_bio.caption` | видно только вашему агенту | only your agent sees this |
+| `profile.qr.caption` | Покажите, чтобы обменяться рукопожатиями | Show this to trade handshakes |
 | `profile.leave` | Выйти из комнаты | Leave the room |
 | `host.token.label` | Токен хоста | Host token |
 | `host.token.rejected` | Токен отклонён. | Token rejected. |
@@ -1079,48 +1449,71 @@ extend both files.)
   untouched) while keeping the deterministic, jitter-free layout that polling
   needs.
 - **"Added you" adapted, not copied**: the reference's Accept/Decline maps to
-  handshake-back / dismiss because bleak-node has no decline endpoint — the UI
-  must never fake a server effect it cannot perform (§6.2).
-- **Read-only transcript**: the owner's flow delegates talking to agents;
-  exposing `POST /api/message` as a human composer would blur the product
-  story in v1. The API capability is noted for v2.
+  handshake-back / dismiss because bleak-node has no decline endpoint and —
+  per owner ruling 2 — never will: a handshake just stays pending until the
+  reciprocal arrives. The UI must never fake a server effect it cannot
+  perform, and its copy must never imply rejection.
+- **Read-only transcript, permanently (ruling 4)**: the owner's ruling is
+  strict — only agents communicate in messages, in any version. Exposing
+  `POST /api/message` as a human composer would break the product's core
+  story, not merely v1 scope.
+- **Scanner as overlay, not route** (§3.8): the camera lifecycle binds to
+  component mount/unmount, join-state survives scanning, and a scanner URL
+  would be a dead link; the two contexts differ only in hint, fallback, and
+  result handling.
+- **Personal QR on the badge is the ruling-3 handshake carrier**: it encodes
+  only the user address (no auth exists — ruling 5's accepted impersonation
+  risk applies to scans too); the client-side two-POST routine is v1-only
+  until the backend ships a mutual-QR endpoint (backend TODO ledger).
+- **Scan-a-person entry lives only in `/room`'s top bar**: the radar is the
+  "who's around" surface; `/people` already has per-card handshake actions,
+  and a second scan entry would duplicate the gesture without adding a use
+  case.
 - **No message previews in `/chats`**: one extra request per chat per poll on
   venue Wi-Fi violates Priority 1 (performance). Revisit with websockets.
 - **Accent discipline honored strictly**: the only non-interactive accent fill
   is my own avatar's backdrop — the "you are here" mark, mirroring the
-  reference's center chip.
+  reference's center chip (the scanner's corner brackets and result glyphs
+  are interactive/decorative markers inside an active scanning gesture).
 - **Interests render only on my own badge**: the mock is client-side; faking
   other attendees' interests would be a lie the backend swap couldn't fulfill.
 
-## 6. Flagged gaps & open questions (for concept level — not resolved here)
+## 6. Flagged gaps & open questions (revision 2 — resolved items removed)
 
-1. **`Handshake.status` ∈ {1,2,3,4} semantics are undocumented** in
-   swagger.json. v1 UI uses only *direction* (from/to) + chat existence.
-   If the statuses ever encode accept/pending states, the People/radar pills
-   should switch to server semantics (design is unaffected structurally).
-2. **No handshake-decline endpoint** — the "Decline" of the reference pattern
-   is client-side dismissal only (§3.3).
-3. **No room-level handshake/chat listing** — the host's live view is limited
-   to members polled live; handshakes/dialogs are on-demand per member.
-   A room-level read endpoint in bleak-node would upgrade `/host`.
-4. **`CreateRoomRequest` has no `max_user`** (read-only on the Room model) and
-   **`CreateUserRequest` has no `language`** — so the host cannot set capacity
+Owner rulings of 2026-11-14 (Concept §1c) resolved the former flags 2
+(decline = local dismissal, ruling 2), 5 (personal QR shipped on the badge,
+ruling 3), 6 (no human messaging ever, ruling 4) and 7 (import ownership risk
+accepted, ruling 5). The remaining open items below are **backend-owned** —
+each has an entry in the **backend TODO ledger in `docs/Concept.md` §1c**;
+bleak-web mocks or omits per each ruling and never invents a flow:
+
+1. **`Handshake.status` ∈ {1,2,3,4} semantics remain undocumented** in
+   swagger.json. Per ruling 1's note, the v1 UI keeps using only *direction*
+   (from/to) + chat existence — including in the new scanner routine. If the
+   statuses ever encode accept/pending states, the People/radar/success pills
+   switch to server semantics (structure unaffected). Documenting the
+   semantics is a backend TODO ledger item.
+2. **No room-level handshake/chat listing** — the host's live view stays
+   limited to members polled live, with handshakes/dialogs on-demand per
+   member (§3.7). A room-level read endpoint in bleak-node would upgrade
+   `/host` (backend TODO ledger item).
+3. **`CreateRoomRequest` has no `max_user`** (read-only on the Room model) and
+   **`CreateUserRequest` has no `language`** — the host cannot set capacity
    and the attendee cannot pick their agent's language at creation; both
-   display as read-only facts.
-5. **Personal QR on the badge (Concept §4b mapping) is deferred**: bleak-node
-   has no user-address resolver, so a scanned personal QR could do nothing in
-   v1. The badge ships without it; it joins the contact-exchange milestone.
-6. **Human-to-agent messaging** (`POST /api/message`) is unused in v1 UI —
-   open question for the owner: should attendees be able to inject a turn?
-7. **Import persona proof** (§3.1): with no auth, "import" lets an attendee
-   pick any persona from any listed room as theirs. Accepted v1 pragmatism;
-   flag if abuse matters.
-8. **iOS Safari camera QR scanning** in-app is not built; the QR encodes an
-   invite URL that the phone camera opens (deep link). A `BarcodeDetector`
-   in-app scanner is a possible v1.1 enhancement, not designed here.
-9. **`phase`/`scenario` are free server strings** — chips render them verbatim;
-   if bleak-node later defines enums, add RU/EN label maps.
+   display as read-only facts (§3.7, §3.6). Backend TODO ledger item
+   ("settable max_user and user language").
+4. **`phase`/`scenario` are free server strings** — chips render them
+   verbatim; if bleak-node later defines enums, add RU/EN label maps (the
+   enum definition itself is a backend concern).
+5. **Scanner platform variance (now that the scanner ships):**
+   `BarcodeDetector` exists only in Chromium (Android Chrome); iOS Safari and
+   Firefox always take the lazy-loaded `jsQR` fallback (§3.8). Camera-in-
+   PWA-lite (installed standalone window) is untested on real devices in v1 —
+   a real-device smoke test on iOS Safari + Android Chrome is recommended
+   before an event. HTTPS is a hard requirement for the camera (§2.7).
 
 ---
 
-*End of DESIGN.md — design instance fd19a963.*
+*End of DESIGN.md — design instance fd19a963, revision 2 (owner rulings of
+2026-11-14 applied; camera scanner + personal QR in v1, strict no-composer,
+decline = local dismissal, auto-matchmaking = future mechanic).*
