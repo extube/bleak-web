@@ -60,6 +60,8 @@ export const en = {
   'scan.confirm.cta': 'Trade handshakes',
   'scan.confirm.cancel': 'Cancel',
   'scan.error.network': 'Connection lost. Check the Wi-Fi.',
+  'scan.aria': 'QR scanner',
+  'scan.placeholder': 'The scanner arrives in a later build task.',
 
   /* --- room radar (DESIGN §3.2, §4.7) --- */
   'room.title': 'Around me',
@@ -78,6 +80,7 @@ export const en = {
   'hs.chatting': 'Chatting',
   'hs.agents_talking': 'Your agents are already talking',
   'hs.open_dialog': 'Open dialog',
+  'hs.error.network': 'Connection lost. Check the Wi-Fi.',
 
   /* --- people (DESIGN §3.3, §4.7) --- */
   'people.title': 'People',
@@ -156,6 +159,7 @@ export const en = {
   'common.error.api': 'Server error',
   'common.retry': 'Retry',
   'common.back': 'Back',
+  'common.close': 'Close',
   'common.save': 'Save',
   'common.cancel': 'Cancel',
   'common.copy': 'Copy',
