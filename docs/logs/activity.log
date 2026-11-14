@@ -633,3 +633,19 @@
 2026-11-14T12:38:33Z | ses_e25f630c9ffeCFcJ4oEW3BiOcI | design | tool:edit | path=/workspace/docs/logs/fd19a963.log
 2026-11-14T12:38:52Z | ses_e25f630c9ffeCFcJ4oEW3BiOcI | - | session.execution.succeeded | {"sessionID":"ses_e25f630c9ffeCFcJ4oEW3BiOcI"}
 2026-11-14T12:38:59Z | ses_e29d920cfffempOhwqZDbSsKmF | concept | tool:shell | command=cd /workspace && bash scripts/session.sh set fd19a963 opencode-session ses_e25f630c9ffeCFcJ4oEW3BiOcI 2>/dev/null; bash scripts/session.sh close fd19a963 done "
+2026-11-14T12:39:14Z | ses_e29d920cfffempOhwqZDbSsKmF | - | session.execution.succeeded | {"sessionID":"ses_e29d920cfffempOhwqZDbSsKmF"}
+2026-11-14T12:49:07Z | ses_e29d920cfffempOhwqZDbSsKmF | - | session.execution.started | {"sessionID":"ses_e29d920cfffempOhwqZDbSsKmF"}
+2026-11-14T12:49:15Z | ses_e29d920cfffempOhwqZDbSsKmF | concept | tool:edit | path=/workspace/docs/Concept.md
+2026-11-14T12:49:19Z | ses_e29d920cfffempOhwqZDbSsKmF | concept | tool:edit | path=/workspace/docs/Concept.md
+2026-11-14T12:49:23Z | ses_e29d920cfffempOhwqZDbSsKmF | concept | tool:edit | path=/workspace/docs/Concept.md
+2026-11-14T12:49:44Z | ses_e29d920cfffempOhwqZDbSsKmF | concept | tool:subagent | sessionID=ses_e262b2ce5ffeGkNjsXHnXZWCJx
+2026-11-14T12:49:45Z | ses_e262b2ce5ffeGkNjsXHnXZWCJx | - | session.execution.started | {"sessionID":"ses_e262b2ce5ffeGkNjsXHnXZWCJx"}
+2026-11-14T12:49:50Z | ses_e262b2ce5ffeGkNjsXHnXZWCJx | architect | tool:shell | command=git -c safe.directory=/workspace branch --show-current; git -c safe.directory=/workspace log --oneline -6 dev; ls docs; cat docs/sessions/acff3ab8.md | head -10
+2026-11-14T12:49:54Z | ses_e262b2ce5ffeGkNjsXHnXZWCJx | architect | tool:shell | command=bash scripts/log.sh log acff3ab8 "architect resumed for TZ pass: DESIGN.md rev2 approved by owner, scaffold merged to dev; creating branch feature/acff3ab8-tz" 
+2026-11-14T12:53:50Z | ses_e262b2ce5ffeGkNjsXHnXZWCJx | architect | tool:write | path=/workspace/docs/TZ.md
+2026-11-14T12:54:01Z | ses_e262b2ce5ffeGkNjsXHnXZWCJx | architect | tool:shell | command=bash scripts/log.sh log acff3ab8 "docs/TZ.md written: 10 tasks (TZ-01..TZ-10), 100/100 DESIGN ACs mapped, waves+parallelism plan, DoD v1, 7 flags for concept ag
+2026-11-14T12:54:06Z | ses_e262b2ce5ffeGkNjsXHnXZWCJx | architect | tool:shell | command=bash scripts/session.sh set acff3ab8 task "TZ: technical task for build loop (TZ-01..TZ-10, from DESIGN.md rev2)" && bash scripts/session.sh set acff3ab8 branch
+2026-11-14T12:54:24Z | ses_e262b2ce5ffeGkNjsXHnXZWCJx | - | session.execution.succeeded | {"sessionID":"ses_e262b2ce5ffeGkNjsXHnXZWCJx"}
+2026-11-14T12:54:29Z | ses_e29d920cfffempOhwqZDbSsKmF | concept | tool:shell | command=cd /workspace && bash scripts/session.sh set acff3ab8 opencode-session ses_e262b2ce5ffeGkNjsXHnXZWCJx && bash scripts/session.sh close acff3ab8 done "TZ pass co
+2026-11-14T12:54:31Z | ses_e29d920cfffempOhwqZDbSsKmF | concept | tool:shell | command=cd /workspace && git -c safe.directory=/workspace branch --show-current && git -c safe.directory=/workspace branch -a | grep -i tz
+2026-11-14T12:54:37Z | ses_e29d920cfffempOhwqZDbSsKmF | concept | tool:shell | command=cd /workspace && git -c safe.directory=/workspace add docs/Concept.md docs/logs/activity.log docs/sessions/acff3ab8.md && git -c safe.directory=/workspace commi
