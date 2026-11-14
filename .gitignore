@@ -35,3 +35,8 @@ docs/refs/*.png
 # Helper service runtime state (code -> room mapping DB)
 data/
 helper.db
+
+# SvelteKit / Vite dev artifacts
+.svelte-kit/
+apps/web/.svelte-kit/
+.vite/

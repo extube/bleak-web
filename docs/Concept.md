@@ -1,6 +1,6 @@
 # bleak-web — Concept
 
-Status: **DRAFT — in interview** (topics marked ✅ are user-approved)
+Status: **APPROVED — v1 concept frozen** (all topics ✅; awaiting owner go-ahead for the architect)
 
 ---
 
@@ -152,5 +152,5 @@ Three reference images kept locally at **`docs/refs/`** (gitignored by owner dec
 ## Approval
 
 - [x] Topics 1–5 decided (all ✅ approved above)
-- [x] Owner approved the complete document (with the terracotta-cream palette revision) — **2026-11-13**.
+- [x] Owner approved the complete document — **2026-11-13** (visual language later revised same day to the owner's dark-pixel template; typography made Cyrillic-safe on 2026-11-13).
 - [ ] Architect started → **later, at the owner's go-ahead.**
