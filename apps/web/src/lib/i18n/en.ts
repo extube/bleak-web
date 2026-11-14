@@ -74,6 +74,10 @@ export const en = {
   'room.scan.open': 'Scan a persona QR',
   'room.empty': 'Nobody here yet. Ask the host for the invite code — or share yours.',
   'room.members_more': '+{n} more',
+  'room.node.chat': '{name} — your agents are already talking',
+  'room.node.incoming': '{name} — added you',
+  'room.node.outgoing': '{name} — handshake sent',
+  'room.node.none': '{name} — handshake not sent yet',
 
   /* --- handshake states (DESIGN §3.2/§3.3, §4.7) --- */
   'hs.send': 'Send handshake',
