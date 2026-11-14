@@ -54,5 +54,14 @@ export default tseslint.config(
     languageOptions: {
       globals: { ...globals.node }
     }
+  },
+  {
+    // PixelAvatar composes its own trusted, static SVG part fragments
+    // (apps/web/src/lib/assets/avatars/*.svg?raw) — never user input — so
+    // the generic no-at-html-tags warning is disabled for this file only.
+    files: ['apps/web/src/lib/components/PixelAvatar.svelte'],
+    rules: {
+      'svelte/no-at-html-tags': 'off'
+    }
   }
 );

@@ -1,0 +1,8 @@
+<!-- bleak-web avatar part: pixel-ghost body — fixed default portrait for
+     unparseable addresses (12×12 fragment; fill set by the component) -->
+<rect x="3" y="2" width="6" height="7"/>
+<rect x="2" y="3" width="1" height="5"/>
+<rect x="9" y="3" width="1" height="5"/>
+<rect x="3" y="9" width="1" height="1"/>
+<rect x="5" y="9" width="1" height="1"/>
+<rect x="7" y="9" width="1" height="1"/>

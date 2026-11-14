@@ -1,0 +1,1 @@
+2026-11-14T18:08:54Z [<unknown>] TZ-09 host console: implemented /host route + components (TokenGate, CreateRoomForm, ShareKit, LiveRoom, MemberDrillDown), hostSession store, hostLogic pure module, i18n keys (ru+en), tests host-session (5) + host-console (14); lint green, test green 262 passed, build green (svelte-check 0 errors)
