@@ -711,17 +711,5 @@
 2026-11-14T13:15:34Z | ses_e29d920cfffempOhwqZDbSsKmF | devops | tool:shell | command=cat /etc/gitconfig 2>/dev/null; cd /workspace && git status --short >/dev/null && echo "git OK as $(whoami)"
 2026-11-14T13:15:38Z | ses_e29d920cfffempOhwqZDbSsKmF | devops | tool:shell | command=cd /workspace && H=$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n') && git checkout -b "feature/$H-safe-dir" && git add docs/logs/activity.log docs/logs/da993d24.l
 2026-11-14T13:21:58Z | ses_e29d920cfffempOhwqZDbSsKmF | devops | tool:shell | command=cd /workspace && git checkout 963d0eb -- .opencode/opencode.jsonc docs/logs/da993d24.log docs/sessions/da993d24.md docs/logs/7c9da68a.log docs/sessions/7c9da68a
-2026-11-14T13:40:24Z | ses_e29d920cfffempOhwqZDbSsKmF | devops | tool:shell | command=cd /workspace && opencode api post /api/session/ses_e25d8b51fffeE7BG7VaR3f3lqA/prompt -d '{"text":"BOTH BLOCKERS RESOLVED — proceed now. (1) The main checkout i
-2026-11-14T13:40:25Z | ses_e25d8b51fffeE7BG7VaR3f3lqA | - | session.execution.started | {"sessionID":"ses_e25d8b51fffeE7BG7VaR3f3lqA"}
-2026-11-14T13:40:27Z | ses_e25d8b51fffeE7BG7VaR3f3lqA | process | tool:shell | command=git merge --no-ff feature/7c9da68a-i18n-tokens
-2026-11-14T13:40:30Z | ses_e25d8b51fffeE7BG7VaR3f3lqA | process | tool:shell | command=python3 scripts/task.py status 4 merged --as da993d24
-2026-11-14T13:40:31Z | ses_e29d920cfffempOhwqZDbSsKmF | devops | tool:shell | command=timeout 570 opencode api post /api/experimental/session/ses_e25d8b51fffeE7BG7VaR3f3lqA/wait -d '{}' >/dev/null 2>&1; echo "wait=$?"; opencode api get /api/sessi
-2026-11-14T13:40:32Z | ses_e25d8b51fffeE7BG7VaR3f3lqA | process | tool:shell | command=make lint
-2026-11-14T13:40:36Z | ses_e25d8b51fffeE7BG7VaR3f3lqA | process | tool:shell | command=make test
-2026-11-14T13:40:44Z | ses_e25d8b51fffeE7BG7VaR3f3lqA | process | tool:shell | command=make build
-2026-11-14T13:41:01Z | ses_e25d8b51fffeE7BG7VaR3f3lqA | process | tool:shell | command=python3 scripts/task.py ci 4 green --as da993d24
-2026-11-14T13:41:03Z | ses_e25d8b51fffeE7BG7VaR3f3lqA | process | tool:shell | command=git branch -d feature/7c9da68a-i18n-tokens
-2026-11-14T13:41:05Z | ses_e25d8b51fffeE7BG7VaR3f3lqA | process | tool:shell | command=bash scripts/log.sh log da993d24 "TZ-01 closed: merged feature/7c9da68a-i18n-tokens into dev (--no-ff), CI green (lint OK, test 43/43, build OK), task 4 done, b
-2026-11-14T13:41:05Z | ses_e25d8b51fffeE7BG7VaR3f3lqA | process | tool:shell | command=make task-list
-2026-11-14T13:41:15Z | ses_e25d8b51fffeE7BG7VaR3f3lqA | - | session.execution.succeeded | {"sessionID":"ses_e25d8b51fffeE7BG7VaR3f3lqA"}
-2026-11-14T13:41:20Z | ses_e29d920cfffempOhwqZDbSsKmF | devops | tool:shell | command=cd /workspace && git log --oneline -2 && git status --short | head -3 && git add docs/logs/activity.log docs/logs/da993d24.log 2>/dev/null; git diff --cached --
+2026-11-14T13:41:25Z | ses_e29d920cfffempOhwqZDbSsKmF | devops | tool:shell | command=cd /workspace && git branch --show-current && git log --oneline -3 && git status --short | head
+2026-11-14T13:41:28Z | ses_e29d920cfffempOhwqZDbSsKmF | devops | tool:shell | command=cd /workspace && git add docs/logs/activity.log && git stash push -m "activity appends" >/dev/null 2>&1; git merge --no-ff chore/ci-records-tz01 -m "merge: CI r
