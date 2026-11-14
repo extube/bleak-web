@@ -351,11 +351,12 @@ describe('persona routine (context *b*, ruling 3)', () => {
     await waitFor(() => expect(see(ru['scan.confirm.title'])).toBe(true));
     await screen.getByRole('button', { name: ru['scan.confirm.cta'] }).click();
     await waitFor(() => expect(see(ru['scan.error.network'])).toBe(true));
+    expect(apiMock.createHandshake.mock.calls.length).toBe(1);
 
-    // Network recovers → Retry re-sends both POSTs (idempotent) → success.
+    // Network recovers → Retry re-sends the pair (idempotent) → success.
     await screen.getByRole('button', { name: ru['common.retry'] }).click();
     await waitFor(() => expect(see(ru['hs.agents_talking'])).toBe(true));
-    expect(apiMock.createHandshake.mock.calls.length).toBe(4); // 2 attempts × 2 calls
+    expect(apiMock.createHandshake.mock.calls.length).toBe(3);
   });
 
   it('an ApiError shows the server text with Retry', async () => {

@@ -53,7 +53,7 @@
   type ScanResult =
     | { kind: 'invalid' }
     | { kind: 'own' }
-    | { kind: 'foreign' }
+    | { kind: 'foreign'; address: string }
     | { kind: 'confirm'; address: string; name: string }
     | { kind: 'success'; address: string; chatAddress: string | null }
     | { kind: 'error-network'; address: string }
@@ -74,6 +74,7 @@
   let loopToken = 0;
   let flashTimer = 0;
   let personaEnv: PersonaEnv | null = null;
+  let focusReturn: HTMLElement | null = null;
 
   const titleLabel = $derived(translate($locale, 'scan.title'));
   const closeLabel = $derived(translate($locale, 'scan.close'));
@@ -128,7 +129,7 @@
 
   $effect(() => {
     if (open) {
-      const previous = document.activeElement as HTMLElement | null;
+      focusReturn = document.activeElement as HTMLElement | null;
       phase = 'unasked';
       result = null;
       insecureOrigin = false;
@@ -143,14 +144,27 @@
         stopCamera();
         if (flashTimer) window.clearTimeout(flashTimer);
         flashTimer = 0;
-        previous?.focus?.();
+        restoreFocus();
       };
     }
   });
 
   function close(): void {
     open = false;
+    // §3.8 focus return — but only while focus still sits inside the
+    // overlay: an explicit consumer refocus (e.g. the join page's digit
+    // cells) is called right after and must win.
+    restoreFocus();
     onClosed?.();
+  }
+
+  function restoreFocus(): void {
+    if (!focusReturn) return;
+    const active = document.activeElement;
+    const inside =
+      active instanceof Node && overlayEl !== null && (active === overlayEl || overlayEl.contains(active));
+    if (inside) focusReturn.focus();
+    focusReturn = null;
   }
 
   function overlayKeydown(event: KeyboardEvent): void {
@@ -211,12 +225,14 @@
       await tick();
       const video = videoEl;
       if (video && stream) {
-        video.srcObject = stream;
+        // Viewfinder wiring is non-fatal: a srcObject/play failure must not
+        // mask an already-granted camera permission (stream stays live).
         try {
+          video.srcObject = stream;
           const played = video.play();
           if (played && typeof played.then === 'function') played.catch(() => undefined);
         } catch {
-          /* autoplay guards are non-fatal */
+          /* autoplay/validation guards are non-fatal */
         }
       }
       void startLoop();
@@ -336,7 +352,7 @@
     if (!mine) {
       // Unreachable in practice (both persona entries require an identity);
       // never send handshakes without an own persona.
-      result = { kind: 'foreign' };
+      result = { kind: 'foreign', address: userAddress };
       return;
     }
     let counterparts: ReadonlySet<string> = new Set();
@@ -361,7 +377,7 @@
         result = { kind: 'own' };
         break;
       case 'foreign':
-        result = { kind: 'foreign' };
+        result = { kind: 'foreign', address };
         break;
       case 'confirm':
         result = { kind: 'confirm', address, name: memberName(address) };
@@ -380,7 +396,10 @@
 
   async function tradeHandshakes(): Promise<void> {
     const current = result;
-    if (!current || current.kind === 'success' || trading) return;
+    if (!current || trading) return;
+    const addressable =
+      current.kind === 'confirm' || current.kind === 'error-network' || current.kind === 'error-api';
+    if (!addressable) return;
     const env = personaEnv;
     if (!env) return;
     trading = true;

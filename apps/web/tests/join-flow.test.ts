@@ -241,8 +241,8 @@ describe('JoinFlow — scanner mount (context *a*, QrScanner public API)', () =>
     pasteCode('123456');
     await screen.getByRole('button', { name: ru['join.scan.open'] }).click();
     expect(screen.getByRole('dialog')).toBeTruthy();
-    // Manual fallback inside the placeholder panel.
-    await screen.getByRole('button', { name: ru['common.close'] }).click();
+    // Manual fallback (§3.8, context a): «Ввести код вручную».
+    await screen.getByRole('button', { name: ru['scan.fallback.enter_code'] }).click();
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(document.activeElement).toBe(cells()[0]);
     // Digits intact.
@@ -257,10 +257,9 @@ describe('JoinFlow — scanner mount (context *a*, QrScanner public API)', () =>
     render(JoinFlow, { props: {} });
     await screen.getByRole('button', { name: ru['join.scan.open'] }).click();
     expect(screen.getByRole('dialog')).toBeTruthy();
-    // The placeholder never fires onInviteCode; the close/fallback path must
-    // leave the join flow intact so a detected code (TZ-04) enters Step 1 as
-    // if typed. Manual entry continues to work identically.
-    await screen.getByRole('button', { name: ru['common.close'] }).click();
+    // The §3.8 manual fallback closes the overlay (the real scanner fires
+    // onInviteCode itself); manual entry continues to work identically.
+    await screen.getByRole('button', { name: ru['scan.fallback.enter_code'] }).click();
     pasteCode('123456');
     await submitViaCta();
     await screen.findByText(room.name);

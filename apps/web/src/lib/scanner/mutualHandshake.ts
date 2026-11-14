@@ -73,7 +73,9 @@ export async function classifyPersonaScan(
 
   // Step 6 — already mutual: skip the POSTs, jump straight to success.
   if (env.existingChatCounterparts.has(userAddress)) {
-    const chatAddress = await resolveChatAddress(userAddress, env);
+    // Refresh failure is eventual consistency here (no mutation pending) —
+    // the CTA falls back to /chats; never surface a fake error.
+    const chatAddress = await resolveChatAddress(userAddress, env).catch(() => null);
     return { kind: 'success', chatAddress };
   }
 

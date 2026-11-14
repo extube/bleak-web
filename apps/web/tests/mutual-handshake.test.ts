@@ -133,12 +133,23 @@ describe('sendMutualHandshakes (§3.8 steps 3–5)', () => {
     });
   });
 
-  it('a NetworkError on the POSTs → retry state; retry re-sends the pair safely', async () => {
-    const e = env({ postError: new NetworkError('/api/handshake', new Error('offline')) });
+  it('a NetworkError on the POSTs → retry state; retry re-sends the pair safely to success', async () => {
+    const e = env();
+    vi.mocked(e.api.createHandshake).mockRejectedValueOnce(
+      new NetworkError('/api/handshake', new Error('offline'))
+    );
     expect(await sendMutualHandshakes('0xbob', e)).toEqual({ kind: 'error-network' });
-    // Idempotent retry: re-sends both POSTs (existing pairs return 200).
-    expect(await sendMutualHandshakes('0xbob', e)).toEqual({ kind: 'error-network' });
-    expect(vi.mocked(e.api.createHandshake).mock.calls.length).toBe(4);
+    expect(vi.mocked(e.api.createHandshake).mock.calls.length).toBe(1);
+    // Idempotent retry on recovery: re-sends the pair (existing pairs return
+    // 200) and reaches success.
+    expect(await sendMutualHandshakes('0xbob', e)).toEqual({
+      kind: 'success',
+      chatAddress: null
+    });
+    const calls = vi.mocked(e.api.createHandshake).mock.calls;
+    expect(calls.length).toBe(3);
+    expect(calls[1]?.[0]).toEqual({ from_address: '0xme', to_address: '0xbob', status: 1 });
+    expect(calls[2]?.[0]).toEqual({ from_address: '0xbob', to_address: '0xme', status: 1 });
   });
 
   it('an ApiError on the POSTs → retry state with the server text', async () => {

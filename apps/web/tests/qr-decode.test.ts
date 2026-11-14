@@ -4,7 +4,11 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { barcodeDetectorSupported, loadDecoder } from '../src/lib/scanner/decode';
 
 const jsqr = vi.hoisted(() =>
-  vi.fn(() => ({ data: 'http://localhost:5173/?code=654321' }))
+  vi.fn(
+    (_data: Uint8ClampedArray, _width: number, _height: number): { data: string } | null => ({
+      data: 'http://localhost:5173/?code=654321'
+    })
+  )
 );
 vi.mock('jsqr', () => ({ default: jsqr }));
 
