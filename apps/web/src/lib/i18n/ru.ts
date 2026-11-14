@@ -61,6 +61,8 @@ export const ru: Record<MessageKey, string> = {
   'scan.confirm.cta': 'Обменяться рукопожатиями',
   'scan.confirm.cancel': 'Отмена',
   'scan.error.network': 'Нет связи. Проверьте Wi-Fi.',
+  'scan.aria': 'Сканер QR-кодов',
+  'scan.placeholder': 'Сканер появится в следующей задаче сборки.',
 
   /* --- room radar --- */
   'room.title': 'Рядом со мной',
@@ -79,6 +81,7 @@ export const ru: Record<MessageKey, string> = {
   'hs.chatting': 'Общаемся',
   'hs.agents_talking': 'Агенты уже общаются',
   'hs.open_dialog': 'Открыть диалог',
+  'hs.error.network': 'Нет связи. Проверьте Wi-Fi.',
 
   /* --- people --- */
   'people.title': 'Люди',
@@ -157,6 +160,7 @@ export const ru: Record<MessageKey, string> = {
   'common.error.api': 'Ошибка сервера',
   'common.retry': 'Повторить',
   'common.back': 'Назад',
+  'common.close': 'Закрыть',
   'common.save': 'Сохранить',
   'common.cancel': 'Отмена',
   'common.copy': 'Скопировать',

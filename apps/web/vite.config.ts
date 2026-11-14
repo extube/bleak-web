@@ -12,7 +12,11 @@ export default defineConfig({
     alias: {
       '#lib': libDir,
       '#lib/': `${libDir}/`
-    }
+    },
+    // Component tests mount client-side Svelte (mount() is client-only):
+    // under vitest, resolve with browser conditions so `svelte` resolves to
+    // the client entry (testing-library/svelte recipe).
+    ...(process.env.VITEST ? { conditions: ['browser'] } : {})
   },
   plugins: [
     sveltekit({
@@ -44,6 +48,11 @@ export default defineConfig({
   },
   test: {
     environment: 'happy-dom',
-    include: ['tests/**/*.test.ts']
-  }
+    include: ['tests/**/*.test.ts'],
+    setupFiles: ['tests/setup.ts']
+  },
+  // Component tests mount client-side Svelte (mount() is client-only):
+  // under vitest, resolve with browser conditions so `svelte` resolves to
+  // the client entry (testing-library/svelte recipe).
+  // (Merged into `resolve` above — alias + conditions.)
 });
