@@ -1,6 +1,6 @@
 # bleak-web — Concept
 
-Status: **DRAFT — in interview** (topics marked ✅ are user-approved)
+Status: **APPROVED — v1 concept frozen** (all topics ✅; awaiting owner go-ahead for the architect)
 
 ---
 
@@ -57,6 +57,30 @@ The owner defined the product as a **real-world networking application for event
 
 ---
 
+## 1c. Owner rulings on design-phase questions — ✅ APPROVED (2026-11-14)
+
+These rulings answer the nine gaps the design phase flagged; they are binding for DESIGN/TZ and for the backend TODO ledger.
+
+1. **Auto-matchmaking (score → auto-handshake) — backend TODO only.** Target mechanic (owner spec, to be implemented in bleak-node later): agents automatically scan the room and rank the most relevant users; every user has a **score**; an incoming handshake raises the score; each iteration every user in the room gains score by a **personal coefficient** (derived from the number of matched hobbies or matched hobby groups/topics); when a user reaches a threshold **N**, your agent automatically sends him a handshake. **V1 frontend consequence: none** — v1 ships manual handshakes only (radar + people list). No mock score loop is built client-side. When bleak-node implements the mechanic, the UI adds score/auto-handshake states from real API data.
+2. **Decline = local dismissal only.** The backend knows only "send handshake"; a handshake is never "declined" — it simply stays pending until the reciprocal handshake arrives. UI copy must reflect this ("ожидает ответного рукопожатия" semantics), and a dismissed incoming request may reappear (it still exists server-side).
+3. **Scan user QR → immediate mutual handshake, frontend-owned in v1.** The scanner's client sends **both** `POST /api/handshake` calls (A→B and B→A), which auto-creates the chat. Persona QR content = join-URL containing the user's address; the persona's QR is rendered client-side on the profile/badge card (this pulls the §4b "personal QR" into v1). Impersonation risk accepted (no auth exists anywhere); the helper/backend should own this later. **Deployment note: camera access requires HTTPS.**
+4. **STRICT RULE — humans never send messages.** Only agents communicate in messages. A human's only actions are: **send handshakes** and (future) **access contact info**. No message composer may exist in any chat UI in any version.
+5. **Persona ownership/import:** a proper token-based ownership mechanism is a **backend TODO** (release later). In v1, import works without a token: the attendee's identity (room + user address) lives in `localStorage`, and importing copies the stored persona into the new room via the API (read old user → re-create). Accepted risk: anyone with the address can copy a persona.
+6. **Camera scanner is in v1**, two contexts: (a) **scan invite QR** → join room; (b) **scan a user's QR** → mutual handshake pair (per ruling 3). Manual 6-digit code entry and deep links remain as fallbacks.
+7. **General rule for all backend gaps:** every missing bleak-node feature goes into the **backend TODO ledger** (kept in this document); meanwhile the frontend mocks or omits per each ruling — no invented flows.
+
+**Backend TODO ledger (for bleak-node, maintained here):**
+- [ ] Auto-matchmaking score mechanic (ruling 1: scan room, hobby/hobby-group match coefficient, threshold N auto-handshake, incoming-handshake score bump).
+- [ ] Private contact exchange after a dialog.
+- [ ] Interests field on the user profile (array of short hobby labels + emoji).
+- [ ] Handshake status semantics documented (`status ∈ {1,2,3,4}`).
+- [ ] Room-level handshake/chat listing (for richer host views).
+- [ ] Settable `max_user` and user `language` via API.
+- [ ] Persona ownership token mechanism (ruling 5).
+- [ ] Mutual-handshake-from-QR endpoint (move ruling 3 server-side).
+
+---
+
 ## 2. Aims & restrictions — ✅ APPROVED
 
 **V1 scope (both audiences):**
@@ -89,30 +113,45 @@ The owner defined the product as a **real-world networking application for event
 
 ---
 
-## 4. Visual language — ✅ APPROVED (palette revised per owner)
+## 4. Visual language — ✅ APPROVED (revised per owner: template-based dark pixel style)
 
-**Concept — "a warm world; connection in terracotta."** The interface carries a muted orange mood throughout — warm cream surfaces and terracotta accents that are present but never glare. Type mirrors the split: the human layer in a friendly sans, the machine layer (addresses, tx ids, agent turns) in monospace.
+**Source of truth:** the owner's reference template (`/workspace/design-template.png` — "Snifti Gallery" login). Direction: **dark retro-pixel meets modern soft UI** — a "cozy terminal" mood that makes the pixel-agent concept systemic rather than decorative.
 
-**Palette (light theme, primary — terracotta cream):**
+**Palette (dark theme, v1 default — exact sampled values):**
 
 | Role | Hex | Use |
 | --- | --- | --- |
-| Background | `#FAF1E7` | App background (warm cream) |
-| Surface | `#F3DFCB` | Cards, highlights, soft orange-tinted surfaces |
-| Ink (text) | `#2A211A` | Primary text, headings |
-| Muted | `#8A7263` | Secondary text, captions |
-| Hairline | `#E8D5C2` | Borders, dividers, card edges |
-| **Terracotta (accent)** | `#C75A1E` | Handshake actions, live indicators, primary CTAs |
-| Success | `#3E8E5A` | Confirmations, "agents are talking" |
-| Danger | `#B8432E` | Destructive actions, errors |
+| Background | `#1A1C20` | Page background (dark, slightly cool charcoal) |
+| Surface | `#101213` | Cards, inputs (near-black) |
+| Elevated surface | `#292C2D` | Segmented-control tracks, disabled elements |
+| **Accent** | `#FEDC5C` | Warm yellow — active tabs, handshakes, live indicators, labels, primary CTAs |
+| Text primary | `#F0F0F0` | Logo, headings, primary copy |
+| Text muted | `#919397` | Secondary copy, hints |
+| Text disabled | `#4A4C4E` / `#606264` | Inactive elements |
 
-**Typography mood:** modern grotesk — Space Grotesk for headings, Inter for body/UI; JetBrains Mono reserved exclusively for the machine layer (`0x…` addresses, tx ids, agent message turns).
+**Accent discipline:** yellow only on interactive/active elements; everything else stays in the charcoal range.
 
-**Shapes & density:** soft cards (12–16px radius), generous whitespace, **pill chips for interests**, airy mobile-first layout, large touch targets (AA basics per Topic 2).
+**Typography (Cyrillic-safe — RU is the primary UI language):** **pixel typefaces for titles only** — **Handjet** (element-based variable pixel font, full Cyrillic) for the logo and screen titles; if a harsher arcade look is ever preferred, Press Start 2P (also Cyrillic) is the fallback. All other text (body copy, chat messages, UI labels, buttons, inputs) uses a clean, relevant sans — **Inter** (full Cyrillic) — for readability at small sizes and in long chat transcripts. No pixel fonts in body/chat text. Silkscreen (Latin-only) and Pixelify Sans (missing О/П glyphs in Cyrillic) were rejected for lack of usable Cyrillic.
 
-**Agent identity:** **pixel-shaped agent icons** (pixel-art glyphs) as avatars for agents — a memorable, conceptual touch that visually marks the "machine actor" vs the human.
+**Shapes & signature detail:** large rounded corners (~20–24px) with **dithered/stepped pixel edges**; pill-shaped segmented controls; generous vertical spacing; wide letter-spacing on body; large touch targets (AA basics per Topic 2).
 
-**Theme:** light-only in v1; dark mode deferred to v1.1.
+**Icons & agent identity:** pixel-art glyphs for icons (close, info…) **and** for agent avatars — one conceptual pixel language across logo, icons, and text.
+
+**Theme:** dark-only in v1; a light variant (the earlier terracotta-cream palette may be revisited later) deferred.
+
+**Prior terracotta-cream proposal (superseded, kept for the record):** light cream `#FAF1E7` / surface `#F3DFCB` / terracotta accent `#C75A1E` with Space Grotesk/Inter + JetBrains Mono — replaced by the owner's template direction above.
+
+### 4b. Owner's reference materials (✅ provided 2026-11-13)
+
+Three reference images kept locally at **`docs/refs/`** (gitignored by owner decision — present on this machine, not in the repo); the **design agent must treat these as the primary visual brief** — layout/pattern/avatar guidance is binding, palette follows topic 4 (dark pixel):
+
+1. **`docs/refs/design-concept.png`** — UX patterns for the event flow (its light colorful palette is *not* adopted; patterns are):
+   - **Event badge card:** name, role, company, personal QR code, stat counters ("contacts today" / "added you"), quick actions (scan/tap).
+   - **Contacts list:** stacked colored cards, each tagged with a location pill (Hall A/B, Lounge) + timestamp.
+   - **Incoming request:** "Added you" detail card with **Accept / Decline**.
+   - Mapping to bleak-web: badge ↔ persona card (greeting, interests chips, personal QR); location pills ↔ interest/attribute chips; "Added you" ↔ incoming handshake request; stats ↔ room/handshake counters.
+2. **`docs/refs/icons-personage.png`** — avatar art style: **chunky pixel-art portraits** ("pixel people": hair, glasses, beards at low resolution, solid-color backdrop). All user/agent avatars in bleak-web are generated pixel portraits in this style.
+3. **`docs/refs/searching.png`** — the **room page = radar / "Around me" view**: concentric rings around the center "Me" chip ("N around you"), other attendees as pixel avatars placed on the rings with names, dark top bar, **bottom tab navigation** (the IA hint: Around me · Contacts · Requests · Activity · Settings — bleak-web's tabs will be adapted to its own flow: Room/Around, People, Chats, Profile, and Host where applicable).
 
 ---
 
@@ -137,5 +176,9 @@ The owner defined the product as a **real-world networking application for event
 ## Approval
 
 - [x] Topics 1–5 decided (all ✅ approved above)
-- [x] Owner approved the complete document (with the terracotta-cream palette revision) — **2026-11-13**.
-- [ ] Architect started → **later, at the owner's go-ahead.**
+- [x] Owner approved the complete document — **2026-11-13** (visual language later revised same day to the owner's dark-pixel template; typography made Cyrillic-safe on 2026-11-13).
+- [x] Owner rulings §1c — **2026-11-14**.
+- [x] Owner approved **docs/ARCHITECTURE.md** and **docs/DESIGN.md** (rev. 2) — **2026-11-14** → TZ pass authorized.
+- [x] Architect (acff3ab8) — architecture + scaffolding **done**; TZ pass done (`docs/TZ.md`).
+- [x] Owner approved **docs/TZ.md** (conservative flag interpretations accepted) — **2026-11-14** → **build loop authorized** (process agent; default per-feature merge-approval mode).
+- [ ] Build loop → v1 done (TZ §6 Definition of Done).

@@ -1,0 +1,60 @@
+/*
+ * bleak-web design tokens — dark pixel style (Concept.md §4, owner-approved).
+ * Single source of truth for palette, typography, radii, spacing.
+ * Light variant is deferred; dark-only in v1.
+ */
+:root {
+  /* --- palette ---------------------------------------------------------- */
+  --color-bg: #1a1c20; /* page background, slightly cool charcoal */
+  --color-surface: #101213; /* cards, inputs */
+  --color-surface-elevated: #292c2d; /* segmented-control tracks, disabled */
+  --color-accent: #fedc5c; /* warm yellow — ONLY on interactive/active elements */
+  --color-accent-ink: #101213; /* text/icons drawn on accent */
+  --color-text: #f0f0f0;
+  --color-text-muted: #919397;
+  --color-text-disabled: #4a4c4e;
+  --color-text-disabled-strong: #606264;
+
+  /* Functional light exception (DESIGN §3.6/§4.1): QR scannability needs a
+   * light backdrop. Shared by the host share-kit QR frame and the profile
+   * badge QR; QR dark modules use --color-surface (#101213) via that token. */
+  --color-qr-frame: #f0f0f0;
+
+  /* Derived alpha variants — values stay within the approved palette
+   * (color-mix over existing tokens only; DESIGN §4.1). Never inline
+   * these expressions in components — use the tokens. */
+  /* incoming-handshake accent ring, soft live glow (§3.2) */
+  --color-accent-dim: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  /* subtle accent highlight backgrounds (§3.3 filter track hover etc.) */
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  /* radar dashed rings: --color-text-disabled-strong at 40% (§3.2) */
+  --color-ring: color-mix(in srgb, var(--color-text-disabled-strong) 40%, transparent);
+  /* sheet/dialog backdrop over the page (§2.1) */
+  --color-scrim: color-mix(in srgb, var(--color-bg) 65%, transparent);
+
+  /* --- typography --------------------------------------------------------- */
+  /* Handjet (variable pixel font, Cyrillic-safe) — titles/logo ONLY. */
+  --font-pixel: 'Handjet Variable', 'Handjet', monospace;
+  /* Inter (Cyrillic-safe sans) — body, chat, labels, buttons. */
+  --font-body: 'Inter Variable', 'Inter', system-ui, sans-serif;
+
+  /* --- shapes ------------------------------------------------------------- */
+  --radius-lg: 24px; /* large rounded cards */
+  --radius-md: 20px;
+  --radius-pill: 999px; /* segmented controls, chips */
+
+  /* --- spacing scale (generous vertical rhythm) --------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* --- touch targets (WCAG 2.1 AA basics, mobile-first) -------------------- */
+  --touch-target: 48px;
+
+  /* --- layout -------------------------------------------------------------- */
+  --bottom-tabbar-height: 64px;
+}

@@ -1,0 +1,25 @@
+{
+  "name": "bleak-web",
+  "short_name": "bleak",
+  "description": "Живой нетворкинг на мероприятиях: персона-агент, хендшейки, диалоги",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1A1C20",
+  "theme_color": "#1A1C20",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

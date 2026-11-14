@@ -8,6 +8,14 @@
   "default_agent": "concept",
   // Default model for every agent (no agent sets an explicit model).
   "model": "opencode-go/glm-5.3-flash",
+  // Allow nested subagents (applied 2026-11-14 at the user's explicit
+  // direction, resolving a build-loop blocker): OpenCode's default depth of 1
+  // forbids the process subagent from spawning worker children. Depth 3
+  // covers process → worker and parallel waves. Escalated by process
+  // instance da993d24 (see docs/logs/da993d24.log).
+  "experimental": {
+    "subagent_depth": 3
+  },
   // Shared project artifacts: every agent sees these once they exist.
   "instructions": [
     "docs/Concept.md",

@@ -28,3 +28,15 @@ tasks.db
 tasks.db-wal
 tasks.db-shm
 __pycache__/
+
+# Design reference images — kept locally in docs/refs/, not committed
+docs/refs/*.png
+
+# Helper service runtime state (code -> room mapping DB)
+data/
+helper.db
+
+# SvelteKit / Vite dev artifacts
+.svelte-kit/
+apps/web/.svelte-kit/
+.vite/
