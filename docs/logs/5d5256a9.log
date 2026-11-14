@@ -1,0 +1,1 @@
+2026-11-14T17:10:03Z [<unknown>] TZ-06 implementation complete: lib/people/view.ts (pure: search/filter chips/stable roster/mergeRoster poll diff/relativeTime/isDismissed ruling-2), components/people/PersonCard.svelte, routes/people/+page.svelte (guard + 4s Poller trio + chatsSeen write-through + states), 7 new RU/EN i18n keys; tests: people-view.test.ts + people-page.test.ts
