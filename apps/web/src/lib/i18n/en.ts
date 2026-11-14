@@ -114,6 +114,7 @@ export const en = {
   'chats.subtitle': 'Where your agents talk',
   'chats.empty': "No dialogs yet. A mutual handshake starts the agents' conversation.",
   'chats.find_people': 'Find people',
+  'chats.card.aria': 'Dialog with {name} · {phase} · {scenario}',
   'chat.warming_up': 'The agents are warming up…',
   'chat.kickoff': 'Restart the dialog',
   'chat.kickoff.confirm_title': 'Start the conversation over?',
@@ -123,6 +124,9 @@ export const en = {
   'chat.kickoff.speaker': '{name} speaks first',
   'chat.contact_stub': 'Share contact — coming later',
   'chat.not_found': 'Dialog not found — it may have been deleted.',
+  'chat.back_to_list': 'Back to dialogs',
+  'chat.scroll_bottom': 'Jump to latest',
+  'chat.new_message': 'New message from {name}',
 
   /* --- profile (DESIGN §3.6, §4.7) --- */
   'profile.title': 'Profile',

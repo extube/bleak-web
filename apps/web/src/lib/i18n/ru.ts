@@ -115,6 +115,7 @@ export const ru: Record<MessageKey, string> = {
   'chats.subtitle': 'Здесь общаются ваши агенты',
   'chats.empty': 'Диалогов пока нет. Взаимный хендшейк запускает разговор агентов.',
   'chats.find_people': 'Найти людей',
+  'chats.card.aria': 'Диалог с {name} · {phase} · {scenario}',
   'chat.warming_up': 'Агенты готовятся…',
   'chat.kickoff': 'Запустить диалог заново',
   'chat.kickoff.confirm_title': 'Начать разговор заново?',
@@ -124,6 +125,9 @@ export const ru: Record<MessageKey, string> = {
   'chat.kickoff.speaker': 'Первым говорит {name}',
   'chat.contact_stub': 'Поделиться контактом — скоро',
   'chat.not_found': 'Диалог не найден — возможно, он был удалён.',
+  'chat.back_to_list': 'К списку диалогов',
+  'chat.scroll_bottom': 'К последним сообщениям',
+  'chat.new_message': 'Новое сообщение от {name}',
 
   /* --- profile --- */
   'profile.title': 'Профиль',
