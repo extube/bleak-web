@@ -15,6 +15,23 @@
   --color-text-disabled: #4a4c4e;
   --color-text-disabled-strong: #606264;
 
+  /* Functional light exception (DESIGN §3.6/§4.1): QR scannability needs a
+   * light backdrop. Shared by the host share-kit QR frame and the profile
+   * badge QR; QR dark modules use --color-surface (#101213) via that token. */
+  --color-qr-frame: #f0f0f0;
+
+  /* Derived alpha variants — values stay within the approved palette
+   * (color-mix over existing tokens only; DESIGN §4.1). Never inline
+   * these expressions in components — use the tokens. */
+  /* incoming-handshake accent ring, soft live glow (§3.2) */
+  --color-accent-dim: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  /* subtle accent highlight backgrounds (§3.3 filter track hover etc.) */
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  /* radar dashed rings: --color-text-disabled-strong at 40% (§3.2) */
+  --color-ring: color-mix(in srgb, var(--color-text-disabled-strong) 40%, transparent);
+  /* sheet/dialog backdrop over the page (§2.1) */
+  --color-scrim: color-mix(in srgb, var(--color-bg) 65%, transparent);
+
   /* --- typography --------------------------------------------------------- */
   /* Handjet (variable pixel font, Cyrillic-safe) — titles/logo ONLY. */
   --font-pixel: 'Handjet Variable', 'Handjet', monospace;

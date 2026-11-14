@@ -50,6 +50,23 @@ button {
   outline-offset: 2px;
 }
 
+/* Motion rules (DESIGN §4.6): all animation is transform/opacity only, and
+ * under prefers-reduced-motion the ambient radar rotation, skeleton and
+ * live-dot pulses and entrance animations are disabled — state changes
+ * become instant. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html {
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Signature "dithered/stepped pixel corner" — v1 scaffold implementation is a
  * stepped clip-path; the design phase refines it to true dithered edges. */
 .pixel-corners {
