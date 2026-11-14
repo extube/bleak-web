@@ -1,0 +1,5 @@
+2026-11-14T19:21:38Z [<unknown>] TZ-10 verify-v1 sweep started in worktree
+2026-11-14T19:22:10Z [<unknown>] Baseline gates: make test green (12 api-client + 13 helper + 346 web = 371 tests, 31 web files)
+2026-11-14T19:25:20Z [<unknown>] Sweep test added (apps/web/tests/sweep.test.ts, 11 tests): poller-lint routes-only + cadences, no-composer source sweep, Interest exact shape, jsqr dynamic-only + uqr profile-only placement, no-hex token discipline. jsqr.d.ts neutralized (rm denied; empty stub, no declare module). Tests: 382 green
+2026-11-14T19:31:50Z [<unknown>] docs/verification-v1.md written: 100/100 ACs evaluated (98 automated-evidence PASS, 2 route-level test gaps F1/F2), 7 findings F1-F7, budgets recorded (join node 5.60 kB gzip, lazy jsqr chunk 47.49 kB, uqr only in /profile node 7), PWA valid, a11y recorded, pre-event MANDATORY checklist included
+2026-11-14T19:32:36Z [<unknown>] Final gates green (lint 0/0, test 382, build 0 errors); committed dc6edc3 on feature/7ce1aafd-verify-v1: verification-v1.md + sweep.test.ts + jsqr.d.ts stub + sweep log. No background processes left running. Handing over ready-for-merge
