@@ -1,0 +1,19 @@
+{
+  "name": "@bleak/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed API client for the bleak-node REST API (hand-written from docs/swagger.json)",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0"
+  }
+}
