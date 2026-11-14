@@ -3,3 +3,5 @@
 2026-11-14T11:54:16Z [architect] lint/test/build all green (39 tests); dev smoke: helper health OK, POST /rooms fails 502 while bleak-node down (expected)
 2026-11-14T11:55:27Z [architect] docs/ARCHITECTURE.md written (stack, monorepo boundaries, helper design, mocked v1 models, commands)
 2026-11-14T11:55:59Z [architect] final state: 7 commits on feature/acff3ab8-scaffolding, working tree clean except other sessions' Concept.md/activity.log; branch ready for merge by concept agent
+2026-11-14T12:49:54Z [architect] architect resumed for TZ pass: DESIGN.md rev2 approved by owner, scaffold merged to dev; creating branch feature/acff3ab8-tz
+2026-11-14T12:54:01Z [architect] docs/TZ.md written: 10 tasks (TZ-01..TZ-10), 100/100 DESIGN ACs mapped, waves+parallelism plan, DoD v1, 7 flags for concept agent
