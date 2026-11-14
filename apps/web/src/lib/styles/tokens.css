@@ -1,0 +1,43 @@
+/*
+ * bleak-web design tokens — dark pixel style (Concept.md §4, owner-approved).
+ * Single source of truth for palette, typography, radii, spacing.
+ * Light variant is deferred; dark-only in v1.
+ */
+:root {
+  /* --- palette ---------------------------------------------------------- */
+  --color-bg: #1a1c20; /* page background, slightly cool charcoal */
+  --color-surface: #101213; /* cards, inputs */
+  --color-surface-elevated: #292c2d; /* segmented-control tracks, disabled */
+  --color-accent: #fedc5c; /* warm yellow — ONLY on interactive/active elements */
+  --color-accent-ink: #101213; /* text/icons drawn on accent */
+  --color-text: #f0f0f0;
+  --color-text-muted: #919397;
+  --color-text-disabled: #4a4c4e;
+  --color-text-disabled-strong: #606264;
+
+  /* --- typography --------------------------------------------------------- */
+  /* Handjet (variable pixel font, Cyrillic-safe) — titles/logo ONLY. */
+  --font-pixel: 'Handjet Variable', 'Handjet', monospace;
+  /* Inter (Cyrillic-safe sans) — body, chat, labels, buttons. */
+  --font-body: 'Inter Variable', 'Inter', system-ui, sans-serif;
+
+  /* --- shapes ------------------------------------------------------------- */
+  --radius-lg: 24px; /* large rounded cards */
+  --radius-md: 20px;
+  --radius-pill: 999px; /* segmented controls, chips */
+
+  /* --- spacing scale (generous vertical rhythm) --------------------------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* --- touch targets (WCAG 2.1 AA basics, mobile-first) -------------------- */
+  --touch-target: 48px;
+
+  /* --- layout -------------------------------------------------------------- */
+  --bottom-tabbar-height: 64px;
+}
