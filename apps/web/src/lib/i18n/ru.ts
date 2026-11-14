@@ -75,6 +75,10 @@ export const ru: Record<MessageKey, string> = {
   'room.scan.open': 'Сканировать QR персоны',
   'room.empty': 'Пока никого. Попросите код приглашения у хоста — или сами поделитесь им.',
   'room.members_more': '+{n} ещё',
+  'room.node.chat': '{name} — агенты уже общаются',
+  'room.node.incoming': '{name} — добавил вас',
+  'room.node.outgoing': '{name} — хендшейк отправлен',
+  'room.node.none': '{name} — хендшейк ещё не отправлен',
 
   /* --- handshake states --- */
   'hs.send': 'Отправить хендшейк',
