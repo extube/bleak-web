@@ -102,6 +102,13 @@ export const ru: Record<MessageKey, string> = {
   'people.filter.chatting': 'Общаемся',
   'people.empty_search': 'Никого не найдено по «{q}»',
   'people.reset': 'Сбросить',
+  'people.search.label': 'Поиск участников',
+  'people.filters': 'Фильтр статусов',
+  'people.action.send': 'Отправить хендшейк {name}',
+  'people.action.dialog': 'Открыть диалог с {name}',
+  'people.action.expand': '{name} — показать действия',
+  'people.action.collapse': '{name} — скрыть',
+  'people.dismiss': 'Закрыть',
 
   /* --- chats --- */
   'chats.title': 'Диалоги',

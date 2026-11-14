@@ -101,6 +101,13 @@ export const en = {
   'people.filter.chatting': 'Chatting',
   'people.empty_search': 'Nobody matches “{q}”',
   'people.reset': 'Reset',
+  'people.search.label': 'Search people',
+  'people.filters': 'Status filter',
+  'people.action.send': 'Send handshake to {name}',
+  'people.action.dialog': 'Open dialog with {name}',
+  'people.action.expand': '{name} — show actions',
+  'people.action.collapse': '{name} — hide actions',
+  'people.dismiss': 'Dismiss',
 
   /* --- chats (DESIGN §3.4/§3.5, §4.7) --- */
   'chats.title': 'Chats',
