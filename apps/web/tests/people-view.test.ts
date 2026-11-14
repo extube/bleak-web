@@ -77,7 +77,9 @@ describe('matchesQuery (§3.3 search)', () => {
     expect(matchesQuery(alice, 'алис')).toBe(true);
     expect(matchesQuery(alice, 'АЛИС')).toBe(true);
     expect(matchesQuery(alice, 'поттер')).toBe(true);
-    expect(matchesQuery(alice, 'POTTER')).toBe(true);
+    expect(matchesQuery(alice, 'ПОТТЕР')).toBe(true);
+    const latin = user('0xd', 'Dave', '', 'Potter from Peter');
+    expect(matchesQuery(latin, 'POTTER')).toBe(true);
   });
 
   it('rejects non-matching queries and passes empty/blank ones', () => {
@@ -127,10 +129,12 @@ describe('mergeRoster (poll diffing)', () => {
     expect(mergeRoster(current, stableRoster([b]))).toHaveLength(1);
   });
 
-  it('recomputes when a new attendee joins or the order changes', () => {
+  it('recomputes when a new attendee joins or a timestamp changes', () => {
     const c = user('0xc', 'C', '2026-11-14T12:00:00Z');
     expect(mergeRoster(current, stableRoster([a, b, c]))).not.toBe(current);
-    expect(mergeRoster(current, stableRoster([b, a]))).not.toBe(current);
+    // a becomes the newest → the stable order changes → recompute
+    const newerA = user('0xa', 'A', '2026-11-14T13:00:00Z');
+    expect(mergeRoster(current, stableRoster([newerA, b]))).not.toBe(current);
   });
 });
 
@@ -185,6 +189,7 @@ describe('isDismissed (ruling 2 — local dismissal only)', () => {
 describe('filter × relationship end-to-end', () => {
   it('classifies every state the chips can select', () => {
     const ME = '0xme';
+    const AT = '2026-11-14T10:00:00Z';
     const chats = [chat('0xchat1', [ME, '0xpeer'], '2026-11-14T10:00:00Z')];
     expect(deriveRelationship('0xpeer', ME, [], chats).state).toBe('chat');
     expect(

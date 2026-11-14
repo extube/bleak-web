@@ -124,7 +124,7 @@ describe('PersonCard — state pill + timestamp mapping (§3.3)', () => {
 
   it('none: no pill, muted joined time from User.created_at', () => {
     const relationship = deriveRelationship('0xa', ME, [], []);
-    render(PersonCard, {
+    const { container } = render(PersonCard, {
       props: { user: alice, relationship }
     });
     expect(container.querySelector('.chip')).toBeNull();
@@ -234,8 +234,9 @@ describe('/people — rendering and stable order', () => {
     // newest created_at first: Борис (2 min) before Алиса (10 min)
     expect(names.indexOf('Борис')).toBeLessThan(names.indexOf('Алиса'));
     expect(screen.queryByText('Я')).toBeNull();
-    expect(screen.getByText(ru['hs.added_you'])).toBeTruthy();
-    expect(screen.getByText(ru['hs.chatting'])).toBeTruthy();
+    // state pills live on the cards (scope: the filter chip «Общаемся» shares the word)
+    expect(document.querySelector('.cards')?.textContent?.includes(ru['hs.added_you'])).toBe(true);
+    expect(document.querySelector('.cards')?.textContent?.includes(ru['hs.chatting'])).toBe(true);
     // muted member count includes everyone
     expect(screen.getByText('Участников: 3')).toBeTruthy();
   });
@@ -302,7 +303,13 @@ describe('/people — card actions', () => {
       .click();
     await screen.getByRole('button', { name: ru['hs.back'] }).click();
 
-    await waitFor(() => expect(screen.getByText(ru['hs.chatting'])).toBeTruthy());
+    // the card becomes «Общаемся» with a dialog link (scoped to the card list —
+    // the filter chip «Общаемся» shares the wording)
+    await waitFor(() =>
+      expect(
+        document.querySelector('.cards')?.textContent?.includes(ru['hs.chatting'])
+      ).toBe(true)
+    );
     expect(
       screen.getByRole('link', { name: ru['people.action.dialog'].replace('{name}', 'Алиса') })
     ).toBeTruthy();
@@ -320,14 +327,15 @@ describe('/people — card actions', () => {
     await tick();
 
     expect(mockedApi.createHandshake).not.toHaveBeenCalled();
-    // collapsed again: the expanded actions are gone, the card + pill remain
+    // collapsed again: the expanded actions are gone; the card itself remains
+    // with its pill — the request still exists server-side and may reappear
+    // on a later poll tick (a newer incoming) or on page re-entry; nothing in
+    // the copy or state implies it was declined (ruling 2)
     expect(screen.queryByRole('button', { name: ru['hs.back'] })).toBeNull();
     expect(screen.getByText(ru['hs.added_you'])).toBeTruthy();
-    // still actionable: the card can be re-expanded in place
-    await screen
-      .getByRole('button', { name: ru['people.action.expand'].replace('{name}', 'Алиса') })
-      .click();
-    expect(screen.getByRole('button', { name: ru['hs.back'] })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: ru['people.action.expand'].replace('{name}', 'Алиса') })
+    ).toBeTruthy();
   });
 });
 
