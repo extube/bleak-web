@@ -1,0 +1,3 @@
+2026-11-15T18:07:16Z [worker] feature opened by process 9e6a5f3e: branch feature/5457bc0e-i18n-v2 (from dev), task 16 (todo) — criteria to be filled by process
+2026-11-15T18:09:19Z [worker] TZ2-01 started: i18n rev.3 copy table
+2026-11-15T18:12:53Z [worker] i18n rev.3: +36 new keys (host.gate/session_reset/invites/rotate_room/drill, auth.401.notice, join.error.invite, join.import.{subtitle,saved_at,dead}, hs.income_limit, scan.code_used, profile.qr.{onetime,refreshed,aria}, profile.rotate.*, chat.host_view); renamed host.token.label->host.gate.label (swept TokenGate.svelte + host-console.test.ts); updated join.import.{title,empty} to vault copy; parity test extended (65->101 checklist keys + verbatim spot-checks). Gates: lint/test/build green (359 web tests).

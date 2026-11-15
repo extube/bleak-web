@@ -21,7 +21,7 @@
 
   let value = $state(initial);
 
-  const fieldLabel = $derived(translate($locale, 'host.token.label'));
+  const fieldLabel = $derived(translate($locale, 'host.gate.label'));
   const note = $derived(translate($locale, 'host.token.note'));
   const continueLabel = $derived(translate($locale, 'host.token.continue'));
   const forgetLabel = $derived(translate($locale, 'host.token.forget'));
