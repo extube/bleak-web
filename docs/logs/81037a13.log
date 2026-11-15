@@ -2,3 +2,6 @@
 2026-11-15T17:14:20Z [architect] ARCHITECTURE.md v2 addendum written: §10 (13 subsections) + amendment pointers in §3/§4/§6/header; api-client v2 policy, 401 gate design, stores, crypto, scanner, helper retirement, impact list, 8 flags
 2026-11-15T17:14:36Z [architect] pass complete: addendum committed (12e7f83), session closed done
 2026-11-15T17:15:48Z [architect] ARCHITECTURE §10 merged into dev by concept agent
+2026-11-15T17:49:42Z [architect] TZ pass v2 resumed: design rev. 3 owner-approved; reading binding inputs (Concept §6, ARCH §10, DESIGN rev.3, v1 TZ baseline)
+2026-11-15T17:53:19Z [architect] TZ.md Part II written: 13 v2 tasks (TZ2-01..TZ2-13), 118/118 AC coverage, 5 waves, DoD v2, contract caveats (WP-6/6.9a/6.9b), 7 flags
+2026-11-15T17:53:29Z [architect] TZ pass v2 complete: commit fb13710, session closed done
