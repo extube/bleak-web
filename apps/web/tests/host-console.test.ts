@@ -153,7 +153,7 @@ function storeSession(): void {
 }
 
 async function submitToken(value: string): Promise<void> {
-  const input = screen.getByLabelText(ru['host.token.label']) as HTMLInputElement;
+  const input = screen.getByLabelText(ru['host.gate.label']) as HTMLInputElement;
   input.value = value;
   input.dispatchEvent(new Event('input', { bubbles: true }));
   await screen.getByRole('button', { name: ru['host.token.continue'] }).click();
@@ -188,7 +188,7 @@ describe('pure helpers (hostLogic)', () => {
 describe('token gate (AC 1, AC 9)', () => {
   it('shows the masked gate without a stored token; entry persists bleak.hostToken and the gate does not reappear', async () => {
     await renderPage();
-    const input = screen.getByLabelText(ru['host.token.label']) as HTMLInputElement;
+    const input = screen.getByLabelText(ru['host.gate.label']) as HTMLInputElement;
     expect(input.type).toBe('password');
     expect(screen.getByText(ru['host.token.note'])).toBeTruthy();
 
@@ -196,7 +196,7 @@ describe('token gate (AC 1, AC 9)', () => {
 
     expect(localStorage.getItem('bleak.hostToken')).toBe('good-token');
     // Gate gone: the create form is the visible surface now.
-    expect(screen.queryByLabelText(ru['host.token.label'])).toBeNull();
+    expect(screen.queryByLabelText(ru['host.gate.label'])).toBeNull();
     expect(screen.getByRole('button', { name: ru['host.create'] })).toBeTruthy();
   });
 
@@ -214,7 +214,7 @@ describe('token gate (AC 1, AC 9)', () => {
     await screen.getByRole('button', { name: ru['host.create'] }).click();
     await waitFor(() => expect(screen.getByText(/Токен отклонён/)).toBeTruthy());
 
-    const input = screen.getByLabelText(ru['host.token.label']) as HTMLInputElement;
+    const input = screen.getByLabelText(ru['host.gate.label']) as HTMLInputElement;
     expect(input.type).toBe('password');
     expect(input.value).toBe('wrong-token');
     expect(screen.getByText(/Токен отклонён/)).toBeTruthy();
@@ -226,7 +226,7 @@ describe('token gate (AC 1, AC 9)', () => {
     await submitToken('good-token');
     await screen.getByRole('button', { name: ru['host.token.forget'] }).click();
     expect(localStorage.getItem('bleak.hostToken')).toBeNull();
-    expect(screen.getByLabelText(ru['host.token.label'])).toBeTruthy();
+    expect(screen.getByLabelText(ru['host.gate.label'])).toBeTruthy();
   });
 });
 

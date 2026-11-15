@@ -139,8 +139,33 @@ const DESIGN_4_7_KEYS: string[] = [
   // profile
   'profile.greeting.rule', 'profile.greeting.no_questions',
   'profile.private_bio.caption', 'profile.qr.caption', 'profile.leave',
-  // host
-  'host.token.label', 'host.token.rejected', 'host.create', 'host.empty_live',
+  // host (v1 keys still in use)
+  'host.token.rejected', 'host.create', 'host.empty_live',
+  // host — v2 credentials (DESIGN rev. 3 §3.7): creation-token gate
+  'host.gate.label', 'host.gate.note', 'host.session_reset',
+  // host — v2 invite management + room-token drill-down + rotation
+  'host.invites.title', 'host.invites.hint', 'host.invites.mint',
+  'host.invites.preset.1h', 'host.invites.preset.24h', 'host.invites.preset.7d',
+  'host.invites.preset.custom', 'host.invites.expires_in',
+  'host.invites.revoke', 'host.invites.revoked',
+  'host.rotate_room.row', 'host.rotate_room.title', 'host.rotate_room.body',
+  'host.drill.clear', 'host.drill.clear_confirm', 'host.drill.empty',
+  // global 401 gate (DESIGN rev. 3 §2.8)
+  'auth.401.notice',
+  // join — v2 vault import + invite-code rejection
+  'join.error.invite',
+  'join.import.title', 'join.import.subtitle', 'join.import.empty',
+  'join.import.saved_at', 'join.import.dead',
+  // handshake income-rule state (DESIGN rev. 3 §2.9)
+  'hs.income_limit',
+  // scanner stale-code state (DESIGN rev. 3 §2.9)
+  'scan.code_used',
+  // profile — live QR + token rotation (DESIGN rev. 3 §3.6)
+  'profile.qr.onetime', 'profile.qr.refreshed', 'profile.qr.aria',
+  'profile.rotate.row', 'profile.rotate.title', 'profile.rotate.body',
+  'profile.rotate.cta', 'profile.rotate.done',
+  // transcript viewer fallback chip (DESIGN rev. 3 §3.5)
+  'chat.host_view',
   // common
   'common.error.network', 'common.retry'
 ];
@@ -153,7 +178,12 @@ describe('DESIGN §4.7 copy table coverage', () => {
       expect((ru as Record<string, string>)[key]?.trim().length).toBeGreaterThan(0);
       expect((en as Record<string, string>)[key]?.trim().length).toBeGreaterThan(0);
     }
-    expect(DESIGN_4_7_KEYS).toHaveLength(65);
+    expect(DESIGN_4_7_KEYS).toHaveLength(101);
+  });
+
+  it('the retired v1 key host.token.label is gone (renamed to host.gate.label)', () => {
+    expect(en).not.toHaveProperty('host.token.label');
+    expect(ru).not.toHaveProperty('host.token.label');
   });
 
   it('spot-checks verbatim RU strings from §4.7', () => {
@@ -164,6 +194,38 @@ describe('DESIGN §4.7 copy table coverage', () => {
     );
     expect(ru['profile.qr.caption']).toBe('Покажите, чтобы обменяться рукопожатиями');
     expect(ru['host.empty_live']).toBe('Пока никто не присоединился.');
+  });
+
+  it('spot-checks verbatim rev. 3 RU strings (v2 credentials scope)', () => {
+    expect(ru['auth.401.notice']).toBe(
+      'У этой персоны нет действительного ключа доступа — присоединитесь заново по коду события.'
+    );
+    expect(ru['host.gate.label']).toBe('Токен создания комнаты');
+    expect(ru['host.gate.note']).toBe(
+      'Одноразовый токен выдаёт оператор развертывания. После создания комнаты он больше не нужен и не сохраняется.'
+    );
+    expect(ru['host.session_reset']).toBe(
+      'Доступ к комнате отозван — войдите заново с токеном создания.'
+    );
+    expect(ru['hs.income_limit']).toBe(
+      'Лимит исходящих хендшейков — сначала получите рукопожатия в ответ.'
+    );
+    expect(ru['scan.code_used']).toBe(
+      'Код уже использован — попросите обновить QR на карточке.'
+    );
+    expect(ru['join.error.invite']).toBe('Код приглашения недействителен или истёк.');
+    expect(ru['join.import.title']).toBe('Импортировать с этого устройства');
+    expect(ru['join.import.empty']).toBe('На этом устройстве пока нет сохранённых персон.');
+    expect(ru['join.import.dead']).toBe(
+      'Эта персона больше не существует на сервере. Запись останется в списке, но импорт невозможен.'
+    );
+    expect(ru['profile.qr.onetime']).toBe('QR одноразовый — после обмена он обновится сам.');
+    expect(ru['profile.qr.aria']).toBe('Ваш одноразовый QR для обмена рукопожатиями');
+    expect(ru['profile.rotate.done']).toBe('Ключ обновлён');
+    expect(ru['host.invites.revoked']).toBe('Код отозван.');
+    expect(ru['host.drill.clear_confirm']).toBe('История диалога участников будет очищена.');
+    expect(ru['host.drill.empty']).toBe('У участника пока нет диалогов.');
+    expect(ru['chat.host_view']).toBe('Наблюдение хоста');
   });
 });
 
@@ -179,6 +241,18 @@ describe('placeholder interpolation', () => {
     );
     expect(translate('ru', 'people.empty_search', { q: 'Ива' })).toBe(
       'Никого не найдено по «Ива»'
+    );
+    expect(translate('ru', 'join.import.saved_at', { date: '14.11', room: '0xroom1' })).toBe(
+      'Сохранено 14.11 · комната 0xroom1'
+    );
+    expect(translate('en', 'join.import.saved_at', { date: 'Nov 14', room: '0xroom1' })).toBe(
+      'Saved Nov 14 · room 0xroom1'
+    );
+    expect(translate('ru', 'host.invites.expires_in', { time: '2 ч' })).toBe(
+      'истекает через 2 ч'
+    );
+    expect(translate('en', 'host.invites.expires_in', { time: '2 h' })).toBe(
+      'expires in 2 h'
     );
   });
 
