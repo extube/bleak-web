@@ -5,3 +5,5 @@
 2026-11-14T11:55:59Z [architect] final state: 7 commits on feature/acff3ab8-scaffolding, working tree clean except other sessions' Concept.md/activity.log; branch ready for merge by concept agent
 2026-11-14T12:49:54Z [architect] architect resumed for TZ pass: DESIGN.md rev2 approved by owner, scaffold merged to dev; creating branch feature/acff3ab8-tz
 2026-11-14T12:54:01Z [architect] docs/TZ.md written: 10 tasks (TZ-01..TZ-10), 100/100 DESIGN ACs mapped, waves+parallelism plan, DoD v1, 7 flags for concept agent
+2026-11-15T17:07:31Z [architect] resumed by concept: owner approved Concept.md §6 (v2 ownership & credentials client scope) — architect pass authorized
+2026-11-15T17:08:02Z [architect] stored OpenCode session not resumable from this session tree — v2 pass assigned to a fresh architect instance (lineage noted)
