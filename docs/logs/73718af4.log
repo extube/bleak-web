@@ -1,0 +1,4 @@
+2026-11-15T18:07:16Z [worker] feature opened by process 9e6a5f3e: branch feature/73718af4-stores-v2 (from dev), task 15 (todo) — criteria to be filled by process
+2026-11-15T18:18:28Z [worker] TZ2-04: implemented identity(+token, legacy drop), mutualCode, tokenVault, hostSession reshape+deprecated shim; wrote identity/token-vault/mutual-code/storage-inventory tests and rewrote host-session tests
+2026-11-15T18:20:54Z [worker] INCIDENT: concurrent worker 90b95f75 shares this working tree and checked out their branch mid-session; my tracked-file edits (identity.ts, hostSession.ts, host-session.test.ts) were reverted; untracked new files survived. Re-writing the three files and committing early.
+2026-11-15T18:32:57Z [worker] TZ2-04 complete on feature/73718af4-stores-v2 (9ca0dfa + 92ba3ba): all three gates green via scripts/73718af4-handover.sh (lint OK, test 393 passed/36 files, build OK incl. svelte-check 0 errors); HEAD verified unchanged during gate run
