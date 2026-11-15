@@ -17,7 +17,10 @@ vi.mock('$app/paths', () => ({
 vi.mock('#lib/api/client', () => ({
   api: {
     getRoom: vi.fn(),
-    listRoomUsers: vi.fn(),
+    listRoomUsers: vi.fn()
+  },
+  hostApi: {
+    createRoomWithInvite: vi.fn(),
     updateRoom: vi.fn(),
     deleteRoom: vi.fn(),
     listHandshakesOfUser: vi.fn(),
@@ -25,31 +28,14 @@ vi.mock('#lib/api/client', () => ({
   }
 }));
 
-vi.mock('#lib/api/helper', () => {
-  class HelperError extends Error {
-    status: number;
-    constructor(status: number, message: string) {
-      super(message);
-      this.name = 'HelperError';
-      this.status = status;
-    }
-  }
-  return {
-    HelperError,
-    createRoom: vi.fn(),
-    inviteQrUrl: vi.fn((code: string) => `/h/rooms/${code}/qr`)
-  };
-});
-
-import { api } from '#lib/api/client';
-import { HelperError, createRoom, inviteQrUrl } from '#lib/api/helper';
+import { api, hostApi } from '#lib/api/client';
 import Page from '../src/routes/host/+page.svelte';
 import { handshakeCounts, parseHelperErrorText, spelledDigits } from '../src/lib/components/host/hostLogic';
 import { ru } from '../src/lib/i18n/ru';
 
 const mockedApi = vi.mocked(api, true);
-const mockedCreate = vi.mocked(createRoom);
-const mockedQr = vi.mocked(inviteQrUrl);
+const mockedHostApi = vi.mocked(hostApi, true);
+const mockedCreate = mockedHostApi.createRoomWithInvite;
 
 const ROOM: Room = {
   address: '0xroom',
@@ -107,23 +93,22 @@ function chat(address: string, participants: string[], createdMinutesAgo: number
 }
 
 const PAYLOAD = {
-  room: { address: ROOM.address, name: ROOM.name },
-  code: '123456',
-  invite_url: 'http://localhost:5173/?code=123456'
+  room: ROOM,
+  code: '123456'
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
-  localStorage.setItem('bleak.hostToken', '');
+  sessionStorage.clear();
   localStorage.removeItem('bleak.hostToken');
   localStorage.removeItem('bleak.hostRoom');
   mockedApi.getRoom.mockResolvedValue(structuredClone(ROOM));
   mockedApi.listRoomUsers.mockResolvedValue([]);
-  mockedApi.updateRoom.mockResolvedValue(structuredClone(ROOM));
-  mockedApi.deleteRoom.mockResolvedValue(structuredClone(ROOM));
-  mockedApi.listHandshakesOfUser.mockResolvedValue([]);
-  mockedApi.listChatsOfRoomUser.mockResolvedValue([]);
+  mockedHostApi.updateRoom.mockResolvedValue(structuredClone(ROOM));
+  mockedHostApi.deleteRoom.mockResolvedValue(structuredClone(ROOM));
+  mockedHostApi.listHandshakesOfUser.mockResolvedValue([]);
+  mockedHostApi.listChatsOfRoomUser.mockResolvedValue([]);
   mockedCreate.mockResolvedValue(structuredClone(PAYLOAD));
 });
 
@@ -146,8 +131,9 @@ function storeSession(): void {
     JSON.stringify({
       code: '123456',
       roomAddress: ROOM.address,
+      roomToken: 'stored-room-token',
       roomName: ROOM.name,
-      inviteUrl: PAYLOAD.invite_url
+      inviteUrl: '/?code=123456'
     })
   );
 }
@@ -202,7 +188,7 @@ describe('token gate (AC 1, AC 9)', () => {
 
   it('a rejected token returns to the gate with «Токен отклонён.» under the field, value kept masked', async () => {
     mockedCreate.mockRejectedValue(
-      new HelperError(403, '{"error":"host token required to create rooms"}')
+      new ApiError(403, '/api/room', '{"error":"host token required to create rooms"}')
     );
     await renderPage();
     await submitToken('wrong-token');
@@ -240,7 +226,7 @@ describe('create room + share kit (AC 2, AC 3, AC 4, AC 5)', () => {
     expect(screen.getByText(ru['join.error.name_required'])).toBeTruthy();
   });
 
-  it('creates via helper POST /h/rooms with the token and shows the share kit', async () => {
+  it('creates via the v2 client (room token generated client-side, creation token header) and shows the share kit', async () => {
     await renderPage();
     await submitToken('good-token');
 
@@ -250,28 +236,33 @@ describe('create room + share kit (AC 2, AC 3, AC 4, AC 5)', () => {
     await screen.getByRole('button', { name: ru['host.create'] }).click();
 
     await waitFor(() => expect(mockedCreate).toHaveBeenCalledTimes(1));
-    expect(mockedCreate.mock.calls[0]?.[0]).toEqual({ name: 'Митап', language: 'ru' });
+    const requestBody = mockedCreate.mock.calls[0]?.[0];
+    expect(requestBody).toEqual({ name: 'Митап', language: 'ru', token: expect.any(String) });
+    // The room token is client-generated (32 random bytes → 43 base64url chars).
+    expect((requestBody as { token: string }).token).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(mockedCreate.mock.calls[0]?.[1]).toBe('good-token');
 
     await waitFor(() => expect(screen.getByText('123456')).toBeTruthy());
-    // Persisted for the revisit restore.
-    expect(JSON.parse(localStorage.getItem('bleak.hostRoom') ?? '{}')).toMatchObject({
+    // Persisted for the revisit restore — including the generated room token.
+    const stored = JSON.parse(localStorage.getItem('bleak.hostRoom') ?? '{}');
+    expect(stored).toMatchObject({
       code: '123456',
       roomAddress: ROOM.address
     });
-    // QR <img> from the helper URL builder.
-    await waitFor(() => expect(mockedQr).toHaveBeenCalledWith('123456'));
+    expect(stored.roomToken).toBe((requestBody as { token: string }).token);
+    // Invite link computed client-side from the code (§10.9; $app/paths mocked → '/').
+    expect(screen.getByText('/?code=123456')).toBeTruthy();
+    // QR <img> from the stateless helper URL builder.
     const img = document.querySelector('.qr-frame img') as HTMLImageElement;
     expect(img).toBeTruthy();
     expect(img.getAttribute('alt')).toBe(ru['host.qr.alt']);
-    // Copyable invite link.
-    expect(screen.getByText(PAYLOAD.invite_url)).toBeTruthy();
+    expect(img.getAttribute('src')).toBe('/h/rooms/123456/qr');
     // Live view starts polling the created room.
     await waitFor(() => expect(mockedApi.getRoom).toHaveBeenCalledWith(ROOM.address));
   });
 
   it('create 400/409 surfaces the server text under the form', async () => {
-    mockedCreate.mockRejectedValue(new HelperError(400, '{"error":"duplicate name"}'));
+    mockedCreate.mockRejectedValue(new ApiError(400, '/api/room', '{"error":"duplicate name"}'));
     await renderPage();
     await submitToken('good-token');
     const nameInput = screen.getByLabelText(ru['host.form.name']) as HTMLInputElement;
@@ -353,12 +344,12 @@ describe('member drill-down (AC 7 — on demand, never polled)', () => {
   it('shows sent/received counts and dialogs, fetched once on open; dialog rows link to /chats/{address}', async () => {
     storeSession();
     mockedApi.listRoomUsers.mockResolvedValue([person('0xa', 'Алиса', 2, 'Поттер')]);
-    mockedApi.listHandshakesOfUser.mockResolvedValue([
+    mockedHostApi.listHandshakesOfUser.mockResolvedValue([
       handshake('0xa', '0xb', 3),
       handshake('0xb', '0xa', 4),
       handshake('0xc', '0xd', 5)
     ]);
-    mockedApi.listChatsOfRoomUser.mockResolvedValue([chat('0xchat1', ['0xa', '0xb'], 6)]);
+    mockedHostApi.listChatsOfRoomUser.mockResolvedValue([chat('0xchat1', ['0xa', '0xb'], 6)]);
 
     await renderPage();
     await screen.findByText('Алиса');
@@ -372,12 +363,12 @@ describe('member drill-down (AC 7 — on demand, never polled)', () => {
     expect(dialogLink.getAttribute('href')).toBe('/chats/0xchat1');
 
     // On demand only: no repeated drill-down fetches while the sheet is open.
-    const handshakeCalls = mockedApi.listHandshakesOfUser.mock.calls.length;
-    const chatCalls = mockedApi.listChatsOfRoomUser.mock.calls.length;
+    const handshakeCalls = mockedHostApi.listHandshakesOfUser.mock.calls.length;
+    const chatCalls = mockedHostApi.listChatsOfRoomUser.mock.calls.length;
     // Give the page a moment: the sheet does NOT re-fetch on its own.
     await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(mockedApi.listHandshakesOfUser.mock.calls.length).toBe(handshakeCalls);
-    expect(mockedApi.listChatsOfRoomUser.mock.calls.length).toBe(chatCalls);
+    expect(mockedHostApi.listHandshakesOfUser.mock.calls.length).toBe(handshakeCalls);
+    expect(mockedHostApi.listChatsOfRoomUser.mock.calls.length).toBe(chatCalls);
   });
 
   it('drill-down data is never polled — the poller only re-runs getRoom/listRoomUsers', async () => {
@@ -392,8 +383,8 @@ describe('member drill-down (AC 7 — on demand, never polled)', () => {
       await vi.advanceTimersByTimeAsync(5100);
       await vi.advanceTimersByTimeAsync(30);
       expect(mockedApi.getRoom.mock.calls.length).toBeGreaterThanOrEqual(3);
-      expect(mockedApi.listHandshakesOfUser.mock.calls.length).toBe(0);
-      expect(mockedApi.listChatsOfRoomUser.mock.calls.length).toBe(0);
+      expect(mockedHostApi.listHandshakesOfUser.mock.calls.length).toBe(0);
+      expect(mockedHostApi.listChatsOfRoomUser.mock.calls.length).toBe(0);
     } finally {
       vi.useRealTimers();
     }
@@ -402,7 +393,7 @@ describe('member drill-down (AC 7 — on demand, never polled)', () => {
   it('drill-down fetch failure shows the inline muted error with retry', async () => {
     storeSession();
     mockedApi.listRoomUsers.mockResolvedValue([person('0xa', 'Алиса', 2)]);
-    mockedApi.listHandshakesOfUser.mockRejectedValue(
+    mockedHostApi.listHandshakesOfUser.mockRejectedValue(
       new ApiError(500, '/x', 'db locked')
     );
     await renderPage();
@@ -419,7 +410,7 @@ describe('room settings + danger zone (AC 8, AC 12)', () => {
     storeSession();
     const updated = structuredClone(ROOM);
     updated.name = 'Митап 2';
-    mockedApi.updateRoom.mockResolvedValue(updated);
+    mockedHostApi.updateRoom.mockResolvedValue(updated);
     await renderPage();
     await screen.findByText('Митап');
 
@@ -434,7 +425,7 @@ describe('room settings + danger zone (AC 8, AC 12)', () => {
     nameInput.dispatchEvent(new Event('input', { bubbles: true }));
     await screen.getByRole('button', { name: ru['common.save'] }).click();
 
-    await waitFor(() => expect(mockedApi.updateRoom).toHaveBeenCalledWith(ROOM.address, { name: 'Митап 2', description: ROOM.description }));
+    await waitFor(() => expect(mockedHostApi.updateRoom).toHaveBeenCalledWith(ROOM.address, { name: 'Митап 2', description: ROOM.description }));
     await waitFor(() => expect(screen.getByText('Митап 2')).toBeTruthy());
   });
 
@@ -454,7 +445,7 @@ describe('room settings + danger zone (AC 8, AC 12)', () => {
     const confirm = document.querySelector('.scrim .actions .confirm') as HTMLButtonElement;
     await confirm.click();
 
-    await waitFor(() => expect(mockedApi.deleteRoom).toHaveBeenCalledWith(ROOM.address));
+    await waitFor(() => expect(mockedHostApi.deleteRoom).toHaveBeenCalledWith(ROOM.address));
     await waitFor(() => expect(localStorage.getItem('bleak.hostRoom')).toBeNull());
     // Back to the create form with the deleted notice.
     await waitFor(() => expect(screen.getByRole('button', { name: ru['host.create'] })).toBeTruthy());

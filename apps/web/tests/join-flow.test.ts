@@ -10,16 +10,16 @@ import { ApiError, NetworkError, type Room, type User } from '@bleak/api-client'
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/paths', () => ({ resolve: (route: string) => route }));
 
-vi.mock('#lib/api/helper', () => {
-  class HelperError extends Error {
-    readonly status: number;
-    constructor(status: number, message: string) {
-      super(message);
-      this.name = 'HelperError';
-      this.status = status;
+vi.mock('#lib/api/invite-resolve', () => {
+  class InviteResolveError extends Error {
+    readonly kind: 'malformed' | 'not_found';
+    constructor(kind: 'malformed' | 'not_found') {
+      super(kind);
+      this.name = 'InviteResolveError';
+      this.kind = kind;
     }
   }
-  return { HelperError, resolveInvite: vi.fn() };
+  return { InviteResolveError, resolveInviteCode: vi.fn() };
 });
 
 vi.mock('#lib/api/client', () => ({
@@ -33,13 +33,13 @@ vi.mock('#lib/api/client', () => ({
 }));
 
 import { goto } from '$app/navigation';
-import { HelperError, resolveInvite } from '#lib/api/helper';
+import { InviteResolveError, resolveInviteCode } from '#lib/api/invite-resolve';
 import { api } from '#lib/api/client';
 import { identity } from '#lib/stores/identity';
 import JoinFlow from '../src/lib/components/join/JoinFlow.svelte';
 import { ru } from '../src/lib/i18n/ru';
 
-const mockedResolve = vi.mocked(resolveInvite);
+const mockedResolve = vi.mocked(resolveInviteCode);
 const mockedApi = vi.mocked(api);
 
 const room: Room = {
@@ -103,7 +103,7 @@ afterEach(() => {
 
 describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
   it('resolves a typed code and shows the room preview without a reload', async () => {
-    mockedResolve.mockResolvedValue({ code: '123456', room_address: room.address });
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
     mockedApi.getRoom.mockResolvedValue(room);
     mockedApi.listRoomUsers.mockResolvedValue([user('0xa', 'Алиса')]);
 
@@ -126,7 +126,7 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
   });
 
   it('?code=NNNNNN deep link prefills the cells and auto-submits (AC 3)', async () => {
-    mockedResolve.mockResolvedValue({ code: '654321', room_address: room.address });
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
     mockedApi.getRoom.mockResolvedValue(room);
     mockedApi.listRoomUsers.mockResolvedValue([]);
 
@@ -138,7 +138,7 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
   });
 
   it('unknown code shows the 404 copy inline, keeps the digits, does not navigate (AC 4)', async () => {
-    mockedResolve.mockRejectedValue(new HelperError(404, 'unknown code'));
+    mockedResolve.mockRejectedValue(new InviteResolveError('not_found'));
 
     render(JoinFlow, { props: {} });
     pasteCode('999999');
@@ -151,7 +151,7 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
   });
 
   it('helper unreachable shows the NetworkError banner and preserves the code (AC 5)', async () => {
-    mockedResolve.mockRejectedValue(new NetworkError('/rooms/111111', new Error('offline')));
+    mockedResolve.mockRejectedValue(new NetworkError('/api/invite/111111', new Error('offline')));
 
     render(JoinFlow, { props: {} });
     pasteCode('111111');
@@ -159,7 +159,7 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
     await screen.findByText(ru['common.error.network']);
     expect(cells().map((c) => c.value).join('')).toBe('111111');
     // Retry re-runs the resolution with the preserved digits.
-    mockedResolve.mockResolvedValue({ code: '111111', room_address: room.address });
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
     mockedApi.getRoom.mockResolvedValue(room);
     mockedApi.listRoomUsers.mockResolvedValue([]);
     await screen.getByRole('button', { name: ru['common.retry'] }).click();
@@ -167,7 +167,7 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
   });
 
   it('change-code returns to a clean code entry', async () => {
-    mockedResolve.mockResolvedValue({ code: '123456', room_address: room.address });
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
     mockedApi.getRoom.mockResolvedValue(room);
     mockedApi.listRoomUsers.mockResolvedValue([]);
 
@@ -183,7 +183,7 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
 
 describe('JoinFlow — persona form', () => {
   async function openForm(): Promise<void> {
-    mockedResolve.mockResolvedValue({ code: '123456', room_address: room.address });
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
     mockedApi.getRoom.mockResolvedValue(room);
     mockedApi.listRoomUsers.mockResolvedValue([]);
     render(JoinFlow, { props: {} });
@@ -250,7 +250,7 @@ describe('JoinFlow — scanner mount (context *a*, QrScanner public API)', () =>
   });
 
   it('after closing the scanner the normal code flow still resolves unchanged (AC 13 wiring)', async () => {
-    mockedResolve.mockResolvedValue({ code: '123456', room_address: room.address });
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
     mockedApi.getRoom.mockResolvedValue(room);
     mockedApi.listRoomUsers.mockResolvedValue([]);
 

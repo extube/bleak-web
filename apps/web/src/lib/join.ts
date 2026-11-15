@@ -6,8 +6,8 @@
  */
 import type { CreateUserRequest, Room, User } from '@bleak/api-client';
 import { ApiError, NetworkError } from '@bleak/api-client';
-import { HelperError, resolveInvite } from '#lib/api/helper';
 import { api } from '#lib/api/client';
+import { InviteResolveError, resolveInviteCode } from '#lib/api/invite-resolve';
 
 const CODE_PATTERN = /^\d{6}$/;
 
@@ -21,7 +21,7 @@ export function isValidInviteCode(code: string): boolean {
 // ---------------------------------------------------------------------------
 
 export interface JoinClients {
-  resolveInvite: (code: string) => Promise<{ code: string; room_address: string }>;
+  resolveInvite: (code: string) => Promise<{ roomAddress: string }>;
   getRoom: (address: string) => Promise<Room>;
   listRooms: () => Promise<Room[]>;
   listRoomUsers: (room: string) => Promise<User[]>;
@@ -30,7 +30,7 @@ export interface JoinClients {
 }
 
 const defaultClients: JoinClients = {
-  resolveInvite,
+  resolveInvite: resolveInviteCode,
   getRoom: (address) => api.getRoom(address),
   listRooms: () => api.listRooms(),
   listRoomUsers: (room) => api.listRoomUsers(room),
@@ -46,8 +46,9 @@ export interface PersonaDraft {
 }
 
 /**
- * Resolve a code to the room preview: helper mapping → room → member count.
- * Three sequential reads; each is awaited before the card swaps (§3.1 step 2).
+ * Resolve a code to the room preview: invite-resolve seam → room → member
+ * count. Three sequential reads; each is awaited before the card swaps
+ * (§3.1 step 2).
  */
 export async function resolveRoomByCode(
   code: string,
@@ -55,8 +56,8 @@ export async function resolveRoomByCode(
 ): Promise<{ room: Room; members: User[] }> {
   const info = await clients.resolveInvite(code);
   const [room, members] = await Promise.all([
-    clients.getRoom(info.room_address),
-    clients.listRoomUsers(info.room_address)
+    clients.getRoom(info.roomAddress),
+    clients.listRoomUsers(info.roomAddress)
   ]);
   return { room, members };
 }
@@ -108,17 +109,16 @@ export async function createPersona(
 // Error mapping (§3.1 interaction states)
 // ---------------------------------------------------------------------------
 
-/** Code-resolution errors: inline under the cells (400/404), banner
- * (network/api) or the gone-card state (room deleted meanwhile, 404 on
+/** Code-resolution errors: inline under the cells (malformed/not_found),
+ * banner (network/api) or the gone-card state (room deleted meanwhile, 404 on
  * getRoom/createRoomUser). */
 export type CodeError = 'malformed' | 'not_found' | 'network' | 'api' | 'gone';
 
 export function codeErrorOf(err: unknown): { kind: CodeError; text: string | null } {
   if (err instanceof NetworkError) return { kind: 'network', text: null };
-  if (err instanceof HelperError) {
-    if (err.status === 400) return { kind: 'malformed', text: null };
-    if (err.status === 404) return { kind: 'not_found', text: null };
-    return { kind: 'api', text: err.message };
+  if (err instanceof InviteResolveError) {
+    // The seam's mapped kinds are exactly the inline error kinds (§3.1).
+    return { kind: err.kind, text: null };
   }
   if (err instanceof ApiError) {
     if (err.status === 404) return { kind: 'gone', text: null }; // room deleted meanwhile

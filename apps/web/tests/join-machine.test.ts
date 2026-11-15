@@ -4,16 +4,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, NetworkError, type Room, type User } from '@bleak/api-client';
 
-vi.mock('#lib/api/helper', () => {
-  class HelperError extends Error {
-    readonly status: number;
-    constructor(status: number, message: string) {
-      super(message);
-      this.name = 'HelperError';
-      this.status = status;
+vi.mock('#lib/api/invite-resolve', () => {
+  class InviteResolveError extends Error {
+    readonly kind: 'malformed' | 'not_found';
+    constructor(kind: 'malformed' | 'not_found') {
+      super(kind);
+      this.name = 'InviteResolveError';
+      this.kind = kind;
     }
   }
-  return { HelperError, resolveInvite: vi.fn() };
+  return { InviteResolveError, resolveInviteCode: vi.fn() };
 });
 
 vi.mock('#lib/api/client', () => ({
@@ -26,7 +26,7 @@ vi.mock('#lib/api/client', () => ({
   }
 }));
 
-import { HelperError, resolveInvite } from '#lib/api/helper';
+import { InviteResolveError, resolveInviteCode } from '#lib/api/invite-resolve';
 import { api } from '#lib/api/client';
 import {
   codeErrorOf,
@@ -43,7 +43,7 @@ import {
   type PersonaDraft
 } from '#lib/join';
 
-const mockedResolve = vi.mocked(resolveInvite);
+const mockedResolve = vi.mocked(resolveInviteCode);
 const mockedApi = vi.mocked(api);
 
 const room: Room = {
@@ -91,16 +91,16 @@ describe('invite-code validation', () => {
 });
 
 describe('codeErrorOf (§3.1 interaction states)', () => {
-  it('maps helper 400 to the malformed inline error', () => {
-    expect(codeErrorOf(new HelperError(400, 'bad code')).kind).toBe('malformed');
+  it('maps the seam malformed kind to the malformed inline error', () => {
+    expect(codeErrorOf(new InviteResolveError('malformed')).kind).toBe('malformed');
   });
 
-  it('maps helper 404 to the unknown-code inline error', () => {
-    expect(codeErrorOf(new HelperError(404, 'unknown code')).kind).toBe('not_found');
+  it('maps the seam not_found kind to the unknown-code inline error', () => {
+    expect(codeErrorOf(new InviteResolveError('not_found')).kind).toBe('not_found');
   });
 
   it('maps network failure to the banner kind', () => {
-    expect(codeErrorOf(new NetworkError('/rooms/123456', new Error('offline'))).kind).toBe(
+    expect(codeErrorOf(new NetworkError('/api/invite/123456', new Error('offline'))).kind).toBe(
       'network'
     );
   });
@@ -223,8 +223,8 @@ describe('step machine transitions', () => {
 });
 
 describe('services against the mocked clients', () => {
-  it('resolveRoomByCode: helper mapping → room → members', async () => {
-    mockedResolve.mockResolvedValue({ code: '123456', room_address: room.address });
+  it('resolveRoomByCode: invite-resolve seam → room → members', async () => {
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
     mockedApi.getRoom.mockResolvedValue(room);
     mockedApi.listRoomUsers.mockResolvedValue([user('0xa', 'Алиса')]);
 
