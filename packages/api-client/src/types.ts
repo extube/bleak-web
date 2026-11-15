@@ -33,6 +33,12 @@ export interface User {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  /**
+   * Derived liveness flag (CONCEPT §7.3.2): true while the user's stored
+   * mutual_code_hash is live (not yet burned). Returned only on token-gated
+   * reads. TBD(WP-6): confirm the field name in swagger.json.
+   */
+  mutual_code_live?: boolean;
 }
 
 /** model.Handshake — directed pair (from_address -> to_address), same room. */
@@ -137,4 +143,82 @@ export interface KickoffResponse {
 export interface ClearChatResponse {
   chat: string;
   cleared: number;
+}
+
+// ---------------------------------------------------------------------------
+// v2 credentials (CONCEPT §7 / ARCHITECTURE §10.2) — TBD(WP-6) reconciliation
+//
+// bleak-node's swagger.json is still v0.1.0: the credential endpoints below
+// are decided (bleak-node CONCEPT §7.1–§7.4, PLAN WP-4) but not yet in
+// swagger (WP-6 pending). These types implement the proposed shapes; every
+// spot where swagger will fix a name carries a `// TBD(WP-6)` marker. When
+// WP-6 lands, reconcile THIS FILE only — all TBD names are isolated here.
+// ---------------------------------------------------------------------------
+
+/**
+ * Persona creation (join) — supersedes the v1 CreateUserRequest body
+ * (ARCHITECTURE §10.2). Sent raw to POST /api/room/{room}/user with NO auth
+ * header: the join is public, the freshly generated persona `token` is
+ * carried in the body and hashed server-side.
+ */
+export interface CreateUserRequestV2 {
+  name: string;
+  public_bio?: string;
+  private_bio?: string;
+  /** The resolved 6-digit invite code (CONCEPT §6.2). */
+  invite_code: string;
+  /** Client-generated persona token, RAW (≥32 random bytes, base64url). */
+  token: string;
+}
+
+/**
+ * Room creation (host) — body of POST /api/room; the one-time creation token
+ * travels in the HEADER (see BleakClient.createRoom), the room token in the
+ * body. TBD(WP-6): header name + body field names.
+ */
+export interface CreateRoomRequestV2 {
+  name: string;
+  description?: string;
+  language?: string;
+  /** Client-generated room token, RAW (≥32 random bytes, base64url). */
+  token: string;
+}
+
+/** Body of POST /api/handshake/mutual (CONCEPT §7.3). */
+export interface MutualHandshakeRequest {
+  /** The scanned persona's user address (`u` of the badge QR payload). */
+  user_address: string;
+  /** The scanned one-time mutual code (`m` of the badge QR payload), RAW. */
+  mutual_code: string;
+}
+
+/** Body of POST /api/room/{room}/user/{address}/mutual-code (CONCEPT §7.3.3). */
+export interface MutualCodeRegistration {
+  /**
+   * The SHA-256 hex hash of the new one-time mutual code — the registration
+   * is the ONE call that must never carry the raw code (CONCEPT §7.4).
+   * TBD(WP-6): confirm the body field name.
+   */
+  mutual_code_hash: string;
+}
+
+/** Body of POST …/token — credential rotation; the new RAW secret. */
+export interface TokenRotationRequest {
+  token: string;
+}
+
+/** Body of POST /api/room/{address}/invite (CONCEPT §7.2). */
+export interface InviteMintRequest {
+  /** ISO expiry; omitted → server-side default (24 h). TBD(WP-6). */
+  expires_at?: string;
+}
+
+/**
+ * An active invite code as returned by the invite management endpoints
+ * (CONCEPT §7.2). TBD(WP-6): response shape fixed only by swagger.
+ */
+export interface Invite {
+  code: string;
+  created_at: string;
+  expires_at: string;
 }
