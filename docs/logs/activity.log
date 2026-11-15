@@ -1679,3 +1679,41 @@
 2026-11-15T17:53:48Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | - | session.execution.started | {"sessionID":"ses_e202fbbd0ffeJjOQYHNeiry3E0"}
 2026-11-15T17:53:56Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | concept | tool:shell | command=G="git -c safe.directory=/workspace" && $G branch --show-current && $G status --short | head -5 && $G log --oneline -2
 2026-11-15T17:53:59Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | concept | tool:shell | command=G="git -c safe.directory=/workspace" && \ $G add docs/Concept.md docs/logs/activity.log && \ $G commit -m "docs: Concept checklist — TZ pass v2 authorized-in-pr
+2026-11-15T17:54:04Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | concept | tool:edit | path=/workspace/docs/Concept.md
+2026-11-15T17:54:17Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | concept | tool:question | {"questions":[{"header":"TZ v2 approval","options":[{"description":"The process agent opens the v2 build loop (13 task cards, 5 waves, per-feature merge-approva
+2026-11-15T17:54:48Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | concept | tool:shell | command=printenv NOT_MAINTAIN_APPROVAL || echo "NOT_SET (default per-feature merge-approval mode)"
+2026-11-15T17:54:54Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | concept | tool:edit | path=/workspace/docs/Concept.md
+2026-11-15T17:55:14Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | concept | tool:subagent | description=v2 build loop (TZ Part II)
+2026-11-15T17:55:14Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | session.created | {"sessionID":"ses_e1fa6a795ffesEh7ntrIs2aLDT","projectID":"bf309ff466f7bcd6b1ca4751d16d42627dbac2ee","location":{"directory":"/workspace"},"subpath":"","parentI
+2026-11-15T17:55:14Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | - | session.execution.started | {"sessionID":"ses_e1fa6a795ffesEh7ntrIs2aLDT"}
+2026-11-15T17:55:20Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:shell | command=od -An -N4 -tx1 /dev/urandom | tr -d ' \n'
+2026-11-15T17:55:20Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:shell | command=ls scripts/ && git -C /workspace status --short --branch | head -5 && git -C /workspace log --oneline -5 dev 2>/dev/null || git -C /workspace log --oneline -5
+2026-11-15T17:55:24Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:shell | command=echo test
+2026-11-15T17:55:26Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:glob | pattern=.opencode/agents/*.md
+2026-11-15T17:55:26Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:read | path=/workspace/.opencode/agents/process.md
+2026-11-15T17:55:39Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:shell | command=scripts/session.sh new process concept "v2 build loop: TZ2-01..TZ2-13" -
+2026-11-15T17:55:39Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:shell | command=python3 scripts/task.py list
+2026-11-15T17:55:46Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:shell | command=scripts/open-feature.sh i18n-v2 - --as 9e6a5f3e --title "TZ2-01 i18n rev.3 copy table (+37 keys)"
+2026-11-15T17:55:46Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:shell | command=scripts/open-feature.sh api-client-v2 - --as 9e6a5f3e --title "TZ2-02 api-client v2: Bearer credentials + 9 new methods + policy test"
+2026-11-15T17:55:46Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:shell | command=scripts/open-feature.sh crypto-secrets - --as 9e6a5f3e --title "TZ2-03 crypto secrets module"
+2026-11-15T17:55:46Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:shell | command=scripts/open-feature.sh stores-v2 - --as 9e6a5f3e --title "TZ2-04 stores v2: identity+token, hostSession, tokenVault, mutualCode"
+2026-11-15T17:55:59Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:shell | command=python3 scripts/task.py list
+2026-11-15T17:55:59Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:shell | command=scripts/session.sh list
+2026-11-15T17:55:59Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:glob | pattern=.git/HEAD
+2026-11-15T17:56:05Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:glob | pattern=.git/HEAD
+2026-11-15T17:56:07Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:read | path=/workspace
+2026-11-15T17:56:09Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:read | path=/workspace/.git
+2026-11-15T17:56:19Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:glob | pattern=scripts/*
+2026-11-15T17:56:41Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:shell | command=scripts/log.sh log 9e6a5f3e "v2 loop wave-1 open blocked: git reports 'dubious ownership in repository at /workspace' for every git call (open-feature.sh x4 fai
+2026-11-15T17:56:41Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | process | tool:shell | command=scripts/session.sh close 9e6a5f3e blocked "v2 build loop blocked at wave-1 start: git dubious-ownership at /workspace blocks open-feature.sh branch creation (ne
+2026-11-15T17:56:50Z | ses_e1fa6a795ffesEh7ntrIs2aLDT | - | session.execution.succeeded | {"sessionID":"ses_e1fa6a795ffesEh7ntrIs2aLDT"}
+2026-11-15T17:56:59Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | - | session.execution.succeeded | {"sessionID":"ses_e202fbbd0ffeJjOQYHNeiry3E0"}
+2026-11-15T17:59:33Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | - | session.execution.started | {"sessionID":"ses_e202fbbd0ffeJjOQYHNeiry3E0"}
+2026-11-15T17:59:49Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | devops | tool:read | path=/workspace/.opencode/opencode.jsonc
+2026-11-15T17:59:59Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | devops | tool:edit | path=/workspace/.opencode/opencode.jsonc
+2026-11-15T18:00:03Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | devops | tool:shell | command=git config --global --add safe.directory /workspace && git config --global --add safe.directory /mount/bleak-node && git -C /workspace status --short --branch |
+2026-11-15T18:00:14Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | devops | tool:shell | command=git config --global --add safe.directory /workspace
+2026-11-15T18:00:20Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | devops | tool:read | path=/root/.gitconfig
+2026-11-15T18:00:24Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | devops | tool:write | path=/root/.gitconfig
+2026-11-15T18:00:27Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | devops | tool:shell | command=git -C /workspace status --short --branch | head -3; echo ---; git -C /mount/bleak-node status --short --branch | head -3; echo "GIT OK in both repos"
+2026-11-15T18:00:35Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | devops | tool:shell | command=scripts/session.sh set 9e6a5f3e status running && \ scripts/log.sh log 9e6a5f3e "blocker resolved by devops at user direction: global git safe.directory excepti

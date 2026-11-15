@@ -320,4 +320,6 @@ superseded text stays in §1c as history; this section wins.
 - [x] Owner approved **§6 v2 scope** (with §6.9 defaults) — **2026-11-15** → architect pass authorized (ARCHITECTURE/TZ v2, DESIGN rev. 3) → build loop for the credentials client scope.
 - [x] Architect (81037a13) — **ARCHITECTURE.md §10 v2 credentials addendum** delivered & merged into `dev` (2026-11-15).
 - [x] Design (bd636f23) — **DESIGN.md rev. 3** (118 ACs) delivered & merged; **owner approved** (2026-11-15) → TZ pass authorized.
-- [ ] Architect TZ pass v2 (81037a13, running) → owner review → build loop for the credentials client scope.
+- [x] Architect TZ pass v2 (81037a13) — **TZ.md Part II** delivered & merged (2026-11-15): 13 tasks (TZ2-01…TZ2-13), 118/118 ACs mapped, 5-wave plan, DoD v2.
+- [x] Owner approved **TZ v2** — **2026-11-15** → **v2 build loop authorized** (process agent; default per-feature merge-approval mode, `NOT_MAINTAIN_APPROVAL` unset).
+- [ ] Build loop v2 → done (TZ §8.6 Definition of Done).
