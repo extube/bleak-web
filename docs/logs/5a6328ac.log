@@ -1,0 +1,3 @@
+2026-11-15T18:07:16Z [worker] feature opened by process 9e6a5f3e: branch feature/5a6328ac-crypto-secrets (from dev), task 14 (todo) — criteria to be filled by process
+2026-11-15T18:08:41Z [worker] task 14 (TZ2-03 crypto secrets) in-progress; checked out feature/5a6328ac-crypto-secrets
+2026-11-15T18:13:25Z [worker] implemented lib/crypto/secrets.ts (generateTokenSecret 32B, generateMutualCode 16B, sha256Hex, injectable SecretSource, secure-context docs) + tests/crypto-secrets.test.ts (fixed-fake determinism, base64url vectors, NIST SHA-256 vectors via pure-JS reference, WebCrypto cross-check skipIf); gates: lint OK, test 373 passed, build OK
