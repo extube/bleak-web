@@ -318,3 +318,6 @@ superseded text stays in §1c as history; this section wins.
 - [x] Build loop → **v1 delivered** — owner ran the first version, 2026-11-15 ("awesome").
 - [x] bleak-node `CONCEPT.md` §7.1–§7.4 (ownership tokens, invite codes, mutual-QR) decided with the owner — **2026-11-15** (bleak-node repo; implementation by the owner, per its `docs/PLAN-ownership-tokens.md`).
 - [x] Owner approved **§6 v2 scope** (with §6.9 defaults) — **2026-11-15** → architect pass authorized (ARCHITECTURE/TZ v2, DESIGN rev. 3) → build loop for the credentials client scope.
+- [x] Architect (81037a13) — **ARCHITECTURE.md §10 v2 credentials addendum** delivered & merged into `dev` (2026-11-15).
+- [x] Design (bd636f23) — **DESIGN.md rev. 3** (118 ACs) delivered & merged; **owner approved** (2026-11-15) → TZ pass authorized.
+- [ ] Architect TZ pass v2 (81037a13, running) → owner review → build loop for the credentials client scope.

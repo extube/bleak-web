@@ -1656,3 +1656,26 @@
 2026-11-15T17:36:51Z | ses_e1fca1e50ffeSrDp9t42ikdppO | design | tool:read | path=/workspace/docs/DESIGN.md
 2026-11-15T17:37:23Z | ses_e1fca1e50ffeSrDp9t42ikdppO | - | session.execution.succeeded | {"sessionID":"ses_e1fca1e50ffeSrDp9t42ikdppO"}
 2026-11-15T17:37:38Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | concept | tool:shell | command=G="git -c safe.directory=/workspace" && \ scripts/session.sh set bd636f23 opencode-session ses_e1fca1e50ffeSrDp9t42ikdppO && \ scripts/session.sh close bd636f23
+2026-11-15T17:37:55Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | concept | tool:question | {"questions":[{"header":"DESIGN rev.3 review","options":[{"description":"I resume the TZ pass (architect) to produce the v2 TZ — worker-sized tasks mapping all 
+2026-11-15T17:47:20Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | concept | tool:subagent | sessionID=ses_e1fd18579ffePALJionbaLOMUs
+2026-11-15T17:47:20Z | ses_e1fd18579ffePALJionbaLOMUs | - | session.execution.started | {"sessionID":"ses_e1fd18579ffePALJionbaLOMUs"}
+2026-11-15T17:47:29Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | concept | tool:edit | path=/workspace/docs/Concept.md
+2026-11-15T17:47:52Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | concept | tool:shell | command=cat > /mount/bleak-node/TODO-tokens.md <<'EOF' # TODO — Ownership Tokens, Invite Codes, Mutual-QR Handshake (feature #33) > Actionable checklist for implementin
+2026-11-15T17:48:00Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | concept | tool:shell | command=cd /mount/bleak-node && G="git -c safe.directory=/mount/bleak-node" && \ $G checkout dev && \ $G merge --squash feat/#33-ownership-tokens && \ $G commit -m "fea
+2026-11-15T17:48:11Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | - | session.execution.succeeded | {"sessionID":"ses_e202fbbd0ffeJjOQYHNeiry3E0"}
+2026-11-15T17:49:42Z | ses_e1fd18579ffePALJionbaLOMUs | architect | tool:shell | command=bash scripts/session.sh set 81037a13 status running && bash scripts/log.sh log 81037a13 "TZ pass v2 resumed: design rev. 3 owner-approved; reading binding input
+2026-11-15T17:49:42Z | ses_e1fd18579ffePALJionbaLOMUs | architect | tool:grep | path=/workspace/docs/DESIGN.md
+2026-11-15T17:49:47Z | ses_e1fd18579ffePALJionbaLOMUs | architect | tool:shell | command=git -c safe.directory=/workspace checkout -b feature/81037a13-v2-tz dev 2>&1 | tail -2; git -c safe.directory=/workspace branch --show-current
+2026-11-15T17:49:47Z | ses_e1fd18579ffePALJionbaLOMUs | architect | tool:read | path=/workspace/docs/DESIGN.md
+2026-11-15T17:49:53Z | ses_e1fd18579ffePALJionbaLOMUs | architect | tool:grep | path=/workspace/docs/DESIGN.md
+2026-11-15T17:49:53Z | ses_e1fd18579ffePALJionbaLOMUs | architect | tool:read | path=/workspace/docs/TZ.md
+2026-11-15T17:49:56Z | ses_e1fd18579ffePALJionbaLOMUs | architect | tool:shell | command=tail -15 /workspace/docs/TZ.md && wc -l /workspace/docs/TZ.md
+2026-11-15T17:52:58Z | ses_e1fd18579ffePALJionbaLOMUs | architect | tool:edit | path=/workspace/docs/TZ.md
+2026-11-15T17:53:08Z | ses_e1fd18579ffePALJionbaLOMUs | architect | tool:edit | path=/workspace/docs/TZ.md
+2026-11-15T17:53:12Z | ses_e1fd18579ffePALJionbaLOMUs | architect | tool:shell | command=grep -n '^# Part II\|^## 8\.\|^### 8\.\|^### TZ2-\|^\*End of Part II' /workspace/docs/TZ.md && wc -l /workspace/docs/TZ.md
+2026-11-15T17:53:19Z | ses_e1fd18579ffePALJionbaLOMUs | architect | tool:shell | command=bash scripts/log.sh log 81037a13 "TZ.md Part II written: 13 v2 tasks (TZ2-01..TZ2-13), 118/118 AC coverage, 5 waves, DoD v2, contract caveats (WP-6/6.9a/6.9b), 
+2026-11-15T17:53:29Z | ses_e1fd18579ffePALJionbaLOMUs | architect | tool:shell | command=bash scripts/session.sh close 81037a13 done "TZ pass v2 complete. Deliverable: TZ.md Part II (commit fb13710 on feature/81037a13-v2-tz, branched from dev) — the
+2026-11-15T17:53:48Z | ses_e1fd18579ffePALJionbaLOMUs | - | session.execution.succeeded | {"sessionID":"ses_e1fd18579ffePALJionbaLOMUs"}
+2026-11-15T17:53:48Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | - | session.execution.started | {"sessionID":"ses_e202fbbd0ffeJjOQYHNeiry3E0"}
+2026-11-15T17:53:56Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | concept | tool:shell | command=G="git -c safe.directory=/workspace" && $G branch --show-current && $G status --short | head -5 && $G log --oneline -2
+2026-11-15T17:53:59Z | ses_e202fbbd0ffeJjOQYHNeiry3E0 | concept | tool:shell | command=G="git -c safe.directory=/workspace" && \ $G add docs/Concept.md docs/logs/activity.log && \ $G commit -m "docs: Concept checklist — TZ pass v2 authorized-in-pr
