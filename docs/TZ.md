@@ -695,6 +695,18 @@ hashes via `open-feature.sh` with `tz-section` pointing back here.*
 > credentials client scope. **Do not regress v1:** every v2 task touches only
 > what DESIGN rev. 3 / ARCHITECTURE §10 assign to it; unmentioned v1 behavior
 > must keep passing its v1 acceptance criteria.
+>
+> **Restructure note (2026-11-15, owner directive):** after wave 1
+> (TZ2-01…TZ2-04) was delivered, the owner directed the **remaining nine
+> tasks be consolidated into 3–4 larger tasks**. Done: the remaining work is
+> now **TZ2-05…TZ2-08** (credential plumbing · attendee flows · profile &
+> host · verification), each consolidating the absorbed `tz2-NN` tasks whose
+> scope bullets and task-specific criteria are preserved **verbatim**,
+> grouped under the absorbed id (§8.2). Nothing was weakened: all 118 DESIGN
+> rev. 3 ACs still map to exactly one task, all §8.4 rules stand, and
+> one-consolidated-task = one worker instance = one branch (its bug rounds
+> carry that single hash). Wave 1 history is not renumbered — TZ2-01…TZ2-04
+> stay delivered as opened.
 
 Authority chain: `docs/Concept.md` §6 (owner-approved) →
 `docs/ARCHITECTURE.md` §10 (merged) → `docs/DESIGN.md` **rev. 3** (owner-
@@ -715,30 +727,28 @@ criterion text.
 | TZ2-02 | api-client v2: types, Bearer credentials, 9 new methods, attachment-policy test | `api-client-v2` | L | — | (endpoint tables §3.1–§3.8; ARCH §10.2) | — |
 | TZ2-03 | crypto secrets module | `crypto-secrets` | S | — | (consumers §3.6/§3.7; ARCH §10.5) | — |
 | TZ2-04 | stores v2: identity+token, hostSession reshape, tokenVault, mutualCode | `stores-v2` | M | — | (§2.8/§3.1/§3.7 consumers; ARCH §10.4) | — |
-| TZ2-05 | web API layer: `api`/`hostApi`/`apiRaw`, 401 gates, invite-resolve seam | `web-api-v2` | M | TZ2-02, TZ2-04 | 2.8, 2.9, 3.5, 3.7 (consumers) | — |
-| TZ2-06 | scanner v2: server-mediated mutual routine + overlay states | `scanner-v2` | L | TZ2-05 | 3.8, 2.7 (amended) | §3.8 1–17 (17) |
-| TZ2-07 | join v2: creation w/ token, vault import, 401 notice, deep links | `join-v2` | L | TZ2-03, TZ2-05, TZ2-06 | 3.1, 2.8 | §3.1 1–19 (19) |
-| TZ2-08 | attendee handshake surfaces v2: radar + people income-rule states | `handshake-surfaces-v2` | L | TZ2-05 | 3.2, 3.3, 2.9 | §3.2 1–15 + §3.3 1–13 (28) |
-| TZ2-09 | chats + transcript viewer fallback | `chats-v2` | M | TZ2-05 | 3.4, 3.5 | §3.4 1–8 + §3.5 1–15 (23) |
-| TZ2-10 | profile v2: live badge QR + token rotation | `profile-v2` | M | TZ2-03, TZ2-05 | 3.6 | §3.6 1–15 (15) |
-| TZ2-11 | host console v2: creation-token gate, invite management, room-token drill-down | `host-v2` | L | TZ2-03, TZ2-05, TZ2-12 | 3.7, 2.8 | §3.7 1–16 (16) |
-| TZ2-12 | helper trim: stateless QR | `helper-trim` | S | — | (ARCH §10.10) | — |
-| TZ2-13 | verification sweep v2 | `verify-v2` | L | TZ2-06…TZ2-12 all merged | 3.9 (all) | re-verifies all 118 |
+| TZ2-05 | **credential plumbing**: web API layer (`api`/`hostApi`/`apiRaw`, 401 gates, invite-resolve seam) + helper trim (stateless QR) — absorbs `tz2-05`, `tz2-12` | `credential-plumbing` | L | (wave 1 merged) | (consumers §2.8–§3.7; ARCH §10.3, §10.10) | — |
+| TZ2-06 | **attendee flows v2**: scanner v2 + join/vault import + handshake surfaces + chats/host-view fallback — absorbs `tz2-06`, `tz2-07`, `tz2-08`, `tz2-09` | `attendee-flows-v2` | XL | TZ2-05 | 3.8, 3.1, 3.2, 3.3, 3.4, 3.5 (+2.7/2.8/2.9) | §3.8 1–17 + §3.1 1–19 + §3.2 1–15 + §3.3 1–13 + §3.4 1–8 + §3.5 1–15 (87) |
+| TZ2-07 | **profile & host v2**: live badge QR + token rotation + host console (creation-token gate, invite management, room-token drill-down) — absorbs `tz2-10`, `tz2-11` | `profile-host-v2` | XL | TZ2-05 | 3.6, 3.7 (+2.8) | §3.6 1–15 + §3.7 1–16 (31) |
+| TZ2-08 | verification sweep v2 — absorbs `tz2-13` (unchanged in scope) | `verify-v2` | L | TZ2-05…TZ2-07 all merged | 3.9 (all) | re-verifies all 118 |
+
+*Wave 1 rows (TZ2-01…TZ2-04) are **✅ delivered** (merged to `dev` by owner
+approval, 2026-11-15); their original per-task sections below are kept
+verbatim as the delivered record — history is not renumbered.*
 
 **Coverage: all 118 DESIGN rev. 3 §3 ACs map to exactly one implementation
-task** (§3.1→TZ2-07, §3.2+§3.3→TZ2-08, §3.4+§3.5→TZ2-09, §3.6→TZ2-10,
-§3.7→TZ2-11, §3.8→TZ2-06); TZ2-13 re-verifies all 118. Foundation/verification
-tasks (TZ2-01…TZ2-05, TZ2-12) carry only their own technical criteria, as in
-Part I.
+task** (§3.1, §3.2, §3.3, §3.4, §3.5 → TZ2-06 Parts A–D; §3.6 → TZ2-07
+Part A; §3.7 → TZ2-07 Part B; §3.8 → TZ2-06 Part A); TZ2-08 re-verifies all
+118. The plumbing task (TZ2-05) carries only its own technical criteria, as
+in Part I.
 
-**i18n placement decision:** the copy table is a **foundation task
-(TZ2-01)**, mirroring Part I's TZ-01 — rev. 3 adds +37 keys consumed by five
-different page tasks; doing it per-flow would duplicate §4.7 lookups and risk
-parity drift. Page tasks wire their own keys; TZ2-13 audits usage.
+**i18n placement decision (unchanged):** the copy table was a **foundation
+task (TZ2-01, delivered)** mirroring Part I's TZ-01 — page tasks wire their
+own keys; the verification task audits usage.
 
 ### 8.2 Per-task TZ sections
 
-### TZ2-01 — i18n rev. 3 copy table (`tz2-01`)
+### TZ2-01 — i18n rev. 3 copy table (`tz2-01`) — ✅ delivered
 
 **Scope** (DESIGN §4.7): reconcile `apps/web/src/lib/i18n/{ru,en}.ts` against
 the rev. 3 table — **add every new key verbatim in both languages** (the +37:
@@ -765,7 +775,7 @@ keys untouched. Interpolation params (`{n}`, `{q}`, `{name}`, `{date}`,
 
 ---
 
-### TZ2-02 — `@bleak/api-client` v2 (`tz2-02`)
+### TZ2-02 — `@bleak/api-client` v2 (`tz2-02`) — ✅ delivered
 
 **Scope** (ARCH §10.2 — the HOW is already decided there; this task implements
 it):
@@ -806,7 +816,7 @@ dependency introduced.
 
 ---
 
-### TZ2-03 — crypto secrets module (`tz2-03`)
+### TZ2-03 — crypto secrets module (`tz2-03`) — ✅ delivered
 
 **Scope** (ARCH §10.5): `apps/web/src/lib/crypto/secrets.ts` —
 `generateTokenSecret()` (32 random bytes → base64url, no padding),
@@ -827,7 +837,7 @@ examples) + a pure-JS reference cross-check; generation length asserts
 
 ---
 
-### TZ2-04 — stores v2 (`tz2-04`)
+### TZ2-04 — stores v2 (`tz2-04`) — ✅ delivered
 
 **Scope** (ARCH §10.4):
 1. `lib/stores/identity.ts`: `Identity { roomAddress, userAddress, token }`;
@@ -866,7 +876,14 @@ test; **storage-key inventory test**: exactly `bleak.identity`,
 
 ---
 
-### TZ2-05 — web API layer: contexts, gates, seam (`tz2-05`)
+### TZ2-05 — credential plumbing (`credential-plumbing`) — absorbs `tz2-05`, `tz2-12`
+
+One worker owns the transport layer end-to-end: the web API contexts/gates/
+seam **and** the helper-service trim (the layer consumes the helper's QR
+endpoint; retiring the mapping in the same task keeps the surface coherent —
+rationale for the grouping). No inherited page ACs — technical criteria only.
+
+#### Part A — web API layer: contexts, gates, seam (absorbed `tz2-05`)
 
 **Scope** (ARCH §10.3):
 1. Rebuild `apps/web/src/lib/api/client.ts` over the TZ2-02 client: export
@@ -895,11 +912,12 @@ test; **storage-key inventory test**: exactly `bleak.identity`,
    invalid/unknown-code errors map to the join error kinds (`malformed` /
    `not_found`).
 6. Trim `lib/api/helper.ts`: **remove** `resolveInvite` + `createRoom` and
-   their types; keep `inviteQrUrl` (the helper's stateless QR, TZ2-12).
+   their types; keep `inviteQrUrl` (the helper's stateless QR — Part B of
+   this task).
 
 **Files:** `apps/web/src/lib/api/{client,helper,invite-resolve}.ts`, tests
 (new `api-contexts.test.ts`; `join-flow.test.ts` fixtures updated where they
-reference the removed helper calls — wiring only, join UX is TZ2-07).
+reference the removed helper calls — wiring only, join UX is TZ2-06 Part B).
 
 **Task-specific technical criteria:** injection-map unit test mirrors the
 ARCH §10.2 policy table (each credentialed call carries the right token;
@@ -907,20 +925,55 @@ public reads carry none); gate tests with a mocked `goto` (identity +
 mutualCode cleared, notice key set, navigation queued, error rethrown);
 `hostApi` gate test: 401/403 on a room-token call clears `bleak.hostRoom` +
 sets `bleak.hostReset` (DESIGN §3.7 host reset — attendee identity never
-touched); `apiRaw` usage restriction enforced by a grep test (importers =
-the web api module + the TZ2-09 transcript fallback only).
+touched); `apiRaw` usage restriction enforced by a grep test (importers = the web api
+module + the transcript fallback (TZ2-06 Part D) only).
 
-**Dependencies:** TZ2-02, TZ2-04. **Out of scope:** page flows; scanner
-module.
+#### Part B — helper trim: stateless QR (absorbed `tz2-12`)
+
+**Scope** (ARCH §10.10 — the exact delete/keep table): delete
+`POST /rooms`, `GET /rooms/:code`, the `x-host-token` gate, `src/db.ts`
+(invites SQLite store), code **minting** in `codes.ts` (keep the 6-digit
+validator), the `bleakFetch` dep, and env `HELPER_HOST_TOKEN` /
+`HELPER_DB_PATH` / `BLEAK_NODE_URL` (helper no longer talks to bleak-node).
+Rework `GET /rooms/:code/qr` to be **stateless**: validate 6 digits (no
+mapping lookup — unknown codes are renderable), return the PNG of
+`{INVITE_URL_BASE}?code={code}`. Keep `GET /health`. Trim
+`.env.example` accordingly (`INVITE_URL_BASE` stays).
+
+**Files:** `apps/helper/src/{app,env,codes}.ts` (delete `db.ts`),
+`apps/helper/tests/{helper,codes}.test.ts` (rewrite), `.env.example`.
+
+**Task-specific technical criteria:** helper tests cover health + stateless
+QR only (QR encoder stays mocked/injectable; a 6-digit code renders its
+URL; malformed rejected); no SQLite import remains; no env var for a host
+token remains; `make test -w @bleak/helper` green with the shrunken suite.
+
+**Consolidated dependencies:** merged wave 1 only (TZ2-02 + TZ2-04,
+delivered). **Consolidated out of scope:** page flows (TZ2-06, TZ2-07);
+scanner module.
 
 ---
 
-### TZ2-06 — scanner v2 (`tz2-06`)
+### TZ2-06 — attendee flows v2 (`attendee-flows-v2`) — absorbs `tz2-06`, `tz2-07`, `tz2-08`, `tz2-09`
+
+One worker owns the whole attendee surface: the server-mediated scanner (A),
+the join/vault flow (B), the radar/people handshake surfaces (C) and the
+chats/transcript viewer fallback (D). The former scanner↔join deep-link
+coupling (§3.1 AC 19) becomes **intra-task sequencing** (build Part A's
+module before Part B's deep-link wiring) — the grouping's main rationale.
+The shared surfaces (`HandshakeSheet`, `PersonCard`) belong here, keeping
+the two former owners in one pair of hands.
+
+**Inherited acceptance criteria:** DESIGN §3.8 AC **1–17** + §3.1 AC **1–19**
++ §3.2 AC **1–15** + §3.3 AC **1–13** + §3.4 AC **1–8** + §3.5 AC **1–15**
+(87 total) — all verbatim per part below.
+
+#### Part A — scanner v2 (absorbed `tz2-06`)
 
 **Scope** (DESIGN §3.8 rewritten + §2.7 amendment; ARCH §10.7):
 1. **Replace** `lib/scanner/mutualHandshake.ts` (the v1 two-POST routine) —
    new `lib/scanner/mutual.ts`, pure + unit-tested, callable standalone (the
-   `/` deep-link machine in TZ2-07 reuses it). Input
+   `/` deep-link machine — Part B — reuses it). Input
    `{ myAddress, memberList, mutualCode, api }`; the `api` context
    auto-injects the scanner's Bearer. State machine: own-QR → info; foreign
    (not in member list) → error; **no already-mutual precheck** (the code
@@ -951,12 +1004,7 @@ state with a mocked api (single mutual call — assert **one** POST, not two;
 round-trip `u`+`m`; component test: result-panel state rendering + no Retry
 on 410; existing camera/a11y tests stay green (no regression).
 
-**Dependencies:** TZ2-05. **Out of scope:** `/` deep-link rendering (TZ2-07
-consumes the module); profile badge encoding (TZ2-10).
-
----
-
-### TZ2-07 — join v2 + vault import (`tz2-07`)
+#### Part B — join v2 + vault import (absorbed `tz2-07`)
 
 **Scope** (DESIGN §3.1 rewritten; ARCH §10.6):
 1. Code resolution via the **seam** (`resolveInviteCode`); room preview via
@@ -980,7 +1028,7 @@ consumes the module); profile badge encoding (TZ2-10).
    `mutualCode`, keeps the vault.
 6. **Deep links** (§3.1 AC 19): extend `parseJoinDeepLink` with
    `{ kind: 'user', userAddress, mutualCode? }`; with an identity,
-   `?u&m` runs the TZ2-06 mutual module **including the confirm card**
+   `?u&m` runs the Part A mutual module **including the confirm card**
    rendered in the join flow (result states reused); `?u=` alone runs the
    single-direction confirm → one `POST /api/handshake` (my Bearer,
    auto-injected) with the §2.9 income-rule state on 403; without an
@@ -1003,13 +1051,7 @@ the Bearer equals the vault entry's); deep-link machine tests for both
 variants incl. the no-identity ignore; the confirm card is a
 focus-trapped dialog (reuse `ConfirmDialog` semantics).
 
-**Dependencies:** TZ2-03 (token generation), TZ2-05 (layer + seam),
-TZ2-06 (mutual module for deep links). **Out of scope:** scanner internals;
-`/room` content.
-
----
-
-### TZ2-08 — attendee handshake surfaces v2 (`tz2-08`)
+#### Part C — attendee handshake surfaces v2 (absorbed `tz2-08`)
 
 **Scope** (DESIGN §3.2 + §3.3 deltas; §2.9):
 1. **Credentialed wiring** (mostly automatic via the `api` context — verify,
@@ -1041,12 +1083,7 @@ asserting the Bearer header on the handshake POST and on the gated polls
 sheet and card (copy, `aria-live`, no state flip, no further request);
 existing placement/relationships/poller tests stay green.
 
-**Dependencies:** TZ2-05. **Out of scope:** scanner (TZ2-06); chats
-(TZ2-09).
-
----
-
-### TZ2-09 — chats + transcript viewer fallback (`tz2-09`)
+#### Part D — chats + transcript viewer fallback (absorbed `tz2-09`)
 
 **Scope** (DESIGN §3.4 + §3.5 rewritten; ARCH §10.3 escape hatch):
 1. `/chats`: gated `listChatsOfUser` poll (Bearer automatic); v1 card
@@ -1080,12 +1117,24 @@ no room token → gate fires — assert identity cleared via the gate path,
 not a transcript error UI); 2 s poller stopped on teardown (existing
 fake-timer test stays green); no-composer test green.
 
-**Dependencies:** TZ2-05. **Out of scope:** scanner; host drill-down UI
-(TZ2-11 — which *links into* this transcript route).
+**Consolidated dependencies:** TZ2-05 (layer + seam), TZ2-03 (crypto —
+merged wave 1). **Consolidated out of scope:** profile (TZ2-07 Part A),
+host console (TZ2-07 Part B), helper service (TZ2-05 Part B).
 
 ---
 
-### TZ2-10 — profile v2: live QR + rotation (`tz2-10`)
+### TZ2-07 — profile & host v2 (`profile-host-v2`) — absorbs `tz2-10`, `tz2-11`
+
+One worker owns the two credential-heavy consoles: the attendee profile
+(live badge QR + persona-token rotation, Part A) and the host console
+(creation-token gate + invite management + room-token drill-down, Part B).
+Disjoint route files, one credential mental model (token generation,
+rotation, masked entry) — the grouping's rationale.
+
+**Inherited acceptance criteria:** DESIGN §3.6 AC **1–15** + §3.7 AC **1–16**
+(31 total) — verbatim per part below.
+
+#### Part A — profile v2: live QR + rotation (absorbed `tz2-10`)
 
 **Scope** (DESIGN §3.6 rewritten; ARCH §10.8):
 1. All profile calls persona-Bearer (auto-injected); the 4 s badge poll of
@@ -1122,12 +1171,9 @@ identity+vault updated only after 2xx); poller stopped on teardown
 (4 s); micro-animation transform/opacity-only + reduced-motion skip;
 `uqr` still code-split to this route only (build-grep criterion, re-assert).
 
-**Dependencies:** TZ2-03, TZ2-05. **Out of scope:** scanner decode
-(TZ2-06).
-
 ---
 
-### TZ2-11 — host console v2 (`tz2-11`)
+#### Part B — host console v2 (absorbed `tz2-11`)
 
 **Scope** (DESIGN §3.7 rewritten; ARCH §10.9):
 1. **Creation-token gate** (§3.7.2): masked input (`type="password"`,
@@ -1141,7 +1187,7 @@ identity+vault updated only after 2xx); poller stopped on teardown
 3. **Share kit:** restored from `bleak.hostRoom`; room `name` via public
    `getRoom`; invite link computed client-side
    (`{INVITE_URL_BASE}?code={code}`); QR `<img>` from the **stateless**
-   helper endpoint (TZ2-12); «Присоединиться как участник» unchanged.
+   helper endpoint (TZ2-05 Part B); «Присоединиться как участник» unchanged.
 4. **Invite management block:** `listInvites` / `mintInvite` (expiry
    presets 1 h / 24 h default / 7 d + custom `datetime-local`, min = now) /
    `revokeInvite` (no confirm; reversible); `InviteRow` per active code with
@@ -1154,8 +1200,8 @@ identity+vault updated only after 2xx); poller stopped on teardown
    6.9a-blocked** — until the amendment the sheet renders the empty
    drill-down copy + the muted 6.9a hint («Список диалогов участника
    появится вместе с серверным обновлением (флаг 6.9a).»), **never
-   invented listings**; dialog rows link to `/chats/{address}` (the TZ2-09
-   host-view context) and carry «Очистить историю» (confirm →
+   invented listings**; dialog rows link to `/chats/{address}` (the
+   TZ2-06 Part D host-view context) and carry «Очистить историю» (confirm →
    `clearChatHistory`, room token) and «Запустить заново» (§3.5 kickoff
    copy → `kickoffChat`, room token). **No handshake counts anywhere** (AC 11).
 6. **Host settings:** `updateRoom` (room token); «Сгенерировать ключ
@@ -1183,39 +1229,14 @@ side and stored only in `bleak.hostRoom`; drill-down fetches on demand only
 (no poller in sheets); 6.9a hint state test (empty + hint copy; no invented
 data); rotation in-place update test; host-reset consumption test.
 
-**Dependencies:** TZ2-03 (room-token generation), TZ2-05 (hostApi context +
-reset flag), TZ2-12 (stateless QR endpoint — the share-kit QR 404s against
-the old mapping-based helper). **Out of scope:** attendee pages; transcript
-route internals (TZ2-09).
+**Consolidated dependencies:** TZ2-05 (hostApi context + reset flag +
+stateless helper QR), TZ2-03 (room-token generation — merged wave 1).
+**Consolidated out of scope:** attendee surfaces (TZ2-06); transcript route
+internals (TZ2-06 Part D — which this task's drill-down *links into*).
 
 ---
 
-### TZ2-12 — helper trim: stateless QR (`tz2-12`)
-
-**Scope** (ARCH §10.10 — the exact delete/keep table): delete
-`POST /rooms`, `GET /rooms/:code`, the `x-host-token` gate, `src/db.ts`
-(invites SQLite store), code **minting** in `codes.ts` (keep the 6-digit
-validator), the `bleakFetch` dep, and env `HELPER_HOST_TOKEN` /
-`HELPER_DB_PATH` / `BLEAK_NODE_URL` (helper no longer talks to bleak-node).
-Rework `GET /rooms/:code/qr` to be **stateless**: validate 6 digits (no
-mapping lookup — unknown codes are renderable), return the PNG of
-`{INVITE_URL_BASE}?code={code}`. Keep `GET /health`. Trim
-`.env.example` accordingly (`INVITE_URL_BASE` stays).
-
-**Files:** `apps/helper/src/{app,env,codes}.ts` (delete `db.ts`),
-`apps/helper/tests/{helper,codes}.test.ts` (rewrite), `.env.example`.
-
-**Task-specific technical criteria:** helper tests cover health + stateless
-QR only (QR encoder stays mocked/injectable; a 6-digit code renders its
-URL; malformed rejected); no SQLite import remains; no env var for a host
-token remains; `make test -w @bleak/helper` green with the shrunken suite.
-
-**Dependencies:** none (independent of the web layer). **Out of scope:** web
-changes (TZ2-05 trims the helper *client*; TZ2-11 consumes the stateless QR).
-
----
-
-### TZ2-13 — verification sweep v2 (`tz2-13`)
+### TZ2-08 — verification sweep v2 (`verify-v2`) — absorbs `tz2-13` (unchanged in scope)
 
 **Scope**: the closing task of the v2 loop (mirrors Part I's TZ-10). One
 worker; bug discoveries go through the process bug flow, not this branch.
@@ -1231,7 +1252,7 @@ worker; bug discoveries go through the process bug flow, not this branch.
    outside `packages/api-client` + the web api module; (c) no
    `console.*` call receives a token/code value (static scan of the web
    sources); (d) the creation token is never written to any storage.
-3. **No-composer re-check:** the TZ2-09 test green; grep sweep that no
+3. **No-composer re-check:** the TZ2-06 Part D test green; grep sweep that no
    route/component renders an input/textarea/send control in any chat UI.
 4. **i18n parity + copy audit:** parity over the final enlarged
    dictionaries; every visible string on every changed page against §4.7
@@ -1262,25 +1283,26 @@ sweep additions.
 118 ACs with status and evidence; all gates stay green
 (`make lint && make test && make build`).
 
-**Dependencies:** TZ2-06…TZ2-12 all merged. **Out of scope:** new features;
+**Dependencies:** TZ2-05…TZ2-07 all merged. **Out of scope:** new features;
 redesigns; real-device fixing (record only).
 
 ### 8.3 Criteria-coverage map (summary)
 
 | Task | Inherited DESIGN rev. 3 ACs | Count |
 | --- | --- | --- |
-| TZ2-06 | §3.8 1–17 | 17 |
-| TZ2-07 | §3.1 1–19 | 19 |
-| TZ2-08 | §3.2 1–15, §3.3 1–13 | 28 |
-| TZ2-09 | §3.4 1–8, §3.5 1–15 | 23 |
-| TZ2-10 | §3.6 1–15 | 15 |
-| TZ2-11 | §3.7 1–16 | 16 |
-| TZ2-13 | re-verifies all of the above | 118 |
-| TZ2-01…TZ2-05, TZ2-12 | task-specific technical criteria only | — |
+| TZ2-06 Part A | §3.8 1–17 | 17 |
+| TZ2-06 Part B | §3.1 1–19 | 19 |
+| TZ2-06 Part C | §3.2 1–15, §3.3 1–13 | 28 |
+| TZ2-06 Part D | §3.4 1–8, §3.5 1–15 | 23 |
+| TZ2-07 Part A | §3.6 1–15 | 15 |
+| TZ2-07 Part B | §3.7 1–16 | 16 |
+| TZ2-08 | re-verifies all of the above | 118 |
+| TZ2-01…TZ2-05 | task-specific technical criteria only (wave 1 delivered; plumbing has no page ACs) | — |
 
-**Coverage: 118/118 mapped to exactly one implementation task; TZ2-13
+**Coverage: 118/118 mapped to exactly one implementation task; TZ2-08
 re-verifies all.** (§3.1+§3.2+§3.3+§3.4+§3.5+§3.6+§3.7+§3.8 =
-19+15+13+8+15+15+16+17 = 118, matching DESIGN §3.9.)
+19+15+13+8+15+15+16+17 = 118, matching DESIGN §3.9; TZ2-06 carries 87,
+TZ2-07 carries 31.)
 
 ### 8.4 Contract caveats & cross-task rules for workers
 
@@ -1291,28 +1313,31 @@ re-verifies all.** (§3.1+§3.2+§3.3+§3.4+§3.5+§3.6+§3.7+§3.8 =
    `packages/api-client/src/types.ts` + one mapping point in `client.ts`.
    **If WP-6 lands mid-loop**, the process routes a small bug-flow round on
    TZ2-02's hash to reconcile types — **never** a page/component change.
-   TZ2-11's host gate and TZ2-06's mutual call consume only the
-   api-client's public methods, so they are insulated.
+   TZ2-07 Part B's host gate and TZ2-06 Part A's mutual call consume only
+   the api-client's public methods, so they are insulated. (TZ2-02 is
+   delivered; the markers exist in the merged code.)
 2. **Flag 6.9a (room-scoped per-user reads under the room token):**
-   TZ2-11 implements the **honest hint state** (empty drill-down + the
-   muted 6.9a hint; DESIGN §3.7) and builds the drill-down on plain
+   TZ2-07 Part B implements the **honest hint state** (empty drill-down +
+   the muted 6.9a hint; DESIGN §3.7) and builds the drill-down on plain
    room-token chat reads (amendment-independent). When the amendment
    lands, enabling the member chat listing is a **follow-up task** (new
-   `tz2-11a` card, S) — not a redesign; no v2 task may invent chat
-   listings client-side.
-3. **Flag 6.9b (invite-resolve shape):** the seam ships in TZ2-05 with a
-   concrete adapter; TZ2-07 consumes it. If the backend ships no resolve
-   route, the only changes are the adapter function (TZ2-05) and, in the
-   worst case documented by ARCH §10.13.3, the pre-create room preview
-   degradation in TZ2-07 — the owner picks the shape before the build
-   loop.
+   `tz2-07a` card, S, opened off the TZ2-07 worker's hash) — not a
+   redesign; no v2 task may invent chat listings client-side.
+3. **Flag 6.9b (invite-resolve shape):** the seam ships in TZ2-05 Part A
+   with a concrete adapter; TZ2-06 Part B consumes it. If the backend
+   ships no resolve route, the only changes are the adapter function
+   (TZ2-05) and, in the worst case documented by ARCH §10.13.3, the
+   pre-create room preview degradation in TZ2-06 Part B — the owner picks
+   the shape before wave 2.
 4. **Credential-transport discipline:** tokens move only through the
    TZ2-02 per-call credential and the TZ2-05 injection map/override;
-   `apiRaw` is restricted to the TZ2-09 transcript fallback (grep-enforced).
-   No component, store, or route may construct an `Authorization` header.
+   `apiRaw` is restricted to the TZ2-06 Part D transcript fallback
+   (grep-enforced). No component, store, or route may construct an
+   `Authorization` header.
 5. **Vault discipline:** `tokenVault` is append-only; the only in-place
-   mutation is token rotation (TZ2-10 persona, TZ2-11 room — the room token
-   lives in `hostSession`, not the vault). No flow deletes vault entries.
+   mutation is token rotation (TZ2-07: persona Part A, room Part B — the
+   room token lives in `hostSession`, not the vault). No flow deletes
+   vault entries.
 6. **v1 regression guard:** every task runs the full existing test suite;
    v1 acceptance criteria that rev. 3 re-asserts (e.g. §3.2 AC 1–14, §3.5
    AC 1–13) must keep passing — a red v1 test is a bug, not a license to
@@ -1323,53 +1348,53 @@ re-verifies all.** (§3.1+§3.2+§3.3+§3.4+§3.5+§3.6+§3.7+§3.8 =
 
 ### 8.5 Sequencing & parallelism plan
 
-**Critical chain:** (TZ2-02, TZ2-04) → TZ2-05 → (TZ2-06 ∥ TZ2-08 ∥ TZ2-09 ∥
-TZ2-10 ∥ TZ2-11) → TZ2-07 → TZ2-13.
+**Critical chain:** (wave 1 delivered: TZ2-01…TZ2-04) → (TZ2-05 ∥ TZ2-06 ∥
+TZ2-07) → TZ2-08.
 
 | Wave | Tasks running in parallel | Gate to enter |
 | --- | --- | --- |
-| 1 | TZ2-01, TZ2-02, TZ2-03, TZ2-04 | — (all independent) |
-| 2 | TZ2-05, TZ2-12 | TZ2-02 + TZ2-04 merged (TZ2-12: none) |
-| 3 | TZ2-06, TZ2-08, TZ2-09, TZ2-10, TZ2-11 | TZ2-05 merged (TZ2-10/11 also need TZ2-03; TZ2-11 also TZ2-12) |
-| 4 | TZ2-07 | TZ2-05 + TZ2-06 merged (TZ2-03 already in) |
-| 5 | TZ2-13 | TZ2-06…TZ2-12 all merged |
+| 1 | TZ2-01, TZ2-02, TZ2-03, TZ2-04 | — (all independent) — **✅ delivered, merged** |
+| 2 | TZ2-05, TZ2-06, TZ2-07 | wave 1 merged (all three depend only on TZ2-02 + TZ2-04; TZ2-06/07 also use TZ2-03) |
+| 3 | TZ2-08 | TZ2-05…TZ2-07 all merged |
 
 **Why this is safe in parallel:**
-- Wave 1 tasks touch disjoint packages/files (i18n dictionaries; the
-  api-client package; a new crypto module; store files). TZ2-02 and TZ2-04
-  are the two prerequisites everything else waits on.
-- Wave 3 tasks touch **disjoint route files** and consume only the TZ2-05
-  contract (contexts + gates) and TZ2-03's functions; the shared surface
-  edits (HandshakeSheet/PersonCard) are confined to TZ2-08.
-- **TZ2-07 sits in wave 4 only because its deep-link machine (§3.1 AC 19)
-  consumes TZ2-06's `lib/scanner/mutual.ts`.** Everything else in TZ2-07
-  (creation, vault import, notice card, resume card) needs only wave-2
-  outputs; if worker capacity allows, TZ2-07 may **start in wave 3** and
-  land after TZ2-06 merges — the process orders the merges accordingly
-  (TZ2-06 before TZ2-07).
-- TZ2-12 is deliberately wave 2 (small, independent): TZ2-11's share-kit QR
-  would 404 against the old mapping-based helper, so the helper trim must
-  merge before the host task is verified end-to-end.
+- Wave 1 tasks touched disjoint packages/files (delivered).
+- Wave 2 tasks touch **disjoint file sets**: TZ2-05 = web api layer + helper
+  service; TZ2-06 = attendee routes + scanner + shared sheet/card; TZ2-07 =
+  profile + host routes. All consume only the delivered wave-1 contract
+  (api-client methods, crypto functions, stores) plus the TZ2-05 layer —
+  but TZ2-06/07 consume it through the **delivered wave-1 types** plus the
+  TZ2-05 contract at merge time; no wave-2 branch edits another's files.
+- **TZ2-06 internal sequencing:** Part A's `lib/scanner/mutual.ts` is built
+  before Part B's deep-link wiring (§3.1 AC 19) — intra-task, no boundary.
+- **TZ2-07 and the helper trim (TZ2-05 Part B) run in parallel:** the host
+  share-kit QR is unit-tested via the `inviteQrUrl` URL builder (no live
+  helper dependency in unit tests); the **end-to-end stateless-QR check is
+  TZ2-08's sweep**, after both merge.
+- **Worker sizing note:** TZ2-06 and TZ2-07 are XL — workers lean on
+  OpenCode's automatic compaction within the 200-step cap (AGENTS.md
+  resource limits); each consolidated task still closes via one task card,
+  and its bug rounds carry the one hash.
 
 **Merge order that keeps `dev` green:** any order within a wave (each
-branch is self-contained and gates-green); TZ2-13 strictly last. No task
-except TZ2-13 may edit another task's files; contract violations are bugs.
+branch is self-contained and gates-green); TZ2-08 strictly last. No task
+except TZ2-08 may edit another task's files; contract violations are bugs.
 
 ### 8.6 Definition of Done — v2
 
 1. **All 118 DESIGN rev. 3 acceptance criteria pass** — recorded per
-   criterion with evidence in `docs/verification-v2.md` (TZ2-13); any
+   criterion with evidence in `docs/verification-v2.md` (TZ2-08); any
    failure is a filed, closed bug.
 2. **CI green on `dev`** after the last merge (`make lint && make test &&
    make build`).
 3. **Credential custody enforced:** tokens and one-time codes exist only in
    `bleak.identity`, `bleak.hostRoom`, `bleak.tokenVault`,
-   `bleak.mutualCode` — the TZ2-13 grep/unit sweep passes; no credential
+   `bleak.mutualCode` — the TZ2-08 grep/unit sweep passes; no credential
    value is logged (`console.*` scan clean); the creation token is never
    persisted; the api-client never touches storage.
 4. **No-composer invariant intact** (ruling 4): no input/textarea/send
    control in any chat UI; `POST /api/message` still unwired anywhere
-   (TZ2-09 test + TZ2-13 sweep).
+   (TZ2-06 Part D test + TZ2-08 sweep).
 5. **i18n complete:** RU/EN parity green over the enlarged dictionaries;
    §4.7 rev. 3 audit clean; locale switch works mid-flow and persists.
 6. **Bundle budgets still met:** join route ≤ 60 kB gzip, any page ≤ 80 kB;
@@ -1390,43 +1415,50 @@ except TZ2-13 may edit another task's files; contract violations are bugs.
 ### 8.7 Flags for the concept agent (unbuildable/ambiguous — flagged, not resolved)
 
 1. **6.9b resolve shape is a build-loop dependency for two tasks:** the
-   owner's answer touches **TZ2-05** (the adapter function — any shape
-   slots in) and, in the worst case (no resolve route at all),
-   **TZ2-07**'s pre-create room preview (degradation per ARCH §10.13.3:
-   resolve after creation, preview dropped). Decide before wave 3 to keep
-   TZ2-07's scope stable.
-2. **WP-6 timing vs loop start:** if bleak-node's swagger update is not
-   merged when TZ2-02 runs, the proposed shapes ship with `TBD(WP-6)`
-   markers and a later reconciliation round (bug flow on TZ2-02's hash,
-   isolated to `types.ts`). No design or page impact either way — but the
-   concept agent may prefer to sequence the backend WP-6 before wave 1 to
-   avoid the extra round.
-3. **6.9a follow-up sizing:** TZ2-11 ships the honest 6.9a hint state; when
-   the amendment lands, enabling the member dialog listing is a new small
-   task (suggested `tz2-11a`, size S, depends on TZ2-11). The concept
-   agent should pre-authorize its creation so the process can open it
-   without a new ruling.
+   owner's answer touches **TZ2-05 Part A** (the adapter function — any
+   shape slots in) and, in the worst case (no resolve route at all),
+   **TZ2-06 Part B**'s pre-create room preview (degradation per ARCH
+   §10.13.3: resolve after creation, preview dropped). Decide before
+   wave 2 to keep TZ2-06's scope stable.
+2. **WP-6 timing vs loop start:** the proposed shapes shipped **delivered**
+   with `TBD(WP-6)` markers in TZ2-02; if bleak-node's swagger update is
+   not merged yet, the later reconciliation round runs through the bug
+   flow on TZ2-02's hash (isolated to `types.ts`). No design or page
+   impact either way — but the concept agent may prefer to sequence the
+   backend WP-6 before wave 2 to avoid the extra round.
+3. **6.9a follow-up sizing:** TZ2-07 Part B ships the honest 6.9a hint
+   state; when the amendment lands, enabling the member dialog listing is
+   a new small task (suggested `tz2-07a`, size S, opened off the TZ2-07
+   worker's hash). The concept agent should pre-authorize its creation so
+   the process can open it without a new ruling.
 4. **Invite mint response shape (TBD(WP-6)) drives the `InviteRow` expiry
    display** (DESIGN §3.7): the UI assumes `{ code, created_at,
    expires_at }`; if the backend's shape differs, the adjustment is
-   confined to TZ2-11's row rendering + the TZ2-02 `Invite` type — noted
-   so it is not mistaken for a design change.
-5. **i18n key rename:** `host.token.label` → `host.gate.label` (rev. 3 §4.7).
-   TZ2-01 greps for stale references; if any page still imports the old key
-   at its merge time, parity/lint fails — the fix belongs to that page's
-   task, not a cross-edit.
+   confined to TZ2-07 Part B's row rendering + the delivered TZ2-02
+   `Invite` type — noted so it is not mistaken for a design change.
+5. **i18n key rename:** `host.token.label` → `host.gate.label` (rev. 3
+   §4.7) shipped **delivered** with TZ2-01; if any page task still imports
+   the old key at its merge time, parity/lint fails — the fix belongs to
+   that page's task (TZ2-06/TZ2-07), not a cross-edit.
 6. **Rotation-vs-gate edge (handled, noted for the record):** a 401 during
    persona-token rotation (e.g. the current token was already revoked on
    another device) fires the §2.8 global gate — identity cleared,
    half-finished rotation is simply abandoned server-side-consistent (no
-   partial client writes: identity/vault update only after 2xx, TZ2-10
-   criterion). This matches DESIGN §2.8; flagged only so the owner is not
-   surprised by the redirect during a rotation attempt.
+   partial client writes: identity/vault update only after 2xx, the
+   TZ2-07 Part A criterion). This matches DESIGN §2.8; flagged only so
+   the owner is not surprised by the redirect during a rotation attempt.
 7. **Host drill-down chat discovery is the one UX piece genuinely blocked
    on the backend** (6.9a): the designed hint state is honest but the
    member-dialog list is empty until the amendment. If the owner wants the
    list at launch, the backend amendment (not a client change) is the
    blocker — surfaced here per DESIGN §3.7's own wording.
+8. **Restructure trade-off (owner-directed, for the record):** the
+   consolidation enlarges wave-2 tasks to XL (TZ2-06 ≈ 87 ACs, TZ2-07 ≈ 31
+   ACs) — the steps cap is mitigated by compaction (§8.5 note), but the
+   process should watch for stalled XL cards and split bug rounds early;
+   the absorbed per-part criteria remain the acceptance granularity, so a
+   mid-task `ready-for-merge` is **not** possible — a card closes only
+   when all its parts' ACs pass.
 
 ---
 
