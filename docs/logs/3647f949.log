@@ -1,0 +1,4 @@
+2026-11-15T18:58:13Z [worker] feature opened by process 9e6a5f3e: branch feature/3647f949-credential-plumbing (from dev), task 18 (todo) — criteria to be filled by process
+2026-11-15T19:00:23Z [worker] task 18 taken in-progress; reading current api layer, helper, stores
+2026-11-15T19:05:58Z [worker] scope read (TZ 8.2, ARCH 10.3/10.6/10.10); plan: Part B helper trim first, then Part A web api layer + seam + mechanical join/host call-site re-points
+2026-11-15T19:18:07Z [worker] implementation complete: Part A (api/hostApi/apiRaw contexts, gates, invite-resolve seam, join.ts re-point, mechanical host-page adaptation) + Part B (helper stateless trim); gates: lint green, test 466 green, build green

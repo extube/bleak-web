@@ -1,13 +1,12 @@
-/** Process environment for the helper service, with dev defaults. */
+/** Process environment for the helper service (v2, ARCHITECTURE §10.10).
+ *
+ * The helper is stateless: no host token, no bleak-node URL, no database —
+ * room creation lives in the host console against bleak-node directly and
+ * invite codes are resolved natively by the backend (CONCEPT §7.2).
+ */
 
 export interface HelperEnv {
   port: number;
-  /** Host token: only holders may create rooms (POST /rooms). */
-  hostToken: string;
-  /** bleak-node REST base, e.g. http://localhost:8080 (bleak-node is read/write only via its own API). */
-  bleakNodeUrl: string;
-  /** SQLite file for the code -> room-address mapping (never bleak-node's DB). */
-  dbPath: string;
   /** Base of the join page used in invite links and QR payloads. */
   inviteUrlBase: string;
 }
@@ -20,9 +19,6 @@ function envOr(name: string, fallback: string): string {
 export function loadEnv(): HelperEnv {
   return {
     port: Number(envOr('HELPER_PORT', '8787')),
-    hostToken: envOr('HELPER_HOST_TOKEN', 'dev-host-token-change-me'),
-    bleakNodeUrl: envOr('BLEAK_NODE_URL', 'http://localhost:8080').replace(/\/+$/, ''),
-    dbPath: envOr('HELPER_DB_PATH', 'data/helper.db'),
     inviteUrlBase: envOr('INVITE_URL_BASE', 'http://localhost:5173/')
   };
 }

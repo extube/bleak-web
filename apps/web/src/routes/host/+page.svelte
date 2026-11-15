@@ -1,23 +1,23 @@
 <script lang="ts">
   /**
    * `/host` — Host console (DESIGN §3.7, TZ-09). Token gate → create room
-   * (helper `POST /h/rooms` with `x-host-token`) → share kit (code + QR +
-   * invite link) restored from `bleak.hostRoom` on revisit → live room view
-   * on a 5 s Poller (listRoomUsers + getRoom — instantiated HERE only,
-   * stopped on teardown, refreshed on visibility regain). Member drill-down
-   * fetches ON DEMAND (never polled). Room settings save via updateRoom;
-   * the danger-zone delete clears `bleak.hostRoom` and returns to the
-   * create form. This page NEVER requires an attendee identity (§1.3).
+   * (v2, mechanical adaptation: client-generated room token + one-time
+   * creation-token header via `hostApi.createRoomWithInvite`) → share kit
+   * (code + QR + invite link) restored from `bleak.hostRoom` on revisit →
+   * live room view on a 5 s Poller (listRoomUsers + getRoom — instantiated
+   * HERE only, stopped on teardown, refreshed on visibility regain). Member
+   * drill-down fetches ON DEMAND (never polled) via the host `hostApi`
+   * context. Room settings save via updateRoom; the danger-zone delete
+   * clears `bleak.hostRoom` and returns to the create form. This page NEVER
+   * requires an attendee identity (§1.3). Full v2 console rework: TZ2-07.
    */
   import { get } from 'svelte/store';
   import { resolve } from '$app/paths';
   import { ApiError, type Chat, type Handshake, type Room, type User } from '@bleak/api-client';
-  import { api } from '#lib/api/client';
-  import {
-    HelperError,
-    createRoom as helperCreateRoom,
-    inviteQrUrl
-  } from '#lib/api/helper';
+  import { api, hostApi } from '#lib/api/client';
+  import { inviteQrUrl } from '#lib/api/helper';
+  import { generateTokenSecret } from '#lib/crypto/secrets';
+  import { apiErrorText } from '#lib/join';
   import { Poller } from '#lib/polling/poller';
   import { locale, translate } from '#lib/i18n/locale';
   import {
@@ -80,33 +80,45 @@
     createError = null;
     deletedNotice = false;
     try {
-      const payload = await helperCreateRoom(
+      // v2 (ARCHITECTURE §10.9, mechanical replacement of the retired helper
+      // `POST /h/rooms`): the client generates the room token, room creation
+      // authenticates with the one-time creation token in the header, and the
+      // room's first invite code is minted with that room token. The full
+      // v2 console (creation-token gate UX, invite management) is TZ2-07.
+      const roomToken = generateTokenSecret();
+      const { room: created, code } = await hostApi.createRoomWithInvite(
         {
           name: draft.name,
           ...(draft.description !== '' ? { description: draft.description } : {}),
-          language: draft.language
+          language: draft.language,
+          token: roomToken
         },
         tokenValue
       );
       const ref: HostRoomRef = {
-        code: payload.code,
-        roomAddress: payload.room.address,
-        roomName: payload.room.name ?? draft.name,
-        inviteUrl: payload.invite_url
+        code,
+        roomAddress: created.address,
+        roomToken,
+        roomName: created.name ?? draft.name,
+        // v2: the invite link is computed client-side from the code (§10.9).
+        inviteUrl: `${resolve('/')}?code=${code}`
       };
       saveHostRoom(ref);
       stage = 'share';
     } catch (cause: unknown) {
-      if (cause instanceof HelperError && (cause.status === 401 || cause.status === 403)) {
-        // Wrong token: back to the gate, value kept masked, server text appended.
+      if (cause instanceof ApiError && (cause.status === 401 || cause.status === 403)) {
+        // Wrong/consumed creation token: back to the gate, value kept masked,
+        // server text appended. The creation token is never stored.
         tokenGateError = translate($locale, 'host.token.rejected');
-        const detail = parseHelperErrorText(cause.message);
+        const detail = parseHelperErrorText(apiErrorText(cause));
         if (detail !== '' && detail !== cause.message) tokenGateError = `${tokenGateError} ${detail}`;
         stage = 'gate';
       } else if (cause instanceof TypeError) {
         createError = translate($locale, 'common.error.network');
       } else {
-        createError = parseHelperErrorText(cause instanceof Error ? cause.message : String(cause));
+        // Surface only the server's plain-text body (the v1 helper behavior).
+        const serverText = cause instanceof ApiError ? apiErrorText(cause) : cause instanceof Error ? cause.message : String(cause);
+        createError = parseHelperErrorText(serverText);
       }
     } finally {
       creating = false;
@@ -183,7 +195,7 @@
     settingsPending = true;
     settingsError = null;
     try {
-      const updated = await api.updateRoom(current.roomAddress, {
+      const updated = await hostApi.updateRoom(current.roomAddress, {
         name,
         ...(description !== '' ? { description } : {})
       });
@@ -200,7 +212,7 @@
     if (!current || deletePending) return;
     deletePending = true;
     try {
-      await api.deleteRoom(current.roomAddress);
+      await hostApi.deleteRoom(current.roomAddress);
       room = null;
       members = [];
       loadingLive = true;
@@ -246,9 +258,12 @@
     drillError = null;
     drillErrorMessage = null;
     try {
+      // Host context (v2): the drill-down reads go through the hostApi
+      // context (member drill-down, ARCHITECTURE §10.3) — never the
+      // attendee persona credential.
       const [handshakes, chats]: [Handshake[], Chat[]] = await Promise.all([
-        api.listHandshakesOfUser(user.address),
-        api.listChatsOfRoomUser(current.roomAddress, user.address)
+        hostApi.listHandshakesOfUser(user.address),
+        hostApi.listChatsOfRoomUser(current.roomAddress, user.address)
       ]);
       drillCounts = handshakeCounts(handshakes, user.address);
       drillChats = chats;

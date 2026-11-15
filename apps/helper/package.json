@@ -2,7 +2,7 @@
   "name": "@bleak/helper",
   "version": "0.1.0",
   "private": true,
-  "description": "Thin helper service: 6-digit invite-code -> room-address mapping, QR generation, host-token-gated room creation",
+  "description": "Stateless helper service: invite-QR PNG generation (v2 — mapping/creation retired, ARCHITECTURE §10.10)",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
