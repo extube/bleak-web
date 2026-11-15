@@ -1,11 +1,16 @@
-# bleak-web — Product Design (v1)
+# bleak-web — Product Design (rev. 3 — v2 credentials)
 
-Design instance: `fd19a963` (2026-11-14). Authority chain: `docs/Concept.md`
-(owner-approved v1, §1/§2/§4/§4b binding; **§1c owner rulings of 2026-11-14
-binding**) → `docs/ARCHITECTURE.md` (routes, tokens, polling, mocked shapes) →
-this document. API contract: `/mount/bleak-node/docs/swagger.json` (bleak-node
-v0.1.0). Visual brief: the three reference images in `docs/refs/` (patterns
-binding, re-styled into the dark pixel palette of Concept §4).
+Design instance: `bd636f23` (2026-11-15); baseline: rev. 2 by `fd19a963`
+(2026-11-14, owner-approved; **v1 delivered and running — do not regress what
+v2 does not touch**). Authority chain: `docs/Concept.md` (owner-approved v1 +
+**§6 v2 scope, owner-approved 2026-11-15**; §1c rulings remain binding except
+where §6 supersedes them — §6 wins) → `docs/ARCHITECTURE.md` incl. **§10 v2
+credentials addendum** → this document. API contract:
+`/mount/bleak-node/docs/swagger.json` (still v0.1.0; credential endpoints per
+bleak-node CONCEPT §7 / `docs/PLAN-ownership-tokens.md` — TBD field names are
+isolated in the api-client, see §6). Visual brief: the three reference images
+in `docs/refs/` (patterns binding, re-styled into the dark pixel palette of
+Concept §4).
 
 > **Revision 2 (2026-11-14):** owner rulings on the flagged gaps are applied —
 > the **camera QR scanner is now in v1** (two contexts: invite-QR join and
@@ -14,6 +19,23 @@ binding, re-styled into the dark pixel palette of Concept §4).
 > confirmed as local dismissal, auto-matchmaking is a documented future
 > mechanic, and the import/ownership risk is owner-accepted. §3.8 (scanner
 > overlay) is new; §6 flags are renumbered after resolving 2, 5, 6, 7.
+>
+> **Revision 3 (2026-11-15):** the owner-approved **v2 credentials scope**
+> (Concept §6 + ARCHITECTURE §10) is applied onto the delivered v1 baseline:
+> personas and rooms are owned via **client-generated tokens**
+> (`Authorization: Bearer` on every persona mutation and gated read); the
+> badge QR becomes a **live one-time mutual code** (`?u=…&m=…`, visible
+> rotation); the scanner calls the **server-mediated**
+> `POST /api/handshake/mutual` (the v1 two-POST client routine and its
+> already-mutual precheck are deleted); import becomes **vault-driven** (the
+> device token vault replaces the server room picker); the host gate takes
+> the **one-time creation token** (never stored) and the console gains an
+> **invite-management block**, room-token drill-down with clear/kickoff, and
+> room-token rotation; the **global 401 gate** and first-class
+> **403 income-rule / 410 stale-code** states are specified (new §2.8/§2.9);
+> §3.1, §3.6, §3.7, §3.8 are substantially rewritten. §4.7 copy table
+> extended (+37 keys). Acceptance-criteria coverage: **118** (was 100; §3.9
+> maps the deltas).
 
 This document is self-contained: a worker must be able to implement any page
 from its section alone without reading the references.
@@ -22,7 +44,7 @@ from its section alone without reading the references.
 
 ## 0. Product summary (one paragraph)
 
-bleak-web v1 is a live event-networking app. An attendee scans a QR / enters a
+bleak-web v2 is a live event-networking app. An attendee scans a QR / enters a
 6-digit invite code, lands in the event **room**, creates (or imports) a
 **persona** — an agent defined by a greeting and bios — browses other
 attendees, sends **handshakes** (or scans another attendee's personal QR for
@@ -30,9 +52,16 @@ an instant mutual handshake); when a handshake is mutual, bleak-node
 auto-creates a **chat** and the two attendees' agents hold a conversation which
 both attendees read live — **agents are the only speakers; humans never type
 messages** (Concept §1c ruling 4). The event **host** creates the room with a
-host token, receives the QR + invite code to share, and observes the room. The
-SPA is a thin, contract-driven client of bleak-node; the only component we own
-server-side is the invite-code helper (§ ARCHITECTURE 6).
+one-time creation token, receives the QR + invite codes to share, and observes
+the room. **Credential model (v2, Concept §6 + ARCHITECTURE §10):** humans own
+their personas via client-generated access tokens (`Authorization: Bearer` on
+every persona mutation and gated read) — a persona can be edited, imported, or
+used to handshake only by its token holder; QR handshakes are
+**server-mediated one-time capabilities** — the badge QR carries a single-use
+mutual code the backend burns on use, so one screenshot of a badge is worth
+exactly one handshake. The SPA remains a thin, contract-driven client of
+bleak-node; our only server-side component is the now-stateless invite-QR
+image helper (ARCHITECTURE §10.10).
 
 ---
 
@@ -48,7 +77,7 @@ server-side is the invite-code helper (§ ARCHITECTURE 6).
 | `/chats` | `routes/chats/+page.svelte` | attendee | yes | List of agent dialogs (mutual handshakes) |
 | `/chats/[address]` | `routes/chats/[address]/+page.svelte` | attendee | no | Dialog transcript (read-only) + kickoff |
 | `/profile` | `routes/profile/+page.svelte` | attendee | yes | Persona badge card (with personal QR), editing, stats, locale, leave room |
-| `/host` | `routes/host/+page.svelte` | host | yes* | Host console: token, create room, QR/code share, live room view |
+| `/host` | `routes/host/+page.svelte` | host | yes* | Host console: one-time creation token, room creation, invite management, share kit, live room view |
 
 *The Host tab is always visible in the tab bar (an attendee may also be the
 host); the host page itself never requires an attendee identity.
@@ -56,8 +85,12 @@ host); the host page itself never requires an attendee identity.
 Parameterized routes: only `/chats/[address]` — `address` is a chat address
 (`0xchat123`-style string from `ChatResponse.address`).
 
-Deep link: `/` accepts `/?code=NNNNNN` (this is what the host's QR encodes,
-via `INVITE_URL_BASE`). Unknown/absent `code` → normal manual entry state.
+Deep links on `/`: `/?code=NNNNNN` (what the host's invite QR encodes, via
+`INVITE_URL_BASE`; unknown/absent `code` → normal manual entry state) and
+`/?u={userAddress}&m={mutualCode}` (what a persona badge QR encodes, §3.6 —
+with an identity it runs the §3.8 mutual-handshake routine including the
+confirm card; without `m` it degrades to a single-direction handshake
+request; without an identity both are ignored).
 
 **Scanner overlay — deliberately NOT a route.** The camera scanner is the
 shared `QrScanner` overlay component (§3.8), mounted on `/` (invite-QR join,
@@ -67,9 +100,11 @@ moment the overlay closes, on any navigation), avoids route churn mid-flow
 (join Step 1 → scanner → back to Step 1 with state intact), and there is no
 scannable state worth bookmarking — a scanner URL would be a dead deep link.
 The **persona QR deep link** is still honored without the scanner: `/` accepts
-`/?u={userAddress}` (what a persona QR encodes) and runs the mutual-handshake
-routine of §3.8 when an identity exists (graceful fallback if a persona QR is
-opened by the phone's camera app instead of scanned in-app).
+`/?u={userAddress}&m={mutualCode}` (what a persona badge QR encodes) and runs
+the §3.8 mutual-handshake routine — full routine including the confirm card —
+when an identity exists (graceful fallback if a persona QR is opened by the
+phone's camera app instead of scanned in-app); `/?u=` without `m` runs the
+single-direction variant (§3.8).
 
 ### 1.2 Bottom tab anatomy (adapted from `docs/refs/searching.png`)
 
@@ -158,7 +193,7 @@ Cadences:
 | `/room`, `/people` | `listRoomUsers` + `listHandshakesOfUser` | 4 s |
 | `/chats` | `listChatsOfUser` (+ `listRoomUsers` for name resolution) | 4 s |
 | `/chats/[address]` | `listChatMessages` | 2 s |
-| `/profile` | none (fetch on mount + after mutations) | — |
+| `/profile` | token-gated `getRoomUser` (persona Bearer) for the badge live-QR liveness flag (`mutual_code_live`, §3.6); stats fetched on mount + after mutations | 4 s |
 | `/host` | `listRoomUsers` + `getRoom` | 5 s |
 
 Renderers use keyed `{#each}` and diff in the caller so a poll that returns
@@ -244,17 +279,90 @@ wherever the scanner runs:
 - **Performance:** the scanner adds zero cost when unused — the fallback
   decoder and the overlay are code-split; nothing QR-related loads until the
   overlay is opened.
-- **Ruling 3 (mutual handshake by scan) lives client-side:** the scanner's
-  client sends **both** `POST /api/handshake` calls (A→B and B→A) when a
-  persona QR is read — impersonation risk (no auth anywhere) is owner-accepted;
-  a server-side mutual-QR endpoint is a backend TODO (Concept §1c ledger).
+- **Ruling 3 is now server-mediated (v2 — supersedes the v1 client routine):**
+  a scanned persona QR (`?u=…&m=…`) is confirmed with a **single**
+  `POST /api/handshake/mutual` call carrying the scanner's own Bearer token
+  plus the scanned `u` and the one-time mutual code `m`; the backend creates
+  both directed handshakes and **burns the code** (bleak-node §7.3). The v1
+  client-side two-POST routine and the client already-mutual precheck are
+  deleted (§3.8); `?u=` without `m` degrades to a single-direction handshake
+  request (Concept §7.3.5).
+
+### 2.8 Global 401 gate UX (ARCHITECTURE §10.3; Concept §6.1)
+
+Every persona-credentialed call that answers **401** means the stored
+credential is invalid — or the persona predates credentials (a legacy v1
+persona). The `api` singleton handles it globally; pages never render their
+own 401 error state:
+
+1. `identity` is cleared (`bleak.identity` removed; `bleak.mutualCode` is
+   cleared with it); `sessionStorage` key `bleak.authNotice` is set.
+2. Navigation to `/` happens immediately (the gate rethrows after the
+   redirect is queued, so no stale error UI flashes under it).
+3. `/` on mount consumes `bleak.authNotice` and renders, above the Step-1
+   code card, the **notice card**: `--color-surface`, `.pixel-corners`, lock
+   pixel glyph, the binding copy below, announced `aria-live="polite"` on
+   render; the sessionStorage key is removed after rendering (the notice
+   appears once per incident, not on every reload).
+
+> **Binding notice copy (Concept §6.1):** RU «У этой персоны нет
+> действительного ключа доступа — присоединитесь заново по коду события.» /
+> EN "This persona has no valid access credential — join again with the
+> event code."
+
+Facts a worker must respect:
+
+- **No retry and no reload affordance** on the notice card — the only way
+  forward is the join flow itself (the credential is dead; there is nothing
+  to retry against).
+- **Legacy v1 personas land here by design:** a persisted identity without a
+  token is dropped at app init (ARCHITECTURE §10.4); the owner accepted that
+  legacy personas are unrecoverable — this notice is the only legacy-facing
+  UI in the product.
+- **Host-symmetric gate:** `hostApi` 401/403 on a room-token call clears
+  `bleak.hostRoom` and resets the host console to the creation-token gate
+  (§3.7); it never touches attendee identity.
+- The transcript viewer fallback (§3.5) is the **only** code path allowed to
+  catch a 401 before the gate fires (ARCHITECTURE §10.3 escape hatch).
+
+### 2.9 Credential error-state patterns (new in v2)
+
+Three named, first-class states; every surface that can produce them renders
+the same copy (keys in §4.7). They never degrade into a generic "server
+error" banner.
+
+| State | Trigger | Copy (RU / EN) | Surfaces |
+| --- | --- | --- | --- |
+| **Income rule (403)** | a handshake send rejected by the room's income>outcome rule | «Лимит исходящих хендшейков — сначала получите рукопожатия в ответ.» / "Outgoing handshake limit reached — receive handshakes first." (server text appended in muted small text when present) | `HandshakeSheet` on `/room` and `/people`, People card «+» action, scanner result panel, single-direction deep-link card (§3.8) |
+| **Stale mutual code (410)** | `POST /api/handshake/mutual` answered 410 | «Код уже использован — попросите обновить QR на карточке.» / "Code already used — ask them to refresh their badge QR." | scanner result panel; the `?u&m` deep-link confirm path on `/` |
+| **Invalid invite code (creation rejected)** | `POST /api/room/{room}/user` rejected over the code | «Код приглашения недействителен или истёк.» / "The invite code is invalid or expired." | join Step 3a/3b inline error |
+
+Rules for all three:
+
+- **Retry semantics (bleak-node §7.3.4):** a **failed** attempt
+  (NetworkError, 403, 410) never burns the one-time mutual code — only
+  successful server verification does. Therefore NetworkError retries may
+  safely re-send `u` + `m`; a 410 offers **no retry** for the dead code
+  (only «Сканировать снова» / close); a 403 income-rule retry is allowed
+  after the user receives handshakes — its copy must never imply that the
+  scanned badge was consumed.
+- **401 vs 403 split:** 401 on a credentialed call → the global gate (§2.8,
+  attendee) or the host reset (§3.7); 403 with a *valid* token (wrong
+  record or rule) → inline error with the server's plain-text body,
+  identity kept.
+- **Announcements:** all three states announce via `aria-live="polite"`
+  (Concept §6.8).
 
 ---
 
 ## 3. Pages
 
 Each section below is complete on its own. Data fields are named exactly as in
-swagger.json (`User.name`, `Handshake.status`, `ChatResponse.phase`, …).
+swagger.json (`User.name`, `Handshake.status`, `ChatResponse.phase`, …). v2:
+every credentialed call is marked in the endpoint tables (**persona Bearer** /
+**room token** / public no-token); tokens are auto-injected per context —
+attendee `api` vs host `hostApi` (§2.8, ARCHITECTURE §10.3) — pages never
+pass tokens manually.
 
 ### 3.1 `/` — Join
 
@@ -264,33 +372,46 @@ This is the conversion screen; every extra field costs attendees.
 
 **Primary jobs.**
 1. Enter, deep-link, or **scan (invite QR)** a 6-digit invite code and resolve
-   it to a room.
-2. Create a persona in that room — or import one from a previous event's room.
-3. Land on `/room` with identity saved.
+   it to a room (via the `resolveInviteCode` seam — Concept §6.9b).
+2. Create a persona in that room — the creation request carries the
+   `invite_code` together with a **client-generated persona token** — or
+   import one from the **device vault** (a persona created on this phone at
+   a previous event).
+3. Land on `/room` with identity + token saved.
 
 **API endpoints used.**
 
 | Step | Endpoint (client method) | Notes |
 | --- | --- | --- |
-| Resolve code | helper `GET /h/rooms/{code}` (`resolveInvite`) | 400 malformed / 404 unknown |
-| Room preview | `GET /api/room/{address}` (`getRoom`) | name, description, language, max_user |
-| Member count | `GET /api/room/{room}/user` (`listRoomUsers`) | length only |
-| Create persona | `POST /api/room/{room}/user` (`createRoomUser`) | name, public_bio, private_bio |
-| Room picker (import) | `GET /api/room` (`listRooms`) | all non-deleted rooms |
-| Read old persona (import) | `GET /api/room/{room}/user/{address}` (`getRoomUser`) | client-side copy source |
-| Count members of old room (import) | `GET /api/room/{room}/user` (`listRoomUsers`) | to list personas |
+| Resolve code | `resolveInviteCode(code)` — the adapter seam `lib/api/invite-resolve.ts` (ARCHITECTURE §10.6; backend shape TBD per Concept §6.9b) | room address; invalid/unknown code surfaces an error state |
+| Room preview | `GET /api/room/{address}` (`getRoom`) — public read, **no token** | name, description, language, max_user |
+| Member count | `GET /api/room/{room}/user` (`listRoomUsers`) — public read | length only |
+| Create persona | `POST /api/room/{room}/user` (`createRoomUser`, body = `CreateUserRequestV2`) — **no auth header (join)** | `name`, `public_bio?`, `private_bio?`, **`invite_code`** (the resolved 6-digit code), **`token`** (client-generated raw persona token, hashed server-side) |
+| Import: read old persona | `GET /api/room/{room}/user/{address}` credentialed with the **vault entry's stored token** | full fields incl. `private_bio`; 404 = dead entry |
+| Re-create persona (import) | `POST /api/room/{room}/user` (`CreateUserRequestV2`) | the new room's `invite_code` + a **new** generated token |
+
+Deliberately **not** called for import (superseded by the vault, Concept
+§6.2 / ARCHITECTURE §10.6): `GET /api/room` room listings and server-side
+persona pickers — without a token, private fields are unreadable and listing
+other rooms' personas is exactly the impersonation surface v2 closes.
 
 **Layout (mobile-first, single column, max-width 480px centered).**
 No tab bar. Regions top→bottom:
 1. **Header**: pixel logo mark + wordmark "bleak-web" (Handjet), centered,
    generous top spacing (`--space-7`).
-2. **Step 1 — code entry card** (`--color-surface`, `.pixel-corners`):
+2. **401 notice card** (only when `bleak.authNotice` is set; §2.8): rendered
+   above Step 1, consumed on render.
+3. **Step 1 — code entry card** (`--color-surface`, `.pixel-corners`):
    - Title «Войти на событие» / "Join the event" (h1, Handjet).
-   - Subtitle: «Введите 6-значный код приглашения с QR-кода или из приглашения.»
-     / "Enter the 6-digit invite code from the QR or the invitation."
+   - Subtitle: «Введите 6-значный код приглашения с QR-кода или из
+     приглашения.» / "Enter the 6-digit invite code from the QR or the
+     invitation."
    - `DigitInput`: six single-character cells, large (56px), Inter 24px,
      numeric `inputmode`, paste-support, auto-advance, backspace-retreat;
      invalid chars rejected silently; when 6 digits present the CTA enables.
+     The entered 6-digit string **is** the invite code carried into
+     `CreateUserRequestV2.invite_code` at persona creation — no second code
+     entry exists.
    - CTA «Войти в комнату» / "Enter the room" (pill, accent) — disabled until
      6 digits.
    - **Scan entry** (ruling 6a): below the CTA, a divider line and a
@@ -301,47 +422,61 @@ No tab bar. Regions top→bottom:
      Permission/no-camera/fallback states are owned by the overlay (§3.8);
      the manual fallback action in this context = close the scanner and
      focus the digit cells.
-   - Deep link: `?code=NNNNNN` prefills the cells and auto-submits. A persona
-     deep link `?u={userAddress}` (from a persona QR opened by the phone's
-     camera app instead of the in-app scanner) is handled per §3.8.
+   - Deep link: `?code=NNNNNN` prefills the cells and auto-submits.
+     `?u={userAddress}&m={mutualCode}` / `?u={userAddress}` with an existing
+     identity run the §3.8 handshake routines (full confirm card; AC 19).
    - Footer row: locale `SegmentedControl` RU | EN (bottom-left of the card).
-3. **Step 2 — room card**: after resolution the card content swaps to the room
+4. **Step 2 — room card**: after resolution the card content swaps to the room
    preview: room `name` (Handjet), `description`, a meta row «Язык агентов:
    ru · Участников: 12» / "Agent language: ru · Members: 12" (`language`,
    member count vs `max_user`). Two stacked options:
    - Primary CTA «Создать персону» / "Create persona".
-   - Secondary (pill outline) «Импортировать из прошлого события» / "Import
-     from a previous event".
+   - Secondary (pill outline) «Импортировать с этого устройства» / "Import
+     from this device" — the v2 label (the picker lists device-stored
+     personas, not server rooms).
    - Small link-button «Изменить код» / "Change code" → back to Step 1.
-4. **Step 3a — persona form** (replaces options, same card): `name` (required,
+5. **Step 3a — persona form** (replaces options, same card): `name` (required,
    ≤ 64 chars), `public_bio` (optional, «Кто вы — увидят другие» / "What others
    see"), `private_bio` (optional, «Только для вашего агента» / "For your agent
-   only"). Submit CTA «Войти в комнату». After 201 → `saveIdentity`,
-   navigate `/room`.
-5. **Step 3b — import flow**: a room picker list (from `listRooms`, each row:
-   room `name` + member count) → persona list of that room (rows: pixel
-   avatar-by-address, `User.name`, `public_bio`) → tap one → prefills the
-   persona form (fields from `getRoomUser`) with a notice «Персона будет
-   скопирована в это событие» / "The persona will be copied into this event"
-   → same submit as 3a. Import is a client-side copy (architecture §8.4) —
-   it creates a NEW user in the new room. **Ruling 5 (owner-accepted risk):**
-   a proper ownership-token mechanism is a backend TODO; in v1 the attendee's
-   identity lives in `localStorage` and import reads a stored persona and
-   re-creates it with no proof of ownership — anyone holding an address can
-   copy that persona. The owner explicitly accepted this risk for v1; do not
-   invent client-side gates around it.
+   only"). Submit CTA «Войти в комнату». Submit sequence (ARCHITECTURE
+   §10.6): generate the persona token (`generateTokenSecret()`, crypto
+   module) → `POST createRoomUser` with
+   `{ name, public_bio, private_bio, invite_code, token }` → on success
+   `saveIdentity({ roomAddress, userAddress, token })` **and append the vault
+   entry** (`bleak.tokenVault`: roomAddress, userAddress, token, name,
+   savedAt) → navigate `/room`.
+6. **Step 3b — vault import flow** (Concept §6.2): a `VaultList` of the
+   personas **created on this device** — one `VaultRow` per `bleak.tokenVault`
+   entry: `PixelAvatar` by user address, persona `name`, muted meta
+   «Сохранено {date} · комната {room}» / "Saved {date} · room {room}". Tap a
+   row → fetch the old persona **with its stored token** (credentialed
+   `getRoomUser`) → prefills the persona form (full fields incl.
+   `private_bio`) with the notice «Персона будет скопирована в это событие» /
+   "The persona will be copied into this event" → same submit as 3a but with
+   a **newly generated token**. On success both vault entries remain: the old
+   persona untouched, the new persona appended. The vault is **append-only**
+   — this flow never deletes entries; a dead persona surfaces its error
+   honestly (state table below). Empty vault: muted copy «На этом устройстве
+   пока нет сохранённых персон.» / "No saved personas on this device yet." +
+   a link back to "Create persona". There is **no token-less import
+   fallback** — without the stored token the private fields are unreadable,
+   which is exactly the impersonation risk v2 closes.
 
 **Interaction states.**
 
 | State | Rendering |
 | --- | --- |
 | Resolving code | CTA shows inline spinner, disabled; skeleton not used (single action) |
-| Code 404 (helper) | Inline field error under cells, RU «Код не найден — уточните его у организатора.» / "Code not found — check with the host." Cells shake once (120 ms) unless reduced motion |
+| Code 404 (seam) | Inline field error under cells, RU «Код не найден — уточните его у организатора.» / "Code not found — check with the host." Cells shake once (120 ms) unless reduced motion |
 | Code malformed (400) | Same style, copy «Код должен быть 6 цифр.» / "The code must be 6 digits." |
 | `NetworkError` | `ErrorBanner` per §2.1; entered code preserved |
 | Persona submit 400 (e.g. name empty) | Field-level error from server text |
+| Persona submit with invalid/expired/revoked `invite_code` (server 4xx on create) | Inline error above the submit CTA: RU «Код приглашения недействителен или истёк.» / "The invite code is invalid or expired." (Concept §6.2 copy, binding). Identity and vault unchanged; «Изменить код» re-opens Step 1 |
 | Persona submit 409 | RU «Такое имя в комнате уже занято.» / "That name is already taken in the room." (server conflict surfaced) |
+| Import read fails — dead persona (server 404/401/403 on the credentialed `getRoomUser`) | **Dead-entry error state** on the vault row / form card: RU «Эта персона больше не существует на сервере. Запись останется в списке, но импорт невозможен.» / "This persona no longer exists on the server. The entry stays listed, but it cannot be imported." (401/403 variant: same state with the server text appended muted). The vault entry is **not** removed (append-only) |
+| Import read `NetworkError` | `ErrorBanner`; vault list preserved |
 | Room deleted meanwhile (404 on `getRoom`/`createRoomUser`) | Card error state: «Событие больше не доступно.» / "This event is no longer available." + back to Step 1 |
+| 401 on any credentialed join call (e.g. a stale vault token) | Global gate (§2.8): notice card on `/`, identity cleared — the vault entry itself is untouched |
 
 **Responsive.** Phone-first single column. ≥ 720px: card stays 480px, centered
 vertically; background remains `--color-bg` (no split layout — the join is a
@@ -350,42 +485,69 @@ mobile ritual).
 **Accessibility.** The six digit cells are one labelled group
 (`aria-label` «Код приглашения»); each cell has `aria-label` "цифра N".
 Error text is announced via `aria-live="polite"`. Focus moves to the room card
-title after successful resolution.
+title after successful resolution. The 401 notice card is announced
+`aria-live="polite"` (§2.8). Vault rows are buttons with accessible names
+«Импортировать персону {name}» / "Import persona {name}".
 
 **Acceptance criteria.**
 1. With no identity, opening `/` shows the code entry card and no tab bar.
-2. Entering a valid 6-digit code and submitting resolves it via
-   `GET /h/rooms/{code}` and shows the room preview (room `name`,
-   `description`, `language`, member count) without a full page reload.
-3. Opening `/?code=NNNNNN` (valid code) auto-fills the six cells and submits
+2. When `bleak.authNotice` is set, `/` renders the §2.8 notice card above the
+   code card with the exact Concept §6.1 copy, announces it
+   `aria-live="polite"`, consumes the sessionStorage key (a reload does not
+   show it again), and offers no retry/reload control on the notice itself.
+3. Entering a valid 6-digit code and submitting resolves it via
+   `resolveInviteCode` (the invite-resolve seam) and shows the room preview
+   (room `name`, `description`, `language`, member count) without a full page
+   reload.
+4. Opening `/?code=NNNNNN` (valid code) auto-fills the six cells and submits
    automatically.
-4. An unknown code shows the 404 copy «Код не найден — уточните его у
+5. An unknown code shows the 404 copy «Код не найден — уточните его у
    организатора.» inline, keeps the digits entered, and does not navigate.
-5. When the helper is unreachable, the NetworkError banner (§2.1 copy) appears
-   and the entered code survives.
-6. "Create persona" reveals the form; submitting with an empty `name` is
+6. When the seam/network is unreachable, the NetworkError banner (§2.1 copy)
+   appears and the entered code survives.
+7. "Create persona" reveals the form; submitting with an empty `name` is
    prevented client-side and shows the field error.
-7. A successful `POST /api/room/{room}/user` saves `{ roomAddress, userAddress }`
-   to `localStorage` (`bleak.identity`) and navigates to `/room`.
-8. "Import from a previous event" lists rooms from `GET /api/room`, then that
-   room's personas, and pre-fills the persona form from the selected user;
-   submitting creates a NEW user via `POST /api/room/{room}/user` (no
-   `address` reuse).
-9. With an existing identity, `/` shows the resume card with the room name and
-   a working "join another event" action that clears identity.
-10. The RU|EN segmented control switches all visible strings on this page and
+8. A successful `POST /api/room/{room}/user` sends `name`, both bios,
+   `invite_code` (the entered/resolved code) and a client-generated `token`
+   in the body with no auth header, then saves
+   `{ roomAddress, userAddress, token }` to `localStorage`
+   (`bleak.identity`), appends an entry to `bleak.tokenVault`, and navigates
+   to `/room`.
+9. Persona creation rejected over the invite code shows «Код приглашения
+   недействителен или истёк.» inline, saves no identity, writes no vault
+   entry, and keeps the form filled.
+10. A duplicate-name 409 shows «Такое имя в комнате уже занято.» and keeps
+    the form state.
+11. "Import from this device" opens the vault list built exclusively from
+    `bleak.tokenVault` entries (room address, persona name, saved date) and
+    never calls `GET /api/room` or any server-side persona picker.
+12. Selecting a vault entry fetches the old persona with **its stored token**
+    (credentialed `getRoomUser`, incl. `private_bio`), prefills the form, and
+    on submit re-creates it in the new room with `invite_code` + a **new**
+    generated token; the old entry is untouched and the new entry is
+    appended.
+13. Import of a dead persona (server 404 on the credentialed read) shows the
+    dead-entry error state with the specified copy and does not remove the
+    vault entry.
+14. An empty vault shows «На этом устройстве пока нет сохранённых персон.»
+    with a way back to persona creation.
+15. With an existing identity, `/` shows the resume card with the room name
+    and a working "join another event" action that clears identity and the
+    `mutualCode` store but keeps the vault.
+16. The RU|EN segmented control switches all visible strings on this page and
     persists across reloads.
-11. All six digit cells are keyboard-reachable; paste of a 6-digit string fills
-    all cells.
-12. The "Or scan a QR code" button opens the `QrScanner` overlay (§3.8,
+17. All six digit cells are keyboard-reachable; paste of a 6-digit string
+    fills all cells.
+18. The "Or scan a QR code" button opens the `QrScanner` overlay (§3.8,
     context *a*); closing it (X, Escape, or the manual-fallback link) returns
-    to Step 1 with the entered digits intact and focuses the cells.
-13. Scanning an invite QR (URL containing `?code=NNNNNN`) closes the scanner
-    and continues the normal flow: digits filled, `GET /h/rooms/{code}`
-    resolution, room preview — identical to manual entry.
-14. Opening a persona deep link `/?u={userAddress}` with an existing identity
-    runs the §3.8 mutual-handshake routine (success or per-case states);
-    without an identity it is ignored and the normal join card renders.
+    to Step 1 with the entered digits intact and focuses the cells; scanning
+    an invite QR continues the normal flow identically to manual entry.
+19. Opening `/?u={userAddress}&m={mutualCode}` with an existing identity runs
+    the §3.8 mutual routine **including the confirm card** (success or
+    per-case states); `/?u={userAddress}` without `m` shows the
+    single-direction confirm card and sends one `POST /api/handshake`;
+    without an identity both parameter sets are ignored and the normal join
+    card renders.
 
 ---
 
@@ -405,11 +567,11 @@ Also the fastest path to send a handshake.
 
 | Endpoint (client method) | Data used |
 | --- | --- |
-| `GET /api/room/{address}` (`getRoom`) — once per mount | room `name` for header |
-| `GET /api/room/{room}/user` (`listRoomUsers`) — 4 s poll | attendees: `address`, `name`, `public_bio`, `created_at` |
-| `GET /api/handshake/user/{address}` (`listHandshakesOfUser`) — 4 s poll | my handshakes: `from_address`, `to_address`, `created_at`, `status` |
-| `GET /api/user/{address}/chat` (`listChatsOfUser`) — with each poll tick | which counterparts already have a chat |
-| `POST /api/handshake` (`createHandshake`) | on user action: `{ from_address, to_address, status: 1 }` |
+| `GET /api/room/{address}` (`getRoom`) — once per mount — public read, **no token** | room `name` for header |
+| `GET /api/room/{room}/user` (`listRoomUsers`) — 4 s poll — public read, **no token** | attendees: `address`, `name`, `public_bio`, `created_at` |
+| `GET /api/handshake/user/{address}` (`listHandshakesOfUser`) — 4 s poll — **gated read, persona Bearer** | my handshakes: `from_address`, `to_address`, `created_at`, `status` |
+| `GET /api/user/{address}/chat` (`listChatsOfUser`) — with each poll tick — **gated read, persona Bearer** | which counterparts already have a chat |
+| `POST /api/handshake` (`createHandshake`) — **persona Bearer (the `from` persona's token, auto-injected)** | on user action: `{ from_address, to_address, status: 1 }` |
 
 **Layout (mobile-first, full-bleed).**
 1. **Top bar** (fixed, `--color-surface`, 56px): left — room `name` (Handjet,
@@ -453,14 +615,22 @@ Also the fastest path to send a handshake.
   avatar, name, `public_bio`, relationship status line, primary action).
   Actions per state:
   - no handshake: CTA «Отправить хендшейк» / "Send handshake" →
-    `POST /api/handshake`; on 201/200 the button morphs to «Хендшейк отправлен»
-    / "Handshake sent" (accent-filled) and the avatar moves to the middle ring
-    on the next poll tick (also force `refresh()` immediately).
+    `POST /api/handshake` (my persona Bearer, auto-injected); on 201/200 the
+    button morphs to «Хендшейк отправлен» / "Handshake sent" (accent-filled)
+    and the avatar moves to the middle ring on the next poll tick (also force
+    `refresh()` immediately). **On 403 (income rule):** the §2.9 income-rule
+    state renders inline in the sheet — copy «Лимит исходящих хендшейков —
+    сначала получите рукопожатия в ответ.» / "Outgoing handshake limit
+    reached — receive handshakes first." (+ server text muted when present);
+    the button returns to the active state; nothing was sent, so no
+    auto-retry — the user may re-tap later (e.g. after receiving
+    handshakes).
   - outgoing only: button disabled-labeled «Хендшейк отправлен — ждём ответа» /
     "Handshake sent — waiting for theirs".
   - incoming only: pill «Добавил вас» / "Added you" + CTA «Ответить
-    хендшейком» / "Handshake back" → `POST /api/handshake` (reverse direction);
-    when mutual, bleak-node creates the chat — after success the sheet shows
+    хендшейком» / "Handshake back" → `POST /api/handshake` (reverse direction,
+    my persona Bearer); when mutual, bleak-node creates the chat — after
+    success the sheet shows
     «Агенты уже общаются» / "Your agents are already talking" with a link
     «Открыть диалог» / "Open dialog" → the counterpart's chat.
   - mutual/chat exists: CTA «Открыть диалог» / "Open dialog" → `/chats`.
@@ -470,9 +640,9 @@ Also the fastest path to send a handshake.
   next tick.
 - **Scan entry (ruling 6b):** the top-bar scan button opens `QrScanner`
   (§3.8, context *b*); the overlay receives the current member list as props.
-  A successful scan ends in the mutual-chat success state (link to the new
-  chat); on close, force `poller.refresh()` so the counterpart's node appears
-  on the inner ring.
+  A successful scan (server-mediated mutual handshake, §3.8) ends in the
+  mutual-chat success state (link to the chat); on close, force
+  `poller.refresh()` so the counterpart's node appears on the inner ring.
 - **Future mechanic (owner ruling 1, NOT in v1):** bleak-node will implement
   auto-matchmaking — agents scan the room, rank users by a relevance score
   (matched interests coefficient), raise the score on incoming handshakes, and
@@ -513,7 +683,8 @@ heading structure still exposes «Рядом со мной» as `h1`.
 4. Tapping a node opens the bottom sheet with the user's `name`, `public_bio`
    and the correct action for the current relationship state.
 5. "Send handshake" calls `POST /api/handshake` with `from_address` = my
-   address and moves the node to the middle ring within one refresh.
+   address and the persona Bearer token attached, and moves the node to the
+   middle ring within one refresh.
 6. An incoming-only handshake shows the «Добавил вас» pill and "Handshake
    back"; after success the sheet offers "Open dialog" linking to the created
    chat.
@@ -533,9 +704,12 @@ heading structure still exposes «Рядом со мной» as `h1`.
 13. The top-bar scan icon-button opens the `QrScanner` overlay (§3.8, context
     *b*) with the current member list; closing it leaves the radar unchanged
     until the next poll tick.
-14. A scanner success (mutual handshake created via the overlay) is reflected
-    on the radar within one refresh: the counterpart's node sits on the inner
-    ring.
+14. A scanner success (mutual handshake created server-side via
+    `POST /api/handshake/mutual`) is reflected on the radar within one
+    refresh: the counterpart's node sits on the inner ring.
+15. A 403 income-rule rejection on any handshake send from the sheet shows
+    the §2.9 income-rule state inline (server text visible when present),
+    the node stays on its ring, and no optimistic "sent" state is shown.
 
 ---
 
@@ -545,9 +719,10 @@ heading structure still exposes «Рядом со мной» as `h1`.
 middle screen): every attendee as a stacked card with their state, plus
 search and status filters. The canonical, accessible list backing the radar.
 
-**API endpoints used.** Same as `/room` (§3.2) — `listRoomUsers` +
-`listHandshakesOfUser` + `listChatsOfUser` on a 4 s poll; `POST /api/handshake`
-on action.
+**API endpoints used.** Same as `/room` (§3.2) — `listRoomUsers` (public) +
+`listHandshakesOfUser` + `listChatsOfUser` (both **gated reads, persona
+Bearer**) on a 4 s poll; `POST /api/handshake` on action (**persona Bearer,
+auto-injected**).
 
 **Layout (mobile-first, single column).**
 1. **Header**: h1 «Люди» / "People" (Handjet) + member count muted; below it a
@@ -575,8 +750,10 @@ on action.
    - Card-level action (right edge, 48px touch target):
      - none → icon-button «+» pixel glyph, `aria-label` «Отправить хендшейк
        Алисе» / "Send handshake to Alice"; tap sends `POST /api/handshake`
-       without opening the sheet; on success the card flips to the
-       outgoing-pill state (in-place, no reorder).
+       (persona Bearer) without opening the sheet; on success the card flips
+       to the outgoing-pill state (in-place, no reorder); on 403 the §2.9
+       income-rule state renders inline inside the card (below the name
+       line, `aria-live="polite"`) and the card stays in the "none" state.
      - incoming pending → the card expands in place to reveal two buttons:
        «Ответить хендшейком» / "Handshake back" (accent) and «Закрыть» /
        "Dismiss" (outline — collapses the card only; **ruling 2 confirmed**:
@@ -643,6 +820,9 @@ focused via its action button, Enter expands.
     naming the person.
 12. On ≥ 720px viewports the cards lay out in two columns without horizontal
     scroll.
+13. A 403 income-rule rejection on the card-level «+» action shows the §2.9
+    income-rule copy inline in the card (`aria-live="polite"`), leaves the
+    card in the "none" state, and sends no other request.
 
 ---
 
@@ -657,7 +837,7 @@ empty.
 
 | Endpoint (client method) | Data used |
 | --- | --- |
-| `GET /api/user/{address}/chat` (`listChatsOfUser`) — 4 s poll | chats: `address`, `phase`, `scenario`, `language`, `created_at`, `participants` |
+| `GET /api/user/{address}/chat` (`listChatsOfUser`) — 4 s poll — **gated read, persona Bearer** | chats: `address`, `phase`, `scenario`, `language`, `created_at`, `participants` |
 | `GET /api/room/{room}/user` (`listRoomUsers`) — alongside, cached | resolve participant addresses → names/avatars |
 | `POST /api/handshake` — only via empty-state CTA path (link to `/people`) | — |
 
@@ -694,8 +874,9 @@ names: «Диалог с Алисой · networking · ai-future» / "Dialog wit
 networking · ai-future".
 
 **Acceptance criteria.**
-1. `/chats` renders one card per chat from `listChatsOfUser`, showing the
-   counterpart's name and avatar, and verbatim `phase` and `scenario` chips.
+1. `/chats` renders one card per chat from `listChatsOfUser` (fetched with
+   the persona Bearer — a gated read), showing the counterpart's name and
+   avatar, and verbatim `phase` and `scenario` chips.
 2. The counterpart is derived from `participants` minus my `userAddress`; a
    chat with an unexpected participant count still renders with the first
    counterpart plus «+N».
@@ -733,15 +914,28 @@ state (§ below).
 
 | Endpoint (client method) | Cadence | Data used |
 | --- | --- | --- |
-| `GET /api/chat/{address}` (`getChat`) | on mount + when participants of a poll differ | `phase`, `scenario`, `language`, `participants`, `created_at` |
-| `GET /api/chat/{address}/message` (`listChatMessages`) | 2 s poll | messages: `from`, `to`, `content`, `created_at`, `tx_id` |
-| `POST /api/chat/{address}/kickoff` (`kickoffChat`) | on user action | response: `chat`, `cleared`, `speaker` |
+| `GET /api/chat/{address}` (`getChat`) — **participant persona Bearer; on 401/403 with a stored room token → one retry with the room token (viewer fallback, below)** | on mount + when participants of a poll differ | `phase`, `scenario`, `language`, `participants`, `created_at` |
+| `GET /api/chat/{address}/message` (`listChatMessages`) — same credential policy as `getChat` | 2 s poll | messages: `from`, `to`, `content`, `created_at`, `tx_id` |
+| `POST /api/chat/{address}/kickoff` (`kickoffChat`) — **persona Bearer (or the room token in host-observation context)** | on user action | response: `chat`, `cleared`, `speaker` |
+
+**Transcript viewer fallback (ARCHITECTURE §10.3 escape hatch).** The
+transcript is normally read with the attendee's persona Bearer (participant
+context). When that read fails with 401/403 **and** a
+`bleak.hostRoom.roomToken` exists on the device, the page retries **once**
+with the room token (host observing a member's dialog) via the raw ungated
+client (`apiRaw`) — the only code path in the app allowed to catch a 401
+before the global gate. A host-context 401 there clears `bleak.hostRoom`
+(host reset, §3.7) — never the attendee identity. Without a stored room
+token, the §2.8 global gate applies. When the fallback served the data, the
+header shows a small muted chip «Наблюдение хоста» / "Host view" so the
+viewer knows which context they are in.
 
 **Layout (mobile-first).**
 1. **Header** (fixed top, 56px, `--color-surface`, `.pixel-corners` bottom
    edge): back icon-button (48px, `aria-label` «Назад» / "Back"); counterpart
    avatar (32px) + counterpart `User.name`; second line: chips `phase` +
-   `scenario` + `language` (muted, 11px).
+   `scenario` + `language` (muted, 11px) — plus, when the room-token viewer
+   fallback served the data, the muted «Наблюдение хоста» / "Host view" chip.
 2. **Transcript** (scrollable, newest at bottom, auto-scrolled to bottom on
    new messages; a "scroll to bottom" floating chip appears when the user has
    scrolled up):
@@ -806,8 +1000,8 @@ traps focus, closes on Escape, returns focus to the kickoff button.
    `language` chips.
 5. "Restart the dialog" opens a focus-trapped confirm dialog with the specified
    copy; Cancel closes without effects; Confirm calls
-   `POST /api/chat/{address}/kickoff`, after which the transcript clears and
-   the «Первым говорит {name}» note is shown.
+   `POST /api/chat/{address}/kickoff` (persona Bearer), after which the
+   transcript clears and the «Первым говорит {name}» note is shown.
 6. After kickoff, until the first new message arrives, the «Агенты готовятся…»
    status row is visible and disappears with the first polled message.
 7. The contact-exchange stub is always visible, disabled, non-interactive, and
@@ -824,6 +1018,14 @@ traps focus, closes on Escape, returns focus to the kickoff button.
     input, textarea, or send control of any kind — the only interactive
     elements are the back control, the kickoff button (+ its confirm dialog),
     and the disabled contact stub.
+14. When the persona-token read fails with 401/403 and a stored room token
+    exists, the page retries once with the room token and renders the
+    transcript with the «Наблюдение хоста» / "Host view" chip; a
+    host-context 401 there clears the host session (never the identity) and
+    resets the host console.
+15. Without a stored room token, a 401 on the transcript's credentialed
+    reads triggers the §2.8 global gate: identity cleared, redirect to `/`
+    with the notice card — no transcript error UI renders first.
 
 ---
 
@@ -831,21 +1033,24 @@ traps focus, closes on Escape, returns focus to the kickoff button.
 
 **Purpose.** The attendee's own persona card (reference `design-concept.png`,
 left screen — the "event badge" re-styled): identity, greeting, bios,
-interests (mock), stats; plus the editing surface and the locale switch, and
-the exit door.
+interests (mock), stats; plus the editing surface, the **live one-time badge
+QR**, **access-token rotation**, the locale switch, and the exit door.
 
-**API endpoints used.**
+**API endpoints used.** (Credentialed calls carry the persona Bearer —
+auto-injected per the §10.2 attachment policy; ARCHITECTURE §10.2/§10.8.)
 
 | Endpoint (client method) | Data / use |
 | --- | --- |
-| `GET /api/room/{room}/user/{address}` (`getRoomUser`) | on mount: `name`, `greeting`, `public_bio`, `private_bio`, `language`, `created_at` |
-| `GET /api/room/{room}/user/{address}/greeting` (`getUserGreeting`) | canonical greeting for the editor |
-| `PUT /api/room/{room}/user/{address}/greeting` (`putUserGreeting`) | save edited greeting |
-| `POST /api/room/{room}/user/{address}/greeting/regenerate` (`regenerateGreeting`) | regenerate from bios |
-| `PUT /api/room/{room}/user/{address}` (`updateRoomUser`) | save name / public_bio / private_bio |
-| `GET /api/handshake/user/{address}` (`listHandshakesOfUser`) | stats: sent vs received counts |
-| `GET /api/user/{address}/chat` (`listChatsOfUser`) | stat: dialogs count |
-| `DELETE /api/room/{room}/user/{address}` (`deleteRoomUser`) | "Leave room" |
+| `GET /api/room/{room}/user/{address}` (`getRoomUser`) — **persona Bearer** | on mount + 4 s badge poll: `name`, `greeting`, `public_bio`, `private_bio`, `language`, `created_at`, **derived `mutual_code_live`** |
+| `GET /api/room/{room}/user/{address}/greeting` (`getUserGreeting`) — **persona Bearer** | canonical greeting for the editor |
+| `PUT /api/room/{room}/user/{address}/greeting` (`putUserGreeting`) — **persona Bearer** | save edited greeting |
+| `POST /api/room/{room}/user/{address}/greeting/regenerate` (`regenerateGreeting`) — **persona Bearer** | regenerate from bios |
+| `PUT /api/room/{room}/user/{address}` (`updateRoomUser`) — **persona Bearer** | save name / public_bio / private_bio |
+| `POST /api/room/{room}/user/{address}/mutual-code` (`registerMutualCode`) — **persona Bearer; body carries the SHA-256 hash of the new code, never the raw code** | badge live-QR registration (below) |
+| `POST /api/room/{room}/user/{address}/token` (`rotateUserToken`) — **Bearer = the current persona token; body = the new raw token** | token rotation |
+| `GET /api/handshake/user/{address}` (`listHandshakesOfUser`) — **gated read, persona Bearer** | stats: sent vs received counts |
+| `GET /api/user/{address}/chat` (`listChatsOfUser`) — **gated read, persona Bearer** | stat: dialogs count |
+| `DELETE /api/room/{room}/user/{address}` (`deleteRoomUser`) — **persona Bearer** | "Leave room" |
 
 **Layout (mobile-first, single column).**
 1. **Header**: h1 «Профиль» / "Profile".
@@ -868,27 +1073,39 @@ the exit door.
    - **Stat counters** (reference's counters re-styled): two square tiles
      (surface-elevated, big Handjet numerals): «Хендшейки {n}» / "Handshakes
      {n}" (total) and «Диалоги {n}» / "Dialogs {n}".
-   - **Personal QR block** (ruling 3 — pulled into v1, supersedes the former
-     deferral): a `QrCodeBadge` at the bottom of the badge card — a
-     client-side-rendered QR SVG (~200px, quiet zone 4 modules) encoding
-     `{INVITE_URL_BASE}?u={identity.userAddress}` (the same join-URL shape as
-     the host invite, with `u` instead of `code` — §3.8 defines the payload).
-     Caption below (muted, 14px): «Покажите, чтобы обменяться рукопожатиями» /
-     "Show this to trade handshakes". The QR is **not** interactive (nothing
-     to tap — the other person scans it with their in-app scanner or phone
-     camera); it sits in a light frame (see rendering rules below) and is
-     regenerated only if the identity changes.
-     **Rendering approach for workers (performance-first):** use a tiny
-     dependency-free QR encoder — **`uqr` (~3 kB, zero deps, MIT,
-     synchronous, SVG output)** — statically imported only in the
-     `/profile` route chunk (code-split; zero cost for every other page).
-     Modules render `#101213` (the `--color-surface` value) on a near-white
-     frame — the same light-frame treatment the host share-kit QR already
-     uses; centralize the frame color as `--color-qr-frame` in `tokens.css`
-     (single derived token, value = the helper QR's light background) so both
-     QR treatments share one source. Scannability requires this light
-     backdrop; it is a functional exception to the dark palette, declared
-     once.
+   - **Live personal QR block** (v2 — supersedes the static v1 badge QR): a
+     `QrCodeBadge` at the bottom of the badge card — a client-side-rendered
+     QR SVG (~200px, quiet zone 4 modules) encoding the **binding payload**
+     (bleak-node §7.3.5):
+     `{INVITE_URL_BASE}?u={identity.userAddress}&m={mutualCode}` — the
+     one-time mutual code from the `mutualCode` store. Caption below (muted,
+     14px): «Покажите, чтобы обменяться рукопожатиями» / "Show this to trade
+     handshakes"; a second muted line: «QR одноразовый — после обмена он
+     обновится сам.» / "The QR is one-time — it refreshes itself after a
+     handshake." The QR is **not** interactive (nothing to tap — the other
+     person scans it with their in-app scanner or phone camera); it sits in
+     the light frame (`--color-qr-frame`, shared token with the host
+     share-kit QR) and issues **no network request by itself**.
+     **Live rotation (Concept §6.3):** while the page is open, the 4 s poll
+     of the token-gated `getRoomUser` watches the derived
+     `mutual_code_live` flag. When it reads **false** (a scan burned the
+     code): generate a fresh 16-byte code (`generateMutualCode()`),
+     register its **hash** via `registerMutualCode(room, address, token,
+     sha256Hex(code))`, update the `mutualCode` store, and re-render the QR
+     with the rotation micro-animation (§ below). A registration failure
+     keeps the last QR; the next poll tick retries (the flag still reads
+     false). The raw code persists client-side (`bleak.mutualCode`,
+     validated against `identity.userAddress` on load; stale/mismatched →
+     treated as no code, re-registered on load) so the QR re-renders after a
+     reload — the server keeps only the hash.
+     **Rendering approach for workers (performance-first, unchanged from
+     rev. 2):** use the tiny dependency-free QR encoder — **`uqr` (~3 kB,
+     zero deps, MIT, synchronous, SVG output)** — statically imported only
+     in the `/profile` route chunk (code-split; zero cost for every other
+     page). Modules render the `--color-surface` value on the near-white
+     `--color-qr-frame` backdrop (single token in `tokens.css`, shared with
+     the host share-kit QR; the one declared functional exception to the
+     dark palette). Scannability requires this light backdrop.
 3. **Editor** (inline swap of the badge card content, one screen at a time):
    - **Persona editor**: `name`, `public_bio`, `private_bio` fields
      (prefilled) → `PUT updateRoomUser` (omitted-field semantics: send all
@@ -911,12 +1128,41 @@ the exit door.
      sent to bleak-node.
 4. **Settings block** (below the badge card, quiet list):
    - **Locale**: `SegmentedControl` RU | EN (same control as `/`).
+   - **Regenerate access token** (v2): settings row with the key pixel
+     glyph — «Сгенерировать новый ключ доступа» / "Regenerate access token"
+     → `ConfirmDialog`: title «Сгенерировать новый ключ доступа?» /
+     "Regenerate the access token?"; body RU «Текущий ключ перестанет
+     действовать: другие устройства с этим ключом потеряют доступ к
+     персоне.» / "The current credential will stop working: other devices
+     holding it will lose access to this persona."; buttons «Отмена» /
+     "Cancel" (outline) and «Сгенерировать» / "Regenerate" (accent).
+     Confirm → generate the new secret (`generateTokenSecret()`) →
+     `rotateUserToken(room, address, identity.token, newRaw)` (Bearer =
+     current, body = new raw token) → replace `identity.token` and rewrite
+     the matching `bleak.tokenVault` entry's token in place → transient
+     inline check «Ключ обновлён» / "Credential updated". No mutual-code
+     re-registration is needed (the code hash is bound to the user record,
+     not the token). On 401/403: §2.8/§2.9 handling (401 → global gate;
+     403 → inline server text, identity kept).
    - **Leave room**: destructive row «Выйти из комнаты» / "Leave the room" →
      `ConfirmDialog`: RU «Ваша персона будет удалена из комнаты вместе с
      хендшейками и диалогами.» / "Your persona will be removed from the room
-     along with its handshakes and dialogs." Confirm → `DELETE …/user/{address}`
-     → `clearIdentity()` → navigate `/`. On error (e.g. server rule blocks the
-     delete): inline error with the server text, identity kept.
+     along with its handshakes and dialogs." Confirm → `DELETE
+     …/user/{address}` (persona Bearer) → clear identity + `mutualCode` →
+     navigate `/`. On error (e.g. server rule blocks the delete): inline
+     error with the server text, identity kept.
+
+**Rotation micro-animation (visible by design, Concept §6.3).** When the QR
+re-renders after a burn+refresh cycle: the old module layer fades/scales out
+and the new one steps in — a two-phase 320 ms effect, transform/opacity only:
+modules `opacity 1→0` + `scale(0.96)` over 140 ms, SVG data swap, then
+`opacity 0→1` + `scale(0.96→1)` over 180 ms ease-out; a transient inline
+accent chip «QR обновлён» / "QR refreshed" (auto-hides after 2 s) announces
+the swap `aria-live="polite"`. Under `prefers-reduced-motion: reduce` the
+animation is skipped (instant swap; the note still shows). The effect is a
+design feature, not decoration: it teaches the one-time mechanic ("show,
+scan, it flips") and signals that any earlier screenshot of the badge is
+worthless.
 
 **States.**
 - Loading: skeleton badge card (avatar circle + 3 text bars + 2 stat tiles).
@@ -924,6 +1170,8 @@ the exit door.
   elsewhere): full-card state «Персона не найдена» / "Persona not found" +
   button «Выйти» / "Leave" that just clears identity → `/`.
 - Mutation pending: the affected CTA shows a spinner; double-submit prevented.
+- Rotation pending: the settings row shows a spinner (the dialog is closed
+  first); the badge poller keeps running throughout.
 - Success feedback: a transient inline check (no toasts system in v1; the
   edited value simply renders).
 
@@ -934,16 +1182,21 @@ handshake list when there is room).
 **Accessibility.** Stat numerals have accessible names («Хендшейков: 7» /
 "Handshakes: 7"). The greeting textarea has a permanent visible label. The
 disabled Save state is `aria-disabled` with the reason in the error line
-(`aria-live="polite"`).
+(`aria-live="polite"`). The QR `<svg>` has `role="img"` with
+`aria-label` «Ваш одноразовый QR для обмена рукопожатиями» / "Your one-time
+handshake QR".
 
 **Acceptance criteria.**
 1. `/profile` renders the badge card with the user's `name`, `greeting`,
    `public_bio`, `private_bio`, read-only `language`, mock interest chips, and
-   the two stat tiles computed from the handshake and chat lists.
+   the two stat tiles computed from the credentialed handshake and chat lists
+   (every fetch carries the persona Bearer).
 2. The persona editor saves all three fields via `PUT
-   /api/room/{room}/user/{address}` and the card reflects the new values.
+   /api/room/{room}/user/{address}` (with the persona Bearer) and the card
+   reflects the new values.
 3. The greeting editor blocks saving when the text contains `?`, showing the
-   specified rule copy, and saves via `PUT …/greeting` otherwise.
+   specified rule copy, and saves via `PUT …/greeting` (persona Bearer)
+   otherwise.
 4. "Regenerate" calls the regenerate endpoint and replaces the editor content
    without saving until Save is pressed.
 5. Interest chips come from the client-side mock store (`localStorage
@@ -951,44 +1204,74 @@ disabled Save state is `aria-disabled` with the reason in the error line
    them never issues a network request.
 6. The RU|EN segmented control switches the UI language app-wide and
    persists.
-7. "Leave the room" confirms, calls `DELETE
-   /api/room/{room}/user/{address}`, clears `bleak.identity`, and navigates
-   to `/`.
+7. "Leave the room" confirms, calls `DELETE /api/room/{room}/user/{address}`
+   (persona Bearer), clears `bleak.identity` and `bleak.mutualCode`, and
+   navigates to `/`.
 8. If the persona is gone (404), the card shows the not-found state and the
    exit path works.
 9. Stat tiles announce full values to screen readers («Хендшейков: 7»).
 10. No hardcoded colors are used; all surfaces derive from the tokens.
-11. The badge card shows the personal QR block: a client-side SVG encoding
-    `{INVITE_URL_BASE}?u={userAddress}` with the caption «Покажите, чтобы
-    обменяться рукопожатиями» / "Show this to trade handshakes"; the QR is
-    not interactive and issues no network request.
+11. The badge card shows the **live** personal QR: a client-side SVG encoding
+    `{INVITE_URL_BASE}?u={userAddress}&m={mutualCode}` sourced from the
+    `mutualCode` store, with both caption lines («Покажите, чтобы…» and the
+    one-time line); the QR element itself issues no network request and is
+    not interactive.
 12. The badge QR is scannable: dark modules on the light `--color-qr-frame`
     backdrop (shared token with the host share-kit frame); decoding its
-    payload in the §3.8 scanner resolves the correct user address.
+    payload in the §3.8 scanner yields both the user address and the mutual
+    code.
 13. The QR encoder is code-split into the `/profile` route only (no QR-related
     module loads on `/room`, `/people`, `/chats`).
+14. **Live rotation:** while the profile page is open, the token-gated
+    `getRoomUser` is polled at 4 s for `mutual_code_live`; when the flag
+    reads false the app generates a fresh code, registers only its **hash**
+    via `POST …/mutual-code` (persona Bearer; the raw code is never sent),
+    updates `bleak.mutualCode`, and re-renders the QR with the rotation
+    micro-animation plus the transient «QR обновлён» note (`aria-live`);
+    a registration failure keeps the last QR and retries on the next tick.
+15. **Token rotation:** the settings row opens a confirm dialog with the
+    other-device lockout copy; confirming calls `rotateUserToken` with the
+    **current** Bearer and the new raw token in the body, then updates
+    `identity.token` and the matching `bleak.tokenVault` entry in place; a
+    401 triggers the §2.8 global gate, a 403 shows inline server text with
+    the identity kept.
 
 ---
 
 ### 3.7 `/host` — Host console
 
-**Purpose.** The event host's tool: enter the host token, create the event
-room, receive the share kit (QR + 6-digit code + invite link), and watch the
-room live. Desktop-comfortable (the only page designed desktop-first), but
-fully usable on a phone.
+**Purpose.** The event host's tool: present the operator-granted **one-time
+creation token**, create the event room (the client generates the **room
+token**), receive the share kit (QR + 6-digit codes + invite links), manage
+invite codes (mint/expiry/revoke), and watch and drill into the room live.
+Desktop-comfortable (the only page designed desktop-first), but fully usable
+on a phone.
 
-**API endpoints used.**
+**API endpoints used.** (Room-token calls carry `bleak.hostRoom.roomToken`
+via the `hostApi` context — auto-injected; a host-context 401/403 resets the
+console, §2.8/§3.7 states.)
 
 | Endpoint (client method) | Use |
 | --- | --- |
-| helper `POST /h/rooms` (`createRoom`, header `x-host-token`) | create room; returns `{ room, code, invite_url }` |
-| helper `GET /h/rooms/{code}/qr` (`inviteQrUrl`) | QR image (PNG 512px) for the share kit |
-| `GET /api/room/{address}` (`getRoom`) | room details for the live view |
-| `GET /api/room/{room}/user` (`listRoomUsers`) — 5 s poll | live member list |
-| `GET /api/handshake/user/{address}` (`listHandshakesOfUser`) | per-member drill-down (on demand) |
-| `GET /api/room/{room}/user/{address}/chat` (`listChatsOfRoomUser`) | per-member drill-down (on demand) |
-| `PUT /api/room/{address}` (`updateRoom`) | room settings (name, description) |
-| `DELETE /api/room/{address}` (`deleteRoom`) | end the event |
+| `POST /api/room` (`createRoom(requestV2, createToken)`) | create room — **one-time creation token in the header** (header name TBD, ARCHITECTURE §10.13.1; proposed `x-create-token`), client-generated room token in the body (`CreateRoomRequestV2`); the creation token is consumed on use |
+| `GET /h/rooms/{code}/qr` (`inviteQrUrl`) | QR image (PNG 512px) for the share kit — the helper's only remaining endpoint (now stateless, ARCHITECTURE §10.10) |
+| `GET /api/room/{address}` (`getRoom`) — public read, **no token** | room details (`name`, `description`, `language`, `max_user`) |
+| `GET /api/room/{room}/user` (`listRoomUsers`) — public read, **no token** — 5 s poll | live member list |
+| `GET /api/room/{address}/invite` (`listInvites`) — **room token** | active invite codes |
+| `POST /api/room/{address}/invite` (`mintInvite`) — **room token** | mint a code (`{ expires_at? }`; default 24 h server-side) |
+| `DELETE /api/room/{address}/invite/{code}` (`revokeInvite`) — **room token** | revoke a code |
+| `GET /api/chat/{address}` + `GET /api/chat/{address}/message` — **room token** | member drill-down chat reads (plain chat reads — amendment-independent, ARCHITECTURE §10.3) |
+| `DELETE /api/chat/{address}/message` (`clearChatHistory`) — **room token** | clear a member's dialog from the drill-down |
+| `POST /api/chat/{address}/kickoff` (`kickoffChat`) — **room token** | restart a member's dialog from the drill-down |
+| `POST /api/room/{address}/token` (`rotateRoomToken`) — **Bearer = current room token; body = the new raw token** | room-token rotation |
+| `PUT /api/room/{address}` (`updateRoom`) — **room token** | room settings (name, description) |
+| `DELETE /api/room/{address}` (`deleteRoom`) — **room token** | end the event |
+
+**Not built in v2 (do not promise):** per-member handshake **counts** — no
+viable endpoint without the flag 6.9a amendment (Concept §6.6); the
+drill-down ships counts-less (§5 rationale). The helper's `POST /h/rooms`
+and `GET /h/rooms/{code}` mapping endpoints are retired (ARCHITECTURE
+§10.10); the host console talks to bleak-node directly.
 
 **Layout.**
 Phone: single column. Desktop (≥ 900px): two columns — left column the share
@@ -996,119 +1279,217 @@ kit, right column the live room view; max-width 1080px centered.
 
 1. **Header**: h1 «Хост» / "Host" + subtitle RU «Создайте комнату события и
    поделитесь приглашением.» / "Create the event room and share the invite."
-2. **Token gate** (shown when no token is stored): `--color-surface` card with
-   a password-type input (label «Токен хоста» / "Host token", masked,
-   48px) + CTA «Продолжить» / "Continue". The token is validated lazily (on
-   first create; there is no validate endpoint) and persisted in `localStorage`
-   (`bleak.hostToken`), clearable via a small «Забыть токен» / "Forget token"
-   link. Copy note RU «Токен выдаётся владельцем развертывания.» / "The token
-   is issued by the deployment owner."
+2. **Creation-token gate** (shown when no `bleak.hostRoom` exists — i.e. no
+   active room session on this device): `--color-surface` card with a
+   password-type input (label «Токен создания комнаты» / "Room creation
+   token", masked, 48px, `autocomplete="off"`) + CTA «Продолжить» /
+   "Continue". Copy note RU «Одноразовый токен выдаёт оператор
+   развертывания. После создания комнаты он больше не нужен и не
+   сохраняется.» / "A one-time token issued by the deployment operator.
+   After the room is created it is never needed again and is not stored."
+   **The token is never persisted anywhere** — it lives only in memory for
+   the duration of the create call (it is consumed server-side on use); a
+   later console visit shows the gate again unless the share kit restores
+   from `bleak.hostRoom`.
 3. **Create room form** (card): `name` (required), `description` (optional),
    `language` select (ru | en; this sets the agents' conversation language —
-   `CreateRoomRequest.language`). CTA «Создать комнату» / "Create room".
-   (`max_user` is **not** in `CreateRoomRequest` — not settable; flag 3.)
-4. **Share kit** (after creation; also restored on revisit via
-   `localStorage bleak.hostRoom` = last created code + address):
-   - Big code display: 6-digit `code` in Handjet 40px, letter-spaced, on a
-     surface card with a «Скопировать» / "Copy" chip (writes the digits).
-   - **QR block**: `inviteQrUrl(code)` `<img>` (256px on phone, 320px desktop;
-     alt «QR-код приглашения» / "Invite QR code"), pixel-cornered white
-     padding frame (the helper renders charcoal-on-light).
-   - Invite link row: truncated `invite_url` + copy icon-button.
+   `CreateRoomRequestV2.language`). On submit the client generates the room
+   token (`generateTokenSecret()`) and calls
+   `createRoom(requestV2, createToken)`. CTA «Создать комнату» / "Create
+   room". (`max_user` is **not** settable — flag §6.3.)
+4. **Share kit** (after creation; restored on revisit from
+   `bleak.hostRoom = { roomAddress, roomToken, code }`; the room `name` for
+   display comes from a public `getRoom`):
+   - Big code display: the room's invite `code` in Handjet 40px,
+     letter-spaced, on a surface card with a «Скопировать» / "Copy" chip
+     (writes the digits).
+   - **QR block**: `inviteQrUrl(code)` `<img>` (256px on phone, 320px
+     desktop; alt «QR-код приглашения» / "Invite QR code"), pixel-cornered
+     light frame (`--color-qr-frame`; the helper renders
+     charcoal-on-light).
+   - Invite link row: `{INVITE_URL_BASE}?code={code}` (computed
+     client-side) + copy icon-button.
    - CTA «Присоединиться как участник» / "Join as attendee" → runs the `/`
      join flow with this code (navigates to `/?code={code}`).
-   - Link «Создать другую комнату» / "Create another room" → back to the form.
-5. **Live room view** (poll 5 s):
+   - Link «Создать другую комнату» / "Create another room" → back to the
+     form (the existing room session stays in `bleak.hostRoom` until it is
+     replaced or the room is deleted).
+5. **Invite management block** (v2, room-token authority — new):
+   - Sub-header «Коды приглашения» / "Invite codes" + muted hint RU «Код
+     действует до истечения срока; отозвать можно в любой момент.» / "A code
+     works until it expires; you can revoke it any time."
+   - **Active-code list**: one `InviteRow` per active code (`listInvites`):
+     6-digit code (Handjet 24px), muted expiry «истекает через {time}» /
+     "expires in {time}", and row actions: copy chip, a QR toggle (reveals a
+     small `inviteQrUrl(code)` image for that code), invite-link copy, and
+     «Отозвать» / "Revoke" (outline-destructive; no confirm — revocation is
+     reversible by minting again). On success the row disappears on the next
+     list refresh with the transient note «Код отозван.» / "Code revoked."
+     Revoked and expired codes never render in the list.
+   - **Mint control**: CTA «Выпустить код» / "Mint a code" opens an inline
+     **expiry chooser** — three preset pills «1 час» / "1 hour", «24 часа» /
+     "24 hours" (pre-selected default), «7 дней» / "7 days" — plus a fourth
+     «Своё время…» / "Custom…" that reveals a compact `datetime-local` input
+     (min = now). Mint → `mintInvite(address, roomToken, { expires_at? })` →
+     the new code appears at the top of the list **and joins the share kit**
+     as a per-code row: each minted code carries its own QR + link copies so
+     the host can share several codes side by side (e.g. one per entrance).
+     Presets over free datetime by default: a host mid-event needs two taps,
+     not a calendar (rationale §5; ARCHITECTURE §10.13.8).
+6. **Live room view** (poll 5 s, public reads):
    - Summary tiles: «Участники {n}/{max_user}» / "Members {n}/{max_user}"
      (from `listRoomUsers.length` and `getRoom.max_user`), «Язык {language}» /
      "Language {language}".
    - **Member list**: rows (avatar, `User.name`, joined time from
      `created_at`); each row tap → **member drill-down sheet** (on-demand
-     fetches, not polled): handshake counts sent/received
-     (`listHandshakesOfUser` of that member — counts by `from_address`
-     direction) and their dialogs (`listChatsOfRoomUser` — rows link to
-     read-only `/chats/{address}`; the host may observe any transcript).
-   - **Room settings** (collapsible): edit `name`/`description` →
-     `PUT updateRoom`; danger zone «Удалить комнату» / "Delete room" →
-     confirm → `DELETE` → clears `bleak.hostRoom`, returns to the create
-     form. Copy warning RU «Комната будет удалена вместе со всеми
-     участниками.» / "The room will be deleted with all its members."
+     fetches, not polled): the member's dialogs read with the **room token**
+     (plain `getChat` + `listChatMessages` per chat address — amendment-independent, ARCHITECTURE §10.3). **Chat discovery
+      (honest handling of a contract gap):** the plain reads give no
+      room-scoped per-user chat *listing* (that piece is part of the 6.9a
+      amendment), so the drill-down shows the member's dialogs only when
+      their chat addresses are discoverable (via a 6.9a-style room-scoped
+      listing once it exists, or from chat knowledge the console already
+      holds); until then the sheet renders the empty-drill-down copy plus a
+      muted hint RU «Список диалогов участника появится вместе с серверным
+      обновлением (флаг 6.9a).» / "The member's dialog list arrives with the
+      server-side amendment (flag 6.9a)." — never invented client side.
+      Dialog rows
+     link to the read-only `/chats/{address}` transcript (the host observes
+     any transcript — the §3.5 viewer fallback context) **and** carry two
+     inline host actions per dialog: «Очистить историю» / "Clear history" →
+     confirm (body RU «История диалога участников будет очищена.» / "The
+     participants' dialog history will be cleared.") → `clearChatHistory`
+     (room token); «Запустить заново» / "Restart" → reuses the §3.5 kickoff
+     confirm copy → `kickoffChat` (room token). Empty drill-down: «У
+     участника пока нет диалогов.» / "This member has no dialogs yet."
+     **No handshake counts are shown anywhere in the console** (flag 6.9a).
+   - **Host settings** (collapsible): edit `name`/`description` →
+     `PUT updateRoom` (room token); **«Сгенерировать ключ комнаты» /
+     "Regenerate room token"** → `ConfirmDialog` (title «Сгенерировать ключ
+     комнаты?» / "Regenerate the room credential?"; body RU «Текущий ключ
+     комнаты перестанет действовать. Продолжить?» / "The current room
+     credential will stop working. Continue?") → `rotateRoomToken` → the
+     stored `bleak.hostRoom.roomToken` is replaced in place; danger zone
+     «Удалить комнату» / "Delete room" → confirm → `DELETE` (room token) →
+     clears `bleak.hostRoom`, returns to the create form. Copy warning RU
+     «Комната будет удалена вместе со всеми участниками.» / "The room will
+     be deleted with all its members."
 
 **States.**
-- Token wrong (helper 401/403 on create): error under the token field RU
-  «Токен отклонён.» / "Token rejected." (server text appended if present).
+- Creation token rejected (401/403 on create): error under the token field RU
+  «Токен отклонён.» / "Token rejected." (server text appended if present);
+  the entered value stays masked; nothing is stored; the gate remains.
 - Create 400/409: field error from server text (e.g. duplicate name →
   «Комната с таким именем уже есть» surfaced from server body).
 - Create pending: CTA spinner; form disabled.
+- **Host session reset (`hostApi` 401/403 on any room-token call):**
+  `bleak.hostRoom` is cleared and the console resets to the creation-token
+  gate with a notice line above it: RU «Доступ к комнате отозван — войдите
+  заново с токеном создания.» / "Room access was revoked — sign in again
+  with a creation token." (`aria-live="polite"`; attendee identity is never
+  touched.)
 - Live view empty (no members): «Пока никто не присоединился.» / "Nobody has
   joined yet."
 - Live view error: `ErrorBanner`; stale list dimmed.
 - Drill-down fetch failure: inline muted error inside the sheet with retry.
+- Invite list/mint/revoke failure: inline muted error inside the invite
+  block with retry; the share kit is unaffected.
 - `getRoom` 404 (room deleted elsewhere): full-section state «Комната
   удалена.» / "The room was deleted." + reset to create form.
 
-**Responsive.** ≥ 900px two-column as above; the QR and code stay in the left
-column (sticky), the live view scrolls on the right.
+**Responsive.** ≥ 900px two-column as above; the share kit + invite block
+stay in the left column (sticky), the live view scrolls on the right.
 
-**Accessibility.** Token input is `type="password"` with autocomplete off; the
+**Accessibility.** Creation-token input is `type="password"` with
+autocomplete off and **never logged, stored, or rendered elsewhere**; the
 code display has `aria-label` with the digits spelled («Код: 1 2 3 4 5 6»).
 Drill-down sheets trap focus; the danger zone is separated with a visible
-warning heading.
+warning heading; invite rows are list items whose actions carry per-code
+`aria-label`s («Отозвать код {code}» / "Revoke code {code}").
 
 **Acceptance criteria.**
-1. Without a stored token, `/host` shows the token gate; the token persists in
-   `localStorage` after entry and the gate does not reappear.
-2. Creating a room calls helper `POST /h/rooms` with the `x-host-token` header
-   and shows the share kit: 6-digit `code` (Handjet), QR `<img>` from
-   `GET /h/rooms/{code}/qr`, and the copyable `invite_url`.
-3. The QR `<img>` and invite link render for the created code, and both
-   copy actions write the correct values to the clipboard.
-4. Revisiting `/host` with a stored `bleak.hostRoom` restores the share kit of
-   the last created room without re-creating anything.
-5. "Join as attendee" navigates to `/?code={code}` (the deep-link flow of
+1. Without a stored `bleak.hostRoom`, `/host` shows the creation-token gate;
+   the entered creation token is never persisted (no
+   localStorage/sessionStorage key exists for it) and never rendered anywhere
+   except the masked input.
+2. A wrong or consumed creation token (401/403 on create) shows «Токен
+   отклонён.» under the field, keeps the entered value masked, and stores
+   nothing.
+3. A successful create generates the room token client-side, calls
+   `POST /api/room` with the creation token in the header and the room token
+   in the body, and stores `{ roomAddress, roomToken, code }` in
+   `bleak.hostRoom`.
+4. The share kit renders the 6-digit `code` (Handjet), the QR `<img>` from
+   `GET /h/rooms/{code}/qr`, and the invite link
+   `{INVITE_URL_BASE}?code={code}`; both copy actions write the correct
+   values to the clipboard.
+5. Revisiting `/host` with a stored `bleak.hostRoom` restores the share kit
+   (room name via public `getRoom`) without re-creating anything.
+6. "Join as attendee" navigates to `/?code={code}` (the deep-link flow of
    §3.1 takes over).
-6. The live view polls members every 5 s; the members tile shows
-   `listRoomUsers.length` against `getRoom.max_user`.
-7. Tapping a member opens the drill-down sheet showing that member's
-   sent/received handshake counts and dialogs, fetched on demand; dialog rows
-   link to `/chats/{address}`.
-8. Room settings save via `PUT /api/room/{address}` and reflect immediately;
-   "Delete room" confirms, calls `DELETE`, clears the stored room, and returns
-   to the create form.
-9. A rejected token shows «Токен отклонён.» under the field and keeps the
-   entered value masked.
-10. When no one has joined, the live view shows the empty copy.
-11. On a ≥ 900px viewport the page lays out in two columns with the share kit
-    sticky on the left.
-12. Deleting the room while the live view is open ends in the «Комната
-    удалена.» state (either via the drill-down of a 404 or the delete action).
+7. The invite block lists active codes via `GET …/invite` (room token);
+   minting with a preset expiry (24 h pre-selected) or a custom datetime
+   calls `POST …/invite` and the new code appears in the list with its own
+   copy/QR/link actions.
+8. "Revoke" on a code row calls `DELETE …/invite/{code}` and the row
+   disappears on refresh with the «Код отозван.» note; revoked and expired
+   codes never render as active.
+9. The live view polls members every 5 s (public reads); the members tile
+   shows `listRoomUsers.length` against `getRoom.max_user`.
+10. A member drill-down opens on demand and lists that member's dialogs read
+    with the **room token**; each dialog row links to the read-only
+    `/chats/{address}` transcript and carries "Clear history" and "Restart"
+    actions that call `clearChatHistory` / `kickoffChat` with the room token
+    after their confirm dialogs.
+11. The console shows **no handshake sent/received counts** anywhere.
+12. Host settings save via `PUT /api/room/{address}` (room token);
+    "Delete room" confirms, calls `DELETE`, clears the stored room, and
+    returns to the create form.
+13. "Regenerate room token" confirms with the specified copy, calls
+    `rotateRoomToken` with the current Bearer, and updates the stored
+    `bleak.hostRoom.roomToken` in place.
+14. A host-context 401/403 on any room-token call clears `bleak.hostRoom`,
+    resets the console to the creation-token gate, shows the «Доступ к
+    комнате отозван…» notice (`aria-live="polite"`), and leaves attendee
+    identity untouched.
+15. When no one has joined, the live view shows the empty copy; when the
+    room is deleted while the console is open, the «Комната удалена.» state
+    resets to the create form.
+16. On a ≥ 900px viewport the page lays out in two columns with the share
+    kit + invite block sticky on the left.
 
 ---
 
 ### 3.8 `QrScanner` — shared camera scanner overlay (no route)
 
-**Purpose.** The one camera-scanning surface in v1 (owner rulings 3 & 6), used
-in two contexts: **(a) join** — mounted on `/`, reads an **invite QR** (URL
-with `?code=NNNNNN`) and feeds the normal Step 1 flow; **(b) scan-a-person** —
-mounted on `/room`, reads a **persona QR** (URL with `?u={userAddress}`, the
-code rendered on the §3.6 badge) and executes the ruling-3 mutual handshake:
-the client sends **both** `POST /api/handshake` calls (A→B and B→A), which
-auto-creates the chat. The overlay is opened by an explicit user tap and owns
-its camera lifecycle; it is not a route (§1.1).
+**Purpose.** The one camera-scanning surface, used in two contexts:
+**(a) join** — mounted on `/`, reads an **invite QR** (URL with
+`?code=NNNNNN`) and feeds the normal Step 1 flow; **(b) scan-a-person** —
+mounted on `/room`, reads a **persona badge QR** (URL with
+`?u={userAddress}&m={mutualCode}`, the live code rendered on the §3.6 badge)
+and performs the **server-mediated** mutual handshake: the scanner's client
+sends a single `POST /api/handshake/mutual` carrying its own Bearer token
+plus the scanned `u` + `m`; the backend creates both directed handshakes and
+**burns the one-time code** (bleak-node §7.3). The v1 client-side two-POST
+routine and the client already-mutual precheck are **deleted** — an
+already-mutual pair still burns the code (no second chat server-side), so the
+client never special-cases it: it calls the endpoint and treats success as
+success. The overlay is opened by an explicit user tap and owns its camera
+lifecycle; it is not a route (§1.1).
 
 **QR payload formats (binding).**
 
 | QR | Content | Read by |
 | --- | --- | --- |
 | Invite QR (host share kit) | `{INVITE_URL_BASE}?code=NNNNNN` | context (a); also the phone's camera app (deep link) |
-| Persona QR (profile badge) | `{INVITE_URL_BASE}?u={userAddress}` | context (b); also the phone's camera app (deep link `/?u=`) |
+| Persona QR (profile badge, live) | `{INVITE_URL_BASE}?u={userAddress}&m={mutualCode}` | context (b); also the phone's camera app (deep link) |
 
 The scanner parses the scanned text as a URL on the app's own origin
-(`INVITE_URL_BASE`); it accepts any path prefix but requires the `code` or
-`u` query parameter — unknown/foreign QR content shows the error state
-«Это не QR-код bleak-web.» / "This is not a bleak-web QR code." (with
-«Сканировать снова» / "Scan again" and the manual fallback), never a silent
-close.
+(`INVITE_URL_BASE`); it accepts any path prefix but requires `code`, or `u`
+(with the optional `m`) as query parameters — unknown/foreign QR content
+shows the error state «Это не QR-код bleak-web.» / "This is not a bleak-web
+QR code." (with «Сканировать снова» / "Scan again" and the manual fallback),
+never a silent close.
 
 **Layout (full-screen overlay).**
 `position: fixed; inset: 0;` on `--color-bg`, above everything (including the
@@ -1160,8 +1541,9 @@ as manual entry (§3.1 step 1): cells filled, `GET /h/rooms/{code}` resolution,
 room preview. If the scanned code fails resolution (404/400/NetworkError), the
 existing §3.1 inline error states apply — the scanner does not reopen.
 
-**Processing — context (b), persona QR (`?u=`) — ruling 3 routine.**
-Run in the overlay, on a result panel (viewfinder stopped):
+**Processing — context (b), persona QR — v2 server-mediated routine.**
+Run in the overlay, on a result panel (viewfinder stopped). Prechecks
+(client-side UX only, no request):
 
 1. **Own QR**: `u === identity.userAddress` → info state, no request:
    pixel glyph + «Это ваш собственный QR — покажите его кому-нибудь другому.»
@@ -1172,35 +1554,56 @@ Run in the overlay, on a result panel (viewfinder stopped):
    overlay fetches `listRoomUsers` once for this check) → error state, no
    request: «Эта персона из другого события.» / "This persona is from another
    event." + scan again / close.
-3. **Known persona**: resolve `name`/avatar from the member list, show a
-   confirm card in the result panel: avatar + name + copy «Отправить
-   взаимные хендшейки и запустить агентов?» / "Send mutual handshakes and
-   start the agents?" + CTA «Обменяться рукопожатиями» / "Trade handshakes"
-   (accent) + «Отмена» / "Cancel". Confirm → send **both** calls **in
-   order**: `POST /api/handshake {from: me, to: u, status: 1}` then
-   `POST /api/handshake {from: u, to: me, status: 1}` — the second call
-   creates the chat. Both endpoints are idempotent per directed pair, so an
-   existing pair returns 200 without side effects.
-4. **Success** (both 200/201): refresh `listChatsOfUser` once, locate the
-   chat whose participants include `u`; success state with a pixel glyph of
-   two avatars: «Агенты уже общаются» / "Your agents are already talking" +
-   primary CTA «Открыть диалог» / "Open dialog" → `/chats/{chat.address}`
-   (if the chat is not yet in the refreshed list — eventual consistency —
-   the CTA links to `/chats` instead; never a dead link).
-5. **Failure**: `NetworkError` → inline error «Нет связи. Проверьте Wi-Fi.» /
-   "Connection lost. Check the Wi-Fi." + «Повторить» / "Retry" (re-runs step
-   3's POSTs; idempotency makes retry safe). `ApiError` → server text +
-   «Повторить». Neither call may fire a duplicate handshake UI error when the
-   pair already exists — 200 is success (same as §3.2 criterion 7).
-6. **Already mutual** (the hosting page's data — or the refreshed chat list —
-   shows a chat with `u` exists before step 3): skip the POSTs entirely and
-   jump straight to the success state with «Открыть диалог».
+3. **Known persona** (`u` in the member list — regardless of any existing
+   handshake or chat with them; **there is no already-mutual precheck**):
+   resolve `name`/avatar from the member list, show the confirm card in the
+   result panel: avatar + name + copy «Отправить взаимные хендшейки и
+   запустить агентов?» / "Send mutual handshakes and start the agents?" +
+   CTA «Обменяться рукопожатиями» / "Trade handshakes" (accent) + «Отмена» /
+   "Cancel". Confirm → one call: `POST /api/handshake/mutual` with the
+   scanner's persona Bearer and body `{ user_address: u, mutual_code: m }`.
+   For a `?u=` deep link **without** `m`, the single-direction variant
+   applies instead: the standard confirm card → `POST /api/handshake`
+   `{ from: me, to: u, status: 1 }` with my Bearer — idempotent per pair,
+   no mutual code involved, 403 → the §2.9 income-rule state.
+4. **Success** (mutual 200/201): refresh `listChatsOfUser` once (gated
+   read), locate the chat whose participants include `u`; success state
+   with a pixel glyph of two avatars: «Агенты уже общаются» / "Your agents
+   are already talking" + primary CTA «Открыть диалог» / "Open dialog" →
+   `/chats/{chat.address}` (if the chat is not yet in the refreshed list —
+   eventual consistency — the CTA links to `/chats` instead; never a dead
+   link). For an **already-mutual** pair the backend burns the code and
+   returns success without creating a second chat — the same success state
+   renders (the link points at the existing dialog).
+5. **410 — stale code:** the scanned badge's one-time code was already
+   used. Result state: RU «Код уже использован — попросите обновить QR на
+   карточке.» / "Code already used — ask them to refresh their badge QR."
+   (Concept §6.4 copy, binding) + «Сканировать снова» / "Scan again" +
+   manual fallback. **No "Retry" control for the same code** — it is dead;
+   the copy never implies that a request reached the other persona.
+6. **403 — income rule:** the caller's outgoing direction violates the
+   room's income>outcome rule. The code is **not** consumed on a rule
+   rejection (bleak-node §7.3.4). Result state: the §2.9 income-rule copy —
+   RU «Лимит исходящих хендшейков — сначала получите рукопожатия в ответ.» /
+   "Outgoing handshake limit reached — receive handshakes first." (+ server
+   text muted when present) + «Сканировать снова» / "Scan again" + manual
+   fallback. The copy must not imply the scanned badge was burned — it
+   wasn't.
+7. **Failure (network / other API):** `NetworkError` → inline error «Нет
+   связи. Проверьте Wi-Fi.» / "Connection lost. Check the Wi-Fi." +
+   «Повторить» / "Retry" (re-sends `u` + `m`; a failed attempt never burned
+   the code — only successful server verification does — so retry is safe).
+   Other `ApiError` → server text + «Повторить». **401 → the §2.8 global
+   gate** (the scanner's own credential is invalid). 404 (unknown user) →
+   error state with the server text + scan again. No duplicate-handshake
+   error may ever fire for an existing pair — 200 is success (§3.2 AC 7).
 
 **States summary (result panel).** success / own-QR info / foreign-persona
-error / network error with retry / api error with retry / confirm card /
-processing spinner (during the two POSTs). After any terminal state,
-«Сканировать снова» / "Scan again" restarts the camera (back to Granted —
-permission persists in-session).
+error / **stale-code 410** / **income-rule 403** / network error with retry /
+api error with retry / confirm card / processing spinner (during the mutual
+call) / invalid-QR error. After any terminal state, «Сканировать снова» /
+"Scan again" restarts the camera (back to Granted — permission persists
+in-session).
 
 **Responsive.** Full-viewport on phones (the primary case). ≥ 720px: the
 video area is capped at 640px height, centered; the scan frame stays 240px.
@@ -1221,6 +1624,16 @@ decorative (`aria-hidden`). Touch targets ≥ 48px.
 - The overlay must stop its loop and tracks on host-route teardown (e.g.
   navigating away while scanning) — register cleanup on both overlay close
   and route unmount.
+- The v1 module `lib/scanner/mutualHandshake.ts` (two-POST routine) is
+  **replaced** by the server-mediated routine (pure, unit-tested; e.g.
+  `lib/scanner/mutual.ts`) that takes `{ myAddress, memberList, api }` and
+  returns a state machine: own-QR / foreign / confirm →
+  `createMutualHandshake(token, { user_address, mutual_code })` → resolve
+  the created/existing chat from a refreshed gated `listChatsOfUser` →
+  success CTA target (`/chats/{address}` or `/chats` fallback), with
+  **410 / 403 / NetworkError / 404 / 401 branches** per the states above.
+  The component only renders states and calls the module. The deep-link
+  machine on `/` (§3.1 AC 19) reuses the same module.
 - The `uqr`/`jsQR` pair: `uqr` (encode, `/profile` badge) and `jsQR` (decode,
   scanner) are the only QR dependencies allowed; the helper's server-side PNG
   QR is untouched.
@@ -1244,32 +1657,62 @@ decorative (`aria-hidden`). Touch targets ≥ 48px.
    closes the scanner and focuses the digit cells; context (b) closes the
    scanner.
 7. Scanning an invite QR in context (a) closes the scanner and proceeds
-   through `GET /h/rooms/{code}` exactly like manual entry (§3.1
-   criterion 13).
-8. Scanning a persona QR in context (b) shows the confirm card with the
-   scanned person's avatar and name; confirming sends BOTH
-   `POST /api/handshake` calls (A→B then B→A) and ends in the success state
-   «Агенты уже общаются» / "Your agents are already talking" with a working
-   "Open dialog" link to the created chat (or to `/chats` if the chat is not
-   yet listed).
-9. Idempotent re-scan: scanning a person whose handshake pair already exists
-   reaches the same success state (the POSTs return 200 and are treated as
-   success — no error is shown); scanning a person already in a mutual chat
-   with me skips the POSTs and shows the success state directly.
-10. Scanning my own persona QR shows the own-QR info state and sends no
+   through invite resolution exactly like manual entry (§3.1).
+8. Scanning a persona QR (`u` + `m`) shows the confirm card with the scanned
+   person's avatar and name; confirming sends a single
+   `POST /api/handshake/mutual` (my persona Bearer; body = scanned
+   `user_address` + `mutual_code`) and ends in the success state «Агенты уже
+   общаются» with a working "Open dialog" link to the created chat (or to
+   `/chats` if the chat is not yet listed).
+9. An already-mutual pair reaches the same success state — no client precheck
+   skips the call; the backend burns the code and returns success with no
+   second chat created.
+10. A 410 answer renders the stale-code state «Код уже использован —
+    попросите обновить QR на карточке.» with "Scan again" and the manual
+    fallback — and no "Retry" control for the dead code.
+11. A 403 answer renders the §2.9 income-rule state; the copy does not imply
+    the scanned badge's code was consumed, and the "Scan again" path works.
+12. Scanning my own persona QR shows the own-QR info state and sends no
     request; scanning an address that is not in the room's member list shows
     the foreign-persona state and sends no request; scanning a QR with
     neither `?code=` nor `?u=` on our origin shows an invalid-QR error state.
-11. A network failure during the handshake POSTs shows the retry error state;
-    "Retry" re-sends the pair safely (idempotent) and reaches success when
-    the network recovers.
-12. Closing the overlay (X, Escape, fallback, or navigation) stops the
+13. A network failure during the mutual call shows the retry error state;
+    "Retry" re-sends `u` + `m` safely (a failed attempt never burned the
+    code) and reaches success when the network recovers; a 401 during the
+    call triggers the §2.8 global gate.
+14. The `?u=` deep-link variants on `/` with an identity run the same
+    routines: `?u=…&m=…` the full mutual confirm routine; `?u=` alone the
+    single-direction confirm card ending in one `POST /api/handshake` (my
+    Bearer) whose 403 renders the income-rule state; without an identity
+    both are ignored (§3.1 AC 19).
+15. Closing the overlay (X, Escape, fallback, or navigation) stops the
     detection loop and all camera tracks — the camera indicator light turns
     off; focus returns to the invoking button.
-13. The overlay is a focus-trapped `role="dialog"` with `aria-modal`, Escape
-    to close, and all state changes announced via `aria-live="polite"`.
-14. The scanner adds no cost when unused: no QR-related module (decoder or
+16. The overlay is a focus-trapped `role="dialog"` with `aria-modal`, Escape
+    to close, and all state changes (including the 410/403 states)
+    announced via `aria-live="polite"`.
+17. The scanner adds no cost when unused: no QR-related module (decoder or
     encoder) is fetched until the overlay or the badge needs it.
+
+---
+
+### 3.9 Acceptance-criteria coverage (rev. 3, for the TZ pass)
+
+| Section | ACs | Δ vs rev. 2 | New/changed subject |
+| --- | --- | --- | --- |
+| §3.1 Join | 19 | +5 | 401 notice card (AC 2), invite-code rejection (AC 9), vault import — list/re-dead/empty (ACs 11–14), `?u&m` / `?u=` deep links (AC 19) |
+| §3.2 Room | 15 | +1 | income-rule state (AC 15); ACs 5/14 now credentialed / server-mediated |
+| §3.3 People | 13 | +1 | income-rule state (AC 13) |
+| §3.4 Chats | 8 | 0 | reads now credentialed (AC 1 wording) |
+| §3.5 Transcript | 15 | +2 | viewer fallback (AC 14), global-gate behavior (AC 15); no-composer AC 13 unchanged and re-asserted |
+| §3.6 Profile | 15 | +2 | live QR rotation (AC 14), token rotation (AC 15); QR payload ACs 11–12 rewritten |
+| §3.7 Host | 16 | +4 | creation-token gate (1–3), invite management (7–8), room-token drill-down + rotation (10, 13), host reset (14) |
+| §3.8 Scanner | 17 | +3 | single mutual call (8), already-mutual behavior (9), 410/403 states (10–11), `?u=`/`?u&m` deep links (14) |
+| **Total** | **118** | **+18** | rev. 2 ended at 100 |
+
+Every AC above is written to be independently checkable by a tester; the TZ
+pass maps each to exactly one implementation task (foundation tasks carry
+only their own technical criteria, as in rev. 2).
 
 ---
 
@@ -1291,8 +1734,8 @@ must remain the approved palette.
 | `TabBar` | all tab pages (exists) | pixel glyph icons to replace placeholders; badge dot on Chats |
 | `PixelAvatar` | everywhere | §4.3 |
 | `Radar` (rings + nodes + Me chip) | `/room` | SVG layer + absolutely-positioned buttons |
-| `HandshakeSheet` | `/room`, `/people` | bottom sheet; single source of handshake actions |
-| `PersonCard` | `/people` | state pill + inline actions + expandable incoming state |
+| `HandshakeSheet` | `/room`, `/people` | bottom sheet; single source of handshake actions; adds the §2.9 income-rule (403) inline state |
+| `PersonCard` | `/people` | state pill + inline actions + expandable incoming state + income-rule (403) inline state |
 | `ChatCard` | `/chats` | counterpart + `phase`/`scenario` chips |
 | `MessageBubble` | `/chats/[address]` | pixel-cornered, mine/theirs variants |
 | `ConfirmDialog` | kickoff, leave room, delete room | focus trap, Escape closes |
@@ -1302,7 +1745,11 @@ must remain the approved palette.
 | `DigitInput` | `/` | six-cell code entry |
 | `QrScanner` | `/` (context a), `/room` (context b) | camera scanner overlay, §3.8; no route |
 | `QrBlock` | `/host` | invite QR `<img>` from the helper + frame |
-| `QrCodeBadge` | `/profile` | client-side SVG persona QR (`uqr`), light frame, §3.6 |
+| `QrCodeBadge` | `/profile` | live client-side SVG persona QR (`uqr`; `u` + one-time `m`), light frame, rotation micro-animation, §3.6 |
+| `NoticeCard` | `/` | global 401 gate notice (§2.8), consumed from sessionStorage |
+| `TokenGateCard` | `/host` | one-time creation-token gate (masked, never stored) |
+| `InviteManager` / `InviteRow` | `/host` | active invite-code rows + mint expiry chooser (presets + custom) + revoke, room-token authority |
+| `VaultList` / `VaultRow` | `/` | device token-vault import picker (Concept §6.2); dead-entry error state |
 | `CopyButton` / `CopyField` | `/`, `/host` | clipboard + transient «Скопировано» / "Copied" |
 | `SkeletonBlock`, `ErrorBanner`, `EmptyState` | all | §2.1 patterns |
 | `StatTile` | `/profile`, `/host` | Handjet numeral + caption |
@@ -1430,10 +1877,46 @@ instant). No scroll-triggered or layout-triggered animation anywhere.
 | `profile.private_bio.caption` | видно только вашему агенту | only your agent sees this |
 | `profile.qr.caption` | Покажите, чтобы обменяться рукопожатиями | Show this to trade handshakes |
 | `profile.leave` | Выйти из комнаты | Leave the room |
-| `host.token.label` | Токен хоста | Host token |
+| `host.gate.label` | Токен создания комнаты | Room creation token |
+| `host.gate.note` | Одноразовый токен выдаёт оператор развертывания. После создания комнаты он больше не нужен и не сохраняется. | A one-time token issued by the deployment operator. After the room is created it is never needed again and is not stored. |
 | `host.token.rejected` | Токен отклонён. | Token rejected. |
 | `host.create` | Создать комнату | Create room |
+| `host.session_reset` | Доступ к комнате отозван — войдите заново с токеном создания. | Room access was revoked — sign in again with a creation token. |
+| `host.invites.title` | Коды приглашения | Invite codes |
+| `host.invites.hint` | Код действует до истечения срока; отозвать можно в любой момент. | A code works until it expires; you can revoke it any time. |
+| `host.invites.mint` | Выпустить код | Mint a code |
+| `host.invites.preset.1h` | 1 час | 1 hour |
+| `host.invites.preset.24h` | 24 часа | 24 hours |
+| `host.invites.preset.7d` | 7 дней | 7 days |
+| `host.invites.preset.custom` | Своё время… | Custom… |
+| `host.invites.expires_in` | истекает через {time} | expires in {time} |
+| `host.invites.revoke` | Отозвать | Revoke |
+| `host.invites.revoked` | Код отозван. | Code revoked. |
+| `host.rotate_room.row` | Сгенерировать ключ комнаты | Regenerate room token |
+| `host.rotate_room.title` | Сгенерировать ключ комнаты? | Regenerate the room credential? |
+| `host.rotate_room.body` | Текущий ключ комнаты перестанет действовать. Продолжить? | The current room credential will stop working. Continue? |
+| `host.drill.clear` | Очистить историю | Clear history |
+| `host.drill.clear_confirm` | История диалога участников будет очищена. | The participants' dialog history will be cleared. |
+| `host.drill.empty` | У участника пока нет диалогов. | This member has no dialogs yet. |
 | `host.empty_live` | Пока никто не присоединился. | Nobody has joined yet. |
+| `auth.401.notice` | У этой персоны нет действительного ключа доступа — присоединитесь заново по коду события. | This persona has no valid access credential — join again with the event code. |
+| `join.error.invite` | Код приглашения недействителен или истёк. | The invite code is invalid or expired. |
+| `join.import.title` | Импортировать с этого устройства | Import from this device |
+| `join.import.subtitle` | Персоны, созданные на этом телефоне. | Personas created on this phone. |
+| `join.import.empty` | На этом устройстве пока нет сохранённых персон. | No saved personas on this device yet. |
+| `join.import.saved_at` | Сохранено {date} · комната {room} | Saved {date} · room {room} |
+| `join.import.dead` | Эта персона больше не существует на сервере. Запись останется в списке, но импорт невозможен. | This persona no longer exists on the server. The entry stays listed, but it cannot be imported. |
+| `hs.income_limit` | Лимит исходящих хендшейков — сначала получите рукопожатия в ответ. | Outgoing handshake limit reached — receive handshakes first. |
+| `scan.code_used` | Код уже использован — попросите обновить QR на карточке. | Code already used — ask them to refresh their badge QR. |
+| `profile.qr.onetime` | QR одноразовый — после обмена он обновится сам. | The QR is one-time — it refreshes itself after a handshake. |
+| `profile.qr.refreshed` | QR обновлён | QR refreshed |
+| `profile.qr.aria` | Ваш одноразовый QR для обмена рукопожатиями | Your one-time handshake QR |
+| `profile.rotate.row` | Сгенерировать новый ключ доступа | Regenerate access token |
+| `profile.rotate.title` | Сгенерировать новый ключ доступа? | Regenerate the access token? |
+| `profile.rotate.body` | Текущий ключ перестанет действовать: другие устройства с этим ключом потеряют доступ к персоне. | The current credential will stop working: other devices holding it will lose access to this persona. |
+| `profile.rotate.cta` | Сгенерировать | Regenerate |
+| `profile.rotate.done` | Ключ обновлён | Credential updated |
+| `chat.host_view` | Наблюдение хоста | Host view |
 | `common.error.network` | Нет связи. Проверьте Wi-Fi — мы продолжаем попытки. | Connection lost. Check the Wi-Fi — we keep retrying. |
 | `common.retry` | Повторить | Retry |
 
@@ -1462,9 +1945,10 @@ extend both files.)
   would be a dead link; the two contexts differ only in hint, fallback, and
   result handling.
 - **Personal QR on the badge is the ruling-3 handshake carrier**: it encodes
-  only the user address (no auth exists — ruling 5's accepted impersonation
-  risk applies to scans too); the client-side two-POST routine is v1-only
-  until the backend ships a mutual-QR endpoint (backend TODO ledger).
+  the binding payload — the user address plus the one-time mutual code
+  (v2; rev. 2 encoded only the address with a client-side two-POST routine,
+  now deleted). No auth exists beyond the token model — a scanned code is a
+  single-use capability the server verifies and burns.
 - **Scan-a-person entry lives only in `/room`'s top bar**: the radar is the
   "who's around" surface; `/people` already has per-card handshake actions,
   and a second scan entry would duplicate the gesture without adding a use
@@ -1478,42 +1962,87 @@ extend both files.)
 - **Interests render only on my own badge**: the mock is client-side; faking
   other attendees' interests would be a lie the backend swap couldn't fulfill.
 
-## 6. Flagged gaps & open questions (revision 2 — resolved items removed)
+Revision 3 additions:
 
-Owner rulings of 2026-11-14 (Concept §1c) resolved the former flags 2
-(decline = local dismissal, ruling 2), 5 (personal QR shipped on the badge,
-ruling 3), 6 (no human messaging ever, ruling 4) and 7 (import ownership risk
-accepted, ruling 5). The remaining open items below are **backend-owned** —
-each has an entry in the **backend TODO ledger in `docs/Concept.md` §1c**;
-bleak-web mocks or omits per each ruling and never invents a flow:
+- **Vault-driven import (v2)**: listing device-owned personas instead of
+  server rooms is the privacy-correct surface — without the stored token the
+  private fields are unreadable, so the import picker can only ever offer
+  personas this device actually owns. Dead entries surface honestly
+  (append-only vault) rather than being hidden: hiding a mutation of stored
+  credentials would lie about what the user still holds.
+- **Server-mediated QR handshake (v2)**: the badge hands out a **one-time
+  capability** — the backend burns the mutual code even for already-mutual
+  pairs, so a code can never be replayed and one screenshot is worth exactly
+  one handshake. The client deliberately has no "already mutual" precheck:
+  special-casing what the server treats uniformly would drift from the
+  contract.
+- **Visible badge-QR rotation (v2)**: the rotation micro-animation is not
+  decoration — it teaches the one-time mechanic ("show, scan, it flips") and
+  signals that any earlier screenshot of the badge is worthless.
+- **Creation-token transience (v2)**: the one-time creation token is never
+  stored client-side and the gate reappears per console session — a
+  deliberate friction for the one credential that can create rooms.
+- **No host handshake counts (v2)**: without the 6.9a backend amendment
+  there is no viable endpoint; shipping counts-less avoids fake data, and
+  the drill-down's room-token chat reads plus clear/kickoff carry the real
+  value. If the amendment lands, counts slot into the drill-down header
+  without structural change.
+
+## 6. Flagged gaps & open questions (revision 3)
+
+Rev. 2 items resolved by owner rulings (Concept §1c) stay resolved: decline =
+local dismissal, personal QR shipped, no human messaging ever. The import
+ownership risk of v1 ruling 5 is **closed** by v2 (token vault, §3.1) — it
+no longer stands as a gap. Carried into rev. 3, still standing
+(backend-owned unless noted; ledger in `docs/Concept.md` §1c):
 
 1. **`Handshake.status` ∈ {1,2,3,4} semantics remain undocumented** in
-   swagger.json. Per ruling 1's note, the v1 UI keeps using only *direction*
-   (from/to) + chat existence — including in the new scanner routine. If the
-   statuses ever encode accept/pending states, the People/radar/success pills
-   switch to server semantics (structure unaffected). Documenting the
-   semantics is a backend TODO ledger item.
-2. **No room-level handshake/chat listing** — the host's live view stays
-   limited to members polled live, with handshakes/dialogs on-demand per
-   member (§3.7). A room-level read endpoint in bleak-node would upgrade
-   `/host` (backend TODO ledger item).
-3. **`CreateRoomRequest` has no `max_user`** (read-only on the Room model) and
-   **`CreateUserRequest` has no `language`** — the host cannot set capacity
-   and the attendee cannot pick their agent's language at creation; both
-   display as read-only facts (§3.7, §3.6). Backend TODO ledger item
-   ("settable max_user and user language").
+   swagger.json. The v2 UI still interprets only *direction* (from/to) +
+   chat existence; if the statuses ever encode accept/pending states, the
+   People/radar/success pills switch to server semantics (structure
+   unaffected). Backend TODO ledger item.
+2. **Room-level handshake listing** — invite management and room-token chat
+   reads exist since v2, but a room-level **handshake** listing for richer
+   host views is still a backend TODO ledger item.
+3. **`CreateRoomRequest` has no `max_user`** (read-only on the Room model)
+   and user `language` is not settable at creation — the host cannot set
+   capacity and the attendee cannot pick their agent's language; both
+   display as read-only facts (§3.6, §3.7). Backend TODO ledger item.
 4. **`phase`/`scenario` are free server strings** — chips render them
    verbatim; if bleak-node later defines enums, add RU/EN label maps (the
    enum definition itself is a backend concern).
-5. **Scanner platform variance (now that the scanner ships):**
-   `BarcodeDetector` exists only in Chromium (Android Chrome); iOS Safari and
-   Firefox always take the lazy-loaded `jsQR` fallback (§3.8). Camera-in-
-   PWA-lite (installed standalone window) is untested on real devices in v1 —
-   a real-device smoke test on iOS Safari + Android Chrome is recommended
-   before an event. HTTPS is a hard requirement for the camera (§2.7).
+5. **Scanner platform variance** — `BarcodeDetector` exists only in Chromium
+   (Android Chrome); iOS Safari and Firefox always take the lazy-loaded
+   `jsqr` fallback (§3.8). **The real-device smoke test (iOS Safari +
+   Android Chrome: permission states, decode path, camera light off on
+   close) is still pending** — a mandatory pre-event manual step. HTTPS
+   remains a hard requirement for the camera *and* for `crypto.subtle`
+   (token/code generation, ARCHITECTURE §10.5); v2 adds one new smoke-test
+   dimension: the mutual call now requires a live backend credential, so a
+   stale v1-era device identity hits the §2.8 gate by design.
+
+New in rev. 3:
+
+6. **TBD backend field names (ARCHITECTURE §10.13.1):** the creation-token
+   header name, the mutual-code-hash body field, and the invite mint
+   response shape are fixed only when bleak-node's WP-6 lands. They are
+   isolated in api-client types (zero design impact), but the host gate
+   (§3.7) and payload tables (§3.8) assume the proposed shapes — re-check
+   both against swagger.json when it updates.
+7. **Invite-resolve seam (Concept §6.9b):** the join flow's room preview
+   depends on a code→room resolution shape bleak-node has not shipped yet;
+   the `resolveInviteCode` seam keeps it a one-function change. If the
+   backend ships no resolve route, the pre-create room preview degrades
+   (worst case per ARCHITECTURE §10.13.3: resolve after creation, preview
+   dropped) — the owner picks the shape before the build loop.
+8. **Flag 6.9a not landing** → the host drill-down stays counts-less as
+   designed (§3.7); no design rework is needed either way.
 
 ---
 
-*End of DESIGN.md — design instance fd19a963, revision 2 (owner rulings of
-2026-11-14 applied; camera scanner + personal QR in v1, strict no-composer,
-decline = local dismissal, auto-matchmaking = future mechanic).*
+*End of DESIGN.md — design instance bd636f23, revision 3 (2026-11-15; v2
+credentials scope applied onto the delivered v1 baseline: persona/room
+tokens with a global 401 gate, live one-time badge QR with visible
+rotation, server-mediated QR handshake with 410/403 states, vault-driven
+import, creation-token host console with invite management and room-token
+drill-down). Baseline: rev. 2 by fd19a963.*
