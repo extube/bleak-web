@@ -7,7 +7,7 @@ import { requireIdentityOrRedirect } from '../src/lib/nav/guard';
 
 describe('requireIdentityOrRedirect', () => {
   it('returns true and does not redirect with an identity', () => {
-    identity.set({ roomAddress: '0xroom123', userAddress: '0xme' });
+    identity.set({ roomAddress: '0xroom123', userAddress: '0xme', token: 't' });
     const redirect = vi.fn();
     expect(requireIdentityOrRedirect(redirect)).toBe(true);
     expect(redirect).not.toHaveBeenCalled();

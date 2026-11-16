@@ -44,6 +44,7 @@ export const ru: Record<MessageKey, string> = {
   'join.import.pick_persona': 'Выберите персону',
   'join.import.empty': 'На этом устройстве пока нет сохранённых персон.',
   'join.import.saved_at': 'Сохранено {date} · комната {room}',
+  'join.import.row_aria': 'Импортировать персону {name}',
   'join.import.dead':
     'Эта персона больше не существует на сервере. Запись останется в списке, но импорт невозможен.',
   'join.error.invite': 'Код приглашения недействителен или истёк.',

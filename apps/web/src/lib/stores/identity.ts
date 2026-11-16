@@ -13,15 +13,13 @@ export interface Identity {
   userAddress: string;
   /**
    * v2 persona access token (client-generated, base64url; §10.4/§10.5).
-   *
-   * Optional at the type level ONLY as a transition shim: the v1 join flow
-   * (`lib/components/join/JoinFlow.svelte`) still saves a token-less identity
-   * until TZ2-07 rewrites persona creation to generate + send the token.
-   * The §10.4 legacy rule still holds — `initIdentity()` drops any persisted
-   * identity without a token, so a token-less identity never survives a
-   * reload. TZ2-07 tightens this field to required when the join flow ships.
+   * Required since TZ2-06: the v2 join flow generates it before creation
+   * and the identity is written only after a successful creation, so every
+   * identity carries its credential. A persisted blob WITHOUT a token is a
+   * v1 legacy persona — dropped at init (§10.4, unrecoverable by owner
+   * decision; the `/` notice card is the only legacy-facing UI).
    */
-  token?: string;
+  token: string;
 }
 
 const STORAGE_KEY = 'bleak.identity';
@@ -80,9 +78,9 @@ export const identity = writable<Identity | null>(null);
  * - a persisted v1 identity WITHOUT a token is dropped when no live identity
  *   is held (fresh boot): the store stays null and the stale blob is removed;
  * - when the store already holds a live identity (in-session defensive
- *   re-init on route mounts), the live session is kept untouched — a token-
- *   less identity freshly saved by the v1 join flow must survive until the
- *   next reload (TZ2-07 removes this shim with the v2 join flow);
+ *   re-init on route mounts), the live session is kept untouched — a v2
+ *   identity is always written with its token, so this path only covers
+ *   the same-session re-mount of a freshly created persona;
  * - no blob or corrupted JSON → null (v1 semantics).
  */
 export function initIdentity(): void {

@@ -83,12 +83,15 @@ describe('identity — v1 legacy drop at init (§10.4)', () => {
     expect(localStorage.getItem('bleak.identity')).not.toBeNull();
   });
 
-  it('drops a token-less identity saved by the v1 flow on the next fresh init', () => {
-    // Shim-period saveIdentity without a token (v1 join flow): the blob is
-    // written as-is, but never survives a reload.
-    saveIdentity({ roomAddress: '0xroom', userAddress: '0xme' });
-    expect(get(identity)).not.toBeNull();
-    identity.set(null); // simulate reload: fresh module state, store empty
+  it('drops a token-less persisted blob on the next fresh init (v1 legacy)', () => {
+    // A v1-era device wrote the persona reference without a token: the blob
+    // is read as legacy and dropped — earlier and quieter than waiting for
+    // the first credentialed 401 (§10.4; the v2 join flow always writes a
+    // token, so this simulates the stale pre-v2 storage directly).
+    localStorage.setItem(
+      'bleak.identity',
+      JSON.stringify({ roomAddress: '0xroom', userAddress: '0xme' })
+    );
     initIdentity();
     expect(get(identity)).toBeNull();
     expect(localStorage.getItem('bleak.identity')).toBeNull();
