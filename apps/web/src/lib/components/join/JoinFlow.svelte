@@ -18,7 +18,6 @@
   import { locale, translate } from '#lib/i18n/locale';
   import { saveIdentity } from '#lib/stores/identity';
   import { appendVaultEntry, listVaultEntries, type VaultEntry } from '#lib/stores/tokenVault';
-  import type { Room } from '@bleak/api-client';
   import {
     codeErrorOf,
     createPersona,

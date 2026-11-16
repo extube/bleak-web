@@ -1,0 +1,5 @@
+2026-11-16T17:55:55Z [<unknown>] Session relaunched (prior run lost before any commit): worktree recreated at 59e60cc, branch verified; re-implementing TZ2-06 Parts A-D with incremental per-part commits
+2026-11-16T18:03:57Z [<unknown>] Part A committed (95e6ef1): scanner v2 module + payload u+m + QrScanner 410/403 result states; suite green (445 tests)
+2026-11-16T18:11:31Z [<unknown>] Part B committed (a74ac70): join v2 + vault import + 401 notice + deep-link handshake panel; identity.token required; 457 tests green
+2026-11-16T18:14:17Z [<unknown>] Part C committed (68f3cda): income-rule states in sheet/card/routes; 460 tests green
+2026-11-16T18:17:47Z [<unknown>] Part D committed (68e7512): transcript viewer fallback + host-view mode + host reset; 465 tests green. Running full gates (lint/test/build) next

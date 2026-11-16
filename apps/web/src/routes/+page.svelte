@@ -38,7 +38,7 @@
     try {
       flagged = sessionStorage.getItem(AUTH_NOTICE_KEY) === '1';
     } catch {
-      flagged = false;
+      /* storage unavailable — no notice */
     }
     if (flagged) {
       authNotice = true;
