@@ -3,3 +3,4 @@
 2026-11-16T18:11:31Z [<unknown>] Part B committed (a74ac70): join v2 + vault import + 401 notice + deep-link handshake panel; identity.token required; 457 tests green
 2026-11-16T18:14:17Z [<unknown>] Part C committed (68f3cda): income-rule states in sheet/card/routes; 460 tests green
 2026-11-16T18:17:47Z [<unknown>] Part D committed (68e7512): transcript viewer fallback + host-view mode + host reset; 465 tests green. Running full gates (lint/test/build) next
+2026-11-16T18:20:04Z [<unknown>] Final gates re-verified on the branch tip: make lint green, make test green (465 tests: 23 api-client + 8 helper + 465 web... total 496 across workspaces), make build green (svelte-check 0 errors + vite build + adapter-static). Requesting ready-for-merge for task 19
