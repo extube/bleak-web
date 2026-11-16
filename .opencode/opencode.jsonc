@@ -16,12 +16,13 @@
   "experimental": {
     "subagent_depth": 3
   },
-  // Shared project artifacts: every agent sees these once they exist.
+  // Shared project artifacts: since the owner token-budget directive
+  // (2026-11-16), only the compact reading map is auto-injected — the full
+  // Concept/ARCHITECTURE/DESIGN/TZ texts (~4,600 lines, ~60k tokens) used to
+  // burn a large share of every agent's weekly quota before any tool call.
+  // Each agent reads exactly what its task needs, per the index.
   "instructions": [
-    "docs/Concept.md",
-    "docs/ARCHITECTURE.md",
-    "docs/DESIGN.md",
-    "docs/TZ.md"
+    "docs/DOCS-INDEX.md"
   ],
   "permissions": [
     // The backend is read-only for this project.
