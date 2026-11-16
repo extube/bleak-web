@@ -35,9 +35,9 @@ Also true for every agent: `subagent` spawning is role-scoped (workers deny
 all), the task DB is `scripts/task.py` only, and `/tmp/opencode` is the
 approved scratch space.
 
-Current build state: **v2 credentials client scope DELIVERED** (2026-11-16 —
-21/21 tasks done, final CI green 522 tests, `docs/verification-v2.md`
-118/118 ACs). Post-loop pending: bleak-node WP-6 swagger update → `TBD(WP-6)`
-reconciliation round (worker hash `90b95f75`); flag 6.9a backend amendment →
-pre-authorized follow-up `tz2-07a`; pre-event manual checklist (scanner
-device smoke) in the verification doc. Pushes to origin are owner-directed.
+Current build state: **v2 credentials DELIVERED end-to-end** (2026-11-16 —
+owner landed the bleak-node v2 backend; WP-6 reconciliation round executed on
+worker hash `90b95f75`, merged as `631644b`, CI green 522-equivalent). The
+pre-authorized `tz2-07a` follow-up (flag 6.9a) remains available. Pre-event
+manual checklist (scanner device smoke) in the verification doc. Pushes to
+origin are owner-directed.
