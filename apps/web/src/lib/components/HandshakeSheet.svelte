@@ -20,8 +20,12 @@
     relationship?: Relationship | null;
     /** Page-driven POST pending state (spinner, double-submit guard). */
     sending?: boolean;
-    /** Inline error recovery: the button returns to its active state. */
-    error?: 'network' | 'api' | null;
+    /**
+     * Inline error recovery: the button returns to its active state.
+     * `income` is the §2.9 income-rule state (403 on the send): no
+     * optimistic "sent" flip, the copy never implies anything burned.
+     */
+    error?: 'network' | 'api' | 'income' | null;
     errorMessage?: string | null;
     onsend?: () => void;
     onclose?: () => void;
@@ -49,6 +53,7 @@
   const openDialogLabel = $derived(translate($locale, 'hs.open_dialog'));
   const closeLabel = $derived(translate($locale, 'common.close'));
   const networkErrorText = $derived(translate($locale, 'hs.error.network'));
+  const incomeErrorText = $derived(translate($locale, 'hs.income_limit'));
   const apiErrorTitle = $derived(translate($locale, 'common.error.api'));
 
   $effect(() => {
@@ -123,8 +128,15 @@
     {/if}
 
     {#if error}
-      <p class="error" role="alert">
-        {error === 'network' ? networkErrorText : `${apiErrorTitle}${errorMessage ? ` — ${errorMessage}` : ''}`}
+      <p class="error" role="alert" aria-live="polite">
+        {#if error === 'income'}
+          {incomeErrorText}
+          {#if errorMessage}<span class="server-text"> — {errorMessage}</span>{/if}
+        {:else if error === 'network'}
+          {networkErrorText}
+        {:else}
+          {apiErrorTitle}{errorMessage ? ` — ${errorMessage}` : ''}
+        {/if}
       </p>
     {/if}
 
@@ -215,6 +227,10 @@
     margin: 0;
     font-size: 14px;
     color: var(--color-text-muted);
+  }
+  .error .server-text {
+    color: var(--color-text-disabled-strong);
+    font-size: 14px;
   }
   .actions {
     display: flex;

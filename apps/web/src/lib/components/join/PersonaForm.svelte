@@ -33,6 +33,10 @@
         return translate($locale, 'join.error.name_required');
       case 'name_taken':
         return translate($locale, 'join.error.name_taken');
+      case 'invite':
+        // §2.9: creation rejected over the invite code (invalid/expired/
+        // revoked) — identity and vault unchanged (§3.1 AC 9).
+        return translate($locale, 'join.error.invite');
       case 'gone':
         return translate($locale, 'join.error.gone');
       case 'network':

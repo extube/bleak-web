@@ -43,6 +43,7 @@ export const en = {
   'join.import.pick_persona': 'Choose a persona',
   'join.import.empty': 'No saved personas on this device yet.',
   'join.import.saved_at': 'Saved {date} · room {room}',
+  'join.import.row_aria': 'Import persona {name}',
   'join.import.dead':
     'This persona no longer exists on the server. The entry stays listed, but it cannot be imported.',
   'join.error.invite': 'The invite code is invalid or expired.',

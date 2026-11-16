@@ -33,7 +33,8 @@
     {translate($locale, 'join.create_persona')}
   </button>
   <button type="button" class="secondary" onclick={() => onimport?.()}>
-    {translate($locale, 'join.import')}
+    <!-- v2 label (Concept §6.2): the picker lists device-stored personas. -->
+    {translate($locale, 'join.import.title')}
   </button>
   <button type="button" class="link" onclick={() => onchange?.()}>
     {translate($locale, 'join.change_code')}

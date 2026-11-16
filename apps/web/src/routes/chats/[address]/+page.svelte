@@ -16,10 +16,12 @@
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
+  import { get } from 'svelte/store';
   import { ApiError, NetworkError, type Chat, type Message, type User } from '@bleak/api-client';
   import { identity, initIdentity } from '#lib/stores/identity';
   import { requireIdentityOrRedirect } from '#lib/nav/guard';
-  import { api } from '#lib/api/client';
+  import { api, apiRaw, HOST_RESET_KEY } from '#lib/api/client';
+  import { hostRoom, clearHostRoom } from '#lib/stores/hostSession';
   import { Poller } from '#lib/polling/poller';
   import {
     backTarget,
@@ -80,7 +82,94 @@
     counterpart?.name ?? counterpartAddr ?? address
   );
 
-  function errorFrom(cause: unknown): { kind: 'network' | 'api'; message: string | null } {
+  // --- transcript viewer fallback (ARCHITECTURE §10.3 escape hatch) --------
+  //
+  // The transcript is normally read with the attendee's persona Bearer.
+  // When that read fails with 401/403 AND a stored room token exists, the
+  // page retries ONCE with the room token via the raw ungated client — the
+  // ONLY code path in the app allowed to catch a 401 before the global
+  // gate. A successful fallback engages host-view mode for the page
+  // session: subsequent ticks go straight to the room token (never
+  // re-tripping the attendee gate). A host-context 401/403 there replicates
+  // the hostApi gate (clear `bleak.hostRoom` + `bleak.hostReset` flag) and
+  // renders the error state — it NEVER touches the attendee identity.
+  // Without a stored room token a 401 is NOT caught: the §2.8 global gate
+  // applies (identity cleared, redirect to `/`).
+  let hostView = $state(false);
+
+  function storedRoomToken(): string | undefined {
+    const room = get(hostRoom);
+    return room?.roomToken !== undefined && room.roomToken !== '' ? room.roomToken : undefined;
+  }
+
+  function hostReset(): void {
+    clearHostRoom();
+    try {
+      sessionStorage.setItem(HOST_RESET_KEY, '1');
+    } catch {
+      /* storage unavailable — the console notice is best-effort */
+    }
+    hostView = false; // no room credential left to observe with
+  }
+
+  /**
+   * The persona-context read with the host fallback. `retry` re-issues the
+   * same read against `apiRaw` with the stored room token.
+   */
+  async function withViewerFallback<T>(
+    personaRead: () => Promise<T>,
+    retry: (token: string) => Promise<T>
+  ): Promise<T> {
+    if (hostView) {
+      const token = storedRoomToken();
+      if (token === undefined) {
+        // Host session cleared mid-session: no room credential to observe
+        // with — the persona read resumes (the gate owns a 401 there).
+        hostView = false;
+        return personaRead();
+      }
+      try {
+        return await retry(token);
+      } catch (hostCause) {
+        if (
+          hostCause instanceof ApiError &&
+          (hostCause.status === 401 || hostCause.status === 403)
+        ) {
+          hostReset(); // host gate — attendee identity never touched
+        }
+        throw hostCause;
+      }
+    }
+    try {
+      return await personaRead();
+    } catch (cause) {
+      if (
+        cause instanceof ApiError &&
+        (cause.status === 401 || cause.status === 403) &&
+        storedRoomToken() !== undefined
+      ) {
+        // ONE retry with the room token (host observing a member's dialog).
+        hostView = true;
+        try {
+          return await retry(storedRoomToken() as string);
+        } catch (hostCause) {
+          if (
+            hostCause instanceof ApiError &&
+            (hostCause.status === 401 || hostCause.status === 403)
+          ) {
+            hostReset();
+          }
+          throw hostCause;
+        }
+      }
+      throw cause;
+    }
+  }
+
+  function errorFrom(cause: unknown): { kind: 'network' | 'api'; message: string | null } | null {
+    // A 401 without a room token is the §2.8 global gate (identity cleared,
+    // redirect queued) — no transcript error UI renders first (AC 15).
+    if (cause instanceof ApiError && cause.status === 401) return null;
     if (cause instanceof NetworkError) return { kind: 'network', message: null };
     if (cause instanceof ApiError) return { kind: 'api', message: cause.message };
     return { kind: 'api', message: cause instanceof Error ? cause.message : null };
@@ -91,7 +180,10 @@
     const id = me;
     if (!id || !address) return;
     const [chatData, roster] = await Promise.all([
-      api.getChat(address),
+      withViewerFallback(
+        () => api.getChat(address),
+        (token) => apiRaw.getChat(address, { token })
+      ),
       api.listRoomUsers(id.roomAddress)
     ]);
     chat = chatData;
@@ -138,7 +230,10 @@
   // --- the 2 s message poller (route file only, §2.2) ----------------------
   async function pollTick(): Promise<void> {
     if (!address || notFound) return;
-    const incoming = await api.listChatMessages(address);
+    const incoming = await withViewerFallback(
+      () => api.listChatMessages(address),
+      (token) => apiRaw.listChatMessages(address, { token })
+    );
     const previous = messages;
     messages = mergeMessages(previous, incoming);
     nowMs = Date.now();
@@ -209,12 +304,17 @@
   }
 
   // --- kickoff (the only dialog action; §3.5) --------------------------------
+  // Persona Bearer normally; the room token in host-observation context
+  // (§3.5 endpoint table) — the viewer fallback decides per session.
   async function runKickoff(): Promise<void> {
     if (kickingOff || !address) return;
     kickingOff = true;
     banner = null;
     try {
-      const result = await api.kickoffChat(address);
+      const result = await withViewerFallback(
+        () => api.kickoffChat(address),
+        (token) => apiRaw.kickoffChat(address, { token })
+      );
       messages = [];
       stick = true;
       kickoffSpeaker = result.speaker;
@@ -275,13 +375,18 @@
         <PixelAvatar address={counterpartAddr ?? ''} size={32} />
         <div class="texts">
           <h1 class="name">{headerName}</h1>
-          {#if chat}
-            <div class="chips">
+          <div class="chips">
+            {#if chat}
               <Chip variant="outline-muted">{chat.phase}</Chip>
               <Chip variant="outline-muted">{chat.scenario}</Chip>
               <Chip variant="outline-muted">{chat.language}</Chip>
-            </div>
-          {/if}
+            {/if}
+            {#if hostView}
+              <!-- The room-token viewer fallback served this transcript
+                   (ARCHITECTURE §10.3 escape hatch, §3.5). -->
+              <Chip variant="outline-muted">{translate($locale, 'chat.host_view')}</Chip>
+            {/if}
+          </div>
         </div>
       </div>
     </header>

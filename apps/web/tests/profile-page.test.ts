@@ -80,8 +80,11 @@ beforeEach(() => {
   localStorage.clear();
   // The page hydrates the store from localStorage defensively (initIdentity),
   // so both the storage and the store must carry the identity before render.
-  localStorage.setItem('bleak.identity', JSON.stringify({ roomAddress: ROOM, userAddress: ME }));
-  identity.set({ roomAddress: ROOM, userAddress: ME });
+  localStorage.setItem(
+    'bleak.identity',
+    JSON.stringify({ roomAddress: ROOM, userAddress: ME, token: 'p-tok' })
+  );
+  identity.set({ roomAddress: ROOM, userAddress: ME, token: 'p-tok' });
   mockedApi.getRoomUser.mockResolvedValue(userFixture());
   mockedApi.listHandshakesOfUser.mockResolvedValue([]);
   mockedApi.listChatsOfUser.mockResolvedValue([]);
@@ -351,7 +354,7 @@ describe('leave room (AC 7)', () => {
     await tick();
     await screen.getAllByRole('button', { name: ru['profile.leave'] }).pop()!.click();
     await waitFor(() => expect(screen.getByText(/income must exceed outcome/)).toBeTruthy());
-    expect(get(identity)).toEqual({ roomAddress: ROOM, userAddress: ME });
+    expect(get(identity)).toEqual({ roomAddress: ROOM, userAddress: ME, token: 'p-tok' });
   });
 });
 

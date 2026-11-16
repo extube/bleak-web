@@ -1,10 +1,15 @@
 <script lang="ts">
   /**
-   * QrScanner (DESIGN §3.8, TZ-04) — the shared full-screen camera scanner
-   * overlay, two contexts: (a) invite — mounted on `/`, reads an invite QR
-   * (`?code=NNNNNN`) and feeds the join flow; (b) persona — mounted on
-   * `/room` (and the `/?u=` deep link), reads a persona QR (`?u=`) and runs
-   * the ruling-3 mutual-handshake routine (lib/scanner/mutualHandshake.ts).
+   * QrScanner (DESIGN §3.8, TZ-04 + TZ2-06 Part A) — the shared full-screen
+   * camera scanner overlay, two contexts: (a) invite — mounted on `/`,
+   * reads an invite QR (`?code=NNNNNN`) and feeds the join flow; (b)
+   * persona — mounted on `/room`, reads a persona QR
+   * (`?u=…&m=…`) and runs the v2 server-mediated mutual-handshake routine
+   * (lib/scanner/mutual.ts): ONE `POST /api/handshake/mutual` with the
+   * scanner's own Bearer — the backend burns the one-time code. Result
+   * panel states include the §2.9 stale-code (410) and income-rule (403)
+   * states; 410 has no Retry (the code is dead), 403 never implies the
+   * scanned badge was consumed.
    *
    * Camera lifecycle (binding): the stream starts ONLY on the «Включить
    * камеру» tap; every track is stopped on close, on result, and on
@@ -17,14 +22,14 @@
   import type { User } from '@bleak/api-client';
   import { api } from '#lib/api/client';
   import { identity } from '#lib/stores/identity';
-  import { chatCounterparts } from '#lib/room/relationships';
   import { parseQrPayload } from '#lib/scanner/payload';
   import {
     classifyPersonaScan,
-    sendMutualHandshakes,
+    sendMutualHandshake,
+    sendSingleDirectionHandshake,
     type PersonaEnv,
     type ScanOutcome
-  } from '#lib/scanner/mutualHandshake';
+  } from '#lib/scanner/mutual';
   import type { FrameDecoder } from '#lib/scanner/decode';
   import { locale, translate } from '#lib/i18n/locale';
   import PixelIcon from './icons/PixelIcon.svelte';
@@ -56,6 +61,9 @@
     | { kind: 'foreign'; address: string }
     | { kind: 'confirm'; address: string; name: string }
     | { kind: 'success'; address: string; chatAddress: string | null }
+    | { kind: 'sent'; address: string }
+    | { kind: 'stale'; address: string }
+    | { kind: 'income'; address: string; message: string | null }
     | { kind: 'error-network'; address: string }
     | { kind: 'error-api'; address: string; message: string };
 
@@ -105,6 +113,12 @@
           return translate($locale, 'scan.confirm.title');
         case 'success':
           return translate($locale, 'hs.agents_talking');
+        case 'sent':
+          return translate($locale, 'hs.sent');
+        case 'stale':
+          return translate($locale, 'scan.code_used');
+        case 'income':
+          return translate($locale, 'hs.income_limit');
         case 'error-network':
           return translate($locale, 'scan.error.network');
         case 'error-api':
@@ -333,42 +347,45 @@
       return;
     }
     if (context === 'persona') {
-      void beginPersonaRoutine(payload.userAddress);
+      void beginPersonaRoutine(payload.userAddress, payload.mutualCode);
     } else {
       result = { kind: 'invalid' };
     }
   }
 
-  // --- persona routine (ruling 3; the module owns the logic) -----------------
+  // --- persona routine (v2 server-mediated; the module owns the logic) ------
 
   function memberName(address: string): string {
     const match = members?.find((member) => member.address === address);
     return match && !match.deleted_at ? match.name : address;
   }
 
-  async function beginPersonaRoutine(userAddress: string): Promise<void> {
+  async function beginPersonaRoutine(userAddress: string, mutualCode: string | null): Promise<void> {
     onPersonaScanned?.(userAddress); // persona QR resolved (API contract)
     const mine = me;
     if (!mine) {
-      // Unreachable in practice (both persona entries require an identity);
-      // never send handshakes without an own persona.
+      // Unreachable in practice (the persona context always requires an
+      // identity); never send handshakes without an own persona.
       result = { kind: 'foreign', address: userAddress };
       return;
-    }
-    let counterparts: ReadonlySet<string> = new Set();
-    try {
-      counterparts = chatCounterparts(await api.listChatsOfUser(mine.userAddress), mine.userAddress);
-    } catch {
-      /* chat list unknown — idempotent POSTs keep the flow safe */
     }
     const env: PersonaEnv = {
       myAddress: mine.userAddress,
       memberList: members ?? [],
-      existingChatCounterparts: counterparts,
+      mutualCode,
       api
     };
     personaEnv = env;
-    applyOutcome(userAddress, await classifyPersonaScan(userAddress, env));
+    // Prechecks are client-side UX only (own QR / foreign persona) — no
+    // already-mutual precheck exists in v2: the endpoint is always called.
+    const outcome = classifyPersonaScan(userAddress, env);
+    if (outcome.kind === 'own') {
+      result = { kind: 'own' };
+    } else if (outcome.kind === 'foreign') {
+      result = { kind: 'foreign', address: userAddress };
+    } else {
+      result = { kind: 'confirm', address: userAddress, name: memberName(userAddress) };
+    }
   }
 
   function applyOutcome(address: string, outcome: ScanOutcome): void {
@@ -384,6 +401,21 @@
         break;
       case 'success':
         result = { kind: 'success', address, chatAddress: outcome.chatAddress };
+        break;
+      case 'sent':
+        result = { kind: 'sent', address };
+        break;
+      case 'error-stale':
+        result = { kind: 'stale', address };
+        break;
+      case 'error-income':
+        result = { kind: 'income', address, message: outcome.message };
+        break;
+      case 'error-auth':
+        // 401 → the §2.8 global gate has already cleared the identity and
+        // queued the redirect to `/`; the scanner yields (no error UI —
+        // no stale panel may flash under the redirect).
+        close();
         break;
       case 'error-network':
         result = { kind: 'error-network', address };
@@ -404,7 +436,11 @@
     if (!env) return;
     trading = true;
     try {
-      applyOutcome(current.address, await sendMutualHandshakes(current.address, env));
+      const outcome =
+        env.mutualCode === null
+          ? await sendSingleDirectionHandshake(current.address, env)
+          : await sendMutualHandshake(current.address, env);
+      applyOutcome(current.address, outcome);
     } finally {
       trading = false;
     }
@@ -495,6 +531,28 @@
                 </button>
               </div>
               <button type="button" class="link" onclick={scanAgain}>{againLabel}</button>
+            {:else if result?.kind === 'stale'}
+              <!-- 410: the one-time code is dead — NO Retry for the same
+                   code (§3.8 step 5); only scan-again + manual fallback. -->
+              <PixelAvatar address={result.address} size={56} />
+              <p>{translate($locale, 'scan.code_used')}</p>
+              <button type="button" class="secondary" onclick={scanAgain}>{againLabel}</button>
+            {:else if result?.kind === 'income'}
+              <!-- 403 income rule (§2.9): the code was NOT consumed — the
+                   copy never implies the scanned badge burned. -->
+              <PixelAvatar address={result.address} size={56} />
+              <p>{translate($locale, 'hs.income_limit')}</p>
+              {#if result.message}
+                <p class="note">{result.message}</p>
+              {/if}
+              <button type="button" class="secondary" onclick={scanAgain}>{againLabel}</button>
+            {:else if result?.kind === 'sent'}
+              <!-- Single-direction variant (`?u=` without `m`): one
+                   idempotent handshake sent; the agents are not talking
+                   yet — no fake mutual success. -->
+              <PixelAvatar address={result.address} size={56} />
+              <p>{translate($locale, 'hs.sent')}</p>
+              <button type="button" class="secondary" onclick={scanAgain}>{againLabel}</button>
             {:else if result?.kind === 'error-network' || result?.kind === 'error-api'}
               <PixelAvatar address={result.address} size={56} />
               {#if result.kind === 'error-network'}

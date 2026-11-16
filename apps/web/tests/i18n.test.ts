@@ -68,11 +68,15 @@ describe('identity store', () => {
     localStorage.clear();
   });
 
-  it('persists room + user addresses', async () => {
+  it('persists room + user addresses and the persona token', async () => {
     const { saveIdentity, clearIdentity, identity } = await import('../src/lib/stores/identity');
     const { get } = await import('svelte/store');
-    saveIdentity({ roomAddress: '0xroom1', userAddress: '0xuser1' });
-    expect(get(identity)).toEqual({ roomAddress: '0xroom1', userAddress: '0xuser1' });
+    saveIdentity({ roomAddress: '0xroom1', userAddress: '0xuser1', token: 'p-token' });
+    expect(get(identity)).toEqual({
+      roomAddress: '0xroom1',
+      userAddress: '0xuser1',
+      token: 'p-token'
+    });
     expect(JSON.parse(localStorage.getItem('bleak.identity') ?? '{}')).toMatchObject({
       roomAddress: '0xroom1'
     });

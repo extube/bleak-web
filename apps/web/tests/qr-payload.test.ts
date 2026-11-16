@@ -14,14 +14,24 @@ describe('parseQrPayload', () => {
     });
   });
 
-  it('parses a persona QR (any path prefix)', () => {
+  it('parses a persona QR (any path prefix), with and without the one-time code', () => {
     expect(parseQrPayload('http://localhost:5173/?u=0xbob')).toEqual({
       kind: 'persona',
-      userAddress: '0xbob'
+      userAddress: '0xbob',
+      mutualCode: null
     });
     expect(parseQrPayload('https://bleak.example/badge?u=0xalice')).toEqual({
       kind: 'persona',
-      userAddress: '0xalice'
+      userAddress: '0xalice',
+      mutualCode: null
+    });
+    // The v2 binding payload carries the one-time mutual code (`m`).
+    expect(
+      parseQrPayload('http://localhost:5173/?u=0xalice&m=Ab3-_x9QzLm2Pq7RsT0uVw')
+    ).toEqual({
+      kind: 'persona',
+      userAddress: '0xalice',
+      mutualCode: 'Ab3-_x9QzLm2Pq7RsT0uVw'
     });
   });
 
