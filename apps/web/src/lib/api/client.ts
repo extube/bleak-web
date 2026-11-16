@@ -46,6 +46,7 @@ import type {
   KickoffResponse,
   Message,
   MutualHandshakeRequest,
+  MutualHandshakeResponse,
   Room,
   UpdateRoomRequest,
   UpdateUserRequest,
@@ -269,7 +270,7 @@ export const api = {
   },
   /** Server-mediated mutual handshake (scanner): the scanner's persona
    * Bearer is auto-injected. 410 = stale code, 403 = income rule. */
-  createMutualHandshake(request: MutualHandshakeRequest): Promise<Handshake> {
+  createMutualHandshake(request: MutualHandshakeRequest): Promise<MutualHandshakeResponse> {
     return personaGate(() => apiRaw.createMutualHandshake(personaCredential() ?? '', request));
   },
 

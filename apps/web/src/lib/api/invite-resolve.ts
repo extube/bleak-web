@@ -33,9 +33,9 @@ export class InviteResolveError extends Error {
 
 const CODE_PATTERN = /^\d{6}$/;
 
-// TBD(WP-6)/flag 6.9b: bleak-node's public code→room resolution is pending
-// (swagger is still v0.1.0). The adapter targets the proposed public resolve
-// route; when the real shape lands, THIS is the one function that changes.
+// Reconciled 2026-11-16 (WP-6): bleak-node landed the public resolve route
+// exactly on the proposed shape (`GET /api/invite/{code}` →
+// `{"room": "<address>"}`); the adapter below is final.
 const RESOLVE_PATH = '/api/invite';
 
 /** Resolve a 6-digit invite code to its room address (§10.6). */
@@ -59,14 +59,16 @@ export async function resolveInviteCode(code: string): Promise<InviteResolution>
   }
   const raw = await response.text().catch(() => '');
   if (raw.length === 0) throw new InviteResolveError('not_found');
-  let parsed: { room_address?: unknown };
+  let parsed: { room?: unknown };
   try {
-    parsed = JSON.parse(raw) as { room_address?: unknown };
+    parsed = JSON.parse(raw) as { room?: unknown };
   } catch {
     throw new InviteResolveError('not_found');
   }
-  if (typeof parsed.room_address !== 'string' || parsed.room_address === '') {
+  // Reconciled 2026-11-16 (WP-6): the landed resolve route returns
+  // `server.ResolveInviteResponse` = `{"room": "<address>"}`.
+  if (typeof parsed.room !== 'string' || parsed.room === '') {
     throw new InviteResolveError('not_found');
   }
-  return { roomAddress: parsed.room_address };
+  return { roomAddress: parsed.room };
 }
