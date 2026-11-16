@@ -19,8 +19,9 @@
 
   let { initial = '', rejected = null, onsubmit }: Props = $props();
 
-  // svelte-ignore state_referenced_locally -- intentional initial capture:
-  // the in-memory creation token survives a rejection via the page prop.
+  // Intentional initial capture: the in-memory creation token survives a
+  // rejection via the page prop (never persisted — the value dies with the
+  // console visit).
   let value = $state(initial);
 
   const fieldLabel = $derived(translate($locale, 'host.gate.label'));

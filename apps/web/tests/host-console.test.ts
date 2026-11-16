@@ -12,7 +12,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
-import { ApiError, type Chat, type Invite, type Room, type User } from '@bleak/api-client';
+import { ApiError, type Invite, type Room, type User } from '@bleak/api-client';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/paths', () => ({
@@ -100,19 +100,6 @@ function person(address: string, name: string, createdMinutesAgo: number, bio = 
     created_at: minutesAgo(createdMinutesAgo),
     updated_at: minutesAgo(createdMinutesAgo),
     deleted_at: null
-  };
-}
-
-function chat(address: string, participants: string[], createdMinutesAgo: number): Chat {
-  return {
-    address,
-    room: ROOM.address,
-    phase: 'networking',
-    phase_started_at: minutesAgo(createdMinutesAgo),
-    scenario: 'ai-future',
-    language: 'ru',
-    created_at: minutesAgo(createdMinutesAgo),
-    participants: participants.map((user) => ({ chat: address, user }))
   };
 }
 
@@ -385,7 +372,9 @@ describe('invite management (AC 7, AC 8)', () => {
     await confirm.click();
 
     await waitFor(() => expect(mockedHostApi.mintInvite).toHaveBeenCalledTimes(1));
-    const [address, request] = mockedHostApi.mintInvite.mock.calls[0];
+    const call = mockedHostApi.mintInvite.mock.calls[0];
+    const address = call?.[0];
+    const request = call?.[1];
     expect(address).toBe(ROOM.address);
     const iso = (request as { expires_at: string }).expires_at;
     expect(new Date(iso).getTime()).toBeGreaterThan(Date.now() + 23 * 3_600_000);
