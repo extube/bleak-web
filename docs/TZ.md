@@ -1236,24 +1236,30 @@ internals (TZ2-06 Part D — which this task's drill-down *links into*).
 
 ---
 
-### TZ2-08 — verification sweep v2 (`verify-v2`) — absorbs `tz2-13` (unchanged in scope)
+### TZ2-08 — verification sweep v2 (`verify-v2`) — absorbs `tz2-13` (scope amended 2026-11-16, owner directive: **verification-only**)
 
-**Scope**: the closing task of the v2 loop (mirrors Part I's TZ-10). One
-worker; bug discoveries go through the process bug flow, not this branch.
+**Scope**: the closing task of the v2 loop. One worker; bug discoveries go
+through the process bug flow, not this branch. **Token-budget amendment
+(2026-11-16): this task VERIFIES — it adds no new test files and no new
+product code.** Its deliverable is the recorded walk of the existing
+evidence.
 
 1. **AC sweep:** walk all **118** DESIGN rev. 3 criteria (§3.9 coverage
-   table); record per-criterion pass/fail + evidence (test name / manual
-   check note) in **`docs/verification-v2.md`** (committed). Manual checks
-   against a running stack for what CI cannot cover (camera, real device).
-2. **Credential-custody sweep (new, automated):** a repo test/grep that
-   asserts (a) the only localStorage keys written by credential-handling
-   code are `bleak.identity`, `bleak.hostRoom`, `bleak.tokenVault`,
-   `bleak.mutualCode`; (b) no `Authorization`-header construction exists
-   outside `packages/api-client` + the web api module; (c) no
-   `console.*` call receives a token/code value (static scan of the web
-   sources); (d) the creation token is never written to any storage.
-3. **No-composer re-check:** the TZ2-06 Part D test green; grep sweep that no
-   route/component renders an input/textarea/send control in any chat UI.
+   table); record per-criterion pass/fail + evidence (existing test name /
+   manual check note) in **`docs/verification-v2.md`** (committed). Manual
+   checks against a running stack for what CI cannot cover (camera, real
+   device). Where an automated check does not exist as a test, perform it
+   as a **one-shot grep/script during the sweep and record the output in
+   the report** — do not commit it as a test file.
+2. **Credential-custody sweep (grep-based, recorded in the report, not
+   committed as tests):** (a) the only localStorage keys written by
+   credential-handling code are `bleak.identity`, `bleak.hostRoom`,
+   `bleak.tokenVault`, `bleak.mutualCode`; (b) no `Authorization`-header
+   construction outside `packages/api-client` + the web api module; (c) no
+   `console.*` call receives a token/code value; (d) the creation token is
+   never written to any storage.
+3. **No-composer re-check:** the TZ2-06 Part D test green; grep sweep that
+   no route/component renders an input/textarea/send control in any chat UI.
 4. **i18n parity + copy audit:** parity over the final enlarged
    dictionaries; every visible string on every changed page against §4.7
    (incl. the §2.9 states and both gate/reset notices); locale switch
@@ -1276,12 +1282,12 @@ worker; bug discoveries go through the process bug flow, not this branch.
 10. **Fix-up allowance:** cross-cutting one-liners only (e.g. a missed i18n
     key); everything else is a filed bug.
 
-**Files:** `docs/verification-v2.md`, `apps/web/tests/sweep.test.ts` +
-sweep additions.
+**Files:** `docs/verification-v2.md` (+ its own session/log records only).
 
 **Task-specific technical criteria:** `docs/verification-v2.md` lists all
-118 ACs with status and evidence; all gates stay green
-(`make lint && make test && make build`).
+118 ACs with status and evidence; `make lint && make test && make build`
+green on `dev` at sweep time; **`git diff dev` for this task touches only
+docs/verification-v2.md** (+ its own session/log records only).
 
 **Dependencies:** TZ2-05…TZ2-07 all merged. **Out of scope:** new features;
 redesigns; real-device fixing (record only).
@@ -1460,9 +1466,47 @@ except TZ2-08 may edit another task's files; contract violations are bugs.
    mid-task `ready-for-merge` is **not** possible — a card closes only
    when all its parts' ACs pass.
 
+### 8.8 Token-budget policy (owner directive, 2026-11-16) — applies to every remaining run
+
+**Context:** the OpenCode Go weekly quota is the binding resource. These
+rules cut token burn without lowering product quality (the 118-AC coverage
+and the v1 regression guard are untouched):
+
+1. **Gate order & frequency (workers):** during a part's implementation,
+   iterate with **targeted test runs** (`npm run test -w @bleak/web --
+   <file>`), not the full suite. The **full `make test` runs once per
+   completed part** (right before its commit). **`make lint` runs only
+   after the full test suite is green** — never interleaved with test
+   debugging. **`make build` runs once, at handover** (after lint) — it is
+   the most expensive gate and catches nothing the part-tests + lint
+   missed during development. Sequence per part: targeted tests → full
+   test → commit; per handover: full test → lint → build.
+2. **CI batching (process):** the full three-gate CI **no longer runs
+   after every merge**. The process runs the full gates **once per wave,
+   after all of the wave's merges land on `dev`** — then closes every
+   task of that wave (`ci green`). Red wave-CI → the existing bug flow
+   against the offending feature. Full CI also runs **before any push to
+   `main` / release preparation** (owner rule: release gate).
+3. **Verification sweep is verification-only** (TZ2-08 as amended): no new
+   test files, one-shot checks recorded in the report instead.
+4. **Targeted context:** workers read only their own `tz-section` + the
+   DESIGN sections their card references — not the full doc set per task
+   (the process task cards carry the criteria verbatim for this reason).
+   Handover reports state facts (hashes, gate results) without re-pasting
+   file contents.
+5. **Session-record hygiene:** one session-record commit per worker (at
+   handover), not per run; log entries stay one-liners.
+
+*These rules supersede any earlier "run all three gates locally before
+ready-for-merge" phrasing in §8.4 — the per-part test + handover sequence
+above is the enforced discipline.*
+
 ---
 
-*End of Part II — TZ pass 2, architect `81037a13`, 2026-11-15. The process
-agent owns the v2 build loop after owner TZ approval; per-task sessions get
-their own hashes via `open-feature.sh` with `tz-section` pointing at the
-`tz2-NN` references above.*
+*End of Part II — TZ pass 2, architect `81037a13`, 2026-11-15; §8.8
+token-budget policy added 2026-11-16 by owner directive (recorded inline
+by the concept/devops agent). The process agent owns the v2 build loop;
+per-task sessions get their own hashes via `open-feature.sh` with
+`tz-section` pointing at the `tz2-NN` references above.*
+
+
