@@ -1,9 +1,11 @@
 <script lang="ts">
   /**
-   * ProfileBadge (DESIGN §3.6): the persona badge card — avatar (accent
+   * ProfileBadge (DESIGN rev. 3 §3.6): the persona badge card — avatar (accent
    * backdrop, own persona), name, read-only agent language, greeting block,
-   * bio rows, mock-interest chips, stat tiles and the personal QR. Purely
-   * presentational: data + edit callbacks come from the route.
+   * bio rows, mock-interest chips, stat tiles and the LIVE personal QR
+   * (`u` + one-time `m` from the mutualCode store; badge skeleton until a
+   * code exists — never a broken payload). Purely presentational: data +
+   * edit callbacks come from the route.
    */
   import type { User } from '@bleak/api-client';
   import type { Interest } from '#lib/stores/interests';
@@ -12,6 +14,7 @@
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import Chip from '#lib/components/Chip.svelte';
   import StatTile from '#lib/components/StatTile.svelte';
+  import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
   import QrCodeBadge from './QrCodeBadge.svelte';
   import { personaQrPayload } from './qr';
 
@@ -21,6 +24,10 @@
     handshakes: number;
     dialogs: number;
     addedYou: number;
+    /** Raw one-time mutual code backing the live QR (null → badge skeleton). */
+    mutualCode: string | null;
+    /** Transient «QR обновлён» note (auto-hide owned by the page). */
+    qrRefreshed?: boolean;
     oneditpersona?: () => void;
     oneditgreeting?: () => void;
     oneditinterests?: () => void;
@@ -32,6 +39,8 @@
     handshakes,
     dialogs,
     addedYou,
+    mutualCode,
+    qrRefreshed = false,
     oneditpersona,
     oneditgreeting,
     oneditinterests
@@ -42,7 +51,13 @@
   );
   const greetingEditLabel = $derived(translate($locale, 'profile.greeting.edit'));
   const interestsEditLabel = $derived(translate($locale, 'profile.interests.edit'));
-  const qrAlt = $derived(translate($locale, 'profile.qr.alt'));
+  const qrAlt = $derived(translate($locale, 'profile.qr.aria'));
+  const qrCaption = $derived(translate($locale, 'profile.qr.caption'));
+  const qrOnetime = $derived(translate($locale, 'profile.qr.onetime'));
+  const qrRefreshedLabel = $derived(translate($locale, 'profile.qr.refreshed'));
+  const qrPayload = $derived(
+    mutualCode !== null ? personaQrPayload(user.address, mutualCode) : ''
+  );
 </script>
 
 <article class="badge pixel-corners">
@@ -127,8 +142,20 @@
   </div>
 
   <div class="qr-block">
-    <QrCodeBadge payload={personaQrPayload(user.address)} alt={qrAlt} />
-    <p class="caption center">{translate($locale, 'profile.qr.caption')}</p>
+    {#if mutualCode === null}
+      <!-- No code yet (first load / stale store): badge skeleton until the
+           fresh code is registered — never a broken payload (§3.6). -->
+      <div class="qr-skeleton pixel-corners" aria-hidden="true">
+        <SkeletonBlock width="176px" height="176px" />
+      </div>
+    {:else}
+      <QrCodeBadge payload={qrPayload} alt={qrAlt} />
+    {/if}
+    {#if qrRefreshed}
+      <p class="qr-refreshed" aria-live="polite">✓ {qrRefreshedLabel}</p>
+    {/if}
+    <p class="caption center">{qrCaption}</p>
+    <p class="caption center">{qrOnetime}</p>
   </div>
 </article>
 
@@ -266,6 +293,15 @@
     flex-direction: column;
     gap: var(--space-3);
     align-items: center;
+  }
+  .qr-skeleton {
+    background: var(--color-qr-frame);
+    padding: var(--space-2);
+  }
+  .qr-refreshed {
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-accent);
   }
   @media (min-width: 720px) {
     .stats {

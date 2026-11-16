@@ -81,7 +81,7 @@ task_id=$(python3 scripts/task.py new "$title" "-" "$branch" "$hash" "$depends" 
 
 scripts/session.sh set "$hash" task "$task_id"
 scripts/session.sh set "$hash" branch "$branch"
-scripts/log.sh log "$hash" "feature opened by process ${process}: branch ${branch} (from dev), task ${task_id} (todo) — criteria to be filled by process"
+# stub log disabled 2026-11-16 (devops, owner direction): the central-stub race collided with worker branch logs at merge time; the task-DB history carries this line instead
 
 echo "hash:     $hash"
 echo "task:     $task_id"

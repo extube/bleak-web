@@ -1,11 +1,11 @@
 <script lang="ts">
   /**
-   * Live room view (DESIGN §3.7 item 5): summary tiles (members n/max,
+   * Live room view (DESIGN rev. 3 §3.7 item 5): summary tiles (members n/max,
    * language), member rows (tap → on-demand drill-down), a collapsible
-   * settings section (name/description → updateRoom) and the danger zone
-   * (delete room → confirm dialog). Presentational — the page owns the
-   * Poller (5 s) and all API calls; the drill-down sheet fetches on demand
-   * (never polled).
+   * settings section (name/description → updateRoom, and the v2 room-token
+   * rotation row → confirm → rotateRoomToken) and the danger zone (delete
+   * room → confirm dialog). Presentational — the page owns the Poller (5 s)
+   * and all API calls; the drill-down sheet fetches on demand (never polled).
    */
   import type { Room, User } from '@bleak/api-client';
   import { locale, translate } from '#lib/i18n/locale';
@@ -25,9 +25,13 @@
     settingsPending: boolean;
     settingsError: string | null;
     deletePending: boolean;
+    rotatePending: boolean;
+    /** Transient «ключ обновлён» note (page-owned timer). */
+    rotateDone: boolean;
     onretry: () => void;
     onopenMember: (user: User) => void;
     onupdateRoom: (name: string, description: string) => void;
+    onrotateRoomToken: () => void;
     ondeleteRoom: () => void;
   }
 
@@ -39,9 +43,12 @@
     settingsPending,
     settingsError,
     deletePending,
+    rotatePending,
+    rotateDone,
     onretry,
     onopenMember,
     onupdateRoom,
+    onrotateRoomToken,
     ondeleteRoom
   }: Props = $props();
 
@@ -49,6 +56,7 @@
   let settingsName = $state('');
   let settingsDescription = $state('');
   let confirmOpen = $state(false);
+  let rotateConfirmOpen = $state(false);
   let now = $state(Date.now());
 
   const roster = $derived(stableRoster(members));
@@ -64,6 +72,10 @@
   const deleteLabel = $derived(translate($locale, 'host.delete_room'));
   const deleteWarning = $derived(translate($locale, 'host.delete_warning'));
   const cancelLabel = $derived(translate($locale, 'common.cancel'));
+  const rotateRowLabel = $derived(translate($locale, 'host.rotate_room.row'));
+  const rotateTitle = $derived(translate($locale, 'host.rotate_room.title'));
+  const rotateBody = $derived(translate($locale, 'host.rotate_room.body'));
+  const rotateCta = $derived(translate($locale, 'host.rotate_room.cta'));
 
   function memberLabel(user: User): string {
     return translate($locale, 'host.member.open', { name: user.name });
@@ -177,6 +189,25 @@
           {saveLabel}
         </button>
 
+        <!-- Room-token rotation (v2): confirm → rotateRoomToken → the stored
+             bleak.hostRoom.roomToken is replaced in place (§10.9). -->
+        <div class="rotate-row">
+          <button
+            type="button"
+            class="rotate"
+            disabled={rotatePending}
+            onclick={() => (rotateConfirmOpen = true)}
+          >
+            {rotateRowLabel}
+            {#if rotatePending}<span class="spinner" aria-hidden="true"></span>{/if}
+          </button>
+          {#if rotateDone}
+            <p class="rotate-done" aria-live="polite">
+              ✓ {translate($locale, 'host.rotate_room.done')}
+            </p>
+          {/if}
+        </div>
+
         <div class="danger">
           <h3>{dangerTitle}</h3>
           <button
@@ -191,6 +222,15 @@
       </form>
     {/if}
   </div>
+
+  <ConfirmDialog
+    bind:open={rotateConfirmOpen}
+    title={rotateTitle}
+    body={rotateBody}
+    confirmLabel={rotateCta}
+    cancelLabel={cancelLabel}
+    onconfirm={() => onrotateRoomToken()}
+  />
 
   <ConfirmDialog
     bind:open={confirmOpen}
@@ -325,6 +365,33 @@
     border-right-color: transparent;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
+  }
+  .rotate-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .rotate {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--touch-target);
+    padding: 0 var(--space-5);
+    border: 1px solid var(--color-text-disabled-strong);
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--color-text);
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .rotate:disabled {
+    opacity: 0.6;
+  }
+  .rotate-done {
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-accent);
   }
   .danger {
     display: flex;

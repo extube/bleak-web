@@ -1,46 +1,50 @@
 /**
- * Host-session persistence (DESIGN §3.7, TZ-09): the host token and the last
- * created room (share-kit restore) live in localStorage under the single keys
- * `bleak.hostToken` / `bleak.hostRoom`. The token is never logged and is
- * written nowhere else; both keys are runtime state an operator can wipe.
+ * Host-session persistence (v2, ARCHITECTURE §10.4/§10.9): the host's created
+ * room reference — room address, client-generated room token and the invite
+ * code — lives in localStorage under the single key `bleak.hostRoom`. The
+ * room token is written nowhere else (§10.11 custody rule); the one-time
+ * CREATION token is never persisted anywhere (consumed server-side on use).
+ * The v1 `hostToken` writable / `bleak.hostToken` key and the v1
+ * `roomName`/`inviteUrl` display fields are REMOVED (the v2 console computes
+ * the invite link client-side and reads the room name via a public `getRoom`).
+ * Both are runtime state an operator can wipe.
  */
 import { writable } from 'svelte/store';
 
 export interface HostRoomRef {
   code: string;
   roomAddress: string;
-  roomName: string;
-  /** invite_url as returned by the helper at creation time. */
-  inviteUrl: string;
+  /** v2 room credential (client-generated raw token, hashed server-side). */
+  roomToken: string;
 }
 
-const TOKEN_KEY = 'bleak.hostToken';
 const ROOM_KEY = 'bleak.hostRoom';
 
-export const hostToken = writable('');
 export const hostRoom = writable<HostRoomRef | null>(null);
-
-function readToken(): string {
-  try {
-    return localStorage.getItem(TOKEN_KEY) ?? '';
-  } catch {
-    /* storage unavailable */
-    return '';
-  }
-}
 
 function readRoom(): HostRoomRef | null {
   try {
     const raw = localStorage.getItem(ROOM_KEY);
     if (raw === null) return null;
     const parsed = JSON.parse(raw) as Partial<HostRoomRef>;
-    if (typeof parsed.code === 'string' && typeof parsed.roomAddress === 'string') {
+    if (
+      typeof parsed.code === 'string' &&
+      typeof parsed.roomAddress === 'string' &&
+      typeof parsed.roomToken === 'string' &&
+      parsed.roomToken !== ''
+    ) {
       return {
         code: parsed.code,
         roomAddress: parsed.roomAddress,
-        roomName: typeof parsed.roomName === 'string' ? parsed.roomName : '',
-        inviteUrl: typeof parsed.inviteUrl === 'string' ? parsed.inviteUrl : ''
+        roomToken: parsed.roomToken
       };
+    }
+    // Unusable blob (v1-era reference predating the credential model): the
+    // v2 console cannot operate it — treat as no room session and drop it.
+    try {
+      localStorage.removeItem(ROOM_KEY);
+    } catch {
+      /* ignore */
     }
   } catch {
     /* corrupted or unavailable storage — treat as no room */
@@ -50,28 +54,14 @@ function readRoom(): HostRoomRef | null {
 
 /** Load persisted host session; call once from the /host route on mount. */
 export function initHostSession(): void {
-  hostToken.set(readToken());
   hostRoom.set(readRoom());
 }
 
-export function saveHostToken(token: string): void {
-  hostToken.set(token);
-  try {
-    localStorage.setItem(TOKEN_KEY, token);
-  } catch {
-    /* ignore */
-  }
-}
-
-export function forgetHostToken(): void {
-  hostToken.set('');
-  try {
-    localStorage.removeItem(TOKEN_KEY);
-  } catch {
-    /* ignore */
-  }
-}
-
+/**
+ * Save/overwrite the room reference — room-token rotation rewrites the entry
+ * in place through this same call (read current → `{ ...current, roomToken }`
+ * → `saveHostRoom`), so the stored entry never holds a dead credential.
+ */
 export function saveHostRoom(room: HostRoomRef): void {
   hostRoom.set(room);
   try {
@@ -79,6 +69,16 @@ export function saveHostRoom(room: HostRoomRef): void {
   } catch {
     /* ignore */
   }
+}
+
+/**
+ * Room-token rotation (v2): rewrite the stored entry's `roomToken` in place.
+ * No-op when no room session is stored.
+ */
+export function updateHostRoomToken(roomToken: string): void {
+  const current = readRoom();
+  if (current === null) return;
+  saveHostRoom({ ...current, roomToken });
 }
 
 export function clearHostRoom(): void {

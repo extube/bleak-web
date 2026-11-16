@@ -1,167 +1,92 @@
+/** Helper v2 tests (TZ2-05 Part B, ARCHITECTURE §10.10): the shrunken
+ * stateless surface — health + QR PNG only. The QR encoder stays mocked and
+ * injectable; a 6-digit code renders its invite URL; malformed input is
+ * rejected. The mapping endpoints of v1 no longer exist. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp, type AppDeps } from '../src/app.js';
-import { InviteStore } from '../src/db.js';
 import { loadEnv, inviteUrlFor, type HelperEnv } from '../src/env.js';
 
 function testEnv(overrides: Partial<HelperEnv> = {}): HelperEnv {
   return {
     port: 8787,
-    hostToken: 'test-token',
-    bleakNodeUrl: 'http://node.test',
-    dbPath: ':memory:',
     inviteUrlBase: 'http://localhost:5173/',
     ...overrides
   };
 }
 
-const fakeQr: AppDeps['qrPng'] = async () => Buffer.from('fake-png');
-
-function makeApp(
-  options: {
-    bleak?: (path: string, init?: RequestInit) => Promise<{ status: number; body: unknown }>;
-  } = {}
-) {
-  const invites = new InviteStore(':memory:');
-  const storeClose = () => invites.close();
-  const bleakCalls: Array<{ path: string; init?: RequestInit }> = [];
-  const bleakFetch = (async (input: string | URL, init?: RequestInit) => {
-    const path = String(input).replace(/^https?:\/\/[^/]+/, '');
-    bleakCalls.push({ path, init });
-    const outcome =
-      options.bleak?.(path, init) ?? { status: 201, body: { address: '0xroomABC', name: 'x' } };
-    return new Response(JSON.stringify(outcome.body), { status: outcome.status });
-  }) as unknown as typeof fetch;
-  const app = createApp({
-    env: testEnv(),
-    invites,
-    bleakFetch,
-    qrPng: fakeQr
-  });
-  return { app, invites, storeClose, bleakCalls };
+function makeApp(options: { env?: HelperEnv; qrPng?: AppDeps['qrPng'] } = {}) {
+  const qrCalls: string[] = [];
+  const qrPng: AppDeps['qrPng'] =
+    options.qrPng ??
+    (async (text: string) => {
+      qrCalls.push(text);
+      return Buffer.from(`fake-png:${text}`);
+    });
+  const app = createApp({ env: options.env ?? testEnv(), qrPng });
+  return { app, qrCalls };
 }
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('helper: code -> room resolution', () => {
-  it('persists and resolves the mapping', () => {
-    const store = new InviteStore(':memory:');
-    store.save('000001', '0xroomABC');
-    expect(store.resolve('000001')).toMatchObject({
-      code: '000001',
-      roomAddress: '0xroomABC'
-    });
-    expect(store.resolve('999999')).toBeNull();
-    store.close();
-  });
-
-  it('rejects duplicate codes', () => {
-    const store = new InviteStore(':memory:');
-    store.save('123456', '0xroomABC');
-    expect(() => store.save('123456', '0xroomXYZ')).toThrow();
-    store.close();
-  });
-
-  it('join lookup maps a code to its room address', async () => {
-    const { app, invites, storeClose } = makeApp();
-    invites.save('543210', '0xroomABC');
-    const res = await app.request('/rooms/543210');
+describe('helper: health', () => {
+  it('answers the liveness probe', async () => {
+    const { app } = makeApp();
+    const res = await app.request('/health');
     expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toEqual({ code: '543210', room_address: '0xroomABC' });
-    storeClose();
-  });
-
-  it('404 for unknown codes, 400 for malformed ones', async () => {
-    const { app, storeClose } = makeApp();
-    expect((await app.request('/rooms/111111')).status).toBe(404);
-    const bad = await app.request('/rooms/0xroom');
-    expect(bad.status).toBe(400);
-    storeClose();
+    await expect(res.json()).resolves.toEqual({ ok: true, service: 'bleak-helper' });
   });
 });
 
-describe('helper: host-token-gated room creation', () => {
-  const goodBody = JSON.stringify({ name: 'Meetup Room', language: 'ru' });
-
-  it('creates the room in bleak-node, mints a code, returns the invite URL', async () => {
-    const { app, invites, storeClose, bleakCalls } = makeApp();
-    const res = await app.request('/rooms', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-host-token': 'test-token' },
-      body: goodBody
-    });
-    expect(res.status).toBe(201);
-    const payload = (await res.json()) as { room: { address: string }; code: string; invite_url: string };
-    expect(payload.room.address).toBe('0xroomABC');
-    expect(payload.code).toMatch(/^\d{6}$/);
-    expect(payload.invite_url).toBe(`http://localhost:5173/?code=${payload.code}`);
-    // mapping round-trips
-    expect(invites.resolve(payload.code)?.roomAddress).toBe('0xroomABC');
-    // room was created via the bleak-node REST API, not any direct DB access
-    expect(bleakCalls[0]?.path).toBe('/api/room');
-    storeClose();
-  });
-
-  it('rejects missing/wrong host token with 403', async () => {
-    const { app, storeClose } = makeApp();
-    const noToken = await app.request('/rooms', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: goodBody
-    });
-    expect(noToken.status).toBe(403);
-    const wrongToken = await app.request('/rooms', {
-      method: 'POST',
-      headers: { 'x-host-token': 'attacker' },
-      body: goodBody
-    });
-    expect(wrongToken.status).toBe(403);
-    storeClose();
-  });
-
-  it('400 on missing name, 502 when bleak-node rejects the room', async () => {
-    const { app, storeClose } = makeApp();
-    const noName = await app.request('/rooms', {
-      method: 'POST',
-      headers: { 'x-host-token': 'test-token', 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
-    });
-    expect(noName.status).toBe(400);
-
-    const { app: app2, storeClose: close2 } = makeApp({
-      bleak: () => ({ status: 400, body: 'bad room' })
-    });
-    const rejected = await app2.request('/rooms', {
-      method: 'POST',
-      headers: { 'x-host-token': 'test-token', 'Content-Type': 'application/json' },
-      body: goodBody
-    });
-    expect(rejected.status).toBe(502);
-    close2();
-    storeClose();
-  });
-});
-
-describe('helper: QR endpoint', () => {
-  it('returns a PNG for a known code', async () => {
-    const { app, invites, storeClose } = makeApp();
-    invites.save('777777', '0xroomABC');
-    const res = await app.request('/rooms/777777/qr');
+describe('helper: stateless QR endpoint', () => {
+  it('renders the invite URL for ANY well-formed 6-digit code (no mapping lookup — unknown codes are renderable)', async () => {
+    const { app, qrCalls } = makeApp();
+    const res = await app.request('/rooms/123456/qr');
     expect(res.status).toBe(200);
     expect(res.headers.get('Content-Type')).toBe('image/png');
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
     const buf = Buffer.from(await res.arrayBuffer());
-    expect(buf.toString()).toBe('fake-png');
-    storeClose();
+    expect(buf.toString()).toBe('fake-png:http://localhost:5173/?code=123456');
+    expect(qrCalls).toEqual(['http://localhost:5173/?code=123456']);
+  });
+
+  it('the encoded payload is the invite deep link, not a room address', async () => {
+    const { app } = makeApp({ env: testEnv({ inviteUrlBase: 'https://bleak.example/join' }) });
+    await app.request('/rooms/000000/qr');
+    // the injected encoder received the full invite URL (asserted via the body below)
+    const res = await app.request('/rooms/999999/qr');
+    const buf = Buffer.from(await res.arrayBuffer());
+    expect(buf.toString()).toBe('fake-png:https://bleak.example/join?code=999999');
+  });
+
+  it('400 for malformed codes (strict 6-digit validation, no DB round-trip)', async () => {
+    const { app } = makeApp();
+    // (An empty path segment never reaches the handler at all — Hono 404s it.)
+    for (const bad of ['0xroom', '12345', '1234567', '12345a']) {
+      const res = await app.request(`/rooms/${encodeURIComponent(bad)}/qr`);
+      expect(res.status).toBe(400);
+      await expect(res.json()).resolves.toEqual({ error: 'invite code must be 6 digits' });
+    }
+  });
+
+  it('never exposes room creation, mapping resolve, or a host-token gate', async () => {
+    const { app } = makeApp();
+    expect((await app.request('/rooms', { method: 'POST' })).status).toBe(404);
+    expect((await app.request('/rooms/123456')).status).toBe(404);
+    // no auth is consulted anywhere: an x-host-token header changes nothing
+    const res = await app.request('/rooms/123456/qr', { headers: { 'x-host-token': 'attacker' } });
+    expect(res.status).toBe(200);
   });
 });
 
 describe('helper: env defaults', () => {
-  it('exposes sane defaults', () => {
+  it('exposes sane defaults (stateless: no host token, no node url, no db path)', () => {
     const env = loadEnv();
     expect(env.port).toBeGreaterThan(0);
-    expect(env.hostToken.length).toBeGreaterThan(0);
-    expect(env.bleakNodeUrl).toMatch(/^https?:\/\//);
+    expect(env.inviteUrlBase).toMatch(/^https?:\/\//);
+    const keys = Object.keys(env).sort();
+    expect(keys).toEqual(['inviteUrlBase', 'port']);
   });
 
   it('builds invite URLs with ?code=', () => {

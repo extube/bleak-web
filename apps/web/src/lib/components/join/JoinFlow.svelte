@@ -1,28 +1,33 @@
 <script lang="ts">
   /**
-   * JoinFlow (TZ-03) — the Step 1 → 3a/3b state machine for `/` (DESIGN
-   * §3.1). The route page passes deep-link values; this component owns the
-   * steps, the mount-time API calls (NO Poller on `/`, §2.2), the scanner
-   * mount point (context *a*, QrScanner public API only) and every §3.1
-   * interaction state.
+   * JoinFlow (TZ-03 + TZ2-06 Part B) — the Step 1 → 3a/3b state machine for
+   * `/` (DESIGN §3.1 rev. 3). The route page passes deep-link values; this
+   * component owns the steps, the mount-time API calls (NO Poller on `/`,
+   * §2.2), the scanner mount point (context *a*, QrScanner public API only)
+   * and every §3.1 interaction state.
+   *
+   * v2 (Concept §6.2 / ARCHITECTURE §10.6): persona creation generates the
+   * client-side token and sends `invite_code` + the raw token in the body
+   * (no auth header); identity + the device token vault are written ONLY
+   * after a 2xx; import is vault-driven (`bleak.tokenVault` — never
+   * `GET /api/room`); the §2.9 invite-code rejection is a first-class
+   * inline state.
    */
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { locale, translate } from '#lib/i18n/locale';
   import { saveIdentity } from '#lib/stores/identity';
-  import type { Room } from '@bleak/api-client';
+  import { appendVaultEntry, listVaultEntries, type VaultEntry } from '#lib/stores/tokenVault';
   import {
     codeErrorOf,
     createPersona,
     initialJoinState,
     isValidInviteCode,
-    listErrorOf,
-    listImportPersonas,
-    listImportRooms,
     personaErrorOf,
-    readImportPersona,
+    readVaultPersona,
     reduce,
     resolveRoomByCode,
+    vaultErrorOf,
     type JoinState,
     type PersonaDraft,
     type PersonaError
@@ -32,8 +37,7 @@
   import CodeEntry from './CodeEntry.svelte';
   import RoomPreview from './RoomPreview.svelte';
   import PersonaForm from './PersonaForm.svelte';
-  import ImportRooms from './ImportRooms.svelte';
-  import ImportUsers from './ImportUsers.svelte';
+  import VaultList from './VaultList.svelte';
 
   interface Props {
     /** ?code=NNNNNN deep link (invite QR / link): prefill + auto-submit. */
@@ -56,8 +60,9 @@
   let banner = $state<{ kind: 'network' | 'api'; text: string | null } | null>(null);
   let gone = $state(false);
   let personaError = $state<{ kind: PersonaError; text: string | null } | null>(null);
-  let importRooms = $state<Room[]>([]);
-  let importLoading = $state(false);
+  let vaultEntries = $state<VaultEntry[]>([]);
+  let vaultLoading = $state(false);
+  let vaultDead = $state<{ address: string; text: string | null } | null>(null);
   let scannerOpen = $state(false);
 
   let codeEntry: { focusCode(): void } | null = $state(null);
@@ -133,47 +138,41 @@
     flow = reduce(flow, { type: 'choose-create' });
   }
 
-  async function chooseImport(): Promise<void> {
+  function chooseImport(): void {
     personaError = null;
+    vaultDead = null;
+    // The vault is read from localStorage fresh every visit (entries are
+    // appended by creation and never removed — append-only).
+    vaultEntries = listVaultEntries();
     flow = reduce(flow, { type: 'choose-import' });
-    importLoading = true;
-    try {
-      importRooms = await listImportRooms();
-    } catch (err) {
-      const mapped = listErrorOf(err);
-      banner = mapped;
-      flow = reduce(flow, { type: 'back' });
-    } finally {
-      importLoading = false;
-    }
   }
 
-  // --- Step 3b: import (exactly two reads + one create per copy, §8.4) ------
+  // --- Step 3b: vault import (one credentialed read per selection, §10.6) ---
 
-  async function pickImportRoom(room: Room): Promise<void> {
-    importLoading = true;
+  async function pickVaultEntry(entry: VaultEntry): Promise<void> {
+    if (vaultLoading) return;
+    vaultLoading = true;
+    vaultDead = null;
     try {
-      const users = await listImportPersonas(room.address);
-      flow = reduce(flow, { type: 'import-room-picked', room, users });
+      // The old persona is read WITH ITS STORED TOKEN (full fields incl.
+      // private_bio; a stale token's 401 goes through the global §2.8 gate).
+      const user = await readVaultPersona(entry);
+      flow = reduce(flow, { type: 'vault-picked', user });
     } catch (err) {
-      banner = listErrorOf(err);
+      const mapped = vaultErrorOf(err);
+      if (mapped.kind === 'auth') {
+        // Global gate (§2.8): identity cleared + notice card on `/` — the
+        // vault entry itself is untouched (append-only). Nothing to render.
+        return;
+      }
+      if (mapped.kind === 'network') {
+        banner = { kind: 'network', text: null };
+        return;
+      }
+      // Dead persona: honest error on the row; the entry stays listed.
+      vaultDead = { address: entry.userAddress, text: mapped.text };
     } finally {
-      importLoading = false;
-    }
-  }
-
-  async function pickImportUser(userAddress: string): Promise<void> {
-    const room = flow.importRoom;
-    if (!room) return;
-    importLoading = true;
-    try {
-      // Read 2 of the copy: the persona itself (client-side copy source).
-      const user = await readImportPersona(room.address, userAddress);
-      flow = reduce(flow, { type: 'import-user-picked', user });
-    } catch (err) {
-      banner = listErrorOf(err);
-    } finally {
-      importLoading = false;
+      vaultLoading = false;
     }
   }
 
@@ -185,8 +184,18 @@
     personaError = null;
     creating = true;
     try {
-      const user = await createPersona(room.address, draft);
-      saveIdentity({ roomAddress: room.address, userAddress: user.address });
+      // generateTokenSecret() → POST createRoomUser (invite_code + raw
+      // token in the body, NO auth header).
+      const { user, token } = await createPersona(room.address, flow.code, draft);
+      // Identity + vault entry written ONLY after the 2xx (§10.6).
+      saveIdentity({ roomAddress: room.address, userAddress: user.address, token });
+      appendVaultEntry({
+        roomAddress: room.address,
+        userAddress: user.address,
+        token,
+        name: user.name,
+        savedAt: new Date().toISOString()
+      });
       void goto(resolve('/room'));
     } catch (err) {
       const mapped = personaErrorOf(err);
@@ -203,14 +212,14 @@
   // --- Scanner mount (context *a*, QrScanner public API only) ---------------
 
   function handleInviteCode(code: string): void {
-    // A detected invite code enters Step 1 exactly as if typed (AC 13):
+    // A detected invite code enters Step 1 exactly as if typed (§3.1 AC 18):
     // scanner closed by itself, digits filled, auto-resolution.
     flow = reduce(flow, { type: 'code-input', code });
     void submitCode(code);
   }
 
   function handleScannerClosed(): void {
-    // X / Escape / manual fallback (AC 12): back to Step 1, digits intact,
+    // X / Escape / manual fallback (AC 18): back to Step 1, digits intact,
     // focus returns to the cells.
     scannerOpen = false;
     codeEntry?.focusCode();
@@ -258,7 +267,7 @@
           room={flow.room}
           memberCount={flow.members.length}
           oncreate={chooseCreate}
-          onimport={() => void chooseImport()}
+          onimport={chooseImport}
           onchange={backToStep1}
         />
       {:else if flow.step === 'persona'}
@@ -269,19 +278,14 @@
           onsubmit={(draft) => void submitPersona(draft)}
           onback={() => (flow = reduce(flow, { type: 'back' }))}
         />
-      {:else if flow.step === 'rooms'}
-        <ImportRooms
-          rooms={importRooms}
-          loading={importLoading}
-          onpick={(room) => void pickImportRoom(room)}
+      {:else if flow.step === 'vault'}
+        <VaultList
+          entries={vaultEntries}
+          loading={vaultLoading}
+          dead={vaultDead}
+          onpick={(entry) => void pickVaultEntry(entry)}
           onback={() => (flow = reduce(flow, { type: 'back' }))}
-        />
-      {:else if flow.step === 'users'}
-        <ImportUsers
-          users={flow.importUsers}
-          loading={importLoading}
-          onpick={(user) => void pickImportUser(user.address)}
-          onback={() => (flow = reduce(flow, { type: 'back' }))}
+          oncreate={chooseCreate}
         />
       {/if}
     </section>
@@ -289,8 +293,8 @@
 </div>
 
 {#if !gone}
-  <!-- Scanner overlay, context (a) — the placeholder shows a static panel
-       until TZ-04 swaps the body in place (same props, same callbacks). -->
+  <!-- Scanner overlay, context (a) — the invite-QR flow; the persona
+       deep-link routine is NOT the scanner (DeepLinkHandshake on the route). -->
   <QrScanner
     bind:open={scannerOpen}
     context="invite"

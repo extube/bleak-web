@@ -16,12 +16,13 @@
   "experimental": {
     "subagent_depth": 3
   },
-  // Shared project artifacts: every agent sees these once they exist.
+  // Shared project artifacts: since the owner token-budget directive
+  // (2026-11-16), only the compact reading map is auto-injected — the full
+  // Concept/ARCHITECTURE/DESIGN/TZ texts (~4,600 lines, ~60k tokens) used to
+  // burn a large share of every agent's weekly quota before any tool call.
+  // Each agent reads exactly what its task needs, per the index.
   "instructions": [
-    "docs/Concept.md",
-    "docs/ARCHITECTURE.md",
-    "docs/DESIGN.md",
-    "docs/TZ.md"
+    "docs/DOCS-INDEX.md"
   ],
   "permissions": [
     // The backend is read-only for this project.
@@ -43,6 +44,11 @@
     { "action": "shell", "resource": "git merge *", "effect": "ask" },
     // Commit identity is fixed (see AGENTS.md "Commit identity"):
     // repo-local git config is the single source; nobody may override it.
+    // Workstation ownership exceptions (added 2026-11-15 at the user's
+    // explicit direction, resolving the "dubious ownership" build-loop
+    // blocker escalated by process 9e6a5f3e). Unrelated to the commit
+    // identity — which stays locked by the rules below.
+    { "action": "shell", "resource": "git config --global --add safe.directory *", "effect": "allow" },
     { "action": "shell", "resource": "git config user.*", "effect": "deny" },
     { "action": "shell", "resource": "git config --global*", "effect": "deny" },
     { "action": "shell", "resource": "git config --local*", "effect": "deny" },

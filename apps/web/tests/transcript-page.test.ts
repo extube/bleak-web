@@ -23,17 +23,26 @@ vi.mock('$app/paths', () => ({
     params?.address ? route.replace('[address]', params.address) : route
 }));
 
+const apiRawMock = vi.hoisted(() => ({
+  getChat: vi.fn(),
+  listChatMessages: vi.fn(),
+  kickoffChat: vi.fn()
+}));
+
 vi.mock('#lib/api/client', () => ({
   api: {
     getChat: vi.fn(),
     listChatMessages: vi.fn(),
     listRoomUsers: vi.fn(),
     kickoffChat: vi.fn()
-  }
+  },
+  apiRaw: apiRawMock,
+  HOST_RESET_KEY: 'bleak.hostReset'
 }));
 
 import { goto } from '$app/navigation';
-import { api } from '#lib/api/client';
+import { api, apiRaw } from '#lib/api/client';
+import { saveHostRoom, clearHostRoom } from '#lib/stores/hostSession';
 import { identity } from '#lib/stores/identity';
 import Page from '../src/routes/chats/[address]/+page.svelte';
 import { ru } from '../src/lib/i18n/ru';
@@ -42,6 +51,7 @@ const ME = '0xme';
 const ROOM = '0xroom';
 const CHAT = '0xchat1';
 const mockedApi = vi.mocked(api, true);
+const mockedApiRaw = vi.mocked(apiRaw, true);
 
 const fixture = {
   chat: null as Chat | null,
@@ -101,8 +111,12 @@ beforeEach(() => {
   // The page hydrates the store from localStorage defensively (initIdentity),
   // so both the storage and the store must carry the identity before render.
   localStorage.clear();
-  localStorage.setItem('bleak.identity', JSON.stringify({ roomAddress: ROOM, userAddress: ME }));
-  identity.set({ roomAddress: ROOM, userAddress: ME });
+  sessionStorage.clear();
+  localStorage.setItem(
+    'bleak.identity',
+    JSON.stringify({ roomAddress: ROOM, userAddress: ME, token: 'p-tok' })
+  );
+  identity.set({ roomAddress: ROOM, userAddress: ME, token: 'p-tok' });
   fixture.chat = baseChat();
   fixture.users = [person(ME, 'Я'), person('0xa', 'Алиса')];
   fixture.messages = [];
@@ -110,12 +124,19 @@ beforeEach(() => {
   mockedApi.listRoomUsers.mockImplementation(async () => structuredClone(fixture.users));
   mockedApi.listChatMessages.mockImplementation(async () => structuredClone(fixture.messages));
   mockedApi.kickoffChat.mockResolvedValue({ chat: CHAT, cleared: 2, speaker: '0xa' });
+  // The ungated fallback client mirrors the same fixtures by default (it is
+  // only reached when the viewer fallback engages).
+  mockedApiRaw.getChat.mockImplementation(async () => structuredClone(fixture.chat ?? baseChat()));
+  mockedApiRaw.listChatMessages.mockImplementation(async () => structuredClone(fixture.messages));
+  mockedApiRaw.kickoffChat.mockResolvedValue({ chat: CHAT, cleared: 2, speaker: '0xa' });
 });
 
 afterEach(() => {
   cleanup();
+  clearHostRoom();
   identity.set(null);
   localStorage.clear();
+  sessionStorage.clear();
 });
 
 async function renderPage(): Promise<void> {
@@ -379,5 +400,139 @@ describe('NO-COMPOSER (owner ruling 4, permanent — §3.5 AC 13)', () => {
     expect(buttons).toHaveLength(2);
     // POST /api/message is not wired: the api mock exposes no sendMessage usage
     expect(mockedApi).not.toHaveProperty('sendMessage');
+  });
+});
+
+describe('transcript viewer fallback (§3.5 AC 14, ARCHITECTURE §10.3 escape hatch)', () => {
+  function storeHostSession(): void {
+    saveHostRoom({
+      code: '123456',
+      roomAddress: ROOM,
+      roomToken: 'r-tok'
+    });
+  }
+
+  it('persona read 403 + a stored room token → ONE retry with the room token via apiRaw; the host-view chip shows', async () => {
+    storeHostSession();
+    mockedApi.getChat.mockRejectedValue(
+      new ApiError(403, `/api/chat/${CHAT}`, 'not a participant')
+    );
+    mockedApi.listChatMessages.mockRejectedValue(
+      new ApiError(403, `/api/chat/${CHAT}/message`, 'not a participant')
+    );
+
+    await renderPage();
+
+    // The ungated client served both the chat metadata and the messages.
+    await waitFor(() => expect(mockedApiRaw.getChat).toHaveBeenCalled());
+    await waitFor(() => expect(mockedApiRaw.listChatMessages).toHaveBeenCalled());
+    // Every retry carries the stored room token (the page's defensive
+    // initIdentity re-hydration may run the mount effect twice — same
+    // fallback path, still the room token, never a second persona flavor).
+    for (const call of mockedApiRaw.getChat.mock.calls) {
+      expect(call[1]).toEqual({ token: 'r-tok' });
+    }
+    expect(screen.getByText(ru['chat.host_view'])).toBeTruthy();
+    // The attendee identity was never touched.
+    expect(JSON.parse(localStorage.getItem('bleak.identity') ?? 'null')).toMatchObject({
+      userAddress: ME
+    });
+  });
+
+  it('host-view mode persists for the page session — subsequent ticks go straight to the room token', async () => {
+    storeHostSession();
+    mockedApi.getChat.mockRejectedValue(
+      new ApiError(403, `/api/chat/${CHAT}`, 'not a participant')
+    );
+    mockedApi.listChatMessages.mockRejectedValue(
+      new ApiError(403, `/api/chat/${CHAT}/message`, 'not a participant')
+    );
+
+    await renderPage();
+    await waitFor(() => expect(mockedApiRaw.listChatMessages).toHaveBeenCalled());
+    const callsAfterFirstTick = mockedApiRaw.listChatMessages.mock.calls.length;
+
+    // A later poll tick: no new persona attempt (never re-trips the gate),
+    // the room token is used directly.
+    fixture.messages = [message('tx1', '0xa', 'Наблюдаем.', 5)];
+    await screen.findByText('Наблюдаем.', undefined, { timeout: 4000 });
+    expect(mockedApiRaw.listChatMessages.mock.calls.length).toBeGreaterThan(
+      callsAfterFirstTick
+    );
+    const laterCall =
+      mockedApiRaw.listChatMessages.mock.calls[
+        mockedApiRaw.listChatMessages.mock.calls.length - 1
+      ];
+    expect(laterCall?.[1]).toEqual({ token: 'r-tok' });
+    expect(screen.getByText(ru['chat.host_view'])).toBeTruthy();
+  });
+
+  it('a host-context 401 on the retry replicates the hostApi gate: host room cleared + hostReset flag, identity untouched', async () => {
+    storeHostSession();
+    // The persona read fails; the room token is dead too.
+    mockedApi.getChat.mockRejectedValue(
+      new ApiError(403, `/api/chat/${CHAT}`, 'not a participant')
+    );
+    mockedApiRaw.getChat.mockRejectedValue(
+      new ApiError(401, `/api/chat/${CHAT}`, 'room token revoked')
+    );
+
+    render(Page, { props: {} });
+
+    await waitFor(() =>
+      expect(sessionStorage.getItem('bleak.hostReset')).toBe('1')
+    );
+    // bleak.hostRoom cleared; the attendee identity is NEVER touched.
+    expect(localStorage.getItem('bleak.hostRoom')).toBeNull();
+    expect(JSON.parse(localStorage.getItem('bleak.identity') ?? 'null')).toMatchObject({
+      userAddress: ME
+    });
+    // No redirect of the attendee session happened.
+    expect(goto).not.toHaveBeenCalled();
+  });
+
+  it('kickoff in host-view mode goes through the room token', async () => {
+    storeHostSession();
+    fixture.messages = [message('tx1', '0xa', 'Раз.', 200), message('tx2', ME, 'Два.', 100)];
+    mockedApi.getChat.mockRejectedValue(
+      new ApiError(403, `/api/chat/${CHAT}`, 'not a participant')
+    );
+    mockedApi.listChatMessages.mockRejectedValue(
+      new ApiError(403, `/api/chat/${CHAT}/message`, 'not a participant')
+    );
+    mockedApiRaw.kickoffChat.mockImplementation(async () => {
+      fixture.messages = [];
+      return { chat: CHAT, cleared: 2, speaker: '0xa' };
+    });
+
+    await renderPage();
+    await screen.findByText(ru['chat.host_view']);
+    await screen.getByRole('button', { name: ru['chat.kickoff'] }).click();
+    await screen.getByRole('button', { name: ru['chat.kickoff.confirm_run'] }).click();
+
+    await waitFor(() =>
+      expect(mockedApiRaw.kickoffChat).toHaveBeenCalledWith(CHAT, { token: 'r-tok' })
+    );
+    expect(mockedApi.kickoffChat).not.toHaveBeenCalled();
+  });
+
+  it('without a stored room token a 401 renders NO transcript error UI (the §2.8 global gate owns it — AC 15)', async () => {
+    // No bleak.hostRoom seeded. The mocked api layer does not run the gate
+    // itself (the gate mechanics are proven in api-contexts.test.ts); what
+    // this page must prove is that no transcript error UI renders first.
+    mockedApi.getChat.mockRejectedValue(new ApiError(401, `/api/chat/${CHAT}`, 'no token'));
+    mockedApi.listChatMessages.mockRejectedValue(
+      new ApiError(401, `/api/chat/${CHAT}/message`, 'no token')
+    );
+
+    render(Page, { props: {} });
+    await waitFor(() => expect(mockedApi.getChat).toHaveBeenCalled());
+    await tick();
+    await tick();
+    expect(screen.queryByText(ru['common.error.network'])).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    // The fallback never engaged (no room token to retry with).
+    expect(mockedApiRaw.getChat).not.toHaveBeenCalled();
+    expect(screen.queryByText(ru['chat.host_view'])).toBeNull();
   });
 });

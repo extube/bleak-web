@@ -94,7 +94,7 @@ beforeEach(() => {
   localStorage.clear();
   markChatsSeen(0);
   chatsUnseen.set(false);
-  identity.set({ roomAddress: ROOM, userAddress: ME });
+  identity.set({ roomAddress: ROOM, userAddress: ME, token: 'p-tok' });
 
   fixture.users = [];
   fixture.handshakes = [];
@@ -285,6 +285,29 @@ describe('/people — card actions', () => {
     await waitFor(() => expect(screen.getByText(ru['hs.sent'])).toBeTruthy());
     // no reorder: the only card is still the only card
     expect(document.querySelectorAll('.person-card')).toHaveLength(1);
+  });
+
+  it('a 403 income-rule rejection on «+» shows the §2.9 state inline in the card, no flip (AC 13)', async () => {
+    fixture.users = [person('0xa', 'Алиса', 10)];
+    mockedApi.createHandshake.mockRejectedValue(
+      new ApiError(403, '/api/handshake', 'income must exceed outcome')
+    );
+
+    await renderPage();
+    await screen
+      .getByRole('button', { name: ru['people.action.send'].replace('{name}', 'Алиса') })
+      .click();
+
+    await waitFor(() => expect(screen.getByText(ru['hs.income_limit'])).toBeTruthy());
+    // Server text appended muted (§2.9).
+    expect(screen.getByText(/income must exceed outcome/)).toBeTruthy();
+    // The card stays in the "none" state — the «+» action is back (no flip).
+    expect(
+      screen.getByRole('button', { name: ru['people.action.send'].replace('{name}', 'Алиса') })
+    ).toBeTruthy();
+    expect(screen.queryByText(ru['hs.sent'])).toBeNull();
+    // Only ONE send request — no automatic retry after the rule rejection.
+    expect(mockedApi.createHandshake).toHaveBeenCalledTimes(1);
   });
 
   it('incoming card: handshake back sends the reverse POST, card becomes «Общаемся» (AC 5)', async () => {

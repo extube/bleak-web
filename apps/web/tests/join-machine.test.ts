@@ -1,49 +1,52 @@
-/** Join step machine + services (TZ-03): code validation, §3.1 error
- * mapping, deep-link parsing, step transitions, and the API orchestration
- * against mocked clients (vi.mock('#lib/api/client') / helper). */
+/** Join step machine + services (TZ-03 + TZ2-06 Part B, DESIGN §3.1 rev. 3):
+ * code validation, §3.1/§2.9 error mapping, deep-link parsing (u + m),
+ * step transitions with the vault step, and the API orchestration against
+ * mocked clients (vi.mock('#lib/api/client') + the invite-resolve seam +
+ * the crypto token generator). */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, NetworkError, type Room, type User } from '@bleak/api-client';
 
-vi.mock('#lib/api/helper', () => {
-  class HelperError extends Error {
-    readonly status: number;
-    constructor(status: number, message: string) {
-      super(message);
-      this.name = 'HelperError';
-      this.status = status;
+vi.mock('#lib/api/invite-resolve', () => {
+  class InviteResolveError extends Error {
+    readonly kind: 'malformed' | 'not_found';
+    constructor(kind: 'malformed' | 'not_found') {
+      super(kind);
+      this.name = 'InviteResolveError';
+      this.kind = kind;
     }
   }
-  return { HelperError, resolveInvite: vi.fn() };
+  return { InviteResolveError, resolveInviteCode: vi.fn() };
 });
+
+vi.mock('#lib/crypto/secrets', () => ({ generateTokenSecret: vi.fn(() => 'generated-raw-token') }));
 
 vi.mock('#lib/api/client', () => ({
   api: {
     getRoom: vi.fn(),
-    listRooms: vi.fn(),
     listRoomUsers: vi.fn(),
     getRoomUser: vi.fn(),
     createRoomUser: vi.fn()
   }
 }));
 
-import { HelperError, resolveInvite } from '#lib/api/helper';
+import { InviteResolveError, resolveInviteCode } from '#lib/api/invite-resolve';
 import { api } from '#lib/api/client';
 import {
   codeErrorOf,
   createPersona,
   initialJoinState,
   isValidInviteCode,
-  listImportPersonas,
-  listImportRooms,
   parseJoinDeepLink,
   personaErrorOf,
-  readImportPersona,
+  readVaultPersona,
   reduce,
   resolveRoomByCode,
+  vaultErrorOf,
   type PersonaDraft
 } from '#lib/join';
+import type { VaultEntry } from '#lib/stores/tokenVault';
 
-const mockedResolve = vi.mocked(resolveInvite);
+const mockedResolve = vi.mocked(resolveInviteCode);
 const mockedApi = vi.mocked(api);
 
 const room: Room = {
@@ -72,6 +75,17 @@ function user(address: string, name: string): User {
   };
 }
 
+function vaultEntry(overrides: Partial<VaultEntry> = {}): VaultEntry {
+  return {
+    roomAddress: '0xoldroom',
+    userAddress: '0xold',
+    token: 'stored-vault-token',
+    name: 'Старая персона',
+    savedAt: '2026-11-14T10:00:00Z',
+    ...overrides
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -91,16 +105,16 @@ describe('invite-code validation', () => {
 });
 
 describe('codeErrorOf (§3.1 interaction states)', () => {
-  it('maps helper 400 to the malformed inline error', () => {
-    expect(codeErrorOf(new HelperError(400, 'bad code')).kind).toBe('malformed');
+  it('maps the seam malformed kind to the malformed inline error', () => {
+    expect(codeErrorOf(new InviteResolveError('malformed')).kind).toBe('malformed');
   });
 
-  it('maps helper 404 to the unknown-code inline error', () => {
-    expect(codeErrorOf(new HelperError(404, 'unknown code')).kind).toBe('not_found');
+  it('maps the seam not_found kind to the unknown-code inline error', () => {
+    expect(codeErrorOf(new InviteResolveError('not_found')).kind).toBe('not_found');
   });
 
   it('maps network failure to the banner kind', () => {
-    expect(codeErrorOf(new NetworkError('/rooms/123456', new Error('offline'))).kind).toBe(
+    expect(codeErrorOf(new NetworkError('/api/invite/123456', new Error('offline'))).kind).toBe(
       'network'
     );
   });
@@ -119,7 +133,7 @@ describe('codeErrorOf (§3.1 interaction states)', () => {
   });
 });
 
-describe('personaErrorOf', () => {
+describe('personaErrorOf (§3.1 + §2.9)', () => {
   it('maps 409 to the name-taken copy', () => {
     expect(personaErrorOf(new ApiError(409, '/api/room/r/user', 'name taken')).kind).toBe(
       'name_taken'
@@ -132,6 +146,16 @@ describe('personaErrorOf', () => {
     );
   });
 
+  it.each([401, 403, 410])(
+    'maps %i on create to the §2.9 invite-code state (invalid/expired/revoked code)',
+    (status) => {
+      const mapped = personaErrorOf(
+        new ApiError(status, '/api/room/r/user', 'invite code rejected')
+      );
+      expect(mapped.kind).toBe('invite');
+    }
+  );
+
   it('maps 400 to a field-level server-text error', () => {
     const mapped = personaErrorOf(new ApiError(400, '/api/room/r/user', 'name is empty'));
     expect(mapped.kind).toBe('api');
@@ -143,7 +167,31 @@ describe('personaErrorOf', () => {
   });
 });
 
-describe('deep-link parsing', () => {
+describe('vaultErrorOf (dead-entry state, §3.1)', () => {
+  it('maps 404/403 to the dead-entry state with the server text', () => {
+    expect(vaultErrorOf(new ApiError(404, '/api/room/r/user/0xold', 'not found'))).toEqual({
+      kind: 'dead',
+      text: 'not found'
+    });
+    expect(vaultErrorOf(new ApiError(403, '/api/room/r/user/0xold', 'wrong record'))).toEqual({
+      kind: 'dead',
+      text: 'wrong record'
+    });
+  });
+
+  it('maps a 401 to the auth kind — the §2.8 global gate owns it (the vault entry stays)', () => {
+    expect(vaultErrorOf(new ApiError(401, '/api/room/r/user/0xold', 'bad token'))).toEqual({
+      kind: 'auth',
+      text: null
+    });
+  });
+
+  it('maps network failure to the banner kind', () => {
+    expect(vaultErrorOf(new NetworkError('/api', null)).kind).toBe('network');
+  });
+});
+
+describe('deep-link parsing (§3.1 AC 19)', () => {
   it('parses a valid ?code= as the invite deep link', () => {
     expect(parseJoinDeepLink(new URLSearchParams('code=123456'))).toEqual({
       kind: 'code',
@@ -151,10 +199,19 @@ describe('deep-link parsing', () => {
     });
   });
 
-  it('parses ?u= as the persona deep link', () => {
+  it('parses ?u= without m as the single-direction persona deep link', () => {
     expect(parseJoinDeepLink(new URLSearchParams('u=0xalice'))).toEqual({
       kind: 'user',
-      userAddress: '0xalice'
+      userAddress: '0xalice',
+      mutualCode: null
+    });
+  });
+
+  it('parses ?u=…&m=… as the full mutual persona deep link', () => {
+    expect(parseJoinDeepLink(new URLSearchParams('u=0xalice&m=one-time-code'))).toEqual({
+      kind: 'user',
+      userAddress: '0xalice',
+      mutualCode: 'one-time-code'
     });
   });
 
@@ -165,7 +222,7 @@ describe('deep-link parsing', () => {
   });
 });
 
-describe('step machine transitions', () => {
+describe('step machine transitions (vault-driven import)', () => {
   it('enters the room preview when the code resolves', () => {
     const next = reduce(initialJoinState, { type: 'resolved', room, members: [user('0xa', 'A')] });
     expect(next.step).toBe('room');
@@ -178,41 +235,35 @@ describe('step machine transitions', () => {
     const next = reduce(atRoom, { type: 'choose-create' });
     expect(next.step).toBe('persona');
     expect(next.prefill).toBeNull();
+    expect(next.importing).toBe(false);
   });
 
-  it('choose-import resets the import context and opens the room picker', () => {
+  it('choose-import opens the vault step (no server room picker)', () => {
     const atRoom = reduce(initialJoinState, { type: 'resolved', room, members: [] });
     const next = reduce(atRoom, { type: 'choose-import' });
-    expect(next.step).toBe('rooms');
-    expect(next.importRoom).toBeNull();
-    expect(next.importUsers).toEqual([]);
+    expect(next.step).toBe('vault');
     expect(next.prefill).toBeNull();
   });
 
-  it('picking a room shows its personas; picking a persona prefills the form', () => {
-    const old = room;
-    const atRooms = reduce(initialJoinState, { type: 'choose-import' });
-    const atUsers = reduce(atRooms, {
-      type: 'import-room-picked',
-      room: old,
-      users: [user('0xold', 'Старая персона')]
+  it('picking a vault persona prefills the form with the copy notice', () => {
+    const atRoom = reduce(initialJoinState, { type: 'resolved', room, members: [] });
+    const atVault = reduce(atRoom, { type: 'choose-import' });
+    const next = reduce(atVault, {
+      type: 'vault-picked',
+      user: { ...user('0xold', 'Старая персона'), private_bio: 'секрет' }
     });
-    expect(atUsers.step).toBe('users');
-    expect(atUsers.importRoom).toBe(old);
-    const next = reduce(atUsers, { type: 'import-user-picked', user: user('0xold', 'Старая') });
     expect(next.step).toBe('persona');
-    expect(next.prefill).toEqual({ name: 'Старая', publicBio: '', privateBio: '' });
+    expect(next.prefill).toEqual({ name: 'Старая персона', publicBio: '', privateBio: 'секрет' });
+    expect(next.importing).toBe(true);
   });
 
-  it('back navigation walks the import path down to the room preview', () => {
+  it('back navigation walks the vault path down to the room preview', () => {
     const atRoom = reduce(initialJoinState, { type: 'resolved', room, members: [] });
     expect(reduce(atRoom, { type: 'back' }).step).toBe('code');
-    const atRooms = reduce(atRoom, { type: 'choose-import' });
-    expect(reduce(atRooms, { type: 'back' }).step).toBe('room');
-    const atUsers = reduce(atRooms, { type: 'import-room-picked', room, users: [] });
-    expect(reduce(atUsers, { type: 'back' }).step).toBe('rooms');
-    const atPersona = reduce(atUsers, { type: 'import-user-picked', user: user('0x', 'X') });
-    expect(reduce(atPersona, { type: 'back' }).step).toBe('users');
+    const atVault = reduce(atRoom, { type: 'choose-import' });
+    expect(reduce(atVault, { type: 'back' }).step).toBe('room');
+    const atPersona = reduce(atVault, { type: 'vault-picked', user: user('0x', 'X') });
+    expect(reduce(atPersona, { type: 'back' }).step).toBe('vault');
   });
 
   it('change-code resets to a clean code entry', () => {
@@ -222,9 +273,9 @@ describe('step machine transitions', () => {
   });
 });
 
-describe('services against the mocked clients', () => {
-  it('resolveRoomByCode: helper mapping → room → members', async () => {
-    mockedResolve.mockResolvedValue({ code: '123456', room_address: room.address });
+describe('services against the mocked clients (v2)', () => {
+  it('resolveRoomByCode: invite-resolve seam → room → members (public reads)', async () => {
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
     mockedApi.getRoom.mockResolvedValue(room);
     mockedApi.listRoomUsers.mockResolvedValue([user('0xa', 'Алиса')]);
 
@@ -237,41 +288,31 @@ describe('services against the mocked clients', () => {
     expect(result.members).toHaveLength(1);
   });
 
-  it('createPersona sends the trimmed fields, omitting empty bios', async () => {
+  it('createPersona generates a client token and sends the exact CreateUserRequestV2 body (invite_code + token, trimmed)', async () => {
     mockedApi.createRoomUser.mockResolvedValue(user('0xme', 'Я'));
     const draft: PersonaDraft = { name: '  Я  ', publicBio: '', privateBio: 'секрет' };
 
-    await createPersona(room.address, draft);
+    const { user: created, token } = await createPersona(room.address, '123456', draft);
 
+    expect(token).toBe('generated-raw-token');
+    expect(created.address).toBe('0xme');
     expect(mockedApi.createRoomUser).toHaveBeenCalledWith(room.address, {
       name: 'Я',
-      private_bio: 'секрет'
+      private_bio: 'секрет',
+      invite_code: '123456',
+      token: 'generated-raw-token'
     });
   });
 
-  it('the import copy performs exactly two reads + one create', async () => {
-    const oldUser = user('0xold', 'Старая персона');
-    mockedApi.listRooms.mockResolvedValue([room]);
-    mockedApi.listRoomUsers.mockResolvedValue([oldUser]);
-    mockedApi.getRoomUser.mockResolvedValue(oldUser);
-    mockedApi.createRoomUser.mockResolvedValue(user('0xnew', 'Старая персона'));
+  it('readVaultPersona fetches the old persona with ITS STORED token (vault import override)', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(user('0xold', 'Старая персона'));
+    const entry = vaultEntry();
 
-    const rooms = await listImportRooms();
-    const personas = await listImportPersonas(rooms[0]!.address);
-    const source = await readImportPersona(rooms[0]!.address, personas[0]!.address);
-    const created = await createPersona(rooms[0]!.address, {
-      name: source.name,
-      publicBio: source.public_bio,
-      privateBio: source.private_bio
-    });
+    await readVaultPersona(entry);
 
-    expect(mockedApi.listRoomUsers).toHaveBeenCalledTimes(1);
     expect(mockedApi.getRoomUser).toHaveBeenCalledTimes(1);
-    expect(mockedApi.createRoomUser).toHaveBeenCalledTimes(1);
-    // No address reuse: a NEW user is created in the target room (§8.4).
-    expect(created.address).toBe('0xnew');
-    expect(mockedApi.createRoomUser).toHaveBeenCalledWith(room.address, {
-      name: 'Старая персона'
+    expect(mockedApi.getRoomUser).toHaveBeenCalledWith('0xoldroom', '0xold', {
+      token: 'stored-vault-token'
     });
   });
 });

@@ -1,13 +1,26 @@
 /**
- * Join-flow domain module (DESIGN §3.1, TZ-03): invite-code validation, the
- * pure step machine for the Step 1 → 3a/3b flow, deep-link parsing, the
- * API orchestration services (mount-time fetches only — no Poller on `/`,
- * §2.2) and the error mappings for every §3.1 interaction state.
+ * Join-flow domain module (DESIGN §3.1 rev. 3, TZ-03 + TZ2-06 Part B):
+ * invite-code validation, the pure step machine for the Step 1 → 3a/3b
+ * flow, deep-link parsing, the API orchestration services (mount-time
+ * fetches only — no Poller on `/`, §2.2) and the error mappings for every
+ * §3.1 interaction state.
+ *
+ * v2 (Concept §6.2, ARCHITECTURE §10.6):
+ * - code resolution goes through the `resolveInviteCode` seam (§6.9b);
+ * - persona creation carries `invite_code` + a client-generated raw token
+ *   in the body (NO auth header) and writes the identity + the device
+ *   token vault ONLY after a 2xx;
+ * - import is vault-driven: the picker lists `bleak.tokenVault` entries —
+ *   NEVER `GET /api/room` or any server-side persona picker — and reads
+ *   the old persona with its stored token (the documented explicit-token
+ *   override; a stale token's 401 still hits the global §2.8 gate).
  */
-import type { CreateUserRequest, Room, User } from '@bleak/api-client';
+import type { CreateUserRequestV2, Room, User } from '@bleak/api-client';
 import { ApiError, NetworkError } from '@bleak/api-client';
-import { HelperError, resolveInvite } from '#lib/api/helper';
 import { api } from '#lib/api/client';
+import { InviteResolveError, resolveInviteCode } from '#lib/api/invite-resolve';
+import { generateTokenSecret } from '#lib/crypto/secrets';
+import type { VaultEntry } from '#lib/stores/tokenVault';
 
 const CODE_PATTERN = /^\d{6}$/;
 
@@ -21,21 +34,28 @@ export function isValidInviteCode(code: string): boolean {
 // ---------------------------------------------------------------------------
 
 export interface JoinClients {
-  resolveInvite: (code: string) => Promise<{ code: string; room_address: string }>;
+  resolveInvite: (code: string) => Promise<{ roomAddress: string }>;
   getRoom: (address: string) => Promise<Room>;
-  listRooms: () => Promise<Room[]>;
   listRoomUsers: (room: string) => Promise<User[]>;
-  getRoomUser: (room: string, address: string) => Promise<User>;
-  createRoomUser: (room: string, request: CreateUserRequest) => Promise<User>;
+  /**
+   * Credentialed persona read — the join layer passes the credential
+   * explicitly (the vault entry's stored token, §10.6 import). The
+   * attendee context's global 401 gate still applies to this call.
+   */
+  getRoomUser: (room: string, address: string, options?: { token?: string }) => Promise<User>;
+  /** Persona creation: NO auth header — the body carries the credentials. */
+  createRoomUser: (room: string, request: CreateUserRequestV2) => Promise<User>;
+  /** The client-side token generator (injectable for deterministic tests). */
+  generateToken: () => string;
 }
 
 const defaultClients: JoinClients = {
-  resolveInvite,
+  resolveInvite: resolveInviteCode,
   getRoom: (address) => api.getRoom(address),
-  listRooms: () => api.listRooms(),
   listRoomUsers: (room) => api.listRoomUsers(room),
-  getRoomUser: (room, address) => api.getRoomUser(room, address),
-  createRoomUser: (room, request) => api.createRoomUser(room, request)
+  getRoomUser: (room, address, options) => api.getRoomUser(room, address, options),
+  createRoomUser: (room, request) => api.createRoomUser(room, request),
+  generateToken: () => generateTokenSecret()
 };
 
 /** A persona form value (Step 3a fields; import prefills these). */
@@ -46,8 +66,9 @@ export interface PersonaDraft {
 }
 
 /**
- * Resolve a code to the room preview: helper mapping → room → member count.
- * Three sequential reads; each is awaited before the card swaps (§3.1 step 2).
+ * Resolve a code to the room preview: invite-resolve seam → room → member
+ * count. Three sequential reads; each is awaited before the card swaps
+ * (§3.1 step 2). All reads are public (no token, §10.2).
  */
 export async function resolveRoomByCode(
   code: string,
@@ -55,70 +76,63 @@ export async function resolveRoomByCode(
 ): Promise<{ room: Room; members: User[] }> {
   const info = await clients.resolveInvite(code);
   const [room, members] = await Promise.all([
-    clients.getRoom(info.room_address),
-    clients.listRoomUsers(info.room_address)
+    clients.getRoom(info.roomAddress),
+    clients.listRoomUsers(info.roomAddress)
   ]);
   return { room, members };
 }
 
-/** Import picker: all non-deleted rooms (GET /api/room). */
-export function listImportRooms(clients: JoinClients = defaultClients): Promise<Room[]> {
-  return clients.listRooms();
-}
-
 /**
- * Import step 2: personas of the chosen old room (read 1 of the copy — the
- * persona list). Import is a client-side copy (architecture §8.4): exactly
- * two reads (listRoomUsers + getRoomUser) + one create per import.
- */
-export function listImportPersonas(
-  roomAddress: string,
-  clients: JoinClients = defaultClients
-): Promise<User[]> {
-  return clients.listRoomUsers(roomAddress);
-}
-
-/** Import prefill source: the old persona (read 2 of the copy). */
-export function readImportPersona(
-  roomAddress: string,
-  userAddress: string,
-  clients: JoinClients = defaultClients
-): Promise<User> {
-  return clients.getRoomUser(roomAddress, userAddress);
-}
-
-/**
- * Create the persona in the target room (the one create of the copy when
- * importing — a NEW user, never the old address, ruling 5 / §8.4).
+ * Create the persona in the target room (§3.1 step 3a — and the create of
+ * the vault-import copy): a client-generated raw token rides in the body
+ * together with `invite_code`; NO auth header (join, §10.2). Returns the
+ * created persona AND the generated token so the caller can persist
+ * identity + vault entry — both writes happen ONLY after this 2xx.
  */
 export async function createPersona(
   roomAddress: string,
+  inviteCode: string,
   draft: PersonaDraft,
   clients: JoinClients = defaultClients
-): Promise<User> {
+): Promise<{ user: User; token: string }> {
   const name = draft.name.trim();
-  return clients.createRoomUser(roomAddress, {
+  const token = clients.generateToken();
+  const user = await clients.createRoomUser(roomAddress, {
     name,
     ...(draft.publicBio.trim() !== '' ? { public_bio: draft.publicBio.trim() } : {}),
-    ...(draft.privateBio.trim() !== '' ? { private_bio: draft.privateBio.trim() } : {})
+    ...(draft.privateBio.trim() !== '' ? { private_bio: draft.privateBio.trim() } : {}),
+    invite_code: inviteCode,
+    token
   });
+  return { user, token };
+}
+
+/**
+ * Vault-import read: fetch the old persona WITH its stored token (full
+ * fields incl. `private_bio`; §10.6). One credentialed read per import
+ * selection; the vault entry itself is never mutated or removed.
+ */
+export function readVaultPersona(
+  entry: VaultEntry,
+  clients: JoinClients = defaultClients
+): Promise<User> {
+  return clients.getRoomUser(entry.roomAddress, entry.userAddress, { token: entry.token });
 }
 
 // ---------------------------------------------------------------------------
-// Error mapping (§3.1 interaction states)
+// Error mapping (§3.1 interaction states + §2.9 credential states)
 // ---------------------------------------------------------------------------
 
-/** Code-resolution errors: inline under the cells (400/404), banner
- * (network/api) or the gone-card state (room deleted meanwhile, 404 on
+/** Code-resolution errors: inline under the cells (malformed/not_found),
+ * banner (network/api) or the gone-card state (room deleted meanwhile, 404 on
  * getRoom/createRoomUser). */
 export type CodeError = 'malformed' | 'not_found' | 'network' | 'api' | 'gone';
 
 export function codeErrorOf(err: unknown): { kind: CodeError; text: string | null } {
   if (err instanceof NetworkError) return { kind: 'network', text: null };
-  if (err instanceof HelperError) {
-    if (err.status === 400) return { kind: 'malformed', text: null };
-    if (err.status === 404) return { kind: 'not_found', text: null };
-    return { kind: 'api', text: err.message };
+  if (err instanceof InviteResolveError) {
+    // The seam's mapped kinds are exactly the inline error kinds (§3.1).
+    return { kind: err.kind, text: null };
   }
   if (err instanceof ApiError) {
     if (err.status === 404) return { kind: 'gone', text: null }; // room deleted meanwhile
@@ -127,17 +141,43 @@ export function codeErrorOf(err: unknown): { kind: CodeError; text: string | nul
   return { kind: 'api', text: err instanceof Error ? err.message : null };
 }
 
-/** Persona-submit errors: field-level inline (§3.1 state table). */
-export type PersonaError = 'name_required' | 'name_taken' | 'gone' | 'network' | 'api';
+/**
+ * Persona-submit errors (§3.1 state table): field-level inline (400), the
+ * 409 name-taken copy, the gone card — and the §2.9 invite-code state:
+ * the creation rejected OVER the code (401/403/410 on create — the code is
+ * the creation credential; there is no auth header to be invalidated).
+ */
+export type PersonaError = 'name_required' | 'name_taken' | 'invite' | 'gone' | 'network' | 'api';
 
 export function personaErrorOf(err: unknown): { kind: PersonaError; text: string | null } {
   if (err instanceof NetworkError) return { kind: 'network', text: null };
   if (err instanceof ApiError) {
     if (err.status === 409) return { kind: 'name_taken', text: null };
     if (err.status === 404) return { kind: 'gone', text: null };
+    if (err.status === 401 || err.status === 403 || err.status === 410) {
+      return { kind: 'invite', text: null };
+    }
     return { kind: 'api', text: apiErrorText(err) };
   }
   return { kind: 'api', text: err instanceof Error ? err.message : null };
+}
+
+/**
+ * Vault-import read errors: a dead persona (server 404/403 or another
+ * rejection on the credentialed read) surfaces honestly on the row (the
+ * entry is never removed, append-only vault); `auth` marks a 401 — the
+ * global §2.8 gate has already cleared the identity and queued the
+ * redirect to `/`, so the caller renders nothing extra.
+ */
+export type VaultError = 'dead' | 'network' | 'auth';
+
+export function vaultErrorOf(err: unknown): { kind: VaultError; text: string | null } {
+  if (err instanceof NetworkError) return { kind: 'network', text: null };
+  if (err instanceof ApiError) {
+    if (err.status === 401) return { kind: 'auth', text: null };
+    return { kind: 'dead', text: apiErrorText(err) };
+  }
+  return { kind: 'dead', text: err instanceof Error ? err.message : String(err) };
 }
 
 /** Import/room-list errors surface through the same banner as resolution. */
@@ -157,17 +197,29 @@ export function apiErrorText(err: ApiError): string {
 }
 
 // ---------------------------------------------------------------------------
-// Deep links (§3.1: ?code=NNNNNN invite link · ?u={userAddress} persona QR)
+// Deep links (§3.1: ?code=NNNNNN invite link · ?u={userAddress}&m={code} and
+// ?u={userAddress} persona QR — the single-use mutual code is optional;
+// its absence selects the single-direction handshake variant, §3.8)
 // ---------------------------------------------------------------------------
 
-export type DeepLink = { kind: 'code'; code: string } | { kind: 'user'; userAddress: string } | null;
+export type DeepLink =
+  | { kind: 'code'; code: string }
+  | { kind: 'user'; userAddress: string; mutualCode: string | null }
+  | null;
 
 /** Accepts URLSearchParams or SvelteKit's ReadonlyURLSearchParams. */
 export function parseJoinDeepLink(params: { get(name: string): string | null }): DeepLink {
   const code = params.get('code');
   if (code !== null && isValidInviteCode(code)) return { kind: 'code', code };
   const user = params.get('u');
-  if (user !== null && user !== '') return { kind: 'user', userAddress: user };
+  if (user !== null && user !== '') {
+    const mutual = params.get('m');
+    return {
+      kind: 'user',
+      userAddress: user,
+      mutualCode: mutual !== null && mutual !== '' ? mutual : null
+    };
+  }
   return null;
 }
 
@@ -175,7 +227,7 @@ export function parseJoinDeepLink(params: { get(name: string): string | null }):
 // Step machine (pure, unit-tested)
 // ---------------------------------------------------------------------------
 
-export type JoinStep = 'code' | 'room' | 'persona' | 'rooms' | 'users';
+export type JoinStep = 'code' | 'room' | 'persona' | 'vault';
 
 export interface JoinState {
   step: JoinStep;
@@ -185,12 +237,10 @@ export interface JoinState {
   room: Room | null;
   /** Members of the target room (count only, §3.1). */
   members: User[];
-  /** Chosen old room in the import flow. */
-  importRoom: Room | null;
-  /** Personas of the chosen old room. */
-  importUsers: User[];
   /** Prefilled persona form (import) + the copy notice. */
   prefill: PersonaDraft | null;
+  /** Whether the prefill came from a vault entry (back goes to the vault). */
+  importing: boolean;
 }
 
 export const initialJoinState: JoinState = {
@@ -198,9 +248,8 @@ export const initialJoinState: JoinState = {
   code: '',
   room: null,
   members: [],
-  importRoom: null,
-  importUsers: [],
-  prefill: null
+  prefill: null,
+  importing: false
 };
 
 export type JoinEvent =
@@ -208,20 +257,17 @@ export type JoinEvent =
   | { type: 'resolved'; room: Room; members: User[] }
   | { type: 'choose-create' }
   | { type: 'choose-import' }
-  | { type: 'import-room-picked'; room: Room; users: User[] }
-  | { type: 'import-user-picked'; user: User }
+  | { type: 'vault-picked'; user: User }
   | { type: 'change-code' }
   | { type: 'back' };
 
-/** Back navigation per step: persona → (import users | room), users → rooms,
- * rooms → room preview, room → code entry. */
+/** Back navigation per step: persona → (vault | room preview), vault → room,
+ * room → code entry. */
 function previousStep(state: JoinState): JoinStep {
   switch (state.step) {
     case 'persona':
-      return state.prefill !== null ? 'users' : 'room';
-    case 'users':
-      return 'rooms';
-    case 'rooms':
+      return state.importing ? 'vault' : 'room';
+    case 'vault':
       return 'room';
     default:
       return 'code';
@@ -235,12 +281,10 @@ export function reduce(state: JoinState, event: JoinEvent): JoinState {
     case 'resolved':
       return { ...state, step: 'room', room: event.room, members: event.members };
     case 'choose-create':
-      return { ...state, step: 'persona', prefill: null };
+      return { ...state, step: 'persona', prefill: null, importing: false };
     case 'choose-import':
-      return { ...state, step: 'rooms', importRoom: null, importUsers: [], prefill: null };
-    case 'import-room-picked':
-      return { ...state, step: 'users', importRoom: event.room, importUsers: event.users };
-    case 'import-user-picked':
+      return { ...state, step: 'vault', prefill: null, importing: false };
+    case 'vault-picked':
       return {
         ...state,
         step: 'persona',
@@ -248,7 +292,8 @@ export function reduce(state: JoinState, event: JoinEvent): JoinState {
           name: event.user.name,
           publicBio: event.user.public_bio,
           privateBio: event.user.private_bio
-        }
+        },
+        importing: true
       };
     case 'change-code':
       return { ...initialJoinState };

@@ -1,28 +1,60 @@
 /**
- * "Who am I in this room" persistence (Concept §2): the attendee's room and
- * their user address, kept in localStorage. No accounts/auth in v1.
+ * "Who am I in this room" persistence (Concept §2; v2: ARCHITECTURE §10.4):
+ * the attendee's room, their user address and the persona access token
+ * (client-generated raw secret, hashed server-side) live in localStorage
+ * under the single key `bleak.identity`. The token is written nowhere else
+ * (§10.11 custody rule). No accounts/auth beyond the token.
  */
 import { writable } from 'svelte/store';
+import { clearMutualCode } from './mutualCode';
 
 export interface Identity {
   roomAddress: string;
   userAddress: string;
+  /**
+   * v2 persona access token (client-generated, base64url; §10.4/§10.5).
+   * Required since TZ2-06: the v2 join flow generates it before creation
+   * and the identity is written only after a successful creation, so every
+   * identity carries its credential. A persisted blob WITHOUT a token is a
+   * v1 legacy persona — dropped at init (§10.4, unrecoverable by owner
+   * decision; the `/` notice card is the only legacy-facing UI).
+   */
+  token: string;
 }
 
 const STORAGE_KEY = 'bleak.identity';
 
-function readStorage(): Identity | null {
+function isValidIdentity(value: Partial<Identity>): value is Identity {
+  return (
+    typeof value.roomAddress === 'string' &&
+    typeof value.userAddress === 'string' &&
+    typeof value.token === 'string' &&
+    value.token !== ''
+  );
+}
+
+/**
+ * Returns the parsed identity plus a `legacy` marker: a blob that parses but
+ * carries no token is a v1 persona (v2 drops it at init, §10.4 — legacy
+ * personas predate credentials and are unrecoverable by owner decision).
+ */
+function readRaw(): { identity: Identity | null; legacy: boolean } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === null) return null;
+    if (raw === null) return { identity: null, legacy: false };
     const parsed = JSON.parse(raw) as Partial<Identity>;
-    if (typeof parsed.roomAddress === 'string' && typeof parsed.userAddress === 'string') {
-      return { roomAddress: parsed.roomAddress, userAddress: parsed.userAddress };
+    if (isValidIdentity(parsed)) return { identity: parsed, legacy: false };
+    if (
+      typeof parsed.roomAddress === 'string' &&
+      typeof parsed.userAddress === 'string'
+    ) {
+      // Parses as a persona reference but has no token → v1 legacy blob.
+      return { identity: null, legacy: true };
     }
   } catch {
-    /* corrupted or unavailable storage — treat as anonymous */
+    /* corrupted or unavailable storage — treated below as no identity */
   }
-  return null;
+  return { identity: null, legacy: false };
 }
 
 function writeStorage(identity: Identity | null): void {
@@ -39,9 +71,43 @@ function writeStorage(identity: Identity | null): void {
 
 export const identity = writable<Identity | null>(null);
 
-/** Load persisted identity; call once from the root layout. */
+/**
+ * Load persisted identity; call once from the root layout (and defensively
+ * per guarded route, as v1 does). Semantics (§10.4 legacy drop):
+ * - a persisted identity WITH a token is restored as-is;
+ * - a persisted v1 identity WITHOUT a token is dropped when no live identity
+ *   is held (fresh boot): the store stays null and the stale blob is removed;
+ * - when the store already holds a live identity (in-session defensive
+ *   re-init on route mounts), the live session is kept untouched — a v2
+ *   identity is always written with its token, so this path only covers
+ *   the same-session re-mount of a freshly created persona;
+ * - no blob or corrupted JSON → null (v1 semantics).
+ */
 export function initIdentity(): void {
-  identity.set(readStorage());
+  const { identity: persisted, legacy } = readRaw();
+  if (persisted !== null) {
+    identity.set(persisted);
+    return;
+  }
+  if (legacy) {
+    let current: Identity | null = null;
+    const unsubscribe = identity.subscribe((value) => {
+      current = value;
+    });
+    unsubscribe();
+    if (current === null) {
+      // Fresh boot onto a persisted v1 persona: drop it, earlier and quieter
+      // than waiting for the first credentialed 401 (§10.4).
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+    // Live identity held: keep it (in-session re-init; see doc above).
+    return;
+  }
+  identity.set(null);
 }
 
 export function saveIdentity(next: Identity): void {
@@ -49,7 +115,9 @@ export function saveIdentity(next: Identity): void {
   writeStorage(next);
 }
 
+/** Clear the identity — the one-time mutual code is cleared with it (§10.4). */
 export function clearIdentity(): void {
   identity.set(null);
   writeStorage(null);
+  clearMutualCode();
 }

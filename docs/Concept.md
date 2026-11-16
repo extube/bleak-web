@@ -1,6 +1,7 @@
 # bleak-web — Concept
 
-Status: **APPROVED — v1 concept frozen** (all topics ✅; awaiting owner go-ahead for the architect)
+Status: v1 **APPROVED & DELIVERED** (owner ran it, 2026-11-15). §6 v2 scope
+(ownership & credentials) drafted 2026-11-15 — **pending owner approval**.
 
 ---
 
@@ -173,6 +174,139 @@ Three reference images kept locally at **`docs/refs/`** (gitignored by owner dec
 
 ---
 
+## 6. v2 scope — Ownership & credentials (client side) — DRAFTED 2026-11-15, pending owner approval
+
+**Authority:** bleak-node `CONCEPT.md` §7.1–§7.4 (decided with the owner,
+2026-11-15) and bleak-node `docs/PLAN-ownership-tokens.md` (the backend
+implementation plan — built by the owner separately). bleak-web remains a
+thin, contract-driven client: this section defines only what the client
+does against the new credential model. Where it supersedes v1 rulings, the
+superseded text stays in §1c as history; this section wins.
+
+### 6.1 Identity & persona tokens
+
+- The **identity store** gains the persona token: the client generates it
+  at persona creation (≥ 32 random bytes, base64url), sends it **raw** in
+  the create request (server stores only its SHA-256 hash — never
+  displayed, never logged client-side beyond `localStorage`).
+  `bleak.identity` = `{ roomAddress, userAddress, token }`.
+- **`Authorization: Bearer <token>`** is attached by the api-client to:
+  every persona mutation (edit/delete, greeting save/regenerate), every
+  handshake send, token rotation, mutual-code refresh, the mutual-QR
+  endpoint, and all gated reads (private data, per-user listings, chat
+  reads/kickoff/clear, host chat observation with the room token).
+- **Token rotation UI** in profile settings: "Regenerate access token" →
+  client generates a new secret → rotation endpoint with the current
+  Bearer → stored token replaced. Old token dies server-side; other
+  devices holding the old token are locked out (accepted consequence).
+- **Global 401 policy:** any 401 on a credentialed call means the stored
+  credential is invalid or the persona predates credentials (v1 legacy).
+  The app clears identity and redirects to `/` with a notice: RU «У этой
+  персоны нет действительного ключа доступа — присоединитесь заново по
+  коду события.» / EN "This persona has no valid access credential — join
+  again with the event code." (Owner accepted: legacy attendee personas
+  are unrecoverable; all current backend data is test data.)
+
+### 6.2 Join flow changes
+
+- Persona creation now sends `invite_code` (the already-resolved 6-digit
+  code) together with the freshly generated client token. An
+  invalid/expired/revoked code blocks creation with an explicit inline
+  error (RU «Код приглашения недействителен или истёк.» / EN "The invite
+  code is invalid or expired.").
+- **Import is redefined around a device token vault.** The client keeps
+  `bleak.tokenVault` (localStorage): every persona ever created on this
+  device (room + user address + token). "Import from a previous event"
+  lists **vault entries** (not server room listings — without the token,
+  private fields are unreadable and importing someone else's persona is
+  exactly the risk v1 accepted and v2 closes). Selecting a vault persona
+  fetches it with its stored token (full fields incl. `private_bio`) and
+  re-creates it in the new room with `invite_code` + a **new** token. The
+  old persona and its token remain untouched. "Join another event" keeps
+  the vault.
+
+### 6.3 Persona badge — live QR
+
+- The badge QR encodes `?u={userAddress}&m={mutualCode}` (binding payload
+  of bleak-node §7.3.5). The client **generates** the one-time mutual
+  code, renders it, and registers its **hash** via the token-authenticated
+  mutual-code refresh endpoint.
+- While the profile page is open, the gated persona read is polled; a
+  derived `mutual_code_live = false` → the client generates a new code,
+  registers it, and re-renders the QR. The badge is a live object: once
+  someone scans it, the displayed QR visibly rotates.
+
+### 6.4 Scanner (context b) — server-mediated mutual handshake
+
+- The v1 client-side two-POST routine (`lib/scanner/mutualHandshake.ts`)
+  is **deleted** — B→A from one phone is impossible under the token rule.
+- The confirm card now calls `POST /api/handshake/mutual` with the
+  scanner's own Bearer token + the scanned `u` + `m`. States: success →
+  chat link; **410** → new error state RU «Код уже использован — попросите
+  обновить QR на карточке.» / EN "Code already used — ask them to refresh
+  their badge QR."; **403 (income rule)** → server text surfaced (see
+  6.5); already-mutual pairs → success state (the backend still burns the
+  code, per §7.3 — no client special-casing).
+- Deep link `/?u={address}&m={code}` runs the same routine (full confirm
+  card per TZ flag 5). `/?u=` **without** `m` degrades to a
+  single-direction handshake request (own token authenticates it).
+
+### 6.5 Handshake sending & the income rule
+
+- All handshake sends (radar sheet, people card, scanner, deep links)
+  carry the Bearer token.
+- A 403 from the income>outcome rule becomes a first-class UI state, not a
+  generic error: RU «Лимит исходящих хендшейков — сначала получите
+  рукопожатия в ответ.» / EN "Outgoing handshake limit reached — receive
+  handshakes first." (server text appended when present).
+
+### 6.6 Host console rework
+
+- **Token gate replaced:** the host enters the operator-granted **one-time
+  creation token** (masked input) and the client generates the **room
+  token**; `POST /api/room` sends the creation token in the header and the
+  room token in the body. The creation token is consumed — not stored.
+  `bleak.hostRoom` = `{ roomAddress, roomToken, code }`. Room-token
+  rotation is available in host settings.
+- **Invite management block** (new, room-token authority): list active
+  codes, mint a code (settable expiry, default 24 h), revoke.
+- **Share kit** unchanged visually (code display, QR, invite link, "join
+  as attendee"); the QR/link now use the native code directly.
+- **Member drill-down reworked** for the credential model: chats of a
+  member are read with the **room token** (full room control incl. clear +
+  kickoff from the drill-down). Handshake sent/received counts per member
+  are **pending a small bleak-node amendment** (flag 6.9a) — the UI ships
+  with chat drill-down and shows counts only if the amendment lands.
+- Room settings / delete room authenticated with the room token.
+
+### 6.7 Helper service
+
+- The code→address mapping is **retired** (bleak-node resolves invite
+  codes natively). The helper keeps only `GET /h/rooms/{code}/qr` (PNG)
+  for the share kit until QR rendering moves server-side; the helper's
+  `x-host-token` gate is retired (room creation is gated by bleak-node's
+  one-time creation tokens).
+
+### 6.8 i18n, a11y, errors
+
+- Every new state above ships in RU and EN (parity test stays green).
+- 401 auto-recovery, 403 income-rule states, and 410 stale-code states are
+  announced via `aria-live="polite"`.
+
+### 6.9 Flags (small bleak-node amendments to confirm during its implementation)
+
+- **(a) Room-scoped per-user reads with the room token:** host drill-down
+  handshake counts need `GET /api/room/{room}/user/{address}/chat`-style
+  room-scoped listings to accept the room token. Default: **yes, amend**
+  §7.1 point 4 accordingly; otherwise the host UI omits handshake counts.
+- **(b) Invite-code lookup for join:** the join flow needs code → room
+  resolution before persona creation (today the helper does it). Backend
+  shape TBD by the owner during implementation (e.g. codes unique
+  globally, resolve via room list, or a small public resolve endpoint) —
+  the client adapts to whatever ships.
+
+---
+
 ## Approval
 
 - [x] Topics 1–5 decided (all ✅ approved above)
@@ -181,4 +315,11 @@ Three reference images kept locally at **`docs/refs/`** (gitignored by owner dec
 - [x] Owner approved **docs/ARCHITECTURE.md** and **docs/DESIGN.md** (rev. 2) — **2026-11-14** → TZ pass authorized.
 - [x] Architect (acff3ab8) — architecture + scaffolding **done**; TZ pass done (`docs/TZ.md`).
 - [x] Owner approved **docs/TZ.md** (conservative flag interpretations accepted) — **2026-11-14** → **build loop authorized** (process agent; default per-feature merge-approval mode).
-- [ ] Build loop → v1 done (TZ §6 Definition of Done).
+- [x] Build loop → **v1 delivered** — owner ran the first version, 2026-11-15 ("awesome").
+- [x] bleak-node `CONCEPT.md` §7.1–§7.4 (ownership tokens, invite codes, mutual-QR) decided with the owner — **2026-11-15** (bleak-node repo; implementation by the owner, per its `docs/PLAN-ownership-tokens.md`).
+- [x] Owner approved **§6 v2 scope** (with §6.9 defaults) — **2026-11-15** → architect pass authorized (ARCHITECTURE/TZ v2, DESIGN rev. 3) → build loop for the credentials client scope.
+- [x] Architect (81037a13) — **ARCHITECTURE.md §10 v2 credentials addendum** delivered & merged into `dev` (2026-11-15).
+- [x] Design (bd636f23) — **DESIGN.md rev. 3** (118 ACs) delivered & merged; **owner approved** (2026-11-15) → TZ pass authorized.
+- [x] Architect TZ pass v2 (81037a13) — **TZ.md Part II** delivered & merged (2026-11-15): 13 tasks (TZ2-01…TZ2-13), 118/118 ACs mapped, 5-wave plan, DoD v2.
+- [x] Owner approved **TZ v2** — **2026-11-15** → **v2 build loop authorized** (process agent; default per-feature merge-approval mode, `NOT_MAINTAIN_APPROVAL` unset).
+- [x] Build loop v2 → **done** (2026-11-16): 21/21 tasks closed, final wave-CI green (522 tests), `docs/verification-v2.md` records 118/118 ACs; §8.6 DoD checklist fully met. Post-loop: bleak-node WP-6 reconciliation (hash `90b95f75`), `tz2-07a` pre-authorized behind flag 6.9a, pre-event device-smoke checklist in the verification doc.

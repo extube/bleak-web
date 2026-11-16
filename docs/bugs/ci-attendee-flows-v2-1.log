@@ -1,0 +1,29 @@
+# Wave-2 CI (tasks 19+20 merged together, §8.8.2 batching) — 2026-11-16
+# Command: make lint && make test && make build (on dev after TZ2-06 + TZ2-07 merges)
+# Result: lint PASS, test PASS (522 total: 23 api-client + 8 helper + 491 web), build FAIL
+
+## make lint
+PASS (eslint . clean)
+
+## make test
+PASS — api-client: 23 passed (1 file); helper: 8 passed (2 files); web: 491 passed (39 files).
+(note: first attempt failed with "vitest: not found" in apps/web — apps/web/node_modules was
+partially wiped by the overnight environment reset; fixed by process via `make setup`, not a
+product issue.)
+
+## make build (FAIL)
+svelte-check error:
+/workspace/apps/web/tests/transcript-page.test.ts:412:7
+Error: Object literal may only specify known properties, and 'roomName' does not exist in type 'HostRoomRef'.
+      roomToken: 'r-tok',
+      roomName: '',
+      inviteUrl: ''
+svelte-check found 1 error and 11 warnings in 6 files
+npm error Lifecycle script `build` failed with error code 1 (workspace @bleak/web)
+
+# Diagnosis
+TZ2-07 (79be6839) removed the deprecated HostRoomRef.roomName/inviteUrl fields (pre-authorized
+shim removal, part of Part B). TZ2-06 (3bcc70ed) Part D's viewer-fallback tests in
+apps/web/tests/transcript-page.test.ts still construct a host-room ref with the removed fields
+(the branches were parallel; neither saw the other's change). Mechanical one-line-class fix:
+drop roomName/inviteUrl from the fixture (keep roomToken) in transcript-page.test.ts.

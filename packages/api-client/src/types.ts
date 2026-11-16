@@ -33,6 +33,13 @@ export interface User {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  /**
+   * Derived liveness flag (CONCEPT §7.3.2): true while the user's stored
+   * mutual_code_hash is live (not yet burned). Returned only on token-gated
+   * reads. Reconciled 2026-11-16: swagger `server.MutualCodeResponse`
+   * confirms the name.
+   */
+  mutual_code_live?: boolean;
 }
 
 /** model.Handshake — directed pair (from_address -> to_address), same room. */
@@ -137,4 +144,102 @@ export interface KickoffResponse {
 export interface ClearChatResponse {
   chat: string;
   cleared: number;
+}
+
+// ---------------------------------------------------------------------------
+// v2 credentials (CONCEPT §7 / ARCHITECTURE §10.2) — reconciled 2026-11-16
+//
+// bleak-node WP-1…WP-7 landed (swagger paths present; contract header in the
+// owner's TODO-tokens.md). Every former `TBD(WP-6)` marker below was checked
+// against `/mount/bleak-node/docs/swagger.json` and renamed/confirmed; the
+// reconciliation record lives in the round's task card and worker log.
+// ---------------------------------------------------------------------------
+
+/**
+ * Persona creation (join) — supersedes the v1 CreateUserRequest body
+ * (ARCHITECTURE §10.2). Sent raw to POST /api/room/{room}/user with NO auth
+ * header: the join is public, the freshly generated persona `token` is
+ * carried in the body and hashed server-side.
+ */
+export interface CreateUserRequestV2 {
+  name: string;
+  public_bio?: string;
+  private_bio?: string;
+  /** The resolved 6-digit invite code (CONCEPT §6.2). */
+  invite_code: string;
+  /** Client-generated persona token, RAW (≥32 random bytes, base64url). */
+  token: string;
+}
+
+/**
+ * Room creation (host) — body of POST /api/room; the one-time creation token
+ * travels in the HEADER (see BleakClient.createRoom), the room token in the
+ * body. Reconciled 2026-11-16: header `x-create-token`, body fields match
+ * `server.CreateRoomRequest` verbatim; the response extends the v1 room with
+ * the first `invite_code` (`server.CreateRoomResponse`).
+ */
+export interface CreateRoomRequestV2 {
+  name: string;
+  description?: string;
+  language?: string;
+  /** Client-generated room token, RAW (≥32 random bytes, base64url). */
+  token: string;
+}
+
+/** Response of POST /api/room — the created room + the FIRST minted invite
+ * code (`server.CreateRoomResponse`, reconciled 2026-11-16). */
+export interface CreateRoomResponse extends Room {
+  invite_code: string;
+}
+
+/** Body of POST /api/handshake/mutual (CONCEPT §7.3). */
+export interface MutualHandshakeRequest {
+  /** The scanned persona's user address (`u` of the badge QR payload). */
+  user_address: string;
+  /** The scanned one-time mutual code (`m` of the badge QR payload), RAW. */
+  mutual_code: string;
+}
+
+/** Body of POST /api/room/{room}/user/{address}/mutual-code (CONCEPT §7.3.3). */
+export interface MutualCodeRegistration {
+  /**
+   * The SHA-256 hex hash of the new one-time mutual code — the registration
+   * is the ONE call that must never carry the raw code (CONCEPT §7.4).
+   * Reconciled 2026-11-16: matches `server.SetMutualCodeRequest`.
+   */
+  mutual_code_hash: string;
+}
+
+/** Body of POST …/token — credential rotation; the new RAW secret. */
+export interface TokenRotationRequest {
+  token: string;
+}
+
+/** Body of POST /api/room/{address}/invite (CONCEPT §7.2). */
+export interface InviteMintRequest {
+  /** ISO expiry; omitted → server-side default (24 h). Matches
+   * `server.CreateInviteRequest` (reconciled 2026-11-16). */
+  expires_at?: string;
+}
+
+/**
+ * An active invite code as returned by the invite management endpoints
+ * (CONCEPT §7.2). Reconciled 2026-11-16 against `server.InviteResponse`:
+ * the mint/list response carries the owning room's address too.
+ */
+export interface Invite {
+  room: string;
+  code: string;
+  created_at: string;
+  expires_at: string;
+}
+
+/**
+ * Response of POST /api/handshake/mutual — `server.MutualHandshakeResponse`:
+ * the backend creates BOTH directed handshakes and returns the (new or
+ * existing) chat together with the full handshake pair.
+ */
+export interface MutualHandshakeResponse {
+  chat: Chat;
+  handshakes: Handshake[];
 }

@@ -1,30 +1,32 @@
 <script lang="ts">
   /**
-   * Token gate (DESIGN §3.7 item 2): masked password input on a surface
-   * card. The token is validated lazily (on first create — there is no
-   * validate endpoint); a helper 401/403 surfaces «Токен отклонён.» under
-   * the field with the entered value kept masked. "Forget token" clears
-   * `bleak.hostToken`.
+   * Creation-token gate (DESIGN rev. 3 §3.7 item 2): masked password input
+   * on a surface card. The one-time token is validated lazily (on first
+   * create — there is no validate endpoint) and is NEVER persisted anywhere:
+   * it lives only in the console's memory for the duration of the create
+   * call (consumed server-side on use). A 401/403 surfaces «Токен
+   * отклонён.» under the field with the entered value kept masked.
    */
   import { locale, translate } from '#lib/i18n/locale';
 
   interface Props {
-    /** Stored token (keeps the field filled on revisit / rejection). */
+    /** In-memory value kept across a rejection (NEVER persisted). */
     initial?: string;
     /** Rejection line rendered under the field (server text appended). */
     rejected?: string | null;
     onsubmit?: (token: string) => void;
-    onforget?: () => void;
   }
 
-  let { initial = '', rejected = null, onsubmit, onforget }: Props = $props();
+  let { initial = '', rejected = null, onsubmit }: Props = $props();
 
+  // Intentional initial capture: the in-memory creation token survives a
+  // rejection via the page prop (never persisted — the value dies with the
+  // console visit).
   let value = $state(initial);
 
-  const fieldLabel = $derived(translate($locale, 'host.token.label'));
-  const note = $derived(translate($locale, 'host.token.note'));
-  const continueLabel = $derived(translate($locale, 'host.token.continue'));
-  const forgetLabel = $derived(translate($locale, 'host.token.forget'));
+  const fieldLabel = $derived(translate($locale, 'host.gate.label'));
+  const note = $derived(translate($locale, 'host.gate.note'));
+  const continueLabel = $derived(translate($locale, 'host.gate.continue'));
 
   function submit(event: SubmitEvent): void {
     event.preventDefault();
@@ -51,10 +53,6 @@
   {/if}
 
   <button type="submit" class="cta">{continueLabel}</button>
-
-  {#if initial !== ''}
-    <button type="button" class="link" onclick={() => onforget?.()}>{forgetLabel}</button>
-  {/if}
 
   <p class="note">{note}</p>
 </form>
@@ -98,14 +96,6 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-  }
-  .link {
-    background: transparent;
-    border: none;
-    color: var(--color-text-muted);
-    min-height: var(--touch-target);
-    font-size: 14px;
-    text-align: left;
   }
   .note {
     margin: 0;

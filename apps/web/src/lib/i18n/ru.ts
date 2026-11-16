@@ -37,9 +37,17 @@ export const ru: Record<MessageKey, string> = {
   'join.error.name_taken': 'Такое имя в комнате уже занято.',
   'join.error.gone': 'Событие больше не доступно.',
   'join.error.name_required': 'Введите имя.',
-  'join.import.title': 'Прошлые события',
+  // v2 vault import (DESIGN rev. 3 §4.7) — эти ключи переопределены под
+  // токен-хранилище устройства; ImportRooms/ImportUsers заменяет TZ2-07.
+  'join.import.title': 'Импортировать с этого устройства',
+  'join.import.subtitle': 'Персоны, созданные на этом телефоне.',
   'join.import.pick_persona': 'Выберите персону',
-  'join.import.empty': 'Нет прошлых событий.',
+  'join.import.empty': 'На этом устройстве пока нет сохранённых персон.',
+  'join.import.saved_at': 'Сохранено {date} · комната {room}',
+  'join.import.row_aria': 'Импортировать персону {name}',
+  'join.import.dead':
+    'Эта персона больше не существует на сервере. Запись останется в списке, но импорт невозможен.',
+  'join.error.invite': 'Код приглашения недействителен или истёк.',
   'join.resume.title': 'Продолжить в «{room}»',
   'join.resume.another': 'Присоединиться к другому событию',
 
@@ -59,6 +67,7 @@ export const ru: Record<MessageKey, string> = {
   'scan.fallback.find_list': 'Найти в списке',
   'scan.again': 'Сканировать снова',
   'scan.invalid_qr': 'Это не QR-код bleak-web.',
+  'scan.code_used': 'Код уже использован — попросите обновить QR на карточке.',
   'scan.own_qr': 'Это ваш собственный QR — покажите его кому-нибудь другому.',
   'scan.foreign_persona': 'Эта персона из другого события.',
   'scan.confirm.title': 'Отправить взаимные хендшейки и запустить агентов?',
@@ -89,6 +98,7 @@ export const ru: Record<MessageKey, string> = {
   'hs.chatting': 'Общаемся',
   'hs.agents_talking': 'Агенты уже общаются',
   'hs.open_dialog': 'Открыть диалог',
+  'hs.income_limit': 'Лимит исходящих хендшейков — сначала получите рукопожатия в ответ.',
   'hs.error.network': 'Нет связи. Проверьте Wi-Fi.',
 
   /* --- people --- */
@@ -128,6 +138,7 @@ export const ru: Record<MessageKey, string> = {
   'chat.back_to_list': 'К списку диалогов',
   'chat.scroll_bottom': 'К последним сообщениям',
   'chat.new_message': 'Новое сообщение от {name}',
+  'chat.host_view': 'Наблюдение хоста',
 
   /* --- profile --- */
   'profile.title': 'Профиль',
@@ -159,21 +170,33 @@ export const ru: Record<MessageKey, string> = {
   'profile.stats.dialogs': 'Диалоги {n}',
   'profile.qr.caption': 'Покажите, чтобы обменяться рукопожатиями',
   'profile.qr.alt': 'Персональный QR-код',
+  'profile.qr.onetime': 'QR одноразовый — после обмена он обновится сам.',
+  'profile.qr.refreshed': 'QR обновлён',
+  'profile.qr.aria': 'Ваш одноразовый QR для обмена рукопожатиями',
   'profile.saved': 'Сохранено',
   'profile.leave': 'Выйти из комнаты',
   'profile.leave.confirm_body':
     'Ваша персона будет удалена из комнаты вместе с хендшейками и диалогами.',
   'profile.not_found': 'Персона не найдена',
   'profile.exit': 'Выйти',
+  'profile.rotate.row': 'Сгенерировать новый ключ доступа',
+  'profile.rotate.title': 'Сгенерировать новый ключ доступа?',
+  'profile.rotate.body':
+    'Текущий ключ перестанет действовать: другие устройства с этим ключом потеряют доступ к персоне.',
+  'profile.rotate.cta': 'Сгенерировать',
+  'profile.rotate.done': 'Ключ обновлён',
 
   /* --- host --- */
   'host.title': 'Хост',
   'host.subtitle': 'Создайте комнату события и поделитесь приглашением.',
-  'host.token.label': 'Токен хоста',
+  // v2-учётные данные (DESIGN rev. 3 §3.7): гейт одноразового токена создания —
+  // переименованные ключи host.gate.*; остатки host.token.* уберёт TZ2-11.
+  'host.gate.label': 'Токен создания комнаты',
+  'host.gate.continue': 'Продолжить',
+  'host.gate.note':
+    'Одноразовый токен выдаёт оператор развертывания. После создания комнаты он больше не нужен и не сохраняется.',
+  'host.session_reset': 'Доступ к комнате отозван — войдите заново с токеном создания.',
   'host.token.rejected': 'Токен отклонён.',
-  'host.token.forget': 'Забыть токен',
-  'host.token.note': 'Токен выдаётся владельцем развертывания.',
-  'host.token.continue': 'Продолжить',
   'host.form.name': 'Название',
   'host.form.description': 'Описание',
   'host.form.language': 'Язык агентов',
@@ -195,10 +218,37 @@ export const ru: Record<MessageKey, string> = {
   'host.stats.members_only': 'Участники',
   'host.stats.language_only': 'Язык',
   'host.member.open': '{name} — открыть карточку',
-  'host.drill.sent': 'Отправлено хендшейков: {n}',
-  'host.drill.received': 'Получено хендшейков: {n}',
+  // v2-управление приглашениями + drill-down с токеном комнаты
+  // (DESIGN rev. 3 §3.7, §4.7)
+  'host.invites.title': 'Коды приглашения',
+  'host.invites.hint': 'Код действует до истечения срока; отозвать можно в любой момент.',
+  'host.invites.mint': 'Выпустить код',
+  'host.invites.preset.1h': '1 час',
+  'host.invites.preset.24h': '24 часа',
+  'host.invites.preset.7d': '7 дней',
+  'host.invites.preset.custom': 'Своё время…',
+  'host.invites.custom_label': 'Код истекает',
+  'host.invites.expires_in': 'истекает через {time}',
+  'host.invites.revoke': 'Отозвать',
+  'host.invites.revoke_aria': 'Отозвать код {code}',
+  'host.invites.qr_toggle': 'QR кода {code}',
+  'host.invites.revoked': 'Код отозван.',
+  'host.rotate_room.row': 'Сгенерировать ключ комнаты',
+  'host.rotate_room.title': 'Сгенерировать ключ комнаты?',
+  'host.rotate_room.body': 'Текущий ключ комнаты перестанет действовать. Продолжить?',
+  'host.rotate_room.cta': 'Сгенерировать',
+  'host.rotate_room.done': 'Ключ комнаты обновлён',
+  'host.drill.clear': 'Очистить историю',
+  'host.drill.clear_confirm': 'История диалога участников будет очищена.',
+  'host.drill.empty': 'У участника пока нет диалогов.',
+  'host.drill.pending_amendment':
+    'Список диалогов участника появится вместе с серверным обновлением (флаг 6.9a).',
+  'host.drill.kickoff': 'Запустить заново',
   'host.drill.dialogs': 'Диалоги',
-  'host.drill.no_dialogs': 'Диалогов пока нет.',
+
+  /* --- глобальный гейт 401 (DESIGN rev. 3 §2.8, §4.7) --- */
+  'auth.401.notice':
+    'У этой персоны нет действительного ключа доступа — присоединитесь заново по коду события.',
 
   /* --- common --- */
   'common.loading': 'Загрузка…',

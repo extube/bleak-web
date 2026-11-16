@@ -9,7 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { get } from 'svelte/store';
-import { NetworkError } from '@bleak/api-client';
+import { ApiError, NetworkError } from '@bleak/api-client';
 import type { Chat, Handshake, Room, User } from '@bleak/api-client';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
@@ -109,8 +109,11 @@ function setState(next: { users?: User[]; handshakes?: Handshake[]; chats?: Chat
 function mountIdentity(): void {
   // The page hydrates the store from localStorage defensively (initIdentity),
   // so both the storage and the store must carry the identity before render.
-  localStorage.setItem('bleak.identity', JSON.stringify({ roomAddress: room.address, userAddress: ME }));
-  identity.set({ roomAddress: room.address, userAddress: ME });
+  localStorage.setItem(
+    'bleak.identity',
+    JSON.stringify({ roomAddress: room.address, userAddress: ME, token: 'p-tok' })
+  );
+  identity.set({ roomAddress: room.address, userAddress: ME, token: 'p-tok' });
 }
 
 const mockedApi = vi.mocked(api, true);
@@ -280,6 +283,33 @@ describe('/room — HandshakeSheet per-state actions (AC 4–7)', () => {
     expect(await screen.findByText(ru['hs.error.network'])).toBeTruthy();
     const active = screen.getByRole('button', { name: ru['hs.send'] });
     expect(active.hasAttribute('disabled')).toBe(false);
+  });
+
+  it('a 403 income-rule rejection shows the §2.9 state inline in the sheet (AC 15)', async () => {
+    mockedApi.createHandshake.mockRejectedValue(
+      new ApiError(403, '/api/handshake', 'income must exceed outcome')
+    );
+    mountIdentity();
+    render(RoomPage, { props: {} });
+    await screen.findByText(room.name);
+
+    const carolNode = await screen.findByRole('button', {
+      name: ru['room.node.none'].replace('{name}', 'Кэрол')
+    });
+    await carolNode.click();
+    await screen.getByRole('button', { name: ru['hs.send'] }).click();
+
+    await screen.findByText(ru['hs.income_limit']);
+    // Server text appended muted (§2.9).
+    expect(screen.getByText(/income must exceed outcome/)).toBeTruthy();
+    // The button returns to its active state — no optimistic "sent" flip;
+    // the node stays on its (outer) ring.
+    const active = screen.getByRole('button', { name: ru['hs.send'] });
+    expect(active.hasAttribute('disabled')).toBe(false);
+    expect(screen.queryByRole('button', { name: ru['hs.sent'] })).toBeNull();
+    expect(
+      screen.getByRole('button', { name: ru['room.node.none'].replace('{name}', 'Кэрол') })
+    ).toBeTruthy();
   });
 
   it('idempotent re-send (server 200) is treated as success (AC 7)', async () => {

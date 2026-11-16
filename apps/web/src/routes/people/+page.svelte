@@ -48,9 +48,9 @@
   // --- per-card interaction state (component state, per page visit) ---------
   let expandedAddress = $state<string | null>(null);
   let sendingAddress = $state<string | null>(null);
-  let actionError = $state<null | { address: string; kind: 'network' | 'api'; message: string | null }>(
-    null
-  );
+  let actionError = $state<
+    null | { address: string; kind: 'network' | 'api' | 'income'; message: string | null }
+  >(null);
   /** address → incomingAt recorded at dismiss time (ruling 2). */
   const dismissals = new SvelteMap<string, string>();
 
@@ -82,6 +82,17 @@
   function errorFrom(cause: unknown): { kind: 'network' | 'api'; message: string | null } {
     if (cause instanceof ApiError) return { kind: 'api', message: cause.message };
     return { kind: 'network', message: null };
+  }
+
+  /** Handshake-action errors: a 403 is the §2.9 income-rule state (AC 13). */
+  function actionErrorFrom(cause: unknown): {
+    kind: 'network' | 'api' | 'income';
+    message: string | null;
+  } {
+    if (cause instanceof ApiError && cause.status === 403) {
+      return { kind: 'income', message: cause.message };
+    }
+    return errorFrom(cause);
   }
 
   const poller = new Poller({
@@ -163,7 +174,7 @@
         return poller.refresh();
       })
       .catch((cause: unknown) => {
-        actionError = { address: toAddress, ...errorFrom(cause) };
+        actionError = { address: toAddress, ...actionErrorFrom(cause) };
       })
       .finally(() => {
         sendingAddress = null;

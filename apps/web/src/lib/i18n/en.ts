@@ -36,9 +36,17 @@ export const en = {
   'join.error.name_taken': 'That name is already taken in the room.',
   'join.error.gone': 'This event is no longer available.',
   'join.error.name_required': 'Enter your name.',
-  'join.import.title': 'Previous events',
+  // v2 vault import (DESIGN rev. 3 §4.7) — these keys are redefined for the
+  // device token vault; ImportRooms/ImportUsers are replaced by TZ2-07.
+  'join.import.title': 'Import from this device',
+  'join.import.subtitle': 'Personas created on this phone.',
   'join.import.pick_persona': 'Choose a persona',
-  'join.import.empty': 'No previous events.',
+  'join.import.empty': 'No saved personas on this device yet.',
+  'join.import.saved_at': 'Saved {date} · room {room}',
+  'join.import.row_aria': 'Import persona {name}',
+  'join.import.dead':
+    'This persona no longer exists on the server. The entry stays listed, but it cannot be imported.',
+  'join.error.invite': 'The invite code is invalid or expired.',
   'join.resume.title': 'Continue to {room}',
   'join.resume.another': 'Join another event',
 
@@ -58,6 +66,7 @@ export const en = {
   'scan.fallback.find_list': 'Find in the list',
   'scan.again': 'Scan again',
   'scan.invalid_qr': 'This is not a bleak-web QR code.',
+  'scan.code_used': 'Code already used — ask them to refresh their badge QR.',
   'scan.own_qr': "That's your own QR — show it to someone else.",
   'scan.foreign_persona': 'This persona is from another event.',
   'scan.confirm.title': 'Send mutual handshakes and start the agents?',
@@ -88,6 +97,7 @@ export const en = {
   'hs.chatting': 'Chatting',
   'hs.agents_talking': 'Your agents are already talking',
   'hs.open_dialog': 'Open dialog',
+  'hs.income_limit': 'Outgoing handshake limit reached — receive handshakes first.',
   'hs.error.network': 'Connection lost. Check the Wi-Fi.',
 
   /* --- people (DESIGN §3.3, §4.7) --- */
@@ -127,6 +137,7 @@ export const en = {
   'chat.back_to_list': 'Back to dialogs',
   'chat.scroll_bottom': 'Jump to latest',
   'chat.new_message': 'New message from {name}',
+  'chat.host_view': 'Host view',
 
   /* --- profile (DESIGN §3.6, §4.7) --- */
   'profile.title': 'Profile',
@@ -158,21 +169,33 @@ export const en = {
   'profile.stats.dialogs': 'Dialogs {n}',
   'profile.qr.caption': 'Show this to trade handshakes',
   'profile.qr.alt': 'Personal QR code',
+  'profile.qr.onetime': 'The QR is one-time — it refreshes itself after a handshake.',
+  'profile.qr.refreshed': 'QR refreshed',
+  'profile.qr.aria': 'Your one-time handshake QR',
   'profile.saved': 'Saved',
   'profile.leave': 'Leave the room',
   'profile.leave.confirm_body':
     'Your persona will be removed from the room along with its handshakes and dialogs.',
   'profile.not_found': 'Persona not found',
   'profile.exit': 'Leave',
+  'profile.rotate.row': 'Regenerate access token',
+  'profile.rotate.title': 'Regenerate the access token?',
+  'profile.rotate.body':
+    'The current credential will stop working: other devices holding it will lose access to this persona.',
+  'profile.rotate.cta': 'Regenerate',
+  'profile.rotate.done': 'Credential updated',
 
   /* --- host (DESIGN §3.7, §4.7) --- */
   'host.title': 'Host',
   'host.subtitle': 'Create an event room and share the invite.',
-  'host.token.label': 'Host token',
+  // v2 credentials (DESIGN rev. 3 §3.7): one-time creation-token gate — the
+  // renamed host.gate.* keys; host.token.* remnants stay until TZ2-11 drops them.
+  'host.gate.label': 'Room creation token',
+  'host.gate.continue': 'Continue',
+  'host.gate.note':
+    'A one-time token issued by the deployment operator. After the room is created it is never needed again and is not stored.',
+  'host.session_reset': 'Room access was revoked — sign in again with a creation token.',
   'host.token.rejected': 'Token rejected.',
-  'host.token.forget': 'Forget token',
-  'host.token.note': 'The token is issued by the deployment owner.',
-  'host.token.continue': 'Continue',
   'host.form.name': 'Name',
   'host.form.description': 'Description',
   'host.form.language': 'Agent language',
@@ -194,10 +217,36 @@ export const en = {
   'host.stats.members_only': 'Members',
   'host.stats.language_only': 'Language',
   'host.member.open': '{name} — open card',
-  'host.drill.sent': 'Handshakes sent: {n}',
-  'host.drill.received': 'Handshakes received: {n}',
+  // v2 invite management + room-token drill-down (DESIGN rev. 3 §3.7, §4.7)
+  'host.invites.title': 'Invite codes',
+  'host.invites.hint': 'A code works until it expires; you can revoke it any time.',
+  'host.invites.mint': 'Mint a code',
+  'host.invites.preset.1h': '1 hour',
+  'host.invites.preset.24h': '24 hours',
+  'host.invites.preset.7d': '7 days',
+  'host.invites.preset.custom': 'Custom…',
+  'host.invites.custom_label': 'Code expires',
+  'host.invites.expires_in': 'expires in {time}',
+  'host.invites.revoke': 'Revoke',
+  'host.invites.revoke_aria': 'Revoke code {code}',
+  'host.invites.qr_toggle': 'QR for code {code}',
+  'host.invites.revoked': 'Code revoked.',
+  'host.rotate_room.row': 'Regenerate room token',
+  'host.rotate_room.title': 'Regenerate the room credential?',
+  'host.rotate_room.body': 'The current room credential will stop working. Continue?',
+  'host.rotate_room.cta': 'Regenerate',
+  'host.rotate_room.done': 'Room credential updated',
+  'host.drill.clear': 'Clear history',
+  'host.drill.clear_confirm': "The participants' dialog history will be cleared.",
+  'host.drill.empty': 'This member has no dialogs yet.',
+  'host.drill.pending_amendment':
+    "The member's dialog list arrives with the server-side amendment (flag 6.9a).",
+  'host.drill.kickoff': 'Restart',
   'host.drill.dialogs': 'Dialogs',
-  'host.drill.no_dialogs': 'No dialogs yet.',
+
+  /* --- global 401 gate (DESIGN rev. 3 §2.8, §4.7) --- */
+  'auth.401.notice':
+    'This persona has no valid access credential — join again with the event code.',
 
   /* --- common (DESIGN §2.1, §4.7) --- */
   'common.loading': 'Loading…',

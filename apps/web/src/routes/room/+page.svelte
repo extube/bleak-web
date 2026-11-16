@@ -177,7 +177,7 @@
   let sheetOpen = $state(false);
   let selectedAddress = $state<string | null>(null);
   let sheetSending = $state(false);
-  let sheetError = $state<'network' | 'api' | null>(null);
+  let sheetError = $state<'network' | 'api' | 'income' | null>(null);
   let sheetErrorText = $state<string | null>(null);
 
   const selectedUser = $derived(
@@ -209,9 +209,16 @@
       // The node moves to the middle/inner ring within one refresh (AC 5/6).
       await pollerRef?.refresh();
     } catch (err) {
-      // Inline recovery in the sheet: the button returns to its active state.
-      sheetError = err instanceof NetworkError ? 'network' : 'api';
-      sheetErrorText = err instanceof NetworkError ? null : serverText(err);
+      // Inline recovery in the sheet: the button returns to its active
+      // state. A 403 is the §2.9 income-rule state — no optimistic "sent"
+      // flip, the node stays on its ring (AC 15), nothing was sent.
+      if (err instanceof ApiError && err.status === 403) {
+        sheetError = 'income';
+        sheetErrorText = serverText(err);
+      } else {
+        sheetError = err instanceof NetworkError ? 'network' : 'api';
+        sheetErrorText = err instanceof NetworkError ? null : serverText(err);
+      }
     } finally {
       sheetSending = false;
     }
