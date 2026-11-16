@@ -16,6 +16,25 @@
 | Visual refs (gitignored, local only) | `docs/refs/*.png` |
 | Rules of engagement (all agents) | `AGENTS.md` — communication/escalation, git flow, task/session/log system, QA-is-CI |
 
+## Your tool permissions — KNOW THESE, never probe
+
+**Denied commands are statically configured.** Do not test whether a
+command is allowed — check this table first; if something you need is not
+here, report it **once** ("PERMISSION NEEDED: <tool>") in your report and
+work around it — never loop on denied probes.
+
+| Agent | Shell allowed | Shell denied (examples) |
+| --- | --- | --- |
+| **worker** | `git status/add/commit/log/diff/show/checkout` · `make *` · `node *` · `npm run *` · `python3 scripts/task.py *` · `scripts/{task,log,session}.sh *` · `bash/sh scripts/*` | branch create/delete/rename · merge · push · `git checkout -b/--orphan` · commits on `dev` · anything not listed |
+| **process** | `git checkout dev` · `git merge --no-ff feature\|bug/*` · branch create/delete for `feature/*`+`bug/*` · `task.py` · scripts · `make *` | commits (any) · `git branch -f`/rebase · merges into `main` |
+| **architect / design** | git read-only (log/show/diff); **design: no git writes**; architect commits only on its own doc branch | product-code edits, worker branches |
+| **concept / devops (primary)** | broad (incl. merges into `dev`, config edits at user direction) | `git push * main` (approval-gated) · commit-identity overrides (mechanically denied) |
+| **all** | file tools within the repo (workers deny: `AGENTS.md`, `Makefile`, `docs/{Concept,TZ}.md`, `docs/sessions/**`, `.opencode/**`) | edits to `/mount/bleak-node/**` (read-only) |
+
+Also true for every agent: `subagent` spawning is role-scoped (workers deny
+all), the task DB is `scripts/task.py` only, and `/tmp/opencode` is the
+approved scratch space.
+
 Current build state: v1 delivered; v2 credentials loop in progress —
 `docs/TZ.md` Part II is the authoritative task plan; wave-1 + TZ2-05 merged;
 see `docs/logs/` and `docs/sessions/` for instance trails.
