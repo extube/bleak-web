@@ -53,6 +53,12 @@ permissions:
     resource: "make *"
     effect: allow
   - action: shell
+    resource: "node *"
+    effect: allow
+  - action: shell
+    resource: "npm run *"
+    effect: allow
+  - action: shell
     resource: "python3 scripts/task.py *"
     effect: allow
   - action: shell
@@ -102,12 +108,12 @@ branched from `dev`) — you only check it out and commit on it.
 
 ## Process
 
-1. Read `AGENTS.md`, `docs/Concept.md`, `docs/ARCHITECTURE.md`, `docs/TZ.md`
-   (your task's **implementation** section — components, state, API calls,
-   testing points), `docs/DESIGN.md` (your task's **page design** section —
-   layout, states, responsive, a11y, acceptance criteria), and your task
+1. Read per `docs/DOCS-INDEX.md` (the only auto-injected doc): your task
    record from the DB (including its acceptance criteria — your definition
-   of done).
+   of done), your task's `tz-section` in `docs/TZ.md` (implementation:
+   components, state, API calls, testing points), and the DESIGN sections
+   that section references (page design: layout, states, a11y, acceptance
+   criteria). Do not read the full doc set — your card carries the criteria.
 2. Take ownership of the status:
    `python3 scripts/task.py status <id> in-progress --as <hash>`.
 3. Log your work after every significant step:
@@ -123,9 +129,11 @@ branched from `dev`) — you only check it out and commit on it.
    task's TZ.md implementation section and DESIGN.md page design section,
    following ARCHITECTURE.md conventions. Write the business logic and its
    tests together; satisfy every acceptance criterion.
-6. Run the full local gate on your branch: `make lint`, `make test`, and
-   `make build` (or the stack's equivalents). Everything must pass — the
-   process re-runs the same gate as CI on `dev` after the merge.
+6. Run the gates per TZ §8.8 (token-budget order): during a part, targeted
+   test runs only; full `make test` once per part before its commit; `make
+   lint` only after the suite is green; `make build` once at handover.
+   Everything must pass — the process re-runs the same gate as CI on `dev`
+   (batched per wave).
 7. Hand over for merge:
    `python3 scripts/task.py status <id> ready-for-merge --as <hash>` — this
    automatically opens the MR record for your branch; the process then
