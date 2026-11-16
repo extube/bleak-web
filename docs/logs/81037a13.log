@@ -9,3 +9,4 @@
 2026-11-15T18:49:24Z [architect] TZ restructure done: remaining 9 tasks consolidated into 4 (TZ2-05 credential-plumbing absorbs tz2-05+tz2-12; TZ2-06 attendee-flows absorbs tz2-06..09; TZ2-07 profile-host absorbs tz2-10+11; TZ2-08 verify absorbs tz2-13); 118/118 coverage intact; 2-wave remainder
 2026-11-15T18:50:02Z [architect] restructure committed as e25825a (TZ.md only; an earlier commit attempt accidentally swept two pre-staged process-log files — soft-reset and re-committed clean, no content lost, their staged state returned to working tree)
 2026-11-15T18:50:02Z [architect] restructure pass complete: e25825a, session closed done
+2026-11-15T18:57:53Z [architect] TZ restructure merged into dev by concept agent
