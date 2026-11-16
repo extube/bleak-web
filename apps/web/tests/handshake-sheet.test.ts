@@ -101,6 +101,25 @@ describe('HandshakeSheet', () => {
     expect(screen.getByText(/income must exceed outcome/)).toBeTruthy();
   });
 
+  it('income-rule error (§2.9, 403): renders hs.income_limit inline + muted server text, announced polite', () => {
+    render(HandshakeSheet, {
+      props: {
+        open: true,
+        user: alice,
+        relationship: rel({ state: 'none' }),
+        error: 'income',
+        errorMessage: 'income must exceed outcome'
+      }
+    });
+    expect(screen.getByText(ru['hs.income_limit'])).toBeTruthy();
+    expect(screen.getByText(/income must exceed outcome/)).toBeTruthy();
+    const alert = screen.getByRole('alert');
+    expect(alert.getAttribute('aria-live')).toBe('polite');
+    // The send CTA stays active — no optimistic "sent" flip (§3.2 AC 15).
+    expect(screen.getByRole('button', { name: ru['hs.send'] })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: ru['hs.sent'] })).toBeNull();
+  });
+
   it('shows name and public_bio', () => {
     render(HandshakeSheet, {
       props: { open: true, user: alice, relationship: rel({ state: 'none' }) }

@@ -29,8 +29,12 @@
     expanded?: boolean;
     /** POST in flight for this card (spinner, double-submit guard). */
     sending?: boolean;
-    /** Inline per-card action error (network / api recovery). */
-    error?: 'network' | 'api' | null;
+    /**
+     * Inline per-card action error. `income` is the §2.9 income-rule state
+     * (403 on the «+» send): the card stays in the "none" state, announced
+     * aria-live="polite" below the name line.
+     */
+    error?: 'network' | 'api' | 'income' | null;
     errorMessage?: string | null;
     onsend?: () => void;
     onback?: () => void;
@@ -64,6 +68,7 @@
   const addedYouLabel = $derived(translate($locale, 'hs.added_you'));
   const chattingLabel = $derived(translate($locale, 'hs.chatting'));
   const networkErrorText = $derived(translate($locale, 'hs.error.network'));
+  const incomeErrorText = $derived(translate($locale, 'hs.income_limit'));
   const apiErrorTitle = $derived(translate($locale, 'common.error.api'));
 
   const pill = $derived(
@@ -172,10 +177,15 @@
   {/if}
 
   {#if error}
-    <p class="error" role="alert">
-      {error === 'api'
-        ? `${apiErrorTitle}${errorMessage ? ` — ${errorMessage}` : ''}`
-        : networkErrorText}
+    <p class="error" role="alert" aria-live="polite">
+      {#if error === 'income'}
+        {incomeErrorText}
+        {#if errorMessage}<span class="server-text"> — {errorMessage}</span>{/if}
+      {:else if error === 'api'}
+        {apiErrorTitle}{errorMessage ? ` — ${errorMessage}` : ''}
+      {:else}
+        {networkErrorText}
+      {/if}
     </p>
   {/if}
 </li>
@@ -283,5 +293,9 @@
     margin: 0;
     font-size: 14px;
     color: var(--color-text-muted);
+  }
+  .error .server-text {
+    color: var(--color-text-disabled-strong);
+    font-size: 14px;
   }
 </style>
