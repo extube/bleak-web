@@ -322,4 +322,4 @@ superseded text stays in §1c as history; this section wins.
 - [x] Design (bd636f23) — **DESIGN.md rev. 3** (118 ACs) delivered & merged; **owner approved** (2026-11-15) → TZ pass authorized.
 - [x] Architect TZ pass v2 (81037a13) — **TZ.md Part II** delivered & merged (2026-11-15): 13 tasks (TZ2-01…TZ2-13), 118/118 ACs mapped, 5-wave plan, DoD v2.
 - [x] Owner approved **TZ v2** — **2026-11-15** → **v2 build loop authorized** (process agent; default per-feature merge-approval mode, `NOT_MAINTAIN_APPROVAL` unset).
-- [ ] Build loop v2 → done (TZ §8.6 Definition of Done).
+- [x] Build loop v2 → **done** (2026-11-16): 21/21 tasks closed, final wave-CI green (522 tests), `docs/verification-v2.md` records 118/118 ACs; §8.6 DoD checklist fully met. Post-loop: bleak-node WP-6 reconciliation (hash `90b95f75`), `tz2-07a` pre-authorized behind flag 6.9a, pre-event device-smoke checklist in the verification doc.
