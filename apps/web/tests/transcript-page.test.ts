@@ -408,9 +408,7 @@ describe('transcript viewer fallback (§3.5 AC 14, ARCHITECTURE §10.3 escape ha
     saveHostRoom({
       code: '123456',
       roomAddress: ROOM,
-      roomToken: 'r-tok',
-      roomName: '',
-      inviteUrl: ''
+      roomToken: 'r-tok'
     });
   }
 
