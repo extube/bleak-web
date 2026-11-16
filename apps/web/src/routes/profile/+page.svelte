@@ -1,28 +1,48 @@
 <script lang="ts">
   /**
-   * /profile — Persona badge (DESIGN §3.6, TZ-08).
+   * /profile — Persona badge (DESIGN rev. 3 §3.6, TZ2-07 Part A).
    *
-   * Fetch on mount + after mutations, NO Poller (§2.2 — /profile is not in
-   * the cadence table): getRoomUser + listHandshakesOfUser + listChatsOfUser
-   * compute the badge data and the stat tiles. Editors swap the badge card
-   * inline (one screen at a time); the canonical greeting for the editor
-   * comes from getUserGreeting (regenerate fills the editor, Save persists).
+   * All calls go through the attendee `api` context — the persona Bearer is
+   * auto-injected on every credentialed call (ARCHITECTURE §10.8).
+   *
+   * Live badge QR (Concept §6.3): a 4 s Poller polls the token-gated
+   * `getRoomUser` (own address → persona Bearer, returns `private_bio` and
+   * the derived `mutual_code_live` flag). No code yet (first load / stale
+   * store) → register a fresh one immediately; flag false (a scan burned
+   * the code) → generate a fresh code, register ONLY its hash
+   * (`registerMutualCode` body = SHA-256 hash), update the `mutualCode`
+   * store, and re-render with the rotation micro-animation + the transient
+   * «QR обновлён» note. A registration failure keeps the last QR; the next
+   * tick retries. Stats are fetched on mount + after mutations (§2.2 row).
+   *
+   * Token rotation (§3.6 settings): confirm dialog (other-device lockout
+   * copy) → generate the new secret → `rotateUserToken` (Bearer = current,
+   * body = new raw) → replace `identity.token` + rewrite the matching
+   * `bleak.tokenVault` entry in place — written ONLY after a 2xx. 401 → the
+   * §2.8 global gate; 403 → inline server text, identity kept.
+   *
+   * Leave room clears identity AND the mutual code (`clearIdentity` does
+   * both) → `/`. Editors swap the badge card inline (one screen at a time).
    * Interests are the client-side mock (architecture §8.1 — no network).
-   * Leave room → ConfirmDialog → deleteRoomUser → clearIdentity → `/`.
    */
   import { get } from 'svelte/store';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { ApiError, NetworkError, type Handshake, type User } from '@bleak/api-client';
-  import { identity, initIdentity, clearIdentity, type Identity } from '#lib/stores/identity';
+  import { identity, initIdentity, clearIdentity, saveIdentity, type Identity } from '#lib/stores/identity';
+  import { initMutualCode, mutualCode, saveMutualCode } from '#lib/stores/mutualCode';
+  import { updateVaultEntryToken } from '#lib/stores/tokenVault';
   import { requireIdentityOrRedirect } from '#lib/nav/guard';
   import { api } from '#lib/api/client';
+  import { generateTokenSecret } from '#lib/crypto/secrets';
+  import { Poller } from '#lib/polling/poller';
   import type { PersonaDraft } from '#lib/join';
   import { locale, translate } from '#lib/i18n/locale';
   import {
     loadInterestIds,
     selectedInterests
   } from '#lib/stores/interests';
+  import { decideBadgeAction, registerFreshMutualCode } from '#lib/components/profile/liveQr';
   import ProfileBadge from '#lib/components/profile/ProfileBadge.svelte';
   import PersonaEditor from '#lib/components/profile/PersonaEditor.svelte';
   import GreetingEditor from '#lib/components/profile/GreetingEditor.svelte';
@@ -31,12 +51,14 @@
   import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
   import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
+  import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import LocaleControl from '#lib/components/join/LocaleControl.svelte';
 
   // Hard reload on /profile: the layout hydrates identity in its onMount,
   // which runs after this page's script — hydrate defensively (idempotent)
   // so the guard sees the persisted identity instead of bouncing to /.
   initIdentity();
+  initMutualCode();
   const guarded = requireIdentityOrRedirect();
 
   type View = 'badge' | 'persona' | 'greeting' | 'interests';
@@ -50,6 +72,15 @@
   let user = $state<User | null>(null);
   let handshakes = $state<readonly Handshake[]>([]);
   let chatCount = $state(0);
+
+  // The raw one-time mutual code backing this persona's badge QR
+  // (`bleak.mutualCode`, validated against the identity on load).
+  const badgeCode = $derived.by(() => {
+    const entry = $mutualCode;
+    const id = $identity;
+    if (entry === null || id === null) return null;
+    return entry.userAddress === id.userAddress ? entry.code : null;
+  });
 
   // Interests re-derive on locale change and on badge re-entry after editing
   // (the mock store is read from localStorage — cheap, client-side only).
@@ -73,40 +104,102 @@
       : { kind: 'api', text: serverText(err) };
   }
 
-  // --- mount fetch (no Poller on /profile, §2.2) ----------------------------
-  async function fetchAll(id: Identity): Promise<void> {
+  // --- live badge QR (poller tick; registration failure keeps the QR) -------
+  let registering = $state(false);
+  let qrRefreshed = $state(false);
+  let qrFlashTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function flashQrRefreshed(): void {
+    qrRefreshed = true;
+    if (qrFlashTimer) clearTimeout(qrFlashTimer);
+    qrFlashTimer = setTimeout(() => (qrRefreshed = false), 2000);
+  }
+
+  /**
+   * Badge action per the §3.6 table: register (no code yet), rotate
+   * (flag false — a scan burned the code), keep. The registration body
+   * carries the code's HASH only (§7.4); the raw code is stored client-side
+   * and re-rendered through the rotation micro-animation.
+   */
+  async function ensureBadge(id: Identity, live: boolean | undefined): Promise<void> {
+    const action = decideBadgeAction(badgeCode, live);
+    if (action === 'keep' || registering) return;
+    registering = true;
     try {
-      const [u, hs, chats] = await Promise.all([
-        api.getRoomUser(id.roomAddress, id.userAddress),
+      const code = await registerFreshMutualCode(id.roomAddress, id.userAddress, {}, {
+        register: (room, address, hash) => api.registerMutualCode(room, address, hash)
+      });
+      saveMutualCode(id.userAddress, code);
+      if (action === 'rotate') flashQrRefreshed();
+    } catch {
+      // Keep the last QR; the next poll tick retries (the flag still reads
+      // false, §3.6 AC 14).
+    } finally {
+      registering = false;
+    }
+  }
+
+  /** Poller tick: token-gated getRoomUser (badge data + liveness flag). */
+  async function pollBadge(): Promise<void> {
+    const id = get(identity);
+    if (!id) throw new Error('no identity');
+    const u = await api.getRoomUser(id.roomAddress, id.userAddress);
+    user = u;
+    notFound = false;
+    banner = null;
+    loading = false;
+    await ensureBadge(id, u.mutual_code_live);
+  }
+
+  // --- stats: mount + after mutations (§2.2 row) ----------------------------
+  async function fetchStats(id: Identity): Promise<void> {
+    try {
+      const [hs, chats] = await Promise.all([
         api.listHandshakesOfUser(id.userAddress),
         api.listChatsOfUser(id.userAddress)
       ]);
-      user = u;
       handshakes = hs;
       chatCount = chats.length;
-      banner = null;
-      notFound = false;
-      loading = false;
     } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 404) {
+        notFound = true;
+      } else if (banner === null) {
+        banner = bannerOf(cause);
+      }
+    }
+  }
+
+  const poller = new Poller({
+    intervalMs: 4000,
+    backoffMs: 12_000,
+    tick: pollBadge,
+    onStall: (cause) => {
       if (cause instanceof ApiError && cause.status === 404) {
         // Persona deleted elsewhere → full-card state with the exit path.
         notFound = true;
-      } else {
-        banner = bannerOf(cause);
+        loading = false;
+        return;
       }
+      banner = bannerOf(cause);
       loading = false;
     }
-  }
+  });
 
   $effect(() => {
     const id = me;
     if (!id || !guarded) return;
-    void fetchAll(id);
+    poller.start();
+    void poller.refresh();
+    void fetchStats(id);
+    return () => poller.stop();
   });
 
   function refresh(): void {
     const id = get(identity);
-    if (id) void fetchAll(id);
+    if (id) {
+      void poller.refresh();
+      void fetchStats(id);
+    }
   }
 
   // --- transient inline success (no toast system in v1) ---------------------
@@ -213,6 +306,40 @@
     }
   }
 
+  // --- token rotation (v2, §3.6 settings) --------------------------------------
+  let rotateOpen = $state(false);
+  let pendingRotate = $state(false);
+  let rotateError = $state<string | null>(null);
+  let rotatedFlash = $state(false);
+  let rotatedTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Rotation: Bearer = the CURRENT persona token (auto-injected), body = the
+   * new raw secret. `identity.token` + the matching vault entry are written
+   * ONLY after a 2xx — a 401 abandons the attempt through the §2.8 gate with
+   * no partial client writes (§8.4 caveat), a 403 shows inline server text
+   * with the identity kept.
+   */
+  async function rotateToken(): Promise<void> {
+    const id = me;
+    if (!id || pendingRotate) return;
+    pendingRotate = true;
+    rotateError = null;
+    try {
+      const newRaw = generateTokenSecret();
+      await api.rotateUserToken(id.roomAddress, id.userAddress, newRaw);
+      saveIdentity({ roomAddress: id.roomAddress, userAddress: id.userAddress, token: newRaw });
+      updateVaultEntryToken(id.roomAddress, id.userAddress, newRaw);
+      rotatedFlash = true;
+      if (rotatedTimer) clearTimeout(rotatedTimer);
+      rotatedTimer = setTimeout(() => (rotatedFlash = false), 2000);
+    } catch (cause) {
+      rotateError = serverText(cause) ?? translate(get(locale), 'common.error');
+    } finally {
+      pendingRotate = false;
+    }
+  }
+
   // --- leave room -------------------------------------------------------------
   let leaveOpen = $state(false);
   let pendingLeave = $state(false);
@@ -225,6 +352,7 @@
     leaveError = null;
     try {
       await api.deleteRoomUser(id.roomAddress, id.userAddress);
+      // clearIdentity also clears the one-time mutual code (§10.4).
       clearIdentity();
       leaveOpen = false;
       void goto(resolve('/'));
@@ -294,6 +422,8 @@
         handshakes={handshakesTotal}
         dialogs={dialogsTotal}
         addedYou={addedYou}
+        mutualCode={badgeCode}
+        qrRefreshed={qrRefreshed}
         oneditpersona={() => {
           view = 'persona';
           personaError = null;
@@ -306,6 +436,24 @@
           <span class="setting-label">{translate($locale, 'common.locale')}</span>
           <LocaleControl />
         </div>
+        <button
+          type="button"
+          class="rotate"
+          disabled={pendingRotate}
+          onclick={() => (rotateOpen = true)}
+        >
+          <PixelIcon name="key" size={16} />
+          <span>{translate($locale, 'profile.rotate.row')}</span>
+          {#if pendingRotate}<span class="spinner" aria-hidden="true"></span>{/if}
+        </button>
+        {#if rotatedFlash && !rotateError}
+          <p class="rotated-flash" aria-live="polite">
+            ✓ {translate($locale, 'profile.rotate.done')}
+          </p>
+        {/if}
+        {#if rotateError}
+          <p class="field-error" role="alert" aria-live="polite">{rotateError}</p>
+        {/if}
         <button type="button" class="leave" onclick={() => (leaveOpen = true)}>
           {translate($locale, 'profile.leave')}
         </button>
@@ -344,6 +492,14 @@
     {/if}
   {/if}
 </main>
+
+<ConfirmDialog
+  bind:open={rotateOpen}
+  title={translate($locale, 'profile.rotate.title')}
+  body={translate($locale, 'profile.rotate.body')}
+  confirmLabel={translate($locale, 'profile.rotate.cta')}
+  onconfirm={rotateToken}
+/>
 
 <ConfirmDialog
   bind:open={leaveOpen}
@@ -443,11 +599,12 @@
     font-size: 14px;
     color: var(--color-text-muted);
   }
+  .rotate,
   .leave {
     align-self: flex-start;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
+    gap: var(--space-2);
     min-height: var(--touch-target);
     padding: 0 var(--space-5);
     background: transparent;
@@ -456,14 +613,36 @@
     border-radius: var(--radius-pill);
     font-weight: 600;
     font-size: 14px;
+    font-family: var(--font-body);
     transition:
       border-color 120ms ease-out,
       color 120ms ease-out;
+  }
+  .leave {
+    color: var(--color-text-muted);
+  }
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--color-text-muted);
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .rotated-flash {
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-accent);
   }
   .field-error {
     margin: 0;
     color: var(--color-accent);
     font-size: 14px;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
   @media (min-width: 720px) {
     /* Badge card max-width 560px centered (§3.6 responsive). */

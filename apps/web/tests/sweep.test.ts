@@ -42,7 +42,7 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
       .filter((f) => !ROUTE_FILES.includes(f))
       .map(rel);
     expect(offenders, `new Poller outside route files: ${offenders.join(', ')}`).toEqual([]);
-    // The rule is not vacuous: the five polling pages really do instantiate it.
+    // The rule is not vacuous: the six polling pages really do instantiate it.
     const pollingRoutes = ROUTE_FILES
       .filter((f) => /new\s+Poller\b/.test(readFileSync(f, 'utf8')))
       .map(rel)
@@ -52,24 +52,27 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
       'src/routes/chats/[address]/+page.svelte',
       'src/routes/host/+page.svelte',
       'src/routes/people/+page.svelte',
+      'src/routes/profile/+page.svelte',
       'src/routes/room/+page.svelte'
     ]);
   });
 
-  it('the `/` join page and `/profile` use NO poller (§2.2 cadence table)', () => {
-    for (const file of ['src/routes/+page.svelte', 'src/routes/profile/+page.svelte']) {
-      const source = readFileSync(join(WEB_ROOT, file), 'utf8');
-      expect(source, `${file} must not poll`).not.toMatch(/new\s+Poller\b/);
-    }
+  it('the `/` join page uses NO poller (§2.2 cadence table — mount-time fetches only)', () => {
+    const file = 'src/routes/+page.svelte';
+    const source = readFileSync(join(WEB_ROOT, file), 'utf8');
+    expect(source, `${file} must not poll`).not.toMatch(/new\s+Poller\b/);
   });
 
-  it('poll cadences match the §2.2 table (4s room/people/chats, 2s transcript, 5s host)', () => {
+  it('poll cadences match the §2.2 table (4s room/people/chats/profile, 2s transcript, 5s host)', () => {
     const expected: Record<string, string> = {
       'src/routes/room/+page.svelte': '4000',
       'src/routes/people/+page.svelte': '4000',
       'src/routes/chats/+page.svelte': '4000',
       'src/routes/chats/[address]/+page.svelte': '2000',
-      'src/routes/host/+page.svelte': '5000'
+      'src/routes/host/+page.svelte': '5000',
+      // rev. 3 §2.2 row: /profile polls the token-gated getRoomUser at 4 s
+      // for the badge live-QR liveness flag (TZ2-07 Part A).
+      'src/routes/profile/+page.svelte': '4000'
     };
     for (const [file, ms] of Object.entries(expected)) {
       const source = readFileSync(join(WEB_ROOT, file), 'utf8');

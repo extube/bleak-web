@@ -223,7 +223,7 @@ describe('credential attachment (behavioral)', () => {
   });
 
   it('host room-token calls carry bleak.hostRoom.roomToken', async () => {
-    saveHostRoom({ ...HOST, roomName: '', inviteUrl: '' });
+    saveHostRoom(HOST);
     const calls = stubFetch(() => ok({}));
     await hostApi.listInvites('0xroom');
     await hostApi.mintInvite('0xroom', {});
@@ -238,19 +238,12 @@ describe('credential attachment (behavioral)', () => {
 
   it('context-dependent chat reads split by context: api → persona, hostApi → room', async () => {
     saveIdentity(ME);
-    saveHostRoom({ ...HOST, roomName: '', inviteUrl: '' });
+    saveHostRoom(HOST);
     const calls = stubFetch(() => ok({}));
     await api.getChat('0xc1');
     await hostApi.getChat('0xc1');
     expect(authOf(calls[0])).toBe('Bearer p-tok');
     expect(authOf(calls[1])).toBe('Bearer r-tok');
-  });
-
-  it('hostApi.listHandshakesOfUser carries NO token (not room-token-mapped, flag 6.9a)', async () => {
-    saveHostRoom({ ...HOST, roomName: '', inviteUrl: '' });
-    const calls = stubFetch(() => ok([]));
-    await hostApi.listHandshakesOfUser('0xmember');
-    expect(authOf(calls[0])).toBeUndefined();
   });
 
   it('room creation authenticates with the creation token header — no Bearer, room token in the body', async () => {
@@ -284,7 +277,7 @@ describe('credential attachment (behavioral)', () => {
 
   it('rotations: Bearer = the CURRENT credential, body = the new raw secret', async () => {
     saveIdentity(ME);
-    saveHostRoom({ ...HOST, roomName: '', inviteUrl: '' });
+    saveHostRoom(HOST);
     const calls = stubFetch(() => empty(204));
     await api.rotateUserToken('0xroom', '0xme', 'new-persona-raw');
     await hostApi.rotateRoomToken('0xroom', 'new-room-raw');
@@ -364,7 +357,7 @@ describe('host gate (room context)', () => {
   it.each([401, 403])(
     '%i on a room-token call clears bleak.hostRoom + sets bleak.hostReset; attendee identity untouched; rethrown',
     async (status) => {
-      saveHostRoom({ ...HOST, roomName: '', inviteUrl: '' });
+      saveHostRoom(HOST);
       saveIdentity(ME);
       stubFetch(() => empty(status));
 
@@ -386,7 +379,7 @@ describe('host gate (room context)', () => {
   );
 
   it('other statuses keep the room session', async () => {
-    saveHostRoom({ ...HOST, roomName: '', inviteUrl: '' });
+    saveHostRoom(HOST);
     stubFetch(() => empty(404));
     await expect(hostApi.deleteRoom('0xroom')).rejects.toBeInstanceOf(ApiError);
     expect(JSON.parse(localStorage.getItem('bleak.hostRoom') ?? 'null')).toMatchObject({

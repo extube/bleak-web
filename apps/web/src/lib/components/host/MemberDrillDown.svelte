@@ -1,48 +1,78 @@
 <script lang="ts">
   /**
-   * Member drill-down sheet (DESIGN §3.7 item 5): the host observes one
-   * member's handshake counts (sent/received split by `from_address`
-   * direction — computed by the page via hostLogic.handshakeCounts) and
-   * their dialogs. ALL data arrives as props — the fetches are ON-DEMAND
-   * from the page (never polled). Focus-trapped bottom sheet, Escape
-   * closes (same pattern as the kit's HandshakeSheet).
+   * Member drill-down sheet (DESIGN rev. 3 §3.7 item 5): the host observes
+   * one member's dialogs read with the ROOM token. ALL data arrives as
+   * props — the fetches are ON-DEMAND from the page (never polled).
+   *
+   * Chat discovery is 6.9a-BLOCKED (the plain room-token chat reads give no
+   * room-scoped per-user chat LISTING): until the amendment lands the sheet
+   * renders the empty drill-down copy («У участника пока нет диалогов.»)
+   * plus the muted flag hint — chat listings are NEVER invented client
+   * side. `chats` carries only discoverable chat knowledge (v2: none).
+   * Each dialog row links to the read-only /chats/{address} transcript and
+   * carries «Очистить историю» (confirm) and «Запустить заново» (§3.5
+   * kickoff copy) → page callbacks with the room token. NO handshake
+   * counts are shown anywhere (AC 11).
    */
   import { resolve } from '$app/paths';
   import { tick } from 'svelte';
-  import type { Chat, User } from '@bleak/api-client';
+  import type { User } from '@bleak/api-client';
   import { locale, translate } from '#lib/i18n/locale';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
   import Chip from '#lib/components/Chip.svelte';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
+  import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
+
+  /** A discoverable dialog row (room + chat address + verbatim chips). */
+  export interface DrillDialog {
+    address: string;
+    phase: string;
+    scenario: string;
+  }
 
   interface Props {
     member: User | null;
-    counts: { sent: number; received: number } | null;
-    chats: Chat[] | null;
+    /** Discoverable dialogs (null = nothing discoverable yet, 6.9a). */
+    chats: DrillDialog[] | null;
     error: 'network' | 'api' | null;
     errorMessage: string | null;
     onretry?: () => void;
     onclose?: () => void;
+    onclear?: (chatAddress: string) => void;
+    onkickoff?: (chatAddress: string) => void;
   }
 
-  let { member, counts = null, chats = null, error = null, errorMessage = null, onretry, onclose }: Props =
-    $props();
+  let {
+    member,
+    chats = null,
+    error = null,
+    errorMessage = null,
+    onretry,
+    onclose,
+    onclear,
+    onkickoff
+  }: Props = $props();
 
   let sheetEl: HTMLElement | null = $state(null);
+  let clearOpen = $state(false);
+  let clearTarget = $state<string | null>(null);
+  let kickoffOpen = $state(false);
+  let kickoffTarget = $state<string | null>(null);
 
   const closeLabel = $derived(translate($locale, 'common.close'));
-  const sentLabel = $derived.by(() =>
-    member ? translate($locale, 'host.drill.sent', { n: String(counts?.sent ?? 0) }) : ''
-  );
-  const receivedLabel = $derived.by(() =>
-    member ? translate($locale, 'host.drill.received', { n: String(counts?.received ?? 0) }) : ''
-  );
   const dialogsTitle = $derived(translate($locale, 'host.drill.dialogs'));
-  const noDialogs = $derived(translate($locale, 'host.drill.no_dialogs'));
-  const loadingLabel = $derived(translate($locale, 'common.loading'));
+  const emptyCopy = $derived(translate($locale, 'host.drill.empty'));
+  const amendmentHint = $derived(translate($locale, 'host.drill.pending_amendment'));
   const retryLabel = $derived(translate($locale, 'common.retry'));
   const networkErrorText = $derived(translate($locale, 'common.error.network'));
   const apiErrorTitle = $derived(translate($locale, 'common.error.api'));
+  const clearLabel = $derived(translate($locale, 'host.drill.clear'));
+  const clearConfirm = $derived(translate($locale, 'host.drill.clear_confirm'));
+  const kickoffLabel = $derived(translate($locale, 'host.drill.kickoff'));
+  const kickoffTitle = $derived(translate($locale, 'chat.kickoff.confirm_title'));
+  const kickoffBody = $derived(translate($locale, 'chat.kickoff.confirm_body'));
+  const kickoffRun = $derived(translate($locale, 'chat.kickoff.confirm_run'));
+  const cancelLabel = $derived(translate($locale, 'common.cancel'));
 
   $effect(() => {
     if (member) {
@@ -108,25 +138,47 @@
         {error === 'network' ? networkErrorText : `${apiErrorTitle}${errorMessage ? ` — ${errorMessage}` : ''}`}
       </p>
       <button type="button" class="retry" onclick={() => onretry?.()}>{retryLabel}</button>
-    {:else if counts === null || chats === null}
-      <p class="loading" role="status">{loadingLabel}</p>
+    {:else if chats === null}
+      <!-- 6.9a-blocked discovery: the honest empty state + the muted flag
+           hint — no invented listings (§3.7). -->
+      <p class="empty">{emptyCopy}</p>
+      <p class="hint">{amendmentHint}</p>
     {:else}
-      <div class="counts">
-        <span class="count">{sentLabel}</span>
-        <span class="count">{receivedLabel}</span>
-      </div>
-
       <h3>{dialogsTitle}</h3>
       {#if chats.length === 0}
-        <p class="empty">{noDialogs}</p>
+        <p class="empty">{emptyCopy}</p>
+        <p class="hint">{amendmentHint}</p>
       {:else}
         <ul class="dialogs">
           {#each chats as chat (chat.address)}
-            <li>
+            <li class="dialog-row">
               <a href={resolve('/chats/[address]', { address: chat.address })}>
                 <Chip variant="outline-muted">{chat.phase}</Chip>
+                <Chip variant="outline-muted">{chat.scenario}</Chip>
                 <span class="chat-address">{chat.address}</span>
               </a>
+              <div class="row-actions">
+                <button
+                  type="button"
+                  class="row-action"
+                  onclick={() => {
+                    clearTarget = chat.address;
+                    clearOpen = true;
+                  }}
+                >
+                  {clearLabel}
+                </button>
+                <button
+                  type="button"
+                  class="row-action"
+                  onclick={() => {
+                    kickoffTarget = chat.address;
+                    kickoffOpen = true;
+                  }}
+                >
+                  {kickoffLabel}
+                </button>
+              </div>
             </li>
           {/each}
         </ul>
@@ -134,6 +186,32 @@
     {/if}
   </div>
 {/if}
+
+<ConfirmDialog
+  bind:open={clearOpen}
+  title={clearLabel}
+  body={clearConfirm}
+  confirmLabel={clearLabel}
+  cancelLabel={cancelLabel}
+  onconfirm={() => {
+    if (clearTarget) onclear?.(clearTarget);
+    clearTarget = null;
+  }}
+  oncancel={() => (clearTarget = null)}
+/>
+
+<ConfirmDialog
+  bind:open={kickoffOpen}
+  title={kickoffTitle}
+  body={kickoffBody}
+  confirmLabel={kickoffRun}
+  cancelLabel={cancelLabel}
+  onconfirm={() => {
+    if (kickoffTarget) onkickoff?.(kickoffTarget);
+    kickoffTarget = null;
+  }}
+  oncancel={() => (kickoffTarget = null)}
+/>
 
 <style>
   .scrim {
@@ -186,14 +264,6 @@
     font-size: 14px;
     color: var(--color-text-muted);
   }
-  .counts {
-    display: flex;
-    gap: var(--space-4);
-  }
-  .count {
-    font-size: 14px;
-    color: var(--color-text);
-  }
   h3 {
     font-family: var(--font-pixel);
     font-size: 24px;
@@ -204,22 +274,32 @@
     font-size: 14px;
     color: var(--color-text-muted);
   }
+  .hint {
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-text-muted);
+  }
   .dialogs {
     list-style: none;
     margin: 0;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
+    gap: var(--space-3);
   }
-  .dialogs a {
+  .dialog-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: var(--color-surface-elevated);
+    border-radius: var(--radius-md);
+  }
+  .dialog-row > a {
     display: flex;
     align-items: center;
     gap: var(--space-3);
     min-height: var(--touch-target);
-    padding: var(--space-2) var(--space-3);
-    background: var(--color-surface-elevated);
-    border-radius: var(--radius-md);
     text-decoration: none;
   }
   .chat-address {
@@ -228,6 +308,27 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .row-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 0 var(--space-4);
+    border: 1px solid var(--color-text-disabled-strong);
+    background: transparent;
+    color: var(--color-text);
+    border-radius: var(--radius-pill);
+    font-size: 14px;
+    font-weight: 600;
+    transition:
+      border-color 120ms ease-out,
+      color 120ms ease-out;
   }
   .error {
     margin: 0;
@@ -242,11 +343,6 @@
     color: var(--color-text);
     font-weight: 600;
     font-size: 14px;
-  }
-  .loading {
-    margin: 0;
-    font-size: 14px;
-    color: var(--color-text-muted);
   }
   @keyframes slide-up {
     from {

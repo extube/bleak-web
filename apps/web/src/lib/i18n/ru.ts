@@ -192,13 +192,11 @@ export const ru: Record<MessageKey, string> = {
   // v2-учётные данные (DESIGN rev. 3 §3.7): гейт одноразового токена создания —
   // переименованные ключи host.gate.*; остатки host.token.* уберёт TZ2-11.
   'host.gate.label': 'Токен создания комнаты',
+  'host.gate.continue': 'Продолжить',
   'host.gate.note':
     'Одноразовый токен выдаёт оператор развертывания. После создания комнаты он больше не нужен и не сохраняется.',
   'host.session_reset': 'Доступ к комнате отозван — войдите заново с токеном создания.',
   'host.token.rejected': 'Токен отклонён.',
-  'host.token.forget': 'Забыть токен',
-  'host.token.note': 'Токен выдаётся владельцем развертывания.',
-  'host.token.continue': 'Продолжить',
   'host.form.name': 'Название',
   'host.form.description': 'Описание',
   'host.form.language': 'Язык агентов',
@@ -229,19 +227,24 @@ export const ru: Record<MessageKey, string> = {
   'host.invites.preset.24h': '24 часа',
   'host.invites.preset.7d': '7 дней',
   'host.invites.preset.custom': 'Своё время…',
+  'host.invites.custom_label': 'Код истекает',
   'host.invites.expires_in': 'истекает через {time}',
   'host.invites.revoke': 'Отозвать',
+  'host.invites.revoke_aria': 'Отозвать код {code}',
+  'host.invites.qr_toggle': 'QR кода {code}',
   'host.invites.revoked': 'Код отозван.',
   'host.rotate_room.row': 'Сгенерировать ключ комнаты',
   'host.rotate_room.title': 'Сгенерировать ключ комнаты?',
   'host.rotate_room.body': 'Текущий ключ комнаты перестанет действовать. Продолжить?',
+  'host.rotate_room.cta': 'Сгенерировать',
+  'host.rotate_room.done': 'Ключ комнаты обновлён',
   'host.drill.clear': 'Очистить историю',
   'host.drill.clear_confirm': 'История диалога участников будет очищена.',
   'host.drill.empty': 'У участника пока нет диалогов.',
-  'host.drill.sent': 'Отправлено хендшейков: {n}',
-  'host.drill.received': 'Получено хендшейков: {n}',
+  'host.drill.pending_amendment':
+    'Список диалогов участника появится вместе с серверным обновлением (флаг 6.9a).',
+  'host.drill.kickoff': 'Запустить заново',
   'host.drill.dialogs': 'Диалоги',
-  'host.drill.no_dialogs': 'Диалогов пока нет.',
 
   /* --- глобальный гейт 401 (DESIGN rev. 3 §2.8, §4.7) --- */
   'auth.401.notice':
