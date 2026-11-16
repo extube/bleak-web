@@ -4,7 +4,7 @@
  * chunk ONLY; source-scan equivalent of the build-output grep). */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { containsQuestionMark } from '../src/lib/components/profile/greeting';
 import { inviteUrlBase, personaQrPayload } from '../src/lib/components/profile/qr';
 
@@ -30,30 +30,69 @@ describe('containsQuestionMark (DESIGN §3.6)', () => {
   });
 });
 
-describe('personaQrPayload (DESIGN §3.6/§3.8 binding format)', () => {
-  it('encodes {base}/?u={address} with the address escaped', () => {
-    expect(personaQrPayload('0xuser1', 'http://localhost:5173/')).toBe(
-      'http://localhost:5173/?u=0xuser1'
+describe('personaQrPayload (DESIGN rev. 3 §3.6/§3.8 binding format — u + one-time m)', () => {
+  it('encodes {base}/?u={address}&m={code} with both params escaped', () => {
+    expect(personaQrPayload('0xuser1', 'code123', 'http://localhost:5173/')).toBe(
+      'http://localhost:5173/?u=0xuser1&m=code123'
     );
-    expect(personaQrPayload('0xuser1', 'http://localhost:5173')).toBe(
-      'http://localhost:5173/?u=0xuser1'
+    expect(personaQrPayload('0xuser1', 'code123', 'http://localhost:5173')).toBe(
+      'http://localhost:5173/?u=0xuser1&m=code123'
     );
-    expect(personaQrPayload('0x u ser', 'https://bleak.example')).toBe(
-      'https://bleak.example/?u=0x%20u%20ser'
+    expect(personaQrPayload('0x u ser', '4/ty+Z8', 'https://bleak.example')).toBe(
+      'https://bleak.example/?u=0x%20u%20ser&m=4%2Fty%2BZ8'
     );
   });
 
   it('keeps a path-bearing base intact', () => {
-    expect(personaQrPayload('0xuser1', 'https://host.example/app/')).toBe(
-      'https://host.example/app/?u=0xuser1'
+    expect(personaQrPayload('0xuser1', 'c', 'https://host.example/app/')).toBe(
+      'https://host.example/app/?u=0xuser1&m=c'
     );
   });
 
   it('falls back to the SPA origin in the browser (dev = the helper default base)', () => {
     // happy-dom window origin — the same-origin deployment target the
     // dev proxy serves (INVITE_URL_BASE http://localhost:5173/ in dev).
-    expect(personaQrPayload('0xuser1')).toBe(`${window.location.origin}/?u=0xuser1`);
+    expect(personaQrPayload('0xuser1', 'c')).toBe(`${window.location.origin}/?u=0xuser1&m=c`);
     expect(inviteUrlBase()).toBe(window.location.origin);
+  });
+});
+
+// --- live badge-QR decision (TZ2-07 Part A, DESIGN §3.6 AC 14) ---------------
+
+import { decideBadgeAction, registerFreshMutualCode } from '../src/lib/components/profile/liveQr';
+
+describe('decideBadgeAction (live QR decision table)', () => {
+  it('no stored code → register (first load / stale store)', () => {
+    expect(decideBadgeAction(null, true)).toBe('register');
+    expect(decideBadgeAction(null, undefined)).toBe('register');
+    expect(decideBadgeAction('', false)).toBe('register');
+  });
+
+  it('a stored code with live=false (a scan burned it) → rotate', () => {
+    expect(decideBadgeAction('code', false)).toBe('rotate');
+  });
+
+  it('a stored code with a live/unknown flag → keep', () => {
+    expect(decideBadgeAction('code', true)).toBe('keep');
+    expect(decideBadgeAction('code', undefined)).toBe('keep');
+  });
+});
+
+describe('registerFreshMutualCode (hash-only registration, §7.4)', () => {
+  it('the register call receives the SHA-256 HASH — the raw code appears in NO argument', async () => {
+    const register = vi.fn(async () => undefined);
+    const code = await registerFreshMutualCode('0xroom', '0xme', {}, {
+      register,
+      generate: () => 'RAWMUTUAL',
+      // A CONSTANT hash (independent of its input): even the digest output
+      // carries no trace of the raw code.
+      hash: async () => 'sha256hex-fixed'
+    });
+    expect(code).toBe('RAWMUTUAL'); // returned for the badge QR + store only
+    expect(register).toHaveBeenCalledWith('0xroom', '0xme', 'sha256hex-fixed');
+    for (const call of register.mock.calls) {
+      expect(JSON.stringify(call)).not.toContain('RAWMUTUAL');
+    }
   });
 });
 

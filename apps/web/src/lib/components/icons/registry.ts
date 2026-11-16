@@ -10,6 +10,7 @@ export type IconName =
   | 'plus'
   | 'dialog-lines'
   | 'lock'
+  | 'key'
   | 'copy'
   | 'radar-dot'
   | 'star'
@@ -77,6 +78,15 @@ export const ICON_RECTS: Record<IconName, readonly Rect[]> = {
     [10, 5, 2, 2],
     [4, 8, 8, 5],
     [7, 10, 2, 2]
+  ],
+  key: [
+    [3, 7, 6, 2],
+    [3, 5, 2, 2],
+    [3, 9, 2, 2],
+    [5, 11, 2, 2],
+    [9, 5, 4, 2],
+    [11, 7, 2, 4],
+    [9, 9, 4, 2]
   ],
   copy: [
     [8, 3, 6, 2],

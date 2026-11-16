@@ -30,8 +30,8 @@ function encodeBadge(payload: string): { data: boolean[][]; size: number } {
 }
 
 describe('badge QR decode roundtrip (AC 12)', () => {
-  it('decodes the persona payload back to {base}?u={address}', () => {
-    const payload = personaQrPayload('0xagent42', 'http://localhost:5173');
+  it('decodes the persona payload back to {base}?u={address}&m={code}', () => {
+    const payload = personaQrPayload('0xagent42', 'one-time-code', 'http://localhost:5173');
     const { data, size } = encodeBadge(payload);
 
     // Quiet zone of 4 modules on all four sides (DESIGN §3.6).
@@ -43,15 +43,23 @@ describe('badge QR decode roundtrip (AC 12)', () => {
     }
 
     const decoded = jsQR(matrixToRgba(data, size), size, size);
-    expect(decoded?.data).toBe('http://localhost:5173/?u=0xagent42');
+    expect(decoded?.data).toBe('http://localhost:5173/?u=0xagent42&m=one-time-code');
   });
 
-  it('decodes an escaped address intact (the scanner reads the raw address)', () => {
+  it('decodes an escaped address AND mutual code intact (the scanner reads u + m)', () => {
     const address = '0xbandersnatch';
-    const payload = personaQrPayload(address, 'https://bleak.example/app');
+    const code = '4/ty+Z8';
+    const payload = personaQrPayload(address, code, 'https://bleak.example/app');
     const { data, size } = encodeBadge(payload);
     const decoded = jsQR(matrixToRgba(data, size), size, size);
-    expect(decoded?.data).toBe(`https://bleak.example/app/?u=${address}`);
+    expect(decoded?.data).toBe(`https://bleak.example/app/?u=${address}&m=4%2Fty%2BZ8`);
+    // The §3.8 scanner parses BOTH the user address and the mutual code
+    // from the decoded payload (AC 12 — decoding yields u AND m).
+    const params = new URLSearchParams(
+      (decoded?.data ?? '').slice((decoded?.data ?? '').indexOf('?') + 1)
+    );
+    expect(params.get('u')).toBe(address);
+    expect(params.get('m')).toBe('4/ty+Z8');
   });
 
   it('the SVG rendering carries the token colors (dark on light frame)', () => {
