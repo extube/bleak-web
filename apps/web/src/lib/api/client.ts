@@ -100,7 +100,8 @@ export const PERSONA_TOKEN_METHODS = [
  * room rotation and (host-context) chat reads/clear/kickoff — the member
  * drill-down surface. `listHandshakesOfUser` is deliberately NOT mapped:
  * it is a persona-scoped gated read with no room-token endpoint (flag 6.9a);
- * the v2 console ships counts-less.
+ * the v2 console ships counts-less (the transitional token-less host
+ * listing was dropped from the host context with the v2 console — TZ2-07).
  */
 export const ROOM_TOKEN_METHODS = [
   'updateRoom',
@@ -412,15 +413,5 @@ export const hostApi = {
   },
   clearChatHistory(address: string): Promise<ClearChatResponse> {
     return roomGate(() => apiRaw.clearChatHistory(address, credential(roomCredential)));
-  },
-
-  /**
-   * NOT room-token-mapped (flag 6.9a): `listHandshakesOfUser` is a
-   * persona-scoped gated read with no room-token endpoint — the v2 console
-   * ships counts-less. Exposed token-less for the transitional v1 drill-down
-   * only; TZ2-07 drops it.
-   */
-  listHandshakesOfUser(address: string): Promise<Handshake[]> {
-    return roomGate(() => apiRaw.listHandshakesOfUser(address));
   }
 };

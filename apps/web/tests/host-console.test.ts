@@ -1,12 +1,18 @@
-/** /host console tests (TZ-09, DESIGN §3.7): token gate (masked, persisted,
- * rejected-token state), create-room flow via the helper, share kit
- * (code + QR + invite link, restored from bleak.hostRoom), live room view
- * (5 s poller, teardown, empty state), on-demand member drill-down (never
- * polled), room settings + danger-zone delete, getRoom-404 → deleted state. */
+/** /host console v2 tests (TZ2-07 Part B, DESIGN rev. 3 §3.7 AC 1–16):
+ * one-time creation-token gate (masked, NEVER persisted, rejected state),
+ * create room (client-generated room token, creation token header), share
+ * kit (code + QR + client-computed invite link, restored from
+ * bleak.hostRoom), invite management (room-token authority: list / mint
+ * with expiry presets / revoke — no counts anywhere), live room view (5 s
+ * poller, teardown, empty state), member drill-down (6.9a-blocked: honest
+ * empty state + hint, never invented listings), room settings +
+ * room-token rotation (in-place) + danger-zone delete, host reset state,
+ * getRoom-404 → deleted state. */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
-import { ApiError, type Chat, type Handshake, type Room, type User } from '@bleak/api-client';
+import { get } from 'svelte/store';
+import { ApiError, type Chat, type Invite, type Room, type User } from '@bleak/api-client';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/paths', () => ({
@@ -15,6 +21,7 @@ vi.mock('$app/paths', () => ({
 }));
 
 vi.mock('#lib/api/client', () => ({
+  HOST_RESET_KEY: 'bleak.hostReset',
   api: {
     getRoom: vi.fn(),
     listRoomUsers: vi.fn()
@@ -23,14 +30,37 @@ vi.mock('#lib/api/client', () => ({
     createRoomWithInvite: vi.fn(),
     updateRoom: vi.fn(),
     deleteRoom: vi.fn(),
-    listHandshakesOfUser: vi.fn(),
-    listChatsOfRoomUser: vi.fn()
+    listInvites: vi.fn(),
+    mintInvite: vi.fn(),
+    revokeInvite: vi.fn(),
+    rotateRoomToken: vi.fn(),
+    getRoom: vi.fn(),
+    listRoomUsers: vi.fn(),
+    listChatsOfRoomUser: vi.fn(),
+    listRoomUserChatMessages: vi.fn(),
+    clearChatHistory: vi.fn(),
+    kickoffChat: vi.fn()
   }
 }));
 
+vi.mock('#lib/crypto/secrets', () => ({
+  generateTokenSecret: () => 'R'.repeat(43),
+  generateMutualCode: () => 'M'.repeat(22),
+  sha256Hex: async () => 'FAKEHASH'
+}));
+
 import { api, hostApi } from '#lib/api/client';
+import { clearHostRoom, hostRoom } from '../src/lib/stores/hostSession';
+import { identity } from '../src/lib/stores/identity';
 import Page from '../src/routes/host/+page.svelte';
-import { handshakeCounts, parseHelperErrorText, spelledDigits } from '../src/lib/components/host/hostLogic';
+import {
+  activeInvites,
+  customExpiry,
+  expiresIn,
+  inviteLink,
+  presetExpiry,
+  spelledDigits
+} from '../src/lib/components/host/hostLogic';
 import { ru } from '../src/lib/i18n/ru';
 
 const mockedApi = vi.mocked(api, true);
@@ -48,8 +78,14 @@ const ROOM: Room = {
   deleted_at: null
 };
 
+const CREATE_TOKEN = 'ctok-one-time';
+
 function minutesAgo(minutes: number): string {
   return new Date(Date.now() - minutes * 60_000).toISOString();
+}
+
+function minutesFromNow(minutes: number): string {
+  return new Date(Date.now() + minutes * 60_000).toISOString();
 }
 
 function person(address: string, name: string, createdMinutesAgo: number, bio = ''): User {
@@ -67,18 +103,6 @@ function person(address: string, name: string, createdMinutesAgo: number, bio = 
   };
 }
 
-function handshake(from: string, to: string, minutesAgoValue: number): Handshake {
-  return {
-    tx_id: `${from}->${to}`,
-    from_address: from,
-    to_address: to,
-    room: ROOM.address,
-    status: 1,
-    value: 1,
-    created_at: minutesAgo(minutesAgoValue)
-  };
-}
-
 function chat(address: string, participants: string[], createdMinutesAgo: number): Chat {
   return {
     address,
@@ -92,29 +116,42 @@ function chat(address: string, participants: string[], createdMinutesAgo: number
   };
 }
 
-const PAYLOAD = {
-  room: ROOM,
-  code: '123456'
-};
+function invite(code: string, expiresInMinutes: number): Invite {
+  return {
+    code,
+    created_at: minutesAgo(5),
+    expires_at: minutesFromNow(expiresInMinutes)
+  };
+}
+
+const PAYLOAD = { room: ROOM, code: '123456' };
 
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
   sessionStorage.clear();
-  localStorage.removeItem('bleak.hostToken');
-  localStorage.removeItem('bleak.hostRoom');
+  identity.set(null);
   mockedApi.getRoom.mockResolvedValue(structuredClone(ROOM));
   mockedApi.listRoomUsers.mockResolvedValue([]);
+  mockedHostApi.getRoom.mockResolvedValue(structuredClone(ROOM));
+  mockedHostApi.listRoomUsers.mockResolvedValue([]);
   mockedHostApi.updateRoom.mockResolvedValue(structuredClone(ROOM));
   mockedHostApi.deleteRoom.mockResolvedValue(structuredClone(ROOM));
-  mockedHostApi.listHandshakesOfUser.mockResolvedValue([]);
-  mockedHostApi.listChatsOfRoomUser.mockResolvedValue([]);
+  mockedHostApi.listInvites.mockResolvedValue([]);
+  mockedHostApi.mintInvite.mockResolvedValue(invite('654321', 24 * 60));
+  mockedHostApi.revokeInvite.mockResolvedValue(undefined);
+  mockedHostApi.rotateRoomToken.mockResolvedValue(undefined);
+  mockedHostApi.clearChatHistory.mockResolvedValue({ chat: '0xchat1', cleared: 3 });
+  mockedHostApi.kickoffChat.mockResolvedValue({ chat: '0xchat1', cleared: 3, speaker: '0xa' });
   mockedCreate.mockResolvedValue(structuredClone(PAYLOAD));
 });
 
 afterEach(() => {
   cleanup();
+  clearHostRoom();
+  identity.set(null);
   localStorage.clear();
+  sessionStorage.clear();
 });
 
 async function renderPage(): Promise<void> {
@@ -123,47 +160,74 @@ async function renderPage(): Promise<void> {
   await tick();
 }
 
-/** Put a full host session into storage so the page boots into share mode. */
+/** Seed a full host session so the page boots into share mode. */
 function storeSession(): void {
-  localStorage.setItem('bleak.hostToken', 'good-token');
   localStorage.setItem(
     'bleak.hostRoom',
-    JSON.stringify({
-      code: '123456',
-      roomAddress: ROOM.address,
-      roomToken: 'stored-room-token',
-      roomName: ROOM.name,
-      inviteUrl: '/?code=123456'
-    })
+    JSON.stringify({ code: '123456', roomAddress: ROOM.address, roomToken: 'stored-room-token' })
   );
+  hostRoom.set({ code: '123456', roomAddress: ROOM.address, roomToken: 'stored-room-token' });
 }
 
 async function submitToken(value: string): Promise<void> {
   const input = screen.getByLabelText(ru['host.gate.label']) as HTMLInputElement;
   input.value = value;
   input.dispatchEvent(new Event('input', { bubbles: true }));
-  await screen.getByRole('button', { name: ru['host.token.continue'] }).click();
+  await screen.getByRole('button', { name: ru['host.gate.continue'] }).click();
   await tick();
   await tick();
 }
 
-describe('pure helpers (hostLogic)', () => {
-  it('handshakeCounts splits sent/received strictly by from_address direction', () => {
-    const member = '0xa';
-    const list = [
-      handshake(member, '0xb', 1),
-      handshake('0xb', member, 2),
-      handshake('0xc', '0xd', 3), // unrelated pair
-      handshake(member, '0xd', 4)
-    ];
-    expect(handshakeCounts(list, member)).toEqual({ sent: 2, received: 1 });
-    expect(handshakeCounts([], member)).toEqual({ sent: 0, received: 0 });
+async function fillRoomName(name: string): Promise<void> {
+  const nameInput = screen.getByLabelText(ru['host.form.name']) as HTMLInputElement;
+  nameInput.value = name;
+  nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function storageDump(): string {
+  let out = '';
+  for (let i = 0; i < localStorage.length; i += 1) out += localStorage.getItem(localStorage.key(i) ?? '') ?? '';
+  for (let i = 0; i < sessionStorage.length; i += 1) out += sessionStorage.getItem(sessionStorage.key(i) ?? '') ?? '';
+  return out;
+}
+
+describe('pure helpers (hostLogic v2)', () => {
+  it('inviteLink computes {base}/?code={code} client-side (§10.9)', () => {
+    expect(inviteLink('123456', 'http://localhost:5173')).toBe('http://localhost:5173/?code=123456');
+    expect(inviteLink('123456', 'https://bleak.example/app/')).toBe(
+      'https://bleak.example/app/?code=123456'
+    );
   });
 
-  it('parseHelperErrorText extracts the JSON error message, passes plain text', () => {
-    expect(parseHelperErrorText('{"error":"name is required"}')).toBe('name is required');
-    expect(parseHelperErrorText('plain text body')).toBe('plain text body');
-    expect(parseHelperErrorText('{"other":1}')).toBe('{"other":1}');
+  it('presetExpiry computes the 1h/24h/7d ISO instants from now', () => {
+    const now = Date.UTC(2026, 10, 15, 10, 0, 0);
+    expect(presetExpiry('1h', now)).toBe(new Date(now + 3_600_000).toISOString());
+    expect(presetExpiry('24h', now)).toBe(new Date(now + 24 * 3_600_000).toISOString());
+    expect(presetExpiry('7d', now)).toBe(new Date(now + 7 * 24 * 3_600_000).toISOString());
+  });
+
+  it('customExpiry rejects past/garbage values and accepts a future datetime-local', () => {
+    const now = Date.UTC(2026, 10, 15, 10, 0, 0);
+    expect(customExpiry('2026-11-15T09:00', now)).toBeNull();
+    expect(customExpiry('not-a-date', now)).toBeNull();
+    expect(customExpiry('2026-11-15T12:00', now)).toBe(new Date(Date.UTC(2026, 10, 15, 12, 0)).toISOString());
+  });
+
+  it('activeInvites filters expired codes and sorts newest first (revoked/expired never render)', () => {
+    const now = Date.UTC(2026, 10, 15, 10, 0, 0);
+    const list = [
+      { code: '111111', created_at: new Date(now - 120_000).toISOString(), expires_at: new Date(now - 60_000).toISOString() },
+      { code: '222222', created_at: new Date(now - 10_000).toISOString(), expires_at: new Date(now + 60_000).toISOString() },
+      { code: '333333', created_at: new Date(now - 5_000).toISOString(), expires_at: new Date(now + 120_000).toISOString() }
+    ];
+    expect(activeInvites(list, now).map((i) => i.code)).toEqual(['333333', '222222']);
+  });
+
+  it('expiresIn humanizes the remaining time in minute/hour/day buckets', () => {
+    const now = Date.UTC(2026, 10, 15, 10, 0, 0);
+    expect(expiresIn(new Date(now + 30 * 60_000).toISOString(), now)).toBe('30');
+    expect(expiresIn(new Date(now + 5 * 3_600_000).toISOString(), now)).toBe('5');
+    expect(expiresIn(new Date(now + 3 * 24 * 3_600_000).toISOString(), now)).toBe('3');
   });
 
   it('spelledDigits spaces the code for the screen-reader aria-label', () => {
@@ -171,112 +235,115 @@ describe('pure helpers (hostLogic)', () => {
   });
 });
 
-describe('token gate (AC 1, AC 9)', () => {
-  it('shows the masked gate without a stored token; entry persists bleak.hostToken and the gate does not reappear', async () => {
+describe('creation-token gate (AC 1, AC 2)', () => {
+  it('shows the masked gate without a stored room; the token is NEVER persisted (AC 1)', async () => {
     await renderPage();
     const input = screen.getByLabelText(ru['host.gate.label']) as HTMLInputElement;
     expect(input.type).toBe('password');
-    expect(screen.getByText(ru['host.token.note'])).toBeTruthy();
+    expect(input.getAttribute('autocomplete')).toBe('off');
+    expect(screen.getByText(ru['host.gate.note'])).toBeTruthy();
 
-    await submitToken('good-token');
-
-    expect(localStorage.getItem('bleak.hostToken')).toBe('good-token');
+    await submitToken(CREATE_TOKEN);
     // Gate gone: the create form is the visible surface now.
     expect(screen.queryByLabelText(ru['host.gate.label'])).toBeNull();
     expect(screen.getByRole('button', { name: ru['host.create'] })).toBeTruthy();
+    // The creation token lives in memory only — no storage write anywhere.
+    expect(storageDump()).not.toContain(CREATE_TOKEN);
   });
 
-  it('a rejected token returns to the gate with «Токен отклонён.» under the field, value kept masked', async () => {
+  it('a rejected/consumed token (401/403 on create) shows «Токен отклонён.» + server text, value kept masked, nothing stored (AC 2)', async () => {
     mockedCreate.mockRejectedValue(
-      new ApiError(403, '/api/room', '{"error":"host token required to create rooms"}')
+      new ApiError(403, '/api/room', 'creation token invalid or already used')
     );
     await renderPage();
     await submitToken('wrong-token');
-    // Fill the required name so the submit reaches the helper (403).
-    const nameInput = screen.getByLabelText(ru['host.form.name']) as HTMLInputElement;
-    nameInput.value = 'Митап';
-    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-    // Form appears, create fails on 403 → back to the gate with the error.
+    await fillRoomName('Митап');
     await screen.getByRole('button', { name: ru['host.create'] }).click();
     await waitFor(() => expect(screen.getByText(/Токен отклонён/)).toBeTruthy());
 
     const input = screen.getByLabelText(ru['host.gate.label']) as HTMLInputElement;
     expect(input.type).toBe('password');
     expect(input.value).toBe('wrong-token');
-    expect(screen.getByText(/Токен отклонён/)).toBeTruthy();
-    expect(screen.getByText(/host token required/)).toBeTruthy();
+    expect(screen.getByText(/creation token invalid/)).toBeTruthy();
+    expect(storageDump()).not.toContain('wrong-token');
+    expect(localStorage.getItem('bleak.hostRoom')).toBeNull();
   });
 
-  it('forget token clears bleak.hostToken and re-shows the gate', async () => {
+  it('the mount consumes the bleak.hostReset flag and shows the reset notice above the gate', async () => {
+    sessionStorage.setItem('bleak.hostReset', '1');
     await renderPage();
-    await submitToken('good-token');
-    await screen.getByRole('button', { name: ru['host.token.forget'] }).click();
-    expect(localStorage.getItem('bleak.hostToken')).toBeNull();
+    await waitFor(() => expect(screen.getByText(ru['host.session_reset'])).toBeTruthy());
+    expect(sessionStorage.getItem('bleak.hostReset')).toBeNull();
     expect(screen.getByLabelText(ru['host.gate.label'])).toBeTruthy();
   });
 });
 
-describe('create room + share kit (AC 2, AC 3, AC 4, AC 5)', () => {
-  it('empty name is prevented client-side (helper not called)', async () => {
+describe('create room + share kit (AC 3, 4, 5, 6)', () => {
+  it('empty name is prevented client-side (client not called)', async () => {
     await renderPage();
-    await submitToken('good-token');
+    await submitToken(CREATE_TOKEN);
     await screen.getByRole('button', { name: ru['host.create'] }).click();
     await tick();
     expect(mockedCreate).not.toHaveBeenCalled();
     expect(screen.getByText(ru['join.error.name_required'])).toBeTruthy();
   });
 
-  it('creates via the v2 client (room token generated client-side, creation token header) and shows the share kit', async () => {
+  it('creates with a client-generated room token (creation token in the header) and stores {roomAddress, roomToken, code} (AC 3)', async () => {
     await renderPage();
-    await submitToken('good-token');
-
-    const nameInput = screen.getByLabelText(ru['host.form.name']) as HTMLInputElement;
-    nameInput.value = 'Митап';
-    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await submitToken(CREATE_TOKEN);
+    await fillRoomName('Митап');
     await screen.getByRole('button', { name: ru['host.create'] }).click();
 
     await waitFor(() => expect(mockedCreate).toHaveBeenCalledTimes(1));
     const requestBody = mockedCreate.mock.calls[0]?.[0];
-    expect(requestBody).toEqual({ name: 'Митап', language: 'ru', token: expect.any(String) });
-    // The room token is client-generated (32 random bytes → 43 base64url chars).
-    expect((requestBody as { token: string }).token).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(mockedCreate.mock.calls[0]?.[1]).toBe('good-token');
+    expect(requestBody).toEqual({ name: 'Митап', language: 'ru', token: 'R'.repeat(43) });
+    // The one-time creation token travels as the second argument (the
+    // header in the delivered TZ2-02 transport) — never in the body.
+    expect(mockedCreate.mock.calls[0]?.[1]).toBe(CREATE_TOKEN);
+    expect(JSON.stringify(requestBody)).not.toContain(CREATE_TOKEN);
 
     await waitFor(() => expect(screen.getByText('123456')).toBeTruthy());
-    // Persisted for the revisit restore — including the generated room token.
     const stored = JSON.parse(localStorage.getItem('bleak.hostRoom') ?? '{}');
-    expect(stored).toMatchObject({
-      code: '123456',
-      roomAddress: ROOM.address
-    });
-    expect(stored.roomToken).toBe((requestBody as { token: string }).token);
-    // Invite link computed client-side from the code (§10.9; $app/paths mocked → '/').
-    expect(screen.getByText('/?code=123456')).toBeTruthy();
+    expect(stored).toEqual({ code: '123456', roomAddress: ROOM.address, roomToken: 'R'.repeat(43) });
+    expect(get(hostRoom)).toEqual({ code: '123456', roomAddress: ROOM.address, roomToken: 'R'.repeat(43) });
+  });
+
+  it('the share kit renders the code, the stateless-helper QR and the client-computed invite link (AC 4)', async () => {
+    storeSession();
+    await renderPage();
+    await waitFor(() => expect(screen.getByText('123456')).toBeTruthy());
+    expect(
+      screen.getByRole('img', { name: ru['host.code.aria'].replace('{code}', spelledDigits('123456')) })
+    ).toBeTruthy();
+    expect(screen.getByText(ru['host.invite_link'])).toBeTruthy();
+    // Invite link computed client-side from the code (base = the SPA origin).
+    expect(screen.getByText(`${window.location.origin}/?code=123456`)).toBeTruthy();
     // QR <img> from the stateless helper URL builder.
     const img = document.querySelector('.qr-frame img') as HTMLImageElement;
     expect(img).toBeTruthy();
     expect(img.getAttribute('alt')).toBe(ru['host.qr.alt']);
     expect(img.getAttribute('src')).toBe('/h/rooms/123456/qr');
-    // Live view starts polling the created room.
-    await waitFor(() => expect(mockedApi.getRoom).toHaveBeenCalledWith(ROOM.address));
+    // Both copy controls exist (code chip + link row).
+    expect(screen.getAllByRole('button', { name: ru['common.copy'] }).length).toBeGreaterThanOrEqual(2);
   });
 
   it('create 400/409 surfaces the server text under the form', async () => {
-    mockedCreate.mockRejectedValue(new ApiError(400, '/api/room', '{"error":"duplicate name"}'));
+    mockedCreate.mockRejectedValue(new ApiError(400, '/api/room', 'duplicate name'));
     await renderPage();
-    await submitToken('good-token');
-    const nameInput = screen.getByLabelText(ru['host.form.name']) as HTMLInputElement;
-    nameInput.value = 'Митап';
-    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await submitToken(CREATE_TOKEN);
+    await fillRoomName('Митап');
     await screen.getByRole('button', { name: ru['host.create'] }).click();
     await waitFor(() => expect(screen.getByText('duplicate name')).toBeTruthy());
   });
 
-  it('revisit restores the share kit from bleak.hostRoom without re-creating (AC 4)', async () => {
+  it('revisit restores the share kit from bleak.hostRoom without re-creating; room name via public getRoom (AC 5)', async () => {
     storeSession();
     await renderPage();
+    await waitFor(() => expect(mockedHostApi.getRoom).toHaveBeenCalledWith(ROOM.address));
     await waitFor(() => expect(screen.getByText('123456')).toBeTruthy());
+    expect(screen.getByText(ROOM.name)).toBeTruthy();
     expect(mockedCreate).not.toHaveBeenCalled();
+    // «Присоединиться как участник» deep-links the join flow (AC 6).
     expect(screen.getByRole('link', { name: ru['host.join_attendee'] }).getAttribute('href')).toBe(
       '/?code=123456'
     );
@@ -287,12 +354,127 @@ describe('create room + share kit (AC 2, AC 3, AC 4, AC 5)', () => {
   });
 });
 
-describe('live room view (AC 6, AC 10)', () => {
+describe('invite management (AC 7, AC 8)', () => {
+  it('lists active codes via room-token listInvites with expiry display (AC 7)', async () => {
+    storeSession();
+    mockedHostApi.listInvites.mockResolvedValue([invite('111111', 60), invite('222222', 30)]);
+    await renderPage();
+    await waitFor(() => expect(mockedHostApi.listInvites).toHaveBeenCalledWith(ROOM.address));
+    expect(screen.getByText('111111')).toBeTruthy();
+    expect(screen.getByText('222222')).toBeTruthy();
+    expect(screen.getAllByText(/истекает через/).length).toBe(2);
+    // Hint copy from the block header.
+    expect(screen.getByText(ru['host.invites.hint'])).toBeTruthy();
+  });
+
+  it('minting with the 24 h preset calls mintInvite and the new code joins the list (AC 7)', async () => {
+    storeSession();
+    mockedHostApi.listInvites
+      .mockResolvedValueOnce([invite('111111', 60)])
+      .mockResolvedValue([invite('111111', 60), invite('654321', 24 * 60)]);
+    await renderPage();
+    await screen.findByText('111111');
+
+    await screen.getByRole('button', { name: ru['host.invites.mint'] }).click();
+    await tick();
+    // The chooser presets: 24 h pre-selected by default.
+    const preset24 = screen.getByRole('button', { name: ru['host.invites.preset.24h'] });
+    expect(preset24.getAttribute('aria-pressed')).toBe('true');
+    // Confirm the mint (the chooser's confirm button carries the same label).
+    const confirm = document.querySelector('.mint-confirm') as HTMLButtonElement;
+    await confirm.click();
+
+    await waitFor(() => expect(mockedHostApi.mintInvite).toHaveBeenCalledTimes(1));
+    const [address, request] = mockedHostApi.mintInvite.mock.calls[0];
+    expect(address).toBe(ROOM.address);
+    const iso = (request as { expires_at: string }).expires_at;
+    expect(new Date(iso).getTime()).toBeGreaterThan(Date.now() + 23 * 3_600_000);
+    expect(new Date(iso).getTime()).toBeLessThan(Date.now() + 25 * 3_600_000);
+    // The minted code appears in the refreshed list with its own actions.
+    await waitFor(() => expect(screen.getByText('654321')).toBeTruthy());
+    expect(
+      screen.getByRole('button', { name: ru['host.invites.revoke_aria'].replace('{code}', '654321') })
+    ).toBeTruthy();
+  });
+
+  it('the custom expiry chooser reveals a datetime-local input (min = now) and mints the custom instant', async () => {
+    storeSession();
+    mockedHostApi.listInvites.mockResolvedValue([]);
+    mockedHostApi.mintInvite.mockResolvedValue(invite('777777', 120));
+    await renderPage();
+    await screen.findByRole('button', { name: ru['host.invites.mint'] });
+    await screen.getByRole('button', { name: ru['host.invites.mint'] }).click();
+    await tick();
+
+    await screen.getByRole('button', { name: ru['host.invites.preset.custom'] }).click();
+    await tick();
+    const input = document.querySelector('#invite-expires') as HTMLInputElement;
+    expect(input.type).toBe('datetime-local');
+    expect(input.min).toBeTruthy();
+
+    const future = new Date(Date.now() + 90 * 60_000);
+    const pad = (n: number): string => String(n).padStart(2, '0');
+    input.value = `${future.getFullYear()}-${pad(future.getMonth() + 1)}-${pad(future.getDate())}T${pad(future.getHours())}:${pad(future.getMinutes())}`;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    const confirm = document.querySelector('.mint-confirm') as HTMLButtonElement;
+    await confirm.click();
+
+    await waitFor(() => expect(mockedHostApi.mintInvite).toHaveBeenCalledTimes(1));
+    const iso = (mockedHostApi.mintInvite.mock.calls[0]?.[1] as { expires_at: string }).expires_at;
+    expect(new Date(iso).getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('an empty custom value blocks the mint inline (no request)', async () => {
+    storeSession();
+    mockedHostApi.listInvites.mockResolvedValue([]);
+    await renderPage();
+    await screen.getByRole('button', { name: ru['host.invites.mint'] }).click();
+    await tick();
+    await screen.getByRole('button', { name: ru['host.invites.preset.custom'] }).click();
+    await tick();
+    const confirm = document.querySelector('.mint-confirm') as HTMLButtonElement;
+    await confirm.click();
+    await tick();
+    expect(mockedHostApi.mintInvite).not.toHaveBeenCalled();
+  });
+
+  it('revoke calls DELETE …/invite/{code}, refreshes the list and shows «Код отозван.»; expired codes never render (AC 8)', async () => {
+    storeSession();
+    mockedHostApi.listInvites
+      .mockResolvedValueOnce([invite('111111', 60), invite('999999', -30)])
+      .mockResolvedValueOnce([]);
+    await renderPage();
+    await screen.findByText('111111');
+    // The expired code never rendered (AC 8).
+    expect(screen.queryByText('999999')).toBeNull();
+
+    await screen
+      .getByRole('button', { name: ru['host.invites.revoke_aria'].replace('{code}', '111111') })
+      .click();
+    await waitFor(() => expect(mockedHostApi.revokeInvite).toHaveBeenCalledWith(ROOM.address, '111111'));
+    await waitFor(() => expect(screen.getByText(ru['host.invites.revoked'])).toBeTruthy());
+    await waitFor(() => expect(screen.queryByText('111111')).toBeNull());
+  });
+
+  it('invite failure renders inline with retry; the share kit is unaffected', async () => {
+    storeSession();
+    mockedHostApi.listInvites.mockRejectedValue(new ApiError(500, '/x', 'db locked'));
+    await renderPage();
+    await waitFor(() => expect(screen.getByText(/db locked/)).toBeTruthy());
+    expect(screen.getByRole('button', { name: ru['common.retry'] })).toBeTruthy();
+    expect(screen.getByText('123456')).toBeTruthy();
+  });
+});
+
+describe('live room view (AC 9, AC 15)', () => {
   it('renders member rows and the members tile against max_user', async () => {
     storeSession();
-    mockedApi.listRoomUsers.mockResolvedValue([person('0xa', 'Алиса', 2), person('0xb', 'Борис', 5)]);
+    mockedHostApi.listRoomUsers.mockResolvedValue([
+      person('0xa', 'Алиса', 2),
+      person('0xb', 'Борис', 5)
+    ]);
     await renderPage();
-    await waitFor(() => expect(mockedApi.getRoom).toHaveBeenCalledWith(ROOM.address));
+    await waitFor(() => expect(mockedHostApi.getRoom).toHaveBeenCalledWith(ROOM.address));
     await screen.findByText('Алиса');
     await screen.findByText('Борис');
     expect(document.body.textContent).toContain('2/50');
@@ -305,31 +487,31 @@ describe('live room view (AC 6, AC 10)', () => {
       storeSession();
       render(Page, { props: {} });
       await vi.advanceTimersByTimeAsync(30);
-      const callsAtMount = mockedApi.getRoom.mock.calls.length;
+      const callsAtMount = mockedHostApi.getRoom.mock.calls.length;
       expect(callsAtMount).toBeGreaterThan(0);
 
-      // one full 5 s tick: the poll runs again without user action (AC 6)
+      // one full 5 s tick: the poll runs again without user action (AC 9)
       await vi.advanceTimersByTimeAsync(5100);
       await vi.advanceTimersByTimeAsync(30);
-      expect(mockedApi.getRoom.mock.calls.length).toBeGreaterThan(callsAtMount);
+      expect(mockedHostApi.getRoom.mock.calls.length).toBeGreaterThan(callsAtMount);
 
-      const callsBeforeUnmount = mockedApi.getRoom.mock.calls.length;
+      const callsBeforeUnmount = mockedHostApi.getRoom.mock.calls.length;
       cleanup();
       await vi.advanceTimersByTimeAsync(21_000);
-      expect(mockedApi.getRoom.mock.calls.length).toBe(callsBeforeUnmount);
+      expect(mockedHostApi.getRoom.mock.calls.length).toBe(callsBeforeUnmount);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('empty room shows «Пока никто не присоединился.» (AC 10)', async () => {
+  it('empty room shows «Пока никто не присоединился.» (AC 15)', async () => {
     storeSession();
     await renderPage();
     await waitFor(() => expect(screen.getByText(ru['host.empty_live'])).toBeTruthy());
   });
 
-  it('getRoom 404 (deleted elsewhere) → «Комната удалена.» + reset to the create form (AC 12)', async () => {
-    mockedApi.getRoom.mockRejectedValue(new ApiError(404, '/api/room/0xroom', 'room not found'));
+  it('getRoom 404 (deleted elsewhere) → «Комната удалена.» + reset to the create form (AC 15)', async () => {
+    mockedHostApi.getRoom.mockRejectedValue(new ApiError(404, '/api/room/0xroom', 'room not found'));
     storeSession();
     await renderPage();
     await waitFor(() => expect(screen.getByText(ru['host.room_deleted'])).toBeTruthy());
@@ -340,73 +522,35 @@ describe('live room view (AC 6, AC 10)', () => {
   });
 });
 
-describe('member drill-down (AC 7 — on demand, never polled)', () => {
-  it('shows sent/received counts and dialogs, fetched once on open; dialog rows link to /chats/{address}', async () => {
+describe('member drill-down (AC 10, AC 11 — counts-less, 6.9a-blocked)', () => {
+  it('opens on demand with NO counts and the honest 6.9a hint state — no invented listings (AC 10, 11)', async () => {
     storeSession();
-    mockedApi.listRoomUsers.mockResolvedValue([person('0xa', 'Алиса', 2, 'Поттер')]);
-    mockedHostApi.listHandshakesOfUser.mockResolvedValue([
-      handshake('0xa', '0xb', 3),
-      handshake('0xb', '0xa', 4),
-      handshake('0xc', '0xd', 5)
-    ]);
-    mockedHostApi.listChatsOfRoomUser.mockResolvedValue([chat('0xchat1', ['0xa', '0xb'], 6)]);
-
+    mockedHostApi.listRoomUsers.mockResolvedValue([person('0xa', 'Алиса', 2, 'Поттер')]);
     await renderPage();
     await screen.findByText('Алиса');
 
     await screen.getByRole('button', { name: 'Алиса — открыть карточку' }).click();
+    await tick();
 
-    await waitFor(() => expect(screen.getByText('Отправлено хендшейков: 1')).toBeTruthy());
-    expect(screen.getByText('Получено хендшейков: 1')).toBeTruthy();
-    expect(screen.getByText(ru['host.drill.dialogs'])).toBeTruthy();
-    const dialogLink = document.querySelector('.dialogs a') as HTMLAnchorElement;
-    expect(dialogLink.getAttribute('href')).toBe('/chats/0xchat1');
+    expect(screen.getByText(ru['host.drill.empty'])).toBeTruthy();
+    expect(screen.getByText(ru['host.drill.pending_amendment'])).toBeTruthy();
+    // NO handshake counts anywhere in the console (AC 11).
+    expect(document.body.textContent).not.toContain('Отправлено хендшейков');
+    expect(document.body.textContent).not.toContain('Получено хендшейков');
+    // The 6.9a-blocked room-scoped listing is never called (no invented data)
+    // and the drill-down fetches NOTHING on open in v2 (no discovery).
+    expect(mockedHostApi.listChatsOfRoomUser).not.toHaveBeenCalled();
+    expect(mockedHostApi.clearChatHistory).not.toHaveBeenCalled();
+    expect(mockedHostApi.kickoffChat).not.toHaveBeenCalled();
 
-    // On demand only: no repeated drill-down fetches while the sheet is open.
-    const handshakeCalls = mockedHostApi.listHandshakesOfUser.mock.calls.length;
-    const chatCalls = mockedHostApi.listChatsOfRoomUser.mock.calls.length;
-    // Give the page a moment: the sheet does NOT re-fetch on its own.
+    // On demand only: the sheet does not re-fetch on its own.
     await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(mockedHostApi.listHandshakesOfUser.mock.calls.length).toBe(handshakeCalls);
-    expect(mockedHostApi.listChatsOfRoomUser.mock.calls.length).toBe(chatCalls);
-  });
-
-  it('drill-down data is never polled — the poller only re-runs getRoom/listRoomUsers', async () => {
-    vi.useFakeTimers();
-    try {
-      storeSession();
-      render(Page, { props: {} });
-      await vi.advanceTimersByTimeAsync(30);
-      // two full 5 s ticks: members/room re-polled, drill-down endpoints silent
-      await vi.advanceTimersByTimeAsync(5100);
-      await vi.advanceTimersByTimeAsync(30);
-      await vi.advanceTimersByTimeAsync(5100);
-      await vi.advanceTimersByTimeAsync(30);
-      expect(mockedApi.getRoom.mock.calls.length).toBeGreaterThanOrEqual(3);
-      expect(mockedHostApi.listHandshakesOfUser.mock.calls.length).toBe(0);
-      expect(mockedHostApi.listChatsOfRoomUser.mock.calls.length).toBe(0);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('drill-down fetch failure shows the inline muted error with retry', async () => {
-    storeSession();
-    mockedApi.listRoomUsers.mockResolvedValue([person('0xa', 'Алиса', 2)]);
-    mockedHostApi.listHandshakesOfUser.mockRejectedValue(
-      new ApiError(500, '/x', 'db locked')
-    );
-    await renderPage();
-    await screen.findByText('Алиса');
-    await screen.getByRole('button', { name: 'Алиса — открыть карточку' }).click();
-    await waitFor(() => expect(screen.getByText(/Ошибка сервера/)).toBeTruthy());
-    expect(screen.getByText(/db locked/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: ru['common.retry'] })).toBeTruthy();
+    expect(mockedHostApi.listChatsOfRoomUser).not.toHaveBeenCalled();
   });
 });
 
-describe('room settings + danger zone (AC 8, AC 12)', () => {
-  it('settings save via PUT updateRoom and reflect immediately', async () => {
+describe('room settings + rotation + danger zone (AC 12, AC 13)', () => {
+  it('settings save via PUT updateRoom and reflect immediately (AC 12)', async () => {
     storeSession();
     const updated = structuredClone(ROOM);
     updated.name = 'Митап 2';
@@ -414,22 +558,48 @@ describe('room settings + danger zone (AC 8, AC 12)', () => {
     await renderPage();
     await screen.findByText('Митап');
 
-    const toggle = screen.getByRole('button', { name: ru['host.settings.title'] });
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    await toggle.click();
+    await screen.getByRole('button', { name: ru['host.settings.title'] }).click();
     await tick();
-    expect(toggle.getAttribute('aria-expanded')).toBe('true');
 
     const nameInput = screen.getByLabelText(ru['host.form.name']) as HTMLInputElement;
     nameInput.value = 'Митап 2';
     nameInput.dispatchEvent(new Event('input', { bubbles: true }));
     await screen.getByRole('button', { name: ru['common.save'] }).click();
 
-    await waitFor(() => expect(mockedHostApi.updateRoom).toHaveBeenCalledWith(ROOM.address, { name: 'Митап 2', description: ROOM.description }));
+    await waitFor(() =>
+      expect(mockedHostApi.updateRoom).toHaveBeenCalledWith(ROOM.address, {
+        name: 'Митап 2',
+        description: ROOM.description
+      })
+    );
     await waitFor(() => expect(screen.getByText('Митап 2')).toBeTruthy());
   });
 
-  it('danger zone is separated by a warning heading; delete confirms, calls DELETE, clears the stored room and returns to the form', async () => {
+  it('«Сгенерировать ключ комнаты» confirms and rewrites the stored roomToken IN PLACE (AC 13)', async () => {
+    storeSession();
+    await renderPage();
+    await screen.findByText(ROOM.name);
+
+    await screen.getByRole('button', { name: ru['host.settings.title'] }).click();
+    await tick();
+    await screen.getByRole('button', { name: ru['host.rotate_room.row'] }).click();
+    await tick();
+    expect(screen.getByText(ru['host.rotate_room.title'])).toBeTruthy();
+    expect(screen.getByText(ru['host.rotate_room.body'])).toBeTruthy();
+    await screen.getByRole('button', { name: ru['host.rotate_room.cta'] }).click();
+
+    await waitFor(() =>
+      expect(mockedHostApi.rotateRoomToken).toHaveBeenCalledWith(ROOM.address, 'R'.repeat(43))
+    );
+    await waitFor(() =>
+      expect(screen.getByText(ru['host.rotate_room.done'], { exact: false })).toBeTruthy()
+    );
+    // The stored entry's roomToken is replaced in place — code/address kept.
+    const stored = JSON.parse(localStorage.getItem('bleak.hostRoom') ?? '{}');
+    expect(stored).toEqual({ code: '123456', roomAddress: ROOM.address, roomToken: 'R'.repeat(43) });
+  });
+
+  it('danger zone is separated by a warning heading; delete confirms, calls DELETE, clears the stored room and returns to the create form (AC 12)', async () => {
     storeSession();
     await renderPage();
     await screen.findByText(ROOM.name);
@@ -440,15 +610,77 @@ describe('room settings + danger zone (AC 8, AC 12)', () => {
 
     await screen.getByRole('button', { name: ru['host.delete_room'] }).click();
     await tick();
-    // Confirm dialog with the warning copy.
     expect(screen.getByText(ru['host.delete_warning'])).toBeTruthy();
     const confirm = document.querySelector('.scrim .actions .confirm') as HTMLButtonElement;
     await confirm.click();
 
     await waitFor(() => expect(mockedHostApi.deleteRoom).toHaveBeenCalledWith(ROOM.address));
     await waitFor(() => expect(localStorage.getItem('bleak.hostRoom')).toBeNull());
-    // Back to the create form with the deleted notice.
     await waitFor(() => expect(screen.getByRole('button', { name: ru['host.create'] })).toBeTruthy());
     expect(screen.getByText(ru['host.room_deleted'])).toBeTruthy();
+  });
+});
+
+describe('host session reset (AC 14)', () => {
+  it.each([401, 403])(
+    'a %i on a room-token call clears bleak.hostRoom, resets the console to the gate and shows the notice — attendee identity untouched',
+    async (status) => {
+      storeSession();
+      localStorage.setItem(
+        'bleak.identity',
+        JSON.stringify({ roomAddress: ROOM.address, userAddress: '0xme', token: 'p-tok' })
+      );
+      identity.set({ roomAddress: ROOM.address, userAddress: '0xme', token: 'p-tok' });
+      mockedHostApi.updateRoom.mockImplementation(async () => {
+        // The real hostApi gate clears the room session (store AND storage)
+        // + sets the flag before rethrowing — the mock replicates both.
+        clearHostRoom();
+        sessionStorage.setItem('bleak.hostReset', '1');
+        throw new ApiError(status, '/api/room/0xroom', 'room token invalid');
+      });
+      await renderPage();
+      await screen.findByText(ROOM.name);
+      await screen.getByRole('button', { name: ru['host.settings.title'] }).click();
+      await tick();
+      await screen.getByRole('button', { name: ru['common.save'] }).click();
+
+      await waitFor(() => expect(screen.getByText(ru['host.session_reset'])).toBeTruthy());
+      await waitFor(() => expect(screen.getByLabelText(ru['host.gate.label'])).toBeTruthy());
+      expect(localStorage.getItem('bleak.hostRoom')).toBeNull();
+      // The attendee identity is NEVER touched by the host reset.
+      expect(JSON.parse(localStorage.getItem('bleak.identity') ?? 'null')).toEqual({
+        roomAddress: ROOM.address,
+        userAddress: '0xme',
+        token: 'p-tok'
+      });
+    }
+  );
+
+  it('the reset notice is announced politely and the flag is consumed (no repeat on the next mount)', async () => {
+    storeSession();
+    mockedHostApi.updateRoom.mockImplementation(async () => {
+      clearHostRoom();
+      sessionStorage.setItem('bleak.hostReset', '1');
+      throw new ApiError(401, '/api/room/0xroom', 'room token invalid');
+    });
+    await renderPage();
+    await screen.findByText(ROOM.name);
+    await screen.getByRole('button', { name: ru['host.settings.title'] }).click();
+    await tick();
+    await screen.getByRole('button', { name: ru['common.save'] }).click();
+    await waitFor(() => expect(screen.getByText(ru['host.session_reset'])).toBeTruthy());
+    const notice = screen.getByText(ru['host.session_reset']);
+    expect(notice.getAttribute('aria-live')).toBe('polite');
+    expect(sessionStorage.getItem('bleak.hostReset')).toBeNull();
+  });
+});
+
+describe('layout (AC 16)', () => {
+  it('renders the two-column shell; the sticky-left rule is a ≥900px media query (spot-checked in DOM)', async () => {
+    storeSession();
+    await renderPage();
+    await waitFor(() => expect(document.querySelector('.columns')).toBeTruthy());
+    expect(document.querySelector('.left')).toBeTruthy();
+    expect(document.querySelector('.right')).toBeTruthy();
   });
 });

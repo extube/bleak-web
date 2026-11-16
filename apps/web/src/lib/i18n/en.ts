@@ -190,13 +190,11 @@ export const en = {
   // v2 credentials (DESIGN rev. 3 §3.7): one-time creation-token gate — the
   // renamed host.gate.* keys; host.token.* remnants stay until TZ2-11 drops them.
   'host.gate.label': 'Room creation token',
+  'host.gate.continue': 'Continue',
   'host.gate.note':
     'A one-time token issued by the deployment operator. After the room is created it is never needed again and is not stored.',
   'host.session_reset': 'Room access was revoked — sign in again with a creation token.',
   'host.token.rejected': 'Token rejected.',
-  'host.token.forget': 'Forget token',
-  'host.token.note': 'The token is issued by the deployment owner.',
-  'host.token.continue': 'Continue',
   'host.form.name': 'Name',
   'host.form.description': 'Description',
   'host.form.language': 'Agent language',
@@ -226,19 +224,24 @@ export const en = {
   'host.invites.preset.24h': '24 hours',
   'host.invites.preset.7d': '7 days',
   'host.invites.preset.custom': 'Custom…',
+  'host.invites.custom_label': 'Code expires',
   'host.invites.expires_in': 'expires in {time}',
   'host.invites.revoke': 'Revoke',
+  'host.invites.revoke_aria': 'Revoke code {code}',
+  'host.invites.qr_toggle': 'QR for code {code}',
   'host.invites.revoked': 'Code revoked.',
   'host.rotate_room.row': 'Regenerate room token',
   'host.rotate_room.title': 'Regenerate the room credential?',
   'host.rotate_room.body': 'The current room credential will stop working. Continue?',
+  'host.rotate_room.cta': 'Regenerate',
+  'host.rotate_room.done': 'Room credential updated',
   'host.drill.clear': 'Clear history',
   'host.drill.clear_confirm': "The participants' dialog history will be cleared.",
   'host.drill.empty': 'This member has no dialogs yet.',
-  'host.drill.sent': 'Handshakes sent: {n}',
-  'host.drill.received': 'Handshakes received: {n}',
+  'host.drill.pending_amendment':
+    "The member's dialog list arrives with the server-side amendment (flag 6.9a).",
+  'host.drill.kickoff': 'Restart',
   'host.drill.dialogs': 'Dialogs',
-  'host.drill.no_dialogs': 'No dialogs yet.',
 
   /* --- global 401 gate (DESIGN rev. 3 §2.8, §4.7) --- */
   'auth.401.notice':

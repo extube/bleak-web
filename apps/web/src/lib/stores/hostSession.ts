@@ -1,63 +1,50 @@
 /**
- * Host-session persistence (v2: ARCHITECTURE §10.4/§10.9): the host's created
+ * Host-session persistence (v2, ARCHITECTURE §10.4/§10.9): the host's created
  * room reference — room address, client-generated room token and the invite
  * code — lives in localStorage under the single key `bleak.hostRoom`. The
- * room token is written nowhere else; the one-time CREATION token is never
- * persisted anywhere (consumed server-side on use). Both are runtime state an
- * operator can wipe.
- *
- * TRANSITION SHIM (to be removed by TZ2-11, host console v2): the v1 host
- * console (`routes/host/+page.svelte`) and its tests still use the v1
- * `hostToken` writable + persisted `bleak.hostToken` key and the v1
- * `roomName`/`inviteUrl` display fields. They are kept as clearly marked
- * `@deprecated` members so the v1 suite stays green on this branch; TZ2-11's
- * rewrite stops using them (the v2 console takes the creation token per
- * session and computes the invite link client-side), after which this file
- * carries exactly `HostRoomRef { roomAddress, roomToken, code }`.
+ * room token is written nowhere else (§10.11 custody rule); the one-time
+ * CREATION token is never persisted anywhere (consumed server-side on use).
+ * The v1 `hostToken` writable / `bleak.hostToken` key and the v1
+ * `roomName`/`inviteUrl` display fields are REMOVED (the v2 console computes
+ * the invite link client-side and reads the room name via a public `getRoom`).
+ * Both are runtime state an operator can wipe.
  */
 import { writable } from 'svelte/store';
 
 export interface HostRoomRef {
   code: string;
   roomAddress: string;
-  /**
-   * v2 room credential (client-generated raw token, hashed server-side,
-   * §10.4). Optional only during the transition: the v1 console still saves
-   * references created before the credential model (and its tests seed
-   * storage without it); TZ2-11 makes it required with its rewrite.
-   */
-  roomToken?: string;
-  /** @deprecated v1 share-kit display field — removed by TZ2-11. */
-  roomName: string;
-  /** @deprecated v1 helper-supplied invite URL — removed by TZ2-11 (v2
-   * computes the link client-side from the code). */
-  inviteUrl: string;
+  /** v2 room credential (client-generated raw token, hashed server-side). */
+  roomToken: string;
 }
 
 const ROOM_KEY = 'bleak.hostRoom';
-/** @deprecated v1 host-token key — removed by TZ2-11 together with the shim. */
-const TOKEN_KEY = 'bleak.hostToken';
 
 export const hostRoom = writable<HostRoomRef | null>(null);
-/** @deprecated v1 host-token writable — removed by TZ2-11 (the v2 gate takes
- * the one-time creation token per session and never stores it). */
-export const hostToken = writable('');
 
 function readRoom(): HostRoomRef | null {
   try {
     const raw = localStorage.getItem(ROOM_KEY);
     if (raw === null) return null;
     const parsed = JSON.parse(raw) as Partial<HostRoomRef>;
-    if (typeof parsed.code === 'string' && typeof parsed.roomAddress === 'string') {
+    if (
+      typeof parsed.code === 'string' &&
+      typeof parsed.roomAddress === 'string' &&
+      typeof parsed.roomToken === 'string' &&
+      parsed.roomToken !== ''
+    ) {
       return {
         code: parsed.code,
         roomAddress: parsed.roomAddress,
-        ...(typeof parsed.roomToken === 'string' && parsed.roomToken !== ''
-          ? { roomToken: parsed.roomToken }
-          : {}),
-        roomName: typeof parsed.roomName === 'string' ? parsed.roomName : '',
-        inviteUrl: typeof parsed.inviteUrl === 'string' ? parsed.inviteUrl : ''
+        roomToken: parsed.roomToken
       };
+    }
+    // Unusable blob (v1-era reference predating the credential model): the
+    // v2 console cannot operate it — treat as no room session and drop it.
+    try {
+      localStorage.removeItem(ROOM_KEY);
+    } catch {
+      /* ignore */
     }
   } catch {
     /* corrupted or unavailable storage — treat as no room */
@@ -68,12 +55,6 @@ function readRoom(): HostRoomRef | null {
 /** Load persisted host session; call once from the /host route on mount. */
 export function initHostSession(): void {
   hostRoom.set(readRoom());
-  try {
-    hostToken.set(localStorage.getItem(TOKEN_KEY) ?? '');
-  } catch {
-    /* storage unavailable */
-    hostToken.set('');
-  }
 }
 
 /**
@@ -104,27 +85,6 @@ export function clearHostRoom(): void {
   hostRoom.set(null);
   try {
     localStorage.removeItem(ROOM_KEY);
-  } catch {
-    /* ignore */
-  }
-}
-
-/** @deprecated v1 shim — removed by TZ2-11 (the creation token is never
- * stored in v2). Persists under `bleak.hostToken` only. */
-export function saveHostToken(token: string): void {
-  hostToken.set(token);
-  try {
-    localStorage.setItem(TOKEN_KEY, token);
-  } catch {
-    /* ignore */
-  }
-}
-
-/** @deprecated v1 shim — removed by TZ2-11. */
-export function forgetHostToken(): void {
-  hostToken.set('');
-  try {
-    localStorage.removeItem(TOKEN_KEY);
   } catch {
     /* ignore */
   }
