@@ -105,6 +105,7 @@ function person(address: string, name: string, createdMinutesAgo: number, bio = 
 
 function invite(code: string, expiresInMinutes: number): Invite {
   return {
+    room: ROOM.address,
     code,
     created_at: minutesAgo(5),
     expires_at: minutesFromNow(expiresInMinutes)

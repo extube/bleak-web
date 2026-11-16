@@ -36,7 +36,8 @@ export interface User {
   /**
    * Derived liveness flag (CONCEPT §7.3.2): true while the user's stored
    * mutual_code_hash is live (not yet burned). Returned only on token-gated
-   * reads. TBD(WP-6): confirm the field name in swagger.json.
+   * reads. Reconciled 2026-11-16: swagger `server.MutualCodeResponse`
+   * confirms the name.
    */
   mutual_code_live?: boolean;
 }
@@ -146,13 +147,12 @@ export interface ClearChatResponse {
 }
 
 // ---------------------------------------------------------------------------
-// v2 credentials (CONCEPT §7 / ARCHITECTURE §10.2) — TBD(WP-6) reconciliation
+// v2 credentials (CONCEPT §7 / ARCHITECTURE §10.2) — reconciled 2026-11-16
 //
-// bleak-node's swagger.json is still v0.1.0: the credential endpoints below
-// are decided (bleak-node CONCEPT §7.1–§7.4, PLAN WP-4) but not yet in
-// swagger (WP-6 pending). These types implement the proposed shapes; every
-// spot where swagger will fix a name carries a `// TBD(WP-6)` marker. When
-// WP-6 lands, reconcile THIS FILE only — all TBD names are isolated here.
+// bleak-node WP-1…WP-7 landed (swagger paths present; contract header in the
+// owner's TODO-tokens.md). Every former `TBD(WP-6)` marker below was checked
+// against `/mount/bleak-node/docs/swagger.json` and renamed/confirmed; the
+// reconciliation record lives in the round's task card and worker log.
 // ---------------------------------------------------------------------------
 
 /**
@@ -174,7 +174,9 @@ export interface CreateUserRequestV2 {
 /**
  * Room creation (host) — body of POST /api/room; the one-time creation token
  * travels in the HEADER (see BleakClient.createRoom), the room token in the
- * body. TBD(WP-6): header name + body field names.
+ * body. Reconciled 2026-11-16: header `x-create-token`, body fields match
+ * `server.CreateRoomRequest` verbatim; the response extends the v1 room with
+ * the first `invite_code` (`server.CreateRoomResponse`).
  */
 export interface CreateRoomRequestV2 {
   name: string;
@@ -182,6 +184,12 @@ export interface CreateRoomRequestV2 {
   language?: string;
   /** Client-generated room token, RAW (≥32 random bytes, base64url). */
   token: string;
+}
+
+/** Response of POST /api/room — the created room + the FIRST minted invite
+ * code (`server.CreateRoomResponse`, reconciled 2026-11-16). */
+export interface CreateRoomResponse extends Room {
+  invite_code: string;
 }
 
 /** Body of POST /api/handshake/mutual (CONCEPT §7.3). */
@@ -197,7 +205,7 @@ export interface MutualCodeRegistration {
   /**
    * The SHA-256 hex hash of the new one-time mutual code — the registration
    * is the ONE call that must never carry the raw code (CONCEPT §7.4).
-   * TBD(WP-6): confirm the body field name.
+   * Reconciled 2026-11-16: matches `server.SetMutualCodeRequest`.
    */
   mutual_code_hash: string;
 }
@@ -209,16 +217,29 @@ export interface TokenRotationRequest {
 
 /** Body of POST /api/room/{address}/invite (CONCEPT §7.2). */
 export interface InviteMintRequest {
-  /** ISO expiry; omitted → server-side default (24 h). TBD(WP-6). */
+  /** ISO expiry; omitted → server-side default (24 h). Matches
+   * `server.CreateInviteRequest` (reconciled 2026-11-16). */
   expires_at?: string;
 }
 
 /**
  * An active invite code as returned by the invite management endpoints
- * (CONCEPT §7.2). TBD(WP-6): response shape fixed only by swagger.
+ * (CONCEPT §7.2). Reconciled 2026-11-16 against `server.InviteResponse`:
+ * the mint/list response carries the owning room's address too.
  */
 export interface Invite {
+  room: string;
   code: string;
   created_at: string;
   expires_at: string;
+}
+
+/**
+ * Response of POST /api/handshake/mutual — `server.MutualHandshakeResponse`:
+ * the backend creates BOTH directed handshakes and returns the (new or
+ * existing) chat together with the full handshake pair.
+ */
+export interface MutualHandshakeResponse {
+  chat: Chat;
+  handshakes: Handshake[];
 }

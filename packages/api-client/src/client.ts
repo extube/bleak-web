@@ -3,6 +3,7 @@ import type {
   ClearChatResponse,
   CreateHandshakeRequest,
   CreateRoomRequestV2,
+  CreateRoomResponse,
   CreateUserRequest,
   CreateUserRequestV2,
   Greeting,
@@ -12,6 +13,7 @@ import type {
   KickoffResponse,
   Message,
   MutualHandshakeRequest,
+  MutualHandshakeResponse,
   Room,
   SendMessageRequest,
   TokenRotationRequest,
@@ -67,10 +69,12 @@ export class BleakClient {
    * client-generated room token is inside the body. This is the ONLY endpoint
    * with a non-Bearer credential header.
    */
-  // TBD(WP-6): confirm the creation-token header name (proposed
-  // `x-create-token`, ARCHITECTURE §10.13.1).
-  async createRoom(request: CreateRoomRequestV2, createToken: string): Promise<Room> {
-    return this.request<Room>('POST', '/api/room', request, {
+  // Reconciled 2026-11-16 (WP-6): header name confirmed (`x-create-token`,
+  // per swagger parameter + owner's landed-contract header). The response is
+  // `server.CreateRoomResponse` — the room plus the FIRST minted invite code;
+  // the web layer reads that field for its host-console display.
+  async createRoom(request: CreateRoomRequestV2, createToken: string): Promise<CreateRoomResponse> {
+    return this.request<CreateRoomResponse>('POST', '/api/room', request, {
       'x-create-token': createToken
     });
   }
@@ -217,8 +221,8 @@ export class BleakClient {
   async createMutualHandshake(
     token: string,
     request: MutualHandshakeRequest
-  ): Promise<Handshake> {
-    return this.postJson<Handshake>('/api/handshake/mutual', request, { token });
+  ): Promise<MutualHandshakeResponse> {
+    return this.postJson<MutualHandshakeResponse>('/api/handshake/mutual', request, { token });
   }
 
   /** GET /api/handshake/user/{address} — newest first. Gated read: persona token. */
