@@ -74,8 +74,11 @@ beforeEach(() => {
   // The page hydrates the store from localStorage defensively (initIdentity),
   // so both the storage and the store must carry the identity before render.
   localStorage.clear();
-  localStorage.setItem('bleak.identity', JSON.stringify({ roomAddress: ROOM, userAddress: ME }));
-  identity.set({ roomAddress: ROOM, userAddress: ME });
+  localStorage.setItem(
+    'bleak.identity',
+    JSON.stringify({ roomAddress: ROOM, userAddress: ME, token: 'p-tok' })
+  );
+  identity.set({ roomAddress: ROOM, userAddress: ME, token: 'p-tok' });
   chatsUnseen.set(false);
   fixture.chats = [];
   fixture.users = [];

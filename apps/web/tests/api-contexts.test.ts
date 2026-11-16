@@ -429,8 +429,14 @@ function collectFiles(root: string): string[] {
 }
 
 describe('apiRaw restriction (ARCHITECTURE §10.3 escape hatch)', () => {
-  it('only the web api module itself may reference apiRaw in src (TZ2-06 Part D extends the allowlist)', () => {
-    const allowed = [join(SRC_ROOT, 'lib', 'api', 'client.ts')];
+  it('only the web api module and the transcript host-view fallback may reference apiRaw in src', () => {
+    const allowed = [
+      join(SRC_ROOT, 'lib', 'api', 'client.ts'),
+      // TZ2-06 Part D: the transcript's participant→host viewer fallback is
+      // the documented second importer (the only path allowed to catch a
+      // 401 before the §2.8 global gate fires).
+      join(SRC_ROOT, 'routes', 'chats', '[address]', '+page.svelte')
+    ];
     const offenders = collectFiles(SRC_ROOT)
       .filter((f) => !allowed.includes(f))
       .filter((f) => /\bapiRaw\b/.test(readFileSync(f, 'utf8')))
