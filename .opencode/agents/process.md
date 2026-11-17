@@ -36,6 +36,20 @@ permissions:
   - action: shell
     resource: "git checkout dev"
     effect: allow
+  # Read-only git inspection (owner grant 2026-11-17): process verifies
+  # tree/branch state before landing; never mutates anything.
+  - action: shell
+    resource: "git status *"
+    effect: allow
+  - action: shell
+    resource: "git log *"
+    effect: allow
+  - action: shell
+    resource: "git diff *"
+    effect: allow
+  - action: shell
+    resource: "git show *"
+    effect: allow
   # Squash-only landings into dev (owner directive 2026-11-17): one
   # `git merge --squash` per branch, then ONE landing commit on dev.
   - action: shell
@@ -161,6 +175,15 @@ the user.
 
 ## Rules
 
+- **Shell allowlist is deny-all — keep commands simple.** Your shell policy
+  denies everything not explicitly allowed. OpenCode checks **every extracted
+  subcommand** of a compound command, so piping or chaining into a binary that
+  is not on your allowlist (`head`, `tail`, `grep`, `less`, `echo`, …) denies
+  the WHOLE command — e.g. `sh scripts/foo.sh --help | head -5` fails on the
+  `head -5` half even though the script half is allowed. Run scripts bare (the
+  scripts' own output is short), use `make <target>` where available, and let
+  long output come back truncated rather than piping it. Never probe for
+  allowed commands; see the DOCS-INDEX table.
 - Never write product code — you manage the task DB, docs/bugs, and session
   records only. **You commit exactly once per landed branch**: the single
   squash-landing commit on `dev` immediately after `git merge --squash`

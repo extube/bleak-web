@@ -197,7 +197,7 @@ Where:
 | Agent | Git rights |
 | --- | --- |
 | **worker** | Read + commit on its assigned branch only (`status/add/commit/log/diff/show/checkout`); **denied**: branch create/delete/rename (`git branch *`, `git checkout -b/--orphan`), merge, push. The process creates the branch; the worker only commits on it. |
-| **process** | Branch management + squash landing: `git checkout dev`, `git merge --squash feature/*` and `bug/*`, plus the **single landing commit on `dev` immediately after each squash merge** (`git add -A && git commit -m "merge: squash <branch>"`), create/delete `feature/*` and `bug/*` branches. **No other commits** — commits on feature/bug branches belong to the worker; non-squash merges are denied (config) and unwound by `.githooks/post-merge`. |
+| **process** | Branch management + squash landing: `git checkout dev`, `git merge --squash feature/*` and `bug/*`, plus the **single landing commit on `dev` immediately after each squash merge** (`git add -A && git commit -m "merge: squash <branch>"`), create/delete `feature/*` and `bug/*` branches; read-only git inspection (`git status/log/diff/show *`, owner grant 2026-11-17). **No other commits** — commits on feature/bug branches belong to the worker; non-squash merges are denied (config) and unwound by `.githooks/post-merge`. Compound shell commands are checked per subcommand: never pipe/chain into binaries outside the allowlist (`head`, `tail`, `grep`, …) — that denies the whole command. |
 | **tester** | Disabled (role retired; QA is CI run by the process). |
 | **design** | Read-only on code, never touches git (feature-scoped design instances included). |
 
