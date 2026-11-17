@@ -6,7 +6,6 @@
  */
 export const en = {
   /* --- shell / navigation (DESIGN §1.2, §4.7) --- */
-  'app.title': 'bleak-web',
   'nav.room': 'Around',
   'nav.people': 'People',
   'nav.chats': 'Chats',
@@ -42,7 +41,7 @@ export const en = {
   'join.import.subtitle': 'Personas created on this phone.',
   'join.import.pick_persona': 'Choose a persona',
   'join.import.empty': 'No saved personas on this device yet.',
-  'join.import.saved_at': 'Saved {date} · room {room}',
+  'join.import.saved_at': 'Saved {date}',
   'join.import.row_aria': 'Import persona {name}',
   'join.import.dead':
     'This persona no longer exists on the server. The entry stays listed, but it cannot be imported.',

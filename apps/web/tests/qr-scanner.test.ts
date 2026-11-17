@@ -1,10 +1,13 @@
-/** QrScanner component tests (TZ-04, DESIGN §3.8): camera state machine
- * (no start without the CTA tap; granted/denied/no-camera copy), manual
- * fallback from every state, invite-QR hand-off, and the persona routine
- * wiring (confirm → both POSTs → success) with a mocked decoder + api.
- *
- * Note: state copies are announced in the aria-live region as well as shown
- * in the result panel, so presence checks use getAllByText (see()). */
+/** QrScanner component tests — LEAN suite (2026-11-17 slimming pass, owner
+ * directive): one block per distinct behavior, micro/aria asserts removed
+ * (recorded in docs/verification-v2.md). Covers: camera state machine
+ * (no start without CTA; granted; insecure/secure no-camera; denied), close
+ * paths (manual fallback, persona fallback, Escape + track stop), payload
+ * processing (invite hand-off; invalid contents incl. cross-context),
+ * scan-again restart, and the persona routine: foreign/own, confirm success
+ * (+ already-mutual calls anyway), consistency fallback, error states
+ * (410/403/400 table, network retry, 401 gate close), single-direction
+ * variant, confirm cancel. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -93,6 +96,10 @@ function grantedCamera(): ReturnType<typeof vi.fn> {
   return gUM;
 }
 
+function asMe(): void {
+  identity.set({ roomAddress: '0xroom', userAddress: '0xme', token: 't' });
+}
+
 beforeEach(() => {
   trackStop.mockClear();
   decodeMock.scanText = null;
@@ -108,40 +115,31 @@ afterEach(() => {
 });
 
 describe('camera state machine (§3.8)', () => {
-  it('renders the dialog when open; the camera is NOT started without the CTA tap', () => {
+  it('renders the dialog WITHOUT starting the camera; the «Включить камеру» tap starts the stream', async () => {
     const gUM = grantedCamera();
     render(QrScanner, { props: { open: true, context: 'invite' } });
     expect(screen.getByRole('dialog', { name: ru['scan.aria'] })).toBeTruthy();
     expect(see(ru['scan.permission.intro'])).toBe(true);
     expect(screen.getByText(ru['scan.fallback.enter_code'])).toBeTruthy();
     expect(gUM).not.toHaveBeenCalled();
-  });
 
-  it('the «Включить камеру» tap starts the stream and shows the viewfinder + hint', async () => {
-    const gUM = grantedCamera();
-    render(QrScanner, { props: { open: true, context: 'invite' } });
     await screen.getByRole('button', { name: ru['scan.turn_on'] }).click();
     await waitFor(() => expect(gUM).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(see(ru['scan.hint.join'])).toBe(true));
     expect(document.querySelector('video')).toBeTruthy();
   });
 
-  it('no navigator.mediaDevices (insecure origin) → no-camera state + HTTPS note', async () => {
-    stubSecurity(false);
+  it.each([
+    { secure: false, media: false, httpsNote: true, what: 'insecure origin (no mediaDevices)' },
+    { secure: true, media: false, httpsNote: false, what: 'secure context without mediaDevices' }
+  ])('$what → the no-camera state (HTTPS note: $httpsNote)', async ({ secure, httpsNote }) => {
+    stubSecurity(secure);
     stubMediaDevices(undefined);
     render(QrScanner, { props: { open: true, context: 'invite' } });
     await screen.getByRole('button', { name: ru['scan.turn_on'] }).click();
     await waitFor(() => expect(see(ru['scan.no_camera'])).toBe(true));
-    expect(screen.getByText(ru['scan.insecure'])).toBeTruthy();
-  });
-
-  it('secure context without mediaDevices → no-camera state without the HTTPS note', async () => {
-    stubSecurity(true);
-    stubMediaDevices(undefined);
-    render(QrScanner, { props: { open: true, context: 'invite' } });
-    await screen.getByRole('button', { name: ru['scan.turn_on'] }).click();
-    await waitFor(() => expect(see(ru['scan.no_camera'])).toBe(true));
-    expect(screen.queryByText(ru['scan.insecure'])).toBeNull();
+    if (httpsNote) expect(screen.getByText(ru['scan.insecure'])).toBeTruthy();
+    else expect(screen.queryByText(ru['scan.insecure'])).toBeNull();
   });
 
   it('denied permission shows the exact copy with a Try again action; the camera stays off', async () => {
@@ -157,7 +155,7 @@ describe('camera state machine (§3.8)', () => {
     expect(trackStop).not.toHaveBeenCalled(); // never started
   });
 
-  it('the manual fallback closes from every state (invite: enter code manually)', async () => {
+  it('the manual fallback closes from every state; the persona context shows the find-in-the-list fallback', async () => {
     const onClosed = vi.fn();
     grantedCamera();
     render(QrScanner, { props: { open: true, context: 'invite', onClosed } });
@@ -165,9 +163,8 @@ describe('camera state machine (§3.8)', () => {
     await tick();
     expect(onClosed).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('dialog')).toBeNull();
-  });
 
-  it('persona context shows the find-in-the-list fallback', () => {
+    cleanup();
     render(QrScanner, { props: { open: true, context: 'persona' } });
     expect(screen.getByText(ru['scan.fallback.find_list'])).toBeTruthy();
   });
@@ -183,26 +180,6 @@ describe('camera state machine (§3.8)', () => {
     expect(onClosed).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(trackStop).toHaveBeenCalled();
-  });
-
-  it('focus returns to the invoking button on close', async () => {
-    const opener = document.createElement('button');
-    opener.textContent = 'opener';
-    document.body.appendChild(opener);
-    opener.focus();
-    grantedCamera();
-    render(QrScanner, { props: { open: true, context: 'invite' } });
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('dialog')));
-    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
-    await tick();
-    expect(document.activeElement).toBe(opener);
-    opener.remove();
-  });
-
-  it('states are announced via aria-live', () => {
-    render(QrScanner, { props: { open: true, context: 'invite' } });
-    const live = document.querySelector('[aria-live="polite"]');
-    expect(live?.textContent).toBe(ru['scan.permission.intro']);
   });
 });
 
@@ -222,43 +199,18 @@ describe('payload processing (§3.8)', () => {
     expect(trackStop).toHaveBeenCalled(); // camera off on result
   });
 
-  it('foreign/invalid QR content shows the invalid-QR state (never a silent close)', async () => {
-    grantedCamera();
-    decodeMock.scanText = 'https://example.com/something?x=1';
-    render(QrScanner, { props: { open: true, context: 'invite' } });
+  it.each([
+    { content: 'https://example.com/something?x=1', context: 'invite', what: 'foreign content' },
+    { content: 'http://localhost:5173/?u=0xalice', context: 'invite', what: 'a persona QR in invite context' },
+    { content: 'http://localhost:5173/?code=123456', context: 'persona', what: 'an invite QR in persona context' }
+  ])('$what shows the invalid-QR state (never a silent close); «Сканировать снова» restarts the camera', async ({ content, context }) => {
+    const gUM = grantedCamera();
+    decodeMock.scanText = content;
+    render(QrScanner, { props: { open: true, context: context as 'invite' | 'persona' } });
     await screen.getByRole('button', { name: ru['scan.turn_on'] }).click();
     await waitFor(() => expect(see(ru['scan.invalid_qr'])).toBe(true));
     expect(screen.queryByRole('dialog')).toBeTruthy();
-  });
 
-  it('a persona QR scanned in invite context is invalid content', async () => {
-    grantedCamera();
-    decodeMock.scanText = 'http://localhost:5173/?u=0xalice';
-    const onPersonaScanned = vi.fn();
-    render(QrScanner, {
-      props: { open: true, context: 'invite', onPersonaScanned }
-    });
-    await screen.getByRole('button', { name: ru['scan.turn_on'] }).click();
-    await waitFor(() => expect(see(ru['scan.invalid_qr'])).toBe(true));
-    expect(onPersonaScanned).not.toHaveBeenCalled();
-  });
-
-  it('an invite QR scanned in persona context is invalid content', async () => {
-    grantedCamera();
-    decodeMock.scanText = 'http://localhost:5173/?code=123456';
-    const onInviteCode = vi.fn();
-    render(QrScanner, { props: { open: true, context: 'persona', onInviteCode } });
-    await screen.getByRole('button', { name: ru['scan.turn_on'] }).click();
-    await waitFor(() => expect(see(ru['scan.invalid_qr'])).toBe(true));
-    expect(onInviteCode).not.toHaveBeenCalled();
-  });
-
-  it('«Сканировать снова» restarts the camera from a terminal state', async () => {
-    const gUM = grantedCamera();
-    decodeMock.scanText = 'https://example.com/something?x=1';
-    render(QrScanner, { props: { open: true, context: 'invite' } });
-    await screen.getByRole('button', { name: ru['scan.turn_on'] }).click();
-    await waitFor(() => expect(see(ru['scan.invalid_qr'])).toBe(true));
     await screen.getByRole('button', { name: ru['scan.again'] }).click();
     await waitFor(() => expect(gUM).toHaveBeenCalledTimes(2));
   });
@@ -274,7 +226,7 @@ describe('persona routine (context *b*, v2 server-mediated §3.8)', () => {
     };
   }
 
-  it('a foreign persona shows the error state and sends no request', async () => {
+  it('a foreign persona → error state; my own QR → info state; NEITHER sends a request', async () => {
     grantedCamera();
     decodeMock.scanText = personaQr('0xstranger');
     const onPersonaScanned = vi.fn();
@@ -283,10 +235,9 @@ describe('persona routine (context *b*, v2 server-mediated §3.8)', () => {
     await waitFor(() => expect(see(ru['scan.foreign_persona'])).toBe(true));
     expect(onPersonaScanned).toHaveBeenCalledWith('0xstranger');
     expect(apiMock.createMutualHandshake).not.toHaveBeenCalled();
-  });
 
-  it('my own QR shows the info state and sends no request', async () => {
-    identity.set({ roomAddress: '0xroom', userAddress: '0xme', token: 't' });
+    cleanup();
+    asMe();
     grantedCamera();
     decodeMock.scanText = personaQr('0xme');
     render(QrScanner, { props: personaProps() });
@@ -295,8 +246,8 @@ describe('persona routine (context *b*, v2 server-mediated §3.8)', () => {
     expect(apiMock.createMutualHandshake).not.toHaveBeenCalled();
   });
 
-  it('a known persona → confirm card with name; confirming sends ONE mutual POST (u + m) → success', async () => {
-    identity.set({ roomAddress: '0xroom', userAddress: '0xme', token: 't' });
+  it('a known persona → confirm card; confirming sends ONE mutual POST (u + m); an already-mutual pair reaches success the same way (NO client precheck)', async () => {
+    asMe();
     apiMock.listChatsOfUser.mockResolvedValue([chatFixture('0xchat1', ['0xme', '0xalice'])]);
     grantedCamera();
     decodeMock.scanText = personaQr('0xalice');
@@ -316,16 +267,16 @@ describe('persona routine (context *b*, v2 server-mediated §3.8)', () => {
       mutual_code: MUTUAL_CODE
     });
     expect(apiMock.createHandshake).not.toHaveBeenCalled();
-
-    // The chat is in the refreshed list → the link points at the dialog.
-    const link = screen.getByRole('link', { name: ru['hs.open_dialog'] });
-    expect(link.getAttribute('href')).toBe('/chats/0xchat1');
+    expect(screen.getByRole('link', { name: ru['hs.open_dialog'] }).getAttribute('href')).toBe(
+      '/chats/0xchat1'
+    );
     expect(onPersonaScanned).toHaveBeenCalledWith('0xalice');
-  });
 
-  it('an already-mutual pair reaches the same success state — NO client precheck skips the call', async () => {
-    identity.set({ roomAddress: '0xroom', userAddress: '0xme', token: 't' });
-    apiMock.listChatsOfUser.mockResolvedValue([chatFixture('0xchat1', ['0xme', '0xalice'])]);
+    // Already-mutual pair: the backend burns the code and returns success —
+    // the client called the endpoint all the same.
+    cleanup();
+    asMe();
+    apiMock.createMutualHandshake.mockReset().mockResolvedValue({});
     grantedCamera();
     decodeMock.scanText = personaQr('0xalice');
     render(QrScanner, { props: personaProps() });
@@ -333,15 +284,11 @@ describe('persona routine (context *b*, v2 server-mediated §3.8)', () => {
     await waitFor(() => expect(see(ru['scan.confirm.title'])).toBe(true));
     await screen.getByRole('button', { name: ru['scan.confirm.cta'] }).click();
     await waitFor(() => expect(see(ru['hs.agents_talking'])).toBe(true));
-    // The backend burns the code and returns success without a second
-    // chat — the client called the endpoint all the same.
     expect(apiMock.createMutualHandshake).toHaveBeenCalledTimes(1);
-    const link = screen.getByRole('link', { name: ru['hs.open_dialog'] });
-    expect(link.getAttribute('href')).toBe('/chats/0xchat1');
   });
 
   it('a chat not yet listed after the call (eventual consistency) → the /chats fallback link', async () => {
-    identity.set({ roomAddress: '0xroom', userAddress: '0xme', token: 't' });
+    asMe();
     grantedCamera();
     decodeMock.scanText = personaQr('0xalice');
     render(QrScanner, { props: personaProps() });
@@ -349,32 +296,40 @@ describe('persona routine (context *b*, v2 server-mediated §3.8)', () => {
     await waitFor(() => expect(see(ru['scan.confirm.title'])).toBe(true));
     await screen.getByRole('button', { name: ru['scan.confirm.cta'] }).click();
     await waitFor(() => expect(see(ru['hs.agents_talking'])).toBe(true));
-    const link = screen.getByRole('link', { name: ru['hs.open_dialog'] });
-    expect(link.getAttribute('href')).toBe('/chats');
-  });
-
-  it('a 410 renders the stale-code state with Scan again and NO Retry for the dead code', async () => {
-    identity.set({ roomAddress: '0xroom', userAddress: '0xme', token: 't' });
-    apiMock.createMutualHandshake.mockRejectedValue(
-      new ApiError(410, '/api/handshake/mutual', 'already used')
+    expect(screen.getByRole('link', { name: ru['hs.open_dialog'] }).getAttribute('href')).toBe(
+      '/chats'
     );
-    grantedCamera();
-    decodeMock.scanText = personaQr('0xalice');
-    render(QrScanner, { props: personaProps() });
-    await screen.getByRole('button', { name: ru['scan.turn_on'] }).click();
-    await waitFor(() => expect(see(ru['scan.confirm.title'])).toBe(true));
-    await screen.getByRole('button', { name: ru['scan.confirm.cta'] }).click();
-    await waitFor(() => expect(see(ru['scan.code_used'])).toBe(true));
-    // No "Retry" control for the dead code — only Scan again + fallback.
-    expect(screen.queryByRole('button', { name: ru['common.retry'] })).toBeNull();
-    expect(screen.getByRole('button', { name: ru['scan.again'] })).toBeTruthy();
-    expect(screen.getByText(ru['scan.fallback.find_list'])).toBeTruthy();
   });
 
-  it('a 403 renders the §2.9 income-rule state; the copy never implies the badge burned', async () => {
-    identity.set({ roomAddress: '0xroom', userAddress: '0xme', token: 't' });
+  it.each([
+    {
+      status: 410,
+      body: 'already used',
+      state: ru['scan.code_used'],
+      retry: false,
+      scanAgain: true,
+      what: 'a 410 → the stale-code state with Scan again and NO Retry for the dead code'
+    },
+    {
+      status: 403,
+      body: 'income must exceed outcome',
+      state: ru['hs.income_limit'],
+      retry: false,
+      scanAgain: true,
+      what: 'a 403 → the §2.9 income-rule state (the code was NOT consumed — scan again restarts)'
+    },
+    {
+      status: 400,
+      body: 'malformed payload',
+      state: /malformed payload/,
+      retry: true,
+      scanAgain: false,
+      what: 'an unexpected ApiError → server text with Retry'
+    }
+  ])('$what', async ({ status, body, state, retry, scanAgain }) => {
+    asMe();
     apiMock.createMutualHandshake.mockRejectedValue(
-      new ApiError(403, '/api/handshake/mutual', 'income must exceed outcome')
+      new ApiError(status, '/api/handshake/mutual', body)
     );
     const gUM = grantedCamera();
     decodeMock.scanText = personaQr('0xalice');
@@ -382,18 +337,17 @@ describe('persona routine (context *b*, v2 server-mediated §3.8)', () => {
     await screen.getByRole('button', { name: ru['scan.turn_on'] }).click();
     await waitFor(() => expect(see(ru['scan.confirm.title'])).toBe(true));
     await screen.getByRole('button', { name: ru['scan.confirm.cta'] }).click();
-    await waitFor(() => expect(see(ru['hs.income_limit'])).toBe(true));
-    // Server text appended muted (§2.9).
-    expect(see(/income must exceed outcome/)).toBe(true);
-    expect(screen.queryByRole('button', { name: ru['common.retry'] })).toBeNull();
-    // Scan again works (the code was not consumed on the rule rejection):
-    // the camera restarts (2nd getUserMedia call).
-    await screen.getByRole('button', { name: ru['scan.again'] }).click();
-    await waitFor(() => expect(gUM).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(see(state)).toBe(true));
+    if (retry) expect(screen.getByRole('button', { name: ru['common.retry'] })).toBeTruthy();
+    else expect(screen.queryByRole('button', { name: ru['common.retry'] })).toBeNull();
+    if (scanAgain) {
+      await screen.getByRole('button', { name: ru['scan.again'] }).click();
+      await waitFor(() => expect(gUM).toHaveBeenCalledTimes(2));
+    }
   });
 
   it('a NetworkError shows the retry state; Retry re-sends u + m safely to success', async () => {
-    identity.set({ roomAddress: '0xroom', userAddress: '0xme', token: 't' });
+    asMe();
     apiMock.createMutualHandshake.mockRejectedValueOnce(
       new NetworkError('/api/handshake/mutual', new Error('offline'))
     );
@@ -418,7 +372,7 @@ describe('persona routine (context *b*, v2 server-mediated §3.8)', () => {
   });
 
   it('a 401 during the mutual call closes the scanner — the §2.8 global gate owns the redirect', async () => {
-    identity.set({ roomAddress: '0xroom', userAddress: '0xme', token: 't' });
+    asMe();
     apiMock.createMutualHandshake.mockRejectedValue(
       new ApiError(401, '/api/handshake/mutual', 'no token')
     );
@@ -434,23 +388,8 @@ describe('persona routine (context *b*, v2 server-mediated §3.8)', () => {
     expect(onClosed).toHaveBeenCalled();
   });
 
-  it('an ApiError shows the server text with Retry', async () => {
-    identity.set({ roomAddress: '0xroom', userAddress: '0xme', token: 't' });
-    apiMock.createMutualHandshake.mockRejectedValue(
-      new ApiError(400, '/api/handshake/mutual', 'malformed payload')
-    );
-    grantedCamera();
-    decodeMock.scanText = personaQr('0xalice');
-    render(QrScanner, { props: personaProps() });
-    await screen.getByRole('button', { name: ru['scan.turn_on'] }).click();
-    await waitFor(() => expect(see(ru['scan.confirm.title'])).toBe(true));
-    await screen.getByRole('button', { name: ru['scan.confirm.cta'] }).click();
-    await waitFor(() => expect(see(/malformed payload/)).toBe(true));
-    expect(screen.getByRole('button', { name: ru['common.retry'] })).toBeTruthy();
-  });
-
   it('a `?u=` payload WITHOUT `m` runs the single-direction variant: ONE idempotent handshake POST', async () => {
-    identity.set({ roomAddress: '0xroom', userAddress: '0xme', token: 't' });
+    asMe();
     grantedCamera();
     decodeMock.scanText = personaQr('0xalice', false);
     render(QrScanner, { props: personaProps() });
@@ -467,8 +406,8 @@ describe('persona routine (context *b*, v2 server-mediated §3.8)', () => {
     expect(apiMock.createMutualHandshake).not.toHaveBeenCalled();
   });
 
-  it('the confirm card can be cancelled back to scanning', async () => {
-    identity.set({ roomAddress: '0xroom', userAddress: '0xme', token: 't' });
+  it('the confirm card can be cancelled back to scanning (camera restarts, nothing sent)', async () => {
+    asMe();
     const gUM = grantedCamera();
     decodeMock.scanText = personaQr('0xalice');
     render(QrScanner, { props: personaProps() });

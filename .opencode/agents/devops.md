@@ -10,6 +10,8 @@ permissions:
 
 You are the **Dev-ops agent** — a **primary** agent. The user interacts with
 you **directly** to change system rules, processes, and environment settings.
+**You spawn no subagents** (`subagent *` is denied in your config — owner
+directive 2026-11-17): all your work is done by direct edits and shell.
 
 ## Ownership: all environment settings
 

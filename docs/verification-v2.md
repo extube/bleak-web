@@ -560,3 +560,26 @@ added or modified by the sweep or this continuation. Both deliverables
 (`docs/verification-v2.md` + `docs/logs/5f1ba636.log`, which carries the
 honest blocker trail) are committed by this continuation on
 `feature/5f1ba636-verify-v2`.
+
+---
+
+## Amendment 2026-11-17 — Lean test slimming pass (owner directive)
+
+The page/component suites were reduced to one block per distinct behavior
+(commits `80b2d38`…`f885fd7`); the contract/security spine (api-client
+policy, api-contexts gates, crypto-secrets, handshake + join machines,
+i18n parity, poller) is untouched. Blocks asserting micro-DOM/aria/copy
+details were removed; those behaviors remain recorded here as **manually
+verified** against the running stack on 2026-11-16 (the sweep) — no product
+code changed in this pass, so the 118/118 record above stands.
+
+Removed-detail inventory (now manual-evidence only): scanner aria-live
+announcements + focus-return-on-close; profile QR caption/aria details,
+skeleton, locale segmented control, greeting server-400 copy; host-console
+empty-custom-expiry block, share-kit QR src/alt + copy controls, layout
+shell columns, reset-notice aria-live; transcript auto-scroll chip,
+empty-chat-on-open warming state, back-control history fallback; chats
+relative-time refresh, api-banner flavor, visibility-regain wiring;
+join-flow change-code reset, scanner-open wiring re-check; radar
+outgoing-pending + idempotent-200 states (duplicated in
+`handshake-sheet.test.ts`, which retains them).

@@ -20,9 +20,10 @@ user anything. The user is reached only through the two primary agents.
    without that permission (workaround within its allowed tools and files).
    Permission prompts ("ask" effects) must never be triggered by sub-agents.
 3. **Advice requests** go to the architect, routed through the agent's
-   process manager: worker (and feature-scoped design) instances route via
-   the **process**, architect/design instances route via the **concept
-   agent**. Architect consultations run in **think mode** — read, analyze,
+   process manager: worker, feature-scoped design, architect and design
+   instances all route via the **process** (their process manager), which
+   reports to the **concept agent** when the user must decide.
+   Architect consultations run in **think mode** — read, analyze,
    answer only: no file edits, no git writes, no spawns; the answer is
    delivered in the consult instance's report. Advice requests are logged
    via `scripts/log.sh` and marked **"ADVICE NEEDED"** in the agent's
@@ -47,11 +48,12 @@ user anything. The user is reached only through the two primary agents.
    configs, `opencode.jsonc`, plugins, plus `AGENTS.md`, `Makefile`,
    `scripts/**`, and the task DB schema), always at the user's direction.
    Process managers escalate instead of granting:
-   - the **process** is the process manager of worker and feature-scoped
-     design instances — it leaves a blocked-permission card `blocked` and
-     reports the exact missing grant to the **concept agent**;
-   - the **concept agent** is the process manager of architect/design
-     instances — likewise, it informs the user, who directs **devops** to
+   - the **process** is the process manager of architect, design, worker
+     and feature-scoped design instances — it leaves a blocked-permission
+     card `blocked` and reports the exact missing grant to the
+     **concept agent**;
+   - the **concept agent** is the process manager of its **process**
+     instance — likewise, it informs the user, who directs **devops** to
      make the grant.
    After devops has granted, the process manager sets the card back to
    `in-progress` (`blocked → in-progress`) and resumes the instance's stored
@@ -72,7 +74,7 @@ The workflow is based on a `dev` branch with feature and bugfix branches.
 | Don't merge into `main` | Never merge any branch into `main`. |
 | Don't commit to `dev` | Never commit directly on the `dev` branch. |
 | Pushing `dev` and feature/bug branches | Allowed to the project remote at the user's direction. |
-| Merging into `dev` is allowed | You may merge `feature/*` and `bug/*` branches into `dev`. |
+| Merging into `dev` is allowed | You may land `feature/*` and `bug/*` branches into `dev` — **squash-only** (owner directive 2026-11-17): `git merge --squash <branch>` + a single commit; merge commits into `dev` are unwound by `.githooks/post-merge` (exception: syncing from `main`). |
 
 ### Local clones
 
@@ -84,8 +86,12 @@ The workflow is based on a `dev` branch with feature and bugfix branches.
 
 ### Primary agents — user-selected in the TUI
 
-- Only two agents talk to the user, and the **user selects them in the
-  OpenCode TUI**; no agent spawns them:
+- The user selects the primary agents in the OpenCode TUI; no agent spawns
+  them:
+  - **root** — universal full-access agent (owner directive 2026-11-17):
+    can do anything, never asks for permission, may offer the owner options
+    when a decision is genuinely theirs; the only gate it keeps is the
+    approval prompt on pushing `main` (that prompt IS the owner's consent);
   - **concept** — when the user wants to change or drive the **product**
     (concept, reviews, approvals, build-loop decisions);
   - **devops** — when the user wants to change the **environment** (system
@@ -93,6 +99,24 @@ The workflow is based on a `dev` branch with feature and bugfix branches.
 - Spawning `concept` or `devops` as subagents is mechanically denied
   (global `subagent` deny rules in `.opencode/opencode.jsonc`; both are
   also `mode: primary` and therefore not spawnable anyway).
+
+### Spawn & edit scope (owner directive 2026-11-17, mechanically enforced)
+
+| Agent | May spawn | May edit |
+| --- | --- | --- |
+| **root** | any subagent | anything |
+| **concept** | **only `process`** | **only `docs/Concept.md`** (frontmatter: `edit *` deny + `docs/Concept.md` allow) |
+| **devops** | **nothing** (`subagent *` deny) | its owned environment files |
+| **process** | **architect, design, worker** — by its main task | `docs/**` only |
+| **architect / design / worker** | nothing | per their task scope |
+
+- **Concept → process is the only edge:** concept routes requests and user
+  approvals to the process agent; the process agent spawns every other
+  instance itself (architect, design, worker, feature-scoped design,
+  architect consult instances). Concept never spawns architect, design or
+  worker directly.
+- **Devops spawns nothing:** it is the environment owner; all its work is
+  done by direct edits and shell, never via subagents.
 
 ### Commit identity
 
@@ -173,7 +197,7 @@ Where:
 | Agent | Git rights |
 | --- | --- |
 | **worker** | Read + commit on its assigned branch only (`status/add/commit/log/diff/show/checkout`); **denied**: branch create/delete/rename (`git branch *`, `git checkout -b/--orphan`), merge, push. The process creates the branch; the worker only commits on it. |
-| **process** | Branch management + merge: `git checkout dev`, `git merge --no-ff feature/*` and `bug/*`, create/delete `feature/*` and `bug/*` branches. **Never commits** — no commit permission; commits on feature/bug branches belong to the worker. |
+| **process** | Branch management + squash landing: `git checkout dev`, `git merge --squash feature/*` and `bug/*`, plus the **single landing commit on `dev` immediately after each squash merge** (`git add -A && git commit -m "merge: squash <branch>"`), create/delete `feature/*` and `bug/*` branches; read-only git inspection (`git status/log/diff/show *`, owner grant 2026-11-17). **No other commits** — commits on feature/bug branches belong to the worker; non-squash merges are denied (config) and unwound by `.githooks/post-merge`. Compound shell commands are checked per subcommand: never pipe/chain into binaries outside the allowlist (`head`, `tail`, `grep`, …) — that denies the whole command. |
 | **tester** | Disabled (role retired; QA is CI run by the process). |
 | **design** | Read-only on code, never touches git (feature-scoped design instances included). |
 
@@ -220,11 +244,17 @@ The **only** interface is `scripts/task.py`. Never touch the DB directly.
 
 Schema:
 
-- `tasks` — `id, hash, title, branch, tz_section, criteria, status,
-  created_by, worker_hash, tester_hash (kept, unused), depends_on,
-  bug_branches, created_at, updated_at`. `branch` tracks the task's
-  **current work branch** (the feature branch, or the latest
+- `tasks` — `id, hash, title, branch, tz_section, criteria, test_cases,
+  constraints, status, created_by, worker_hash, tester_hash (kept, unused),
+  depends_on, bug_branches, created_at, updated_at`. `branch` tracks the
+  task's **current work branch** (the feature branch, or the latest
   `bug/<hash>-<slug>` fix branch after a CI-failure reopen).
+  `test_cases` — the concrete test suites/cases the task must keep green
+  and extend (process fills right after `criteria`, same authority);
+  `constraints` — hard "do not touch / do not add" limits for the worker
+  (e.g. no new dependencies, reconcile names only). Both are set via
+  `task.py tests|constraints <id> "<text>" --as <processHash>` and are part
+  of the card the worker reads (see the CLI examples).
 - `task_log` — `task_id, actor, action, detail, at` (every mutation)
 - `merges` — MR records, one per ready-for-merge round: `id, task_id,
   branch, status (open | merged | failed), opened_at, merged_at, ci_result,
@@ -272,6 +302,9 @@ scripts/open-feature.sh task-table-component - --as ab12cd34
 
 # Process fills the acceptance criteria right after:
 python3 scripts/task.py criteria <id> "criterion one; criterion two" --as ab12cd34
+# …and the test cases + constraints (same authority, owner directive 2026-11-17):
+python3 scripts/task.py tests <id> "suites/cases to keep green and extend" --as ab12cd34
+python3 scripts/task.py constraints <id> "do-not-touch / do-not-add limits" --as ab12cd34
 
 # Worker starts / hands over for merge (worker_hash must match --as);
 # ready-for-merge auto-opens the MR record:
@@ -283,9 +316,12 @@ python3 scripts/task.py status <id> ready-for-merge --as 1640ba9e
 python3 scripts/task.py status <id> blocked --as 1640ba9e \
   --reason "needs write access to the API contract to fix the endpoint"
 
-# Process merges (after the user's per-feature approval, relayed via concept;
-# NOT_MAINTAIN_APPROVAL=true skips the gate) and runs CI on dev:
-git checkout dev && git merge --no-ff feature/1640ba9e-task-table-component
+# Process lands a feature (after the user's per-feature approval, relayed
+# via concept; NOT_MAINTAIN_APPROVAL=true skips the gate) — squash merge
+# + ONE landing commit per branch, then CI on dev:
+git checkout dev
+git merge --squash feature/1640ba9e-task-table-component
+git add -A && git commit -m "merge: squash feature/1640ba9e-task-table-component"
 python3 scripts/task.py status <id> merged --as ab12cd34
 make lint && make test && make build
 

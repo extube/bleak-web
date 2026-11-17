@@ -246,11 +246,11 @@ describe('placeholder interpolation', () => {
     expect(translate('ru', 'people.empty_search', { q: 'Ива' })).toBe(
       'Никого не найдено по «Ива»'
     );
-    expect(translate('ru', 'join.import.saved_at', { date: '14.11', room: '0xroom1' })).toBe(
-      'Сохранено 14.11 · комната 0xroom1'
+    expect(translate('ru', 'join.import.saved_at', { date: '14.11' })).toBe(
+      'Сохранено 14.11'
     );
-    expect(translate('en', 'join.import.saved_at', { date: 'Nov 14', room: '0xroom1' })).toBe(
-      'Saved Nov 14 · room 0xroom1'
+    expect(translate('en', 'join.import.saved_at', { date: 'Nov 14' })).toBe(
+      'Saved Nov 14'
     );
     expect(translate('ru', 'host.invites.expires_in', { time: '2 ч' })).toBe(
       'истекает через 2 ч'

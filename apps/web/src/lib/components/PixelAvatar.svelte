@@ -1,11 +1,13 @@
 <script lang="ts">
   /**
-   * PixelAvatar (DESIGN §4.3): chunky 12×12 pixel portrait composed from
-   * trait part fragments under `#lib/assets/avatars/`, selected
+   * PixelAvatar (DESIGN §4.3, §4.8.1): chunky 12×12 pixel portrait composed
+   * from trait part fragments under `#lib/assets/avatars/`, selected
    * deterministically from the user address (lib/avatar/traits.ts).
    * The `own` persona's backdrop is the accent (the single non-interactive
    * accent exception — the "you are here" mark); unparseable addresses
-   * render the fixed pixel-ghost portrait. Colors are token references only.
+   * render the fixed pixel-ghost portrait. Trait palettes are the vivid
+   * code-hue family tokens (tokens.css --color-art-*, §4.8.1) — decorative
+   * color, token references only.
    */
   import backdropPart from '#lib/assets/avatars/backdrop.svg?raw';
   import headPart from '#lib/assets/avatars/head.svg?raw';
@@ -40,25 +42,29 @@
 
   let { address = '', size = 44, own = false, label = '' }: Props = $props();
 
+  /* Vivid art palettes (§4.8.1) — token names resolved in tokens.css.
+   * Skins: light warm register; hairs: the four code hues + light platinum;
+   * backdrops: dark shades of the four hues (the light figure stays
+   * recognizable on every backdrop). */
   const HAIRS: readonly string[] = [
-    '--color-text',
-    '--color-text-muted',
-    '--color-text-disabled-strong',
-    '--color-text-disabled',
-    '--color-surface'
+    '--color-art-hair-1',
+    '--color-art-hair-2',
+    '--color-art-hair-3',
+    '--color-art-hair-4',
+    '--color-art-hair-5'
   ];
   const SKINS: readonly string[] = [
-    '--color-text',
-    '--color-text-muted',
-    '--color-text-disabled-strong',
-    '--color-text-disabled'
+    '--color-art-skin-1',
+    '--color-art-skin-2',
+    '--color-art-skin-3',
+    '--color-art-skin-4'
   ];
   const BACKDROPS: readonly string[] = [
-    '--color-surface-elevated',
-    '--color-bg',
-    '--color-surface',
-    '--color-text-disabled',
-    '--color-text-muted'
+    '--color-art-backdrop-1',
+    '--color-art-backdrop-2',
+    '--color-art-backdrop-3',
+    '--color-art-backdrop-4',
+    '--color-art-backdrop-5'
   ];
   const HAIR_PARTS: readonly string[] = [hair1, hair2, hair3, hair4, hair5, hair6, hair7, hair8];
   const FACIAL_HAIR_PARTS: readonly string[] = [facialHair1, facialHair2, facialHair3];

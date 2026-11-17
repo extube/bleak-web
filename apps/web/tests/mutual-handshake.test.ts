@@ -131,34 +131,34 @@ describe('sendMutualHandshake (§3.8 steps 3–5, v2 server-mediated)', () => {
     expect(e.api.createMutualHandshake).toHaveBeenCalledTimes(1);
   });
 
-  it('a 410 → the stale-code state (no retry is offered for the dead code)', async () => {
-    const e = env({
-      mutualError: new ApiError(410, '/api/handshake/mutual', 'mutual code already used')
-    });
-    expect(await sendMutualHandshake('0xbob', e)).toEqual({ kind: 'error-stale' });
-  });
-
-  it('a 403 → the §2.9 income-rule state with the server text (the code was NOT consumed)', async () => {
-    const e = env({
-      mutualError: new ApiError(403, '/api/handshake/mutual', 'income must exceed outcome')
-    });
-    expect(await sendMutualHandshake('0xbob', e)).toEqual({
-      kind: 'error-income',
-      message: 'income must exceed outcome'
-    });
-  });
-
-  it('a 401 → the auth state (the §2.8 global gate owns the redirect)', async () => {
-    const e = env({ mutualError: new ApiError(401, '/api/handshake/mutual', 'no token') });
-    expect(await sendMutualHandshake('0xbob', e)).toEqual({ kind: 'error-auth' });
-  });
-
-  it('a 404 (unknown user) → the api state with the server text', async () => {
-    const e = env({ mutualError: new ApiError(404, '/api/handshake/mutual', 'user not found') });
-    expect(await sendMutualHandshake('0xbob', e)).toEqual({
-      kind: 'error-api',
-      message: 'user not found'
-    });
+  it.each([
+    {
+      status: 410,
+      body: 'mutual code already used',
+      expected: { kind: 'error-stale' },
+      what: 'the stale-code state (no retry is offered for the dead code)'
+    },
+    {
+      status: 403,
+      body: 'income must exceed outcome',
+      expected: { kind: 'error-income', message: 'income must exceed outcome' },
+      what: 'the §2.9 income-rule state with the server text (the code was NOT consumed)'
+    },
+    {
+      status: 401,
+      body: 'no token',
+      expected: { kind: 'error-auth' },
+      what: 'the auth state (the §2.8 global gate owns the redirect)'
+    },
+    {
+      status: 404,
+      body: 'user not found',
+      expected: { kind: 'error-api', message: 'user not found' },
+      what: 'the api state with the server text (unknown user)'
+    }
+  ])('a $status on the mutual call → $what', async ({ status, body, expected }) => {
+    const e = env({ mutualError: new ApiError(status, '/api/handshake/mutual', body) });
+    expect(await sendMutualHandshake('0xbob', e)).toEqual(expected);
   });
 
   it('a NetworkError → retry state; retry re-sends u + m safely (a failed attempt never burns the code)', async () => {

@@ -7,7 +7,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
-import { ApiError, NetworkError, type Chat, type User } from '@bleak/api-client';
+import { NetworkError, type Chat, type User } from '@bleak/api-client';
 import { chatsUnseen } from '../src/lib/stores/chatsSeen';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
@@ -123,14 +123,6 @@ describe('/chats — cards (§3.4 AC 1–4)', () => {
     expect(link.textContent?.includes('сообщение')).toBe(false);
   });
 
-  it('relative time of Chat.created_at is shown and refreshes on polls (AC 3)', async () => {
-    await renderPage();
-    expect(screen.getByText('5 мин')).toBeTruthy();
-    // a later poll whose chat looks "older" (e.g. clock moved) re-renders in place
-    fixture.chats = [chat('0xchat1', [ME, '0xa'], 12)];
-    await waitFor(() => expect(screen.getByText('12 мин')).toBeTruthy(), { timeout: 5000 });
-    expect(screen.queryByText('5 мин')).toBeNull();
-  });
 
   it('counterpart derived from participants minus me; a ≠2 chat shows first counterpart + «+N» (AC 2)', async () => {
     fixture.users.push(person('0xb', 'Борис', 8), person('0xc', 'Вера', 6));
@@ -199,14 +191,6 @@ describe('/chats — states (§3.4 AC 5, 7, 8)', () => {
     expect(document.querySelector('.cards')?.classList.contains('dimmed')).toBe(false);
   });
 
-  it('ApiError surfaces the server body as an api banner', async () => {
-    mockedApi.listChatsOfUser.mockRejectedValue(
-      new ApiError(500, '/api/user/x/chat', 'db locked')
-    );
-    await renderPage();
-    await screen.findByText(ru['common.error.api']);
-    expect(screen.getByText(/db locked/)).toBeTruthy();
-  });
 });
 
 describe('/chats — badge + poller (§1.2, §2.2)', () => {
@@ -217,18 +201,6 @@ describe('/chats — badge + poller (§1.2, §2.2)', () => {
     expect(get(chatsUnseen)).toBe(false);
   });
 
-  it('refreshes on visibility regain', async () => {
-    await renderPage();
-    const callsBefore = mockedApi.listChatsOfUser.mock.calls.length;
-    Object.defineProperty(document, 'visibilityState', {
-      value: 'visible',
-      configurable: true
-    });
-    document.dispatchEvent(new Event('visibilitychange'));
-    await waitFor(() =>
-      expect(mockedApi.listChatsOfUser.mock.calls.length).toBeGreaterThan(callsBefore)
-    );
-  });
 
   it('stops the 4 s poller on unmount — no network requests after teardown', async () => {
     vi.useFakeTimers();

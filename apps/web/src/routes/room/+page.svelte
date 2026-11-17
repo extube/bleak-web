@@ -234,7 +234,7 @@
 </script>
 
 <svelte:head>
-  <title>bleak-web</title>
+  <title>{translate($locale, 'room.title')}</title>
 </svelte:head>
 
 {#if guarded && me}

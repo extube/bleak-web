@@ -113,7 +113,6 @@
 
 {#if me}
   <div class="join">
-    <span class="logo pixel-corners">{translate($locale, 'app.title')}</span>
     <section class="card pixel-corners resume">
       <h1 class="resume-title">
         {translate($locale, 'join.resume.title', { room: resumeRoomName ?? me.roomAddress })}
@@ -143,7 +142,6 @@
   {/if}
 {:else}
   <div class="join">
-    <span class="logo pixel-corners">{translate($locale, 'app.title')}</span>
     {#if authNotice}
       <NoticeCard />
     {/if}
@@ -162,13 +160,6 @@
     width: 100%;
     max-width: 480px;
     margin: 0 auto;
-  }
-  .logo {
-    font-family: var(--font-pixel);
-    font-size: 40px;
-    line-height: 1;
-    background: var(--color-surface);
-    padding: var(--space-3) var(--space-5);
   }
   .resume {
     width: 100%;

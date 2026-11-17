@@ -50,3 +50,22 @@ export function deriveTraits(address: string): AvatarTraits {
 export function isParseableAddress(address: string | null | undefined): address is string {
   return typeof address === 'string' && address.trim().length > 0;
 }
+
+/**
+ * Chat color coding (Concept §7.1.2, DESIGN §4.8.1): four bright functional
+ * hues, assigned deterministically per address — `fnv1a(address) % 4` →
+ * yellow/orange/blue/violet. Both sides of a transcript use the same rule:
+ * a bubble takes the hue of the address that speaks (mine included — it is
+ * NOT a fixed yellow). The hue names map to `--color-bubble-<hue>` tokens
+ * in tokens.css; consumers render them as a `code-<hue>` class, never an
+ * inline color.
+ */
+export const CODE_HUES = ['yellow', 'orange', 'blue', 'violet'] as const;
+
+export type CodeHue = (typeof CODE_HUES)[number];
+
+export function codeHue(address: string): CodeHue {
+  // fnv1a % 4 is always a valid index; the fallback only satisfies
+  // noUncheckedIndexedAccess (same pattern as PixelAvatar's pick()).
+  return CODE_HUES[fnv1a(address) % CODE_HUES.length] ?? 'yellow';
+}

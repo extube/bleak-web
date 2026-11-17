@@ -62,8 +62,7 @@
               <span class="name">{entry.name ?? entry.userAddress}</span>
               <span class="muted">
                 {translate($locale, 'join.import.saved_at', {
-                  date: relativeTime(entry.savedAt, nowMs, $locale),
-                  room: entry.roomAddress
+                  date: relativeTime(entry.savedAt, nowMs, $locale)
                 })}
               </span>
             </span>

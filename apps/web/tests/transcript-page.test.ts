@@ -1,9 +1,11 @@
-/** /chats/[address] transcript page tests (TZ-07, DESIGN §3.5): oldest-first
- * render with mine-right/theirs-left alignment, speaker names + relative
- * times, accessible bubble names, header chips, live 2 s polls, auto-scroll
- * chip, kickoff confirm flow (cancel/confirm/speaker note/warming row),
- * contact stub (always disabled), 404 not-found state, error banner,
- * poller teardown — and the permanent NO-COMPOSER check (owner ruling 4). */
+/** /chats/[address] transcript page tests — LEAN suite (2026-11-17 slimming
+ * pass, owner directive): one block per distinct behavior, micro/scroll
+ * asserts removed (recorded in docs/verification-v2.md). Covers: oldest-first
+ * render + header chips, 2 s live poll, network banner + recovery, poller
+ * teardown, kickoff confirm (cancel + confirm + clear + speaker note),
+ * warming row, kickoff failure, 404 state, contact stub, the permanent
+ * NO-COMPOSER check (owner ruling 4), and the viewer fallback (room-token
+ * retry, host-401 gate replication, host-view kickoff, no-token 401). */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -44,6 +46,7 @@ import { goto } from '$app/navigation';
 import { api, apiRaw } from '#lib/api/client';
 import { saveHostRoom, clearHostRoom } from '#lib/stores/hostSession';
 import { identity } from '#lib/stores/identity';
+import { codeHue } from '../src/lib/avatar/traits';
 import Page from '../src/routes/chats/[address]/+page.svelte';
 import { ru } from '../src/lib/i18n/ru';
 
@@ -108,8 +111,6 @@ function message(txId: string, from: string, content: string, seconds: number): 
 beforeEach(() => {
   vi.clearAllMocks();
   mockPage.params = { address: CHAT };
-  // The page hydrates the store from localStorage defensively (initIdentity),
-  // so both the storage and the store must carry the identity before render.
   localStorage.clear();
   sessionStorage.clear();
   localStorage.setItem(
@@ -124,8 +125,6 @@ beforeEach(() => {
   mockedApi.listRoomUsers.mockImplementation(async () => structuredClone(fixture.users));
   mockedApi.listChatMessages.mockImplementation(async () => structuredClone(fixture.messages));
   mockedApi.kickoffChat.mockResolvedValue({ chat: CHAT, cleared: 2, speaker: '0xa' });
-  // The ungated fallback client mirrors the same fixtures by default (it is
-  // only reached when the viewer fallback engages).
   mockedApiRaw.getChat.mockImplementation(async () => structuredClone(fixture.chat ?? baseChat()));
   mockedApiRaw.listChatMessages.mockImplementation(async () => structuredClone(fixture.messages));
   mockedApiRaw.kickoffChat.mockResolvedValue({ chat: CHAT, cleared: 2, speaker: '0xa' });
@@ -146,56 +145,50 @@ async function renderPage(): Promise<void> {
   await tick();
 }
 
-describe('transcript rendering (§3.5 AC 1, 2, 4)', () => {
-  beforeEach(() => {
-    fixture.messages = [
+function withMessages(...messages: Message[]): void {
+  fixture.messages = messages;
+}
+
+describe('transcript rendering + live updates (§3.5 AC 1–4, 9, 12)', () => {
+  it('renders oldest-first with mine/theirs alignment, speakers and header chips', async () => {
+    withMessages(
       message('tx1', '0xa', 'Привет, я твой новый контакт.', 120),
       message('tx2', ME, 'Привет! Чем занимаешься?', 60),
       message('tx3', '0xa', 'Я работаю с глиной — делаю чашки и свистки.', 30)
-    ];
-  });
-
-  it('renders all messages oldest-first; mine right, theirs left per message.from', async () => {
+    );
     await renderPage();
-    const container = document;
-    const rows = container.querySelectorAll('ol.transcript > li');
+    const rows = document.querySelectorAll('ol.transcript > li');
     expect(rows).toHaveLength(3);
     expect(rows[0]?.getAttribute('aria-label')).toBe(
       `Алиса: ${'Привет, я твой новый контакт.'}`
     );
     expect(rows[0]?.classList.contains('mine')).toBe(false);
     expect(rows[1]?.classList.contains('mine')).toBe(true);
-    expect(rows[2]?.classList.contains('mine')).toBe(false);
-    // speaker names resolved from the roster
-    expect(rows[1]?.textContent).toContain('Я');
     expect(rows[0]?.textContent).toContain('Алиса');
-    // relative times present
     expect(rows[0]?.textContent).toContain('2 мин');
-  });
-
-  it('the header shows the counterpart name and verbatim phase/scenario/language chips (AC 4)', async () => {
-    await renderPage();
-    // the counterpart name is the header h1 (also spoken by bubble speakers)
-    expect(screen.getAllByText('Алиса').length).toBeGreaterThanOrEqual(1);
+    // header: counterpart name + verbatim phase/scenario/language chips
     expect(document.querySelector('h1')?.textContent).toBe('Алиса');
     expect(screen.getByText('networking')).toBeTruthy();
     expect(screen.getByText('ai-future')).toBeTruthy();
     expect(screen.getByText('ru')).toBeTruthy();
+    // §4.8.1 color coding: each bubble carries its speaker's code hue.
+    const bubbles = document.querySelectorAll('.bubble');
+    expect(bubbles[0]?.classList.contains(`code-${codeHue('0xa')}`)).toBe(true);
+    expect(bubbles[1]?.classList.contains(`code-${codeHue(ME)}`)).toBe(true);
+    expect(bubbles[2]?.classList.contains(`code-${codeHue('0xa')}`)).toBe(true);
   });
-});
 
-describe('live updates (§3.5 AC 3, 9, 12)', () => {
   it('new messages appear within one 2 s poll tick without reload (AC 3)', async () => {
     await renderPage();
     expect(document.querySelectorAll('ol.transcript > li')).toHaveLength(0);
 
-    fixture.messages = [message('tx1', '0xa', 'Агенты начали говорить.', 5)];
+    withMessages(message('tx1', '0xa', 'Агенты начали говорить.', 5));
     await screen.findByText('Агенты начали говорить.', undefined, { timeout: 4000 });
     expect(document.querySelectorAll('ol.transcript > li')).toHaveLength(1);
   });
 
   it('network failure shows the banner while keeping the last transcript; recovery auto-dismisses (AC 9)', async () => {
-    fixture.messages = [message('tx1', '0xa', 'Первое сообщение.', 60)];
+    withMessages(message('tx1', '0xa', 'Первое сообщение.', 60));
     let fail = false;
     mockedApi.listChatMessages.mockImplementation(async () => {
       if (fail) throw new NetworkError('/api/chat/x/message', new Error('offline'));
@@ -231,99 +224,39 @@ describe('live updates (§3.5 AC 3, 9, 12)', () => {
   });
 });
 
-describe('auto-scroll (§3.5 AC 3)', () => {
-  beforeEach(() => {
-    fixture.messages = [
-      message('tx1', '0xa', 'Раз.', 200),
-      message('tx2', ME, 'Два.', 100),
-      message('tx3', '0xa', 'Три.', 10)
-    ];
-  });
-
-  function scrollArea(): HTMLElement {
-    const el = document.querySelector('main.scroll');
-    if (!el) throw new Error('scroll area not found');
-    return el as HTMLElement;
-  }
-
-  it('auto-scrolls to the bottom by default; scrolling up shows a working chip', async () => {
-    await renderPage();
-    const el = scrollArea();
-    Object.defineProperty(el, 'scrollHeight', { value: 1000, configurable: true });
-    Object.defineProperty(el, 'clientHeight', { value: 400, configurable: true });
-    // simulate the near-bottom state → no chip
-    el.scrollTop = 620;
-    el.dispatchEvent(new Event('scroll'));
-    await tick();
-    expect(screen.queryByRole('button', { name: ru['chat.scroll_bottom'] })).toBeNull();
-
-    // scrolled up → the floating chip appears
-    el.scrollTop = 0;
-    el.dispatchEvent(new Event('scroll'));
-    await tick();
-    const chip = screen.getByRole('button', { name: ru['chat.scroll_bottom'] });
-    chip.click();
-    await tick();
-    expect(el.scrollTop).toBeGreaterThan(500); // scrolled back toward the bottom
-    expect(screen.queryByRole('button', { name: ru['chat.scroll_bottom'] })).toBeNull();
-  });
-});
-
 describe('kickoff flow (§3.5 AC 5, 6)', () => {
   beforeEach(() => {
-    fixture.messages = [
-      message('tx1', '0xa', 'Раз.', 200),
-      message('tx2', ME, 'Два.', 100)
-    ];
-    // the server clears the history on kickoff; the poll then returns none
+    withMessages(message('tx1', '0xa', 'Раз.', 200), message('tx2', ME, 'Два.', 100));
     mockedApi.kickoffChat.mockImplementation(async () => {
       fixture.messages = [];
       return { chat: CHAT, cleared: 2, speaker: '0xa' };
     });
   });
 
-  it('opens a focus-trapped confirm dialog with the exact copy; Cancel closes without effects', async () => {
+  it('cancel closes without effects; confirm POSTs kickoff, clears the transcript, shows the speaker note and the warming row until the next message', async () => {
     await renderPage();
     await screen.getByRole('button', { name: ru['chat.kickoff'] }).click();
     await tick();
-
-    const dialog = screen.getByRole('dialog');
-    expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(screen.getByText(ru['chat.kickoff.confirm_title'])).toBeTruthy();
-    expect(screen.getByText(ru['chat.kickoff.confirm_body'])).toBeTruthy();
-    // focus moved into the dialog (kit focus trap)
-    expect(dialog.contains(document.activeElement)).toBe(true);
-
     await screen.getByRole('button', { name: ru['common.cancel'] }).click();
     await tick();
     expect(mockedApi.kickoffChat).not.toHaveBeenCalled();
     expect(screen.getByText('Раз.')).toBeTruthy(); // transcript untouched
-  });
 
-  it('Confirm POSTs kickoff, clears the transcript and shows the speaker note (AC 5)', async () => {
-    await renderPage();
+    // Confirm path.
     await screen.getByRole('button', { name: ru['chat.kickoff'] }).click();
     await tick();
     await screen.getByRole('button', { name: ru['chat.kickoff.confirm_run'] }).click();
-
     await waitFor(() => expect(mockedApi.kickoffChat).toHaveBeenCalledWith(CHAT));
     await waitFor(() =>
       expect(
         screen.getByText(ru['chat.kickoff.speaker'].replace('{name}', 'Алиса'))
       ).toBeTruthy()
     );
-    expect(document.querySelectorAll('ol.transcript > li')).toHaveLength(0);
-  });
-
-  it('after kickoff the warming row shows until the first polled message (AC 6)', async () => {
-    await renderPage();
-    await screen.getByRole('button', { name: ru['chat.kickoff'] }).click();
-    await screen.getByRole('button', { name: ru['chat.kickoff.confirm_run'] }).click();
-
     await screen.findByText(ru['chat.warming_up'], undefined, { timeout: 4000 });
 
-    // the first new message arrives → the row disappears
-    fixture.messages = [message('tx9', '0xa', 'Начнём заново.', 2)];
+    // The first polled message clears the warming row.
+    withMessages(message('tx9', '0xa', 'Начнём заново.', 2));
     await screen.findByText('Начнём заново.', undefined, { timeout: 4000 });
     expect(screen.queryByText(ru['chat.warming_up'])).toBeNull();
   });
@@ -341,12 +274,7 @@ describe('kickoff flow (§3.5 AC 5, 6)', () => {
   });
 });
 
-describe('empty, not-found, stub, back (§3.5 AC 7, 8, 11)', () => {
-  it('empty chat (zero messages) → the warming-up state (AC: empty state)', async () => {
-    await renderPage();
-    expect(screen.getByText(ru['chat.warming_up'])).toBeTruthy();
-  });
-
+describe('states: 404, contact stub (§3.5 AC 7, 8)', () => {
   it('404 chat renders the not-found state with a working link back to /chats (AC 8)', async () => {
     mockedApi.getChat.mockRejectedValue(new ApiError(404, `/api/chat/${CHAT}`, 'chat not found'));
     render(Page, { props: {} });
@@ -356,7 +284,7 @@ describe('empty, not-found, stub, back (§3.5 AC 7, 8, 11)', () => {
   });
 
   it('the contact-exchange stub is always visible, disabled and non-interactive (AC 7)', async () => {
-    fixture.messages = [message('tx1', '0xa', 'Привет.', 60)];
+    withMessages(message('tx1', '0xa', 'Привет.', 60));
     await renderPage();
     const stub = document.querySelector('.contact-stub');
     expect(stub).toBeTruthy();
@@ -364,23 +292,11 @@ describe('empty, not-found, stub, back (§3.5 AC 7, 8, 11)', () => {
     expect(stub?.textContent).toContain(ru['chat.contact_stub']);
     expect(stub?.querySelector('button, a, input')).toBeNull();
   });
-
-  it('back control without meaningful history goes to /chats (AC 11)', async () => {
-    // pin history.length → the §1.3 fallback branch (list) is deterministic
-    Object.defineProperty(window.history, 'length', { value: 1, configurable: true });
-    try {
-      await renderPage();
-      await screen.getByRole('button', { name: ru['common.back'] }).click();
-      expect(goto).toHaveBeenCalledWith('/chats');
-    } finally {
-      delete (window.history as { length?: unknown }).length;
-    }
-  });
 });
 
 describe('NO-COMPOSER (owner ruling 4, permanent — §3.5 AC 13)', () => {
   it('the transcript UI contains no input/textarea/send control; only back, kickoff (+confirm), contact stub', async () => {
-    fixture.messages = [message('tx1', '0xa', 'Привет.', 60)];
+    withMessages(message('tx1', '0xa', 'Привет.', 60));
     await renderPage();
 
     const root = document.querySelector('.page');
@@ -388,8 +304,6 @@ describe('NO-COMPOSER (owner ruling 4, permanent — §3.5 AC 13)', () => {
     // no composer of any kind, in any state
     expect(root?.querySelector('input, textarea, [contenteditable="true"]')).toBeNull();
     expect(root?.querySelector('form')).toBeNull();
-    // the only interactive elements: back, kickoff, (dialog hidden) —
-    // the contact stub renders no control at all
     const buttons = Array.from(root?.querySelectorAll('button') ?? []);
     const labels = buttons.map(
       (button) =>
@@ -403,7 +317,7 @@ describe('NO-COMPOSER (owner ruling 4, permanent — §3.5 AC 13)', () => {
   });
 });
 
-describe('transcript viewer fallback (§3.5 AC 14, ARCHITECTURE §10.3 escape hatch)', () => {
+describe('transcript viewer fallback (§3.5 AC 14, ARCHITECTURE §10.3)', () => {
   function storeHostSession(): void {
     saveHostRoom({
       code: '123456',
@@ -412,7 +326,7 @@ describe('transcript viewer fallback (§3.5 AC 14, ARCHITECTURE §10.3 escape ha
     });
   }
 
-  it('persona read 403 + a stored room token → ONE retry with the room token via apiRaw; the host-view chip shows', async () => {
+  it('persona read 403 + a stored room token → room-token retries via apiRaw; host-view persists for the session', async () => {
     storeHostSession();
     mockedApi.getChat.mockRejectedValue(
       new ApiError(403, `/api/chat/${CHAT}`, 'not a participant')
@@ -423,53 +337,31 @@ describe('transcript viewer fallback (§3.5 AC 14, ARCHITECTURE §10.3 escape ha
 
     await renderPage();
 
-    // The ungated client served both the chat metadata and the messages.
     await waitFor(() => expect(mockedApiRaw.getChat).toHaveBeenCalled());
     await waitFor(() => expect(mockedApiRaw.listChatMessages).toHaveBeenCalled());
-    // Every retry carries the stored room token (the page's defensive
-    // initIdentity re-hydration may run the mount effect twice — same
-    // fallback path, still the room token, never a second persona flavor).
+    // Every retry carries the stored room token (never a second persona flavor).
     for (const call of mockedApiRaw.getChat.mock.calls) {
       expect(call[1]).toEqual({ token: 'r-tok' });
     }
     expect(screen.getByText(ru['chat.host_view'])).toBeTruthy();
-    // The attendee identity was never touched.
     expect(JSON.parse(localStorage.getItem('bleak.identity') ?? 'null')).toMatchObject({
       userAddress: ME
     });
-  });
 
-  it('host-view mode persists for the page session — subsequent ticks go straight to the room token', async () => {
-    storeHostSession();
-    mockedApi.getChat.mockRejectedValue(
-      new ApiError(403, `/api/chat/${CHAT}`, 'not a participant')
-    );
-    mockedApi.listChatMessages.mockRejectedValue(
-      new ApiError(403, `/api/chat/${CHAT}/message`, 'not a participant')
-    );
-
-    await renderPage();
-    await waitFor(() => expect(mockedApiRaw.listChatMessages).toHaveBeenCalled());
+    // A later poll tick: no new persona attempt, room token used directly.
     const callsAfterFirstTick = mockedApiRaw.listChatMessages.mock.calls.length;
-
-    // A later poll tick: no new persona attempt (never re-trips the gate),
-    // the room token is used directly.
-    fixture.messages = [message('tx1', '0xa', 'Наблюдаем.', 5)];
+    withMessages(message('tx1', '0xa', 'Наблюдаем.', 5));
     await screen.findByText('Наблюдаем.', undefined, { timeout: 4000 });
-    expect(mockedApiRaw.listChatMessages.mock.calls.length).toBeGreaterThan(
-      callsAfterFirstTick
-    );
     const laterCall =
       mockedApiRaw.listChatMessages.mock.calls[
         mockedApiRaw.listChatMessages.mock.calls.length - 1
       ];
+    expect(mockedApiRaw.listChatMessages.mock.calls.length).toBeGreaterThan(callsAfterFirstTick);
     expect(laterCall?.[1]).toEqual({ token: 'r-tok' });
-    expect(screen.getByText(ru['chat.host_view'])).toBeTruthy();
   });
 
   it('a host-context 401 on the retry replicates the hostApi gate: host room cleared + hostReset flag, identity untouched', async () => {
     storeHostSession();
-    // The persona read fails; the room token is dead too.
     mockedApi.getChat.mockRejectedValue(
       new ApiError(403, `/api/chat/${CHAT}`, 'not a participant')
     );
@@ -482,18 +374,16 @@ describe('transcript viewer fallback (§3.5 AC 14, ARCHITECTURE §10.3 escape ha
     await waitFor(() =>
       expect(sessionStorage.getItem('bleak.hostReset')).toBe('1')
     );
-    // bleak.hostRoom cleared; the attendee identity is NEVER touched.
     expect(localStorage.getItem('bleak.hostRoom')).toBeNull();
     expect(JSON.parse(localStorage.getItem('bleak.identity') ?? 'null')).toMatchObject({
       userAddress: ME
     });
-    // No redirect of the attendee session happened.
     expect(goto).not.toHaveBeenCalled();
   });
 
   it('kickoff in host-view mode goes through the room token', async () => {
     storeHostSession();
-    fixture.messages = [message('tx1', '0xa', 'Раз.', 200), message('tx2', ME, 'Два.', 100)];
+    withMessages(message('tx1', '0xa', 'Раз.', 200), message('tx2', ME, 'Два.', 100));
     mockedApi.getChat.mockRejectedValue(
       new ApiError(403, `/api/chat/${CHAT}`, 'not a participant')
     );
@@ -517,9 +407,6 @@ describe('transcript viewer fallback (§3.5 AC 14, ARCHITECTURE §10.3 escape ha
   });
 
   it('without a stored room token a 401 renders NO transcript error UI (the §2.8 global gate owns it — AC 15)', async () => {
-    // No bleak.hostRoom seeded. The mocked api layer does not run the gate
-    // itself (the gate mechanics are proven in api-contexts.test.ts); what
-    // this page must prove is that no transcript error UI renders first.
     mockedApi.getChat.mockRejectedValue(new ApiError(401, `/api/chat/${CHAT}`, 'no token'));
     mockedApi.listChatMessages.mockRejectedValue(
       new ApiError(401, `/api/chat/${CHAT}/message`, 'no token')

@@ -229,17 +229,6 @@ describe('/room — HandshakeSheet per-state actions (AC 4–7)', () => {
     await waitFor(() => expect(mockedApi.listHandshakesOfUser.mock.calls.length).toBeGreaterThan(1));
   });
 
-  it('outgoing pending: disabled waiting state', async () => {
-    mountIdentity();
-    render(RoomPage, { props: {} });
-    await screen.findByText(room.name);
-    const bobNode = await screen.findByRole('button', {
-      name: ru['room.node.outgoing'].replace('{name}', 'Боб')
-    });
-    await bobNode.click();
-    const waiting = await screen.findByRole('button', { name: ru['hs.waiting'] });
-    expect(waiting.hasAttribute('disabled')).toBe(true);
-  });
 
   it('incoming pending: handshake-back sends the reverse direction; success offers Open dialog (AC 6)', async () => {
     setState({ users: [user(ME, 'Я'), carol], handshakes: [hs(carol.address, ME)], chats: [] });
@@ -312,21 +301,6 @@ describe('/room — HandshakeSheet per-state actions (AC 4–7)', () => {
     ).toBeTruthy();
   });
 
-  it('idempotent re-send (server 200) is treated as success (AC 7)', async () => {
-    // The pair already exists as outgoing pending; sending again resolves 200.
-    mockedApi.createHandshake.mockResolvedValue({} as Handshake);
-    mountIdentity();
-    render(RoomPage, { props: {} });
-    await screen.findByText(room.name);
-
-    const bobNode = await screen.findByRole('button', {
-      name: ru['room.node.outgoing'].replace('{name}', 'Боб')
-    });
-    await bobNode.click();
-    // the sheet shows the waiting state — no error path — AC: 200 == success
-    expect(await screen.findByRole('button', { name: ru['hs.waiting'] })).toBeTruthy();
-    expect(screen.queryByText(ru['hs.error.network'])).toBeNull();
-  });
 });
 
 describe('/room — error banner (AC 9)', () => {

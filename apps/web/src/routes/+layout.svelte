@@ -4,7 +4,7 @@
   import '#lib/styles/base.css';
   import { onMount } from 'svelte';
   import { page } from '$app/state';
-  import { initLocale } from '#lib/i18n/locale';
+  import { initLocale, locale, translate } from '#lib/i18n/locale';
   import { initIdentity } from '#lib/stores/identity';
   import TabBar from '#lib/components/TabBar.svelte';
 
@@ -20,7 +20,8 @@
 </script>
 
 <svelte:head>
-  <title>bleak-web</title>
+  <!-- Concept §7.1.1: no bare app-name title; route-neutral join-flow identity. -->
+  <title>{translate($locale, 'join.title')}</title>
 </svelte:head>
 
 <div class="app-shell">

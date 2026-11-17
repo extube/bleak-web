@@ -350,7 +350,7 @@
 </script>
 
 <svelte:head>
-  <title>bleak-web</title>
+  <title>{translate($locale, 'chats.title')}</title>
   <!-- §1.1/§3.5: the transcript page has NO tab bar (the scaffold layout
        renders it for every non-join route; scoped here, restored on unmount). -->
   <style>
@@ -434,6 +434,7 @@
                 <MessageBubble
                   {message}
                   {mine}
+                  myAddress={me?.userAddress ?? ''}
                   speaker={speaker}
                   time={timeOf(message.created_at)}
                   label={bubbleAriaLabel(speaker, message.content)}

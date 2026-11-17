@@ -99,7 +99,7 @@
 </script>
 
 <svelte:head>
-  <title>bleak-web</title>
+  <title>{translate($locale, 'chats.title')}</title>
 </svelte:head>
 
 <main class="chats-page">

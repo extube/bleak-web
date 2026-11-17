@@ -41,19 +41,28 @@
     { "action": "shell", "resource": "git push * main", "effect": "ask" },
     { "action": "shell", "resource": "git push * main:*", "effect": "ask" },
     { "action": "shell", "resource": "git checkout main*", "effect": "ask" },
+    // Squash-only landings into dev (owner directive 2026-11-17): a
+    // feature/bug branch lands as ONE commit via `git merge --squash` +
+    // a single commit; no-ff/merge commits into dev are unwound by
+    // .githooks/post-merge. Syncing from main keeps its own ask gate.
+    { "action": "shell", "resource": "git merge --squash *", "effect": "allow" },
+    { "action": "shell", "resource": "git merge --no-ff *", "effect": "deny" },
     { "action": "shell", "resource": "git merge *", "effect": "ask" },
     // Commit identity is fixed (see AGENTS.md "Commit identity"):
     // repo-local git config is the single source; nobody may override it.
-    // Workstation ownership exceptions (added 2026-11-15 at the user's
-    // explicit direction, resolving the "dubious ownership" build-loop
-    // blocker escalated by process 9e6a5f3e). Unrelated to the commit
-    // identity — which stays locked by the rules below.
-    { "action": "shell", "resource": "git config --global --add safe.directory *", "effect": "allow" },
+    // Workstation ownership exceptions live in /etc/gitconfig (system-wide,
+    // added 2026-11-15/17 at the user's explicit direction). Unrelated to the
+    // commit identity — which stays locked by the rules below.
     { "action": "shell", "resource": "git config user.*", "effect": "deny" },
     { "action": "shell", "resource": "git config --global*", "effect": "deny" },
     { "action": "shell", "resource": "git config --local*", "effect": "deny" },
     { "action": "shell", "resource": "git config --add*", "effect": "deny" },
     { "action": "shell", "resource": "git config --replace*", "effect": "deny" },
+    // The narrow safe.directory exception MUST stay after the broad denies:
+    // rules are last-match-wins, and this is the documented per-machine fix
+    // (AGENTS.md "Local clones") that the devops agent runs at the user's
+    // direction when a machine loses its exceptions.
+    { "action": "shell", "resource": "git config --global --add safe.directory *", "effect": "allow" },
     { "action": "shell", "resource": "git commit --author=*", "effect": "deny" },
     { "action": "shell", "resource": "git -c *user*", "effect": "deny" },
     { "action": "shell", "resource": "git -c *author*", "effect": "deny" },

@@ -227,8 +227,6 @@
 </script>
 
 <div class="join">
-  <span class="logo pixel-corners">{translate($locale, 'app.title')}</span>
-
   {#if gone}
     <section class="card pixel-corners gone-card">
       <h2>{translate($locale, 'join.error.gone')}</h2>
@@ -314,13 +312,6 @@
     width: 100%;
     max-width: 480px;
     margin: 0 auto;
-  }
-  .logo {
-    font-family: var(--font-pixel);
-    font-size: 40px;
-    line-height: 1;
-    background: var(--color-surface);
-    padding: var(--space-3) var(--space-5);
   }
   .card {
     width: 100%;
