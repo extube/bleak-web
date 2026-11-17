@@ -164,6 +164,19 @@ describe('/room — radar composition (AC 1, 3, 8)', () => {
     expect(labels).toContain(ru['room.node.chat'].replace('{name}', 'Алиса'));
     expect(labels).toContain(ru['room.node.outgoing'].replace('{name}', 'Боб'));
     expect(labels).toContain(ru['room.node.none'].replace('{name}', 'Кэрол'));
+    // §4.8.3a: NO visible name labels on other users' icons — the
+    // accessible name alone carries the relationship state; only the
+    // "you" chip keeps its name.
+    expect(nodeButtons().map((b) => b.textContent?.trim())).toEqual(['', '', '']);
+    expect(screen.getByText('Я')).toBeTruthy();
+    // §4.8.3c: nodes live in the rotating orbit layer (same spin as the
+    // rings — one rigid layer, no counter-rotation).
+    const orbit = document.querySelector('.nodes-orbit');
+    expect(orbit).toBeTruthy();
+    for (const node of nodeButtons()) expect(orbit?.contains(node)).toBe(true);
+    // Markers keep working (§3.2): outgoing → accent dot, no incoming ring.
+    expect(document.querySelector('button.node .out-dot')).toBeTruthy();
+    expect(document.querySelector('button.node .in-ring')).toBeNull();
   });
 
   it('a soft-deleted attendee (left the room) renders no node', async () => {
@@ -203,7 +216,9 @@ describe('/room — >14 cap (AC 10, TZ §7.3)', () => {
     render(RoomPage, { props: {} });
     await screen.findByText('20 вокруг вас'); // wait until data has loaded
     await waitFor(() => expect(nodeButtons()).toHaveLength(14));
-    expect(screen.getByText('+6 ещё')).toBeTruthy();
+    // The counter rides the same rotating orbit layer as the nodes (§4.8.3c).
+    const orbit = document.querySelector('.nodes-orbit');
+    expect(orbit?.contains(screen.getByText('+6 ещё'))).toBe(true);
   });
 });
 
@@ -239,6 +254,7 @@ describe('/room — HandshakeSheet per-state actions (AC 4–7)', () => {
     const carolNode = await screen.findByRole('button', {
       name: ru['room.node.incoming'].replace('{name}', 'Кэрол')
     });
+    expect(document.querySelector('button.node .in-ring')).toBeTruthy(); // §3.2 marker
     await carolNode.click();
     expect(await screen.findByText(ru['hs.added_you'])).toBeTruthy();
     await screen.getByRole('button', { name: ru['hs.back'] }).click();

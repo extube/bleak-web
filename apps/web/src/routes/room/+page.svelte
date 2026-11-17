@@ -22,6 +22,7 @@
   import { deriveRelationships, type Relationship } from '#lib/room/relationships';
   import {
     capRadarNodes,
+    layoutRadarNodes,
     moreCounterPlacement,
     nodePosition,
     radarPlacement
@@ -151,10 +152,24 @@
   );
   const others = $derived(me ? roomUsers.filter((user) => relMap.has(user.address)) : []);
   const capped = $derived(capRadarNodes(others));
+  // Collision-avoided layout (§4.8.3): one deterministic pass resolves
+  // every node's final position (center exclusion, on-canvas, no overlap).
+  const layout = $derived(
+    me
+      ? layoutRadarNodes(
+          capped.shown.map((user) => {
+            const rel = relMap.get(user.address) as Relationship;
+            return { address: user.address, state: rel.state };
+          }),
+          stageW,
+          stageH
+        )
+      : []
+  );
   const nodes = $derived(
-    capped.shown.map((user) => {
-      const rel = relMap.get(user.address) as Relationship;
-      return { user, rel, placement: radarPlacement(user.address, rel.state) };
+    layout.map((point) => {
+      const user = capped.shown.find((u) => u.address === point.address) as User;
+      return { user, rel: relMap.get(point.address) as Relationship, point };
     })
   );
   const aroundCount = $derived(others.length);
@@ -288,15 +303,18 @@
             aria-hidden="true"
           ></span>
         {/each}
-      {:else}
-        <div class="nodes" class:dimmed={banner !== null}>
+      {:else if nodes.length > 0}
+        <!-- §4.8.3c: the nodes layer rides the same 90 s spin as the rings
+             (one rigid rotating layer, no counter-rotation) — the «+N ещё»
+             counter rides with it, so every spacing guarantee from
+             lib/room/radar.ts holds for the whole rotation. -->
+        <div class="nodes-orbit" class:dimmed={banner !== null}>
           {#each nodes as node (node.user.address)}
             <RadarNode
               user={node.user}
               relationship={node.rel}
-              placement={node.placement}
-              stageWidth={stageW}
-              stageHeight={stageH}
+              x={node.point.x}
+              y={node.point.y}
               onclick={() => openNode(node.user)}
             />
           {/each}
@@ -472,10 +490,16 @@
     background: var(--color-surface-elevated);
     animation: skel-pulse 1.2s ease-in-out infinite;
   }
-  .nodes {
+  /* §4.8.3c: one rigid rotating layer for nodes + «+N ещё» counter — the
+   * same 90 s transform-only ambient spin the rings use (§4.6); disabled
+   * under prefers-reduced-motion by the base.css rule. */
+  .nodes-orbit {
+    position: absolute;
+    inset: 0;
+    animation: orbit-spin 90s linear infinite;
     transition: opacity 200ms ease-out;
   }
-  .nodes.dimmed {
+  .nodes-orbit.dimmed {
     opacity: 0.5;
   }
   .more-counter {
@@ -483,6 +507,14 @@
     transform: translate(-50%, -50%);
     font-size: 14px;
     color: var(--color-text-muted);
+  }
+  @keyframes orbit-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
   @keyframes live-pulse {
     0%,

@@ -1,19 +1,26 @@
 /**
- * Radar placement unit tests (TZ-05): determinism (AC 2), exactly-one-ring
- * ring mapping, jitter bounds, pixel conversion and the >14 cap with the
- * LOWEST NUMERIC HASH VALUES ascending rule (TZ §7.3, AC 10).
+ * Radar placement unit tests (TZ-05 + §4.8.3 amendment): determinism (AC 2),
+ * exactly-one-ring ring mapping, jitter bounds, pixel conversion, the >14
+ * cap with the LOWEST NUMERIC HASH VALUES ascending rule (TZ §7.3, AC 10)
+ * and the collision-avoided layout: increased "you"-chip distance, no node
+ * overlap, on-canvas placement at parametrized phone stage sizes.
  */
 import { describe, expect, it } from 'vitest';
 import { fnv1a } from '../src/lib/avatar/traits';
 import {
+  EDGE_MARGIN_PX,
   MAX_RADAR_NODES,
+  MIN_CENTER_GAP_PX,
+  MIN_NODE_DIST_PX,
   RING_FRACTIONS,
   capRadarNodes,
+  layoutRadarNodes,
   moreCounterPlacement,
   nodePosition,
   radarPlacement,
   ringFor
 } from '../src/lib/room/radar';
+import type { RelationshipState } from '../src/lib/room/relationships';
 import type { User } from '@bleak/api-client';
 
 function user(address: string): User {
@@ -144,5 +151,133 @@ describe('moreCounterPlacement — stable outer-ring position for «+N ещё»'
   it('is deterministic and sits on the outer ring', () => {
     expect(moreCounterPlacement()).toEqual(moreCounterPlacement());
     expect(moreCounterPlacement().ring).toBe(2);
+  });
+});
+
+describe('RING_FRACTIONS — §4.8.3 scaled-up inner rings', () => {
+  it('inner ring clears the enlarged "you"-chip exclusion zone', () => {
+    // The old 0.28 inner ring sat inside the chip on phone stages; the
+    // amendment scales the rings up so the inner ring starts outside.
+    expect(RING_FRACTIONS[0]).toBeGreaterThan(0.5);
+    expect(RING_FRACTIONS[1]).toBeGreaterThan(RING_FRACTIONS[0]);
+    expect(RING_FRACTIONS[2]).toBeGreaterThan(RING_FRACTIONS[1]);
+  });
+});
+
+/**
+ * Parametrized stage sizes (§4.8.3e): the smallest phone stage first —
+ * placement must stay non-overlapping and on-canvas at 320px width.
+ */
+const STAGES: ReadonlyArray<readonly [number, number, string]> = [
+  [320, 480, 'smallest phone'],
+  [360, 640, 'phone'],
+  [390, 844, 'large phone'],
+  [480, 800, 'tall portrait'],
+  [768, 1024, 'tablet']
+];
+
+const STATES: readonly RelationshipState[] = ['chat', 'outgoing', 'incoming', 'none'];
+
+function entries(count: number, stateOf: (i: number) => RelationshipState = () => 'none') {
+  return Array.from({ length: count }, (_, i) => ({ address: `0xuser-${i}`, state: stateOf(i) }));
+}
+
+function mixedStates(i: number): RelationshipState {
+  return STATES[i % STATES.length] as RelationshipState;
+}
+
+function assertInvariants(
+  points: ReturnType<typeof layoutRadarNodes>,
+  stageWidth: number,
+  stageHeight: number
+): void {
+  const cx = stageWidth / 2;
+  const cy = stageHeight / 2;
+  for (const point of points) {
+    // §4.8.3b: increased minimum distance from the "you" chip (center).
+    const gap = Math.hypot(point.x - cx, point.y - cy);
+    expect(gap).toBeGreaterThanOrEqual(MIN_CENTER_GAP_PX - 1e-9);
+    // §4.8.3e: the node hit disk stays fully on-canvas.
+    expect(Math.abs(point.x - cx)).toBeLessThanOrEqual(stageWidth / 2 - EDGE_MARGIN_PX + 1e-9);
+    expect(Math.abs(point.y - cy)).toBeLessThanOrEqual(stageHeight / 2 - EDGE_MARGIN_PX + 1e-9);
+    // §4.8.3d: distinct hit area vs the reserved «+N ещё» counter slot.
+    const more = nodePosition(moreCounterPlacement(), stageWidth, stageHeight);
+    expect(Math.hypot(point.x - more.x, point.y - more.y)).toBeGreaterThanOrEqual(
+      MIN_NODE_DIST_PX - 1e-9
+    );
+  }
+  for (let i = 0; i < points.length; i += 1) {
+    for (let j = i + 1; j < points.length; j += 1) {
+      const a = points[i] as (typeof points)[number];
+      const b = points[j] as (typeof points)[number];
+      expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(MIN_NODE_DIST_PX - 1e-9);
+    }
+  }
+}
+
+describe('layoutRadarNodes — collision-avoided layout (§4.8.3b/d/e)', () => {
+  it('guarantees center gap, no overlap and on-canvas at every stage size', () => {
+    for (const [width, height, label] of STAGES) {
+      const points = layoutRadarNodes(entries(14, mixedStates), width, height);
+      expect(points, label).toHaveLength(14);
+      assertInvariants(points, width, height);
+    }
+  });
+
+  it('worst case: 14 same-ring (outer) nodes still never overlap at 320×480', () => {
+    const points = layoutRadarNodes(entries(MAX_RADAR_NODES), 320, 480);
+    expect(points).toHaveLength(MAX_RADAR_NODES);
+    assertInvariants(points, 320, 480);
+  });
+
+  it('ring mapping is preserved through the layout pass', () => {
+    const points = layoutRadarNodes(entries(8, mixedStates), 390, 844);
+    for (const point of points) {
+      expect(point.ring).toBe(ringFor(mixedStates(Number(point.address.slice('0xuser-'.length)))));
+    }
+  });
+
+  it('a lone node rides its ring (no clamp needed when nothing collides)', () => {
+    const [point] = layoutRadarNodes([{ address: '0xchat-user', state: 'chat' }], 800, 800);
+    if (!point) throw new Error('missing layout point');
+    const base = RING_FRACTIONS[0] * 400;
+    expect(point.radiusPx).toBeGreaterThanOrEqual(base * 0.94 - 1e-9);
+    expect(point.radiusPx).toBeLessThanOrEqual(base * 1.06 + 1e-9);
+  });
+
+  it('is deterministic: same data ⇒ identical layout (AC 2)', () => {
+    const input = entries(14, mixedStates);
+    const a = layoutRadarNodes(input, 360, 640);
+    const b = layoutRadarNodes(input, 360, 640);
+    expect(a).toEqual(b);
+  });
+
+  it('is deterministic regardless of input order (server order changes must not move nodes)', () => {
+    const input = entries(14, mixedStates);
+    const reversed = [...input].reverse();
+    const a = [...layoutRadarNodes(input, 360, 640)].sort((x, y) => x.address.localeCompare(y.address));
+    const b = [...layoutRadarNodes(reversed, 360, 640)].sort((x, y) =>
+      x.address.localeCompare(y.address)
+    );
+    expect(a).toEqual(b);
+    assertInvariants(a, 360, 640);
+  });
+
+  it('empty input → empty layout; zero-size stage → degenerate but defined', () => {
+    expect(layoutRadarNodes([], 320, 480)).toEqual([]);
+    const degenerate = layoutRadarNodes(entries(3), 0, 0);
+    expect(degenerate).toHaveLength(3);
+    for (const point of degenerate) {
+      expect(point.x).toBe(0);
+      expect(point.y).toBe(0);
+    }
+  });
+
+  it('the cap constants stay intact (§4.8.3 does not change the >14 rule)', () => {
+    expect(MAX_RADAR_NODES).toBe(14);
+    // The increased "you"-chip distance: chip block half-diagonal (~101px)
+    // + node hit radius (26px), rounded up.
+    expect(MIN_CENTER_GAP_PX).toBeGreaterThanOrEqual(127);
+    expect(MIN_NODE_DIST_PX).toBeGreaterThanOrEqual(60);
   });
 });

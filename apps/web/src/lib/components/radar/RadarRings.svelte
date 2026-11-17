@@ -1,11 +1,14 @@
 <script lang="ts">
   /**
-   * RadarRings (DESIGN §3.2): three dashed rings — decorative layer only
-   * (aria-hidden, §2.6; never focusable). Radii follow RING_FRACTIONS of
-   * the viewBox half. The 90 s ambient rotation (§4.6, transform-only)
-   * starts only when data has arrived (loading state shows static rings)
-   * and is disabled under prefers-reduced-motion by the base.css rule.
-   * Token-only colors; `.pixel-corners` is never applied here (§4.5).
+   * RadarRings (DESIGN §3.2 + §4.8.3 amendment): three dashed rings —
+   * decorative layer only (aria-hidden, §2.6; never focusable). Radii
+   * follow RING_FRACTIONS of the viewBox half (56 / 70 / 84 — scaled up
+   * from 28/56/84 so the inner ring clears the enlarged "you"-chip
+   * exclusion zone, matching lib/room/radar.ts). The 90 s ambient rotation
+   * (§4.6, transform-only) starts only when data has arrived (loading
+   * state shows static rings) and is disabled under prefers-reduced-motion
+   * by the base.css rule. Token-only colors; `.pixel-corners` is never
+   * applied here (§4.5).
    */
   interface Props {
     /** Rings rotate only after the first successful poll tick. */
@@ -17,8 +20,8 @@
 
 <svg class="rings" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
   <g class:animate>
-    <circle cx="100" cy="100" r="28" />
     <circle cx="100" cy="100" r="56" />
+    <circle cx="100" cy="100" r="70" />
     <circle cx="100" cy="100" r="84" />
   </g>
 </svg>
