@@ -220,11 +220,17 @@ The **only** interface is `scripts/task.py`. Never touch the DB directly.
 
 Schema:
 
-- `tasks` — `id, hash, title, branch, tz_section, criteria, status,
-  created_by, worker_hash, tester_hash (kept, unused), depends_on,
-  bug_branches, created_at, updated_at`. `branch` tracks the task's
-  **current work branch** (the feature branch, or the latest
+- `tasks` — `id, hash, title, branch, tz_section, criteria, test_cases,
+  constraints, status, created_by, worker_hash, tester_hash (kept, unused),
+  depends_on, bug_branches, created_at, updated_at`. `branch` tracks the
+  task's **current work branch** (the feature branch, or the latest
   `bug/<hash>-<slug>` fix branch after a CI-failure reopen).
+  `test_cases` — the concrete test suites/cases the task must keep green
+  and extend (process fills right after `criteria`, same authority);
+  `constraints` — hard "do not touch / do not add" limits for the worker
+  (e.g. no new dependencies, reconcile names only). Both are set via
+  `task.py tests|constraints <id> "<text>" --as <processHash>` and are part
+  of the card the worker reads (see the CLI examples).
 - `task_log` — `task_id, actor, action, detail, at` (every mutation)
 - `merges` — MR records, one per ready-for-merge round: `id, task_id,
   branch, status (open | merged | failed), opened_at, merged_at, ci_result,
@@ -272,6 +278,9 @@ scripts/open-feature.sh task-table-component - --as ab12cd34
 
 # Process fills the acceptance criteria right after:
 python3 scripts/task.py criteria <id> "criterion one; criterion two" --as ab12cd34
+# …and the test cases + constraints (same authority, owner directive 2026-11-17):
+python3 scripts/task.py tests <id> "suites/cases to keep green and extend" --as ab12cd34
+python3 scripts/task.py constraints <id> "do-not-touch / do-not-add limits" --as ab12cd34
 
 # Worker starts / hands over for merge (worker_hash must match --as);
 # ready-for-merge auto-opens the MR record:

@@ -31,6 +31,11 @@ build: ## Production build (typecheck + static SPA bundle + helper dist)
 test: ## Run the unit test suite (vitest, all workspaces)
 	npm run test
 
+test-smoke: ## Fast spine tier: crypto/credential/contract suites only (mid-iteration checks)
+	npm run test -w @bleak/api-client
+	npm run test -w @bleak/helper
+	npm run test -w @bleak/web -- tests/crypto-secrets.test.ts tests/api-contexts.test.ts tests/join-machine.test.ts tests/i18n.test.ts
+
 lint: ## Lint everything (eslint flat config)
 	npm run lint
 

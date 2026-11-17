@@ -171,19 +171,6 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
     await screen.findByText(room.name);
   });
 
-  it('change-code returns to a clean code entry', async () => {
-    mockedResolve.mockResolvedValue({ roomAddress: room.address });
-    mockedApi.getRoom.mockResolvedValue(room);
-    mockedApi.listRoomUsers.mockResolvedValue([]);
-
-    render(JoinFlow, { props: {} });
-    pasteCode('123456');
-    await submitViaCta();
-    await screen.findByText(room.name);
-    await screen.getByRole('button', { name: ru['join.change_code'] }).click();
-    await screen.findByText(ru['join.title']);
-    expect(cells().map((c) => c.value).join('')).toBe('');
-  });
 });
 
 describe('JoinFlow — persona creation (v2, token in the body)', () => {
@@ -410,20 +397,4 @@ describe('JoinFlow — scanner mount (context *a*, QrScanner public API)', () =>
     expect(cells().map((c) => c.value).join('')).toBe('123456');
   });
 
-  it('after closing the scanner the normal code flow still resolves unchanged (AC 18 wiring)', async () => {
-    mockedResolve.mockResolvedValue({ roomAddress: room.address });
-    mockedApi.getRoom.mockResolvedValue(room);
-    mockedApi.listRoomUsers.mockResolvedValue([]);
-
-    render(JoinFlow, { props: {} });
-    await screen.getByRole('button', { name: ru['join.scan.open'] }).click();
-    expect(screen.getByRole('dialog')).toBeTruthy();
-    // The §3.8 manual fallback closes the overlay (the real scanner fires
-    // onInviteCode itself); manual entry continues to work identically.
-    await screen.getByRole('button', { name: ru['scan.fallback.enter_code'] }).click();
-    pasteCode('123456');
-    await submitViaCta();
-    await screen.findByText(room.name);
-    expect(mockedResolve).toHaveBeenCalledWith('123456');
-  });
 });

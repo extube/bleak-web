@@ -1474,8 +1474,10 @@ and the v1 regression guard are untouched):
 
 1. **Gate order & frequency (workers):** during a part's implementation,
    iterate with **targeted test runs** (`npm run test -w @bleak/web --
-   <file>`), not the full suite. The **full `make test` runs once per
-   completed part** (right before its commit). **`make lint` runs only
+   <file>`), or the **smoke tier** (`make test-smoke` — the
+   crypto/credential/contract spine only; added 2026-11-17 owner directive)
+   when a wider-but-fast check is needed. The **full `make test` runs once
+   per completed part** (right before its commit). **`make lint` runs only
    after the full test suite is green** — never interleaved with test
    debugging. **`make build` runs once, at handover** (after lint) — it is
    the most expensive gate and catches nothing the part-tests + lint
@@ -1496,6 +1498,12 @@ and the v1 regression guard are untouched):
    file contents.
 5. **Session-record hygiene:** one session-record commit per worker (at
    handover), not per run; log entries stay one-liners.
+6. **Test-growth discipline (2026-11-17, owner directive):** new tests are
+   parametrized by default (`it.each` tables for status/variant clusters) —
+   one case per behavior, not per copy of the assertion pattern; every task
+   card bounds its growth via its `test_cases` + `constraints` fields; the
+   reported-case count of any non-test task must not grow without a named
+   reason in the handover report.
 
 *These rules supersede any earlier "run all three gates locally before
 ready-for-merge" phrasing in §8.4 — the per-part test + handover sequence

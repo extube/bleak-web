@@ -6,7 +6,7 @@
 
 | Agent / situation | Read |
 | --- | --- |
-| **worker** starting a task | Your task card's `criteria` (task DB) + your `tz-section` in `docs/TZ.md` + the DESIGN sections that section references. Nothing else up front. |
+| **worker** starting a task | Your task card's `criteria` **+ `test cases` + `constraints`** (task DB) + your `tz-section` in `docs/TZ.md` + the DESIGN sections that section references. Nothing else up front. |
 | **process** | `docs/TZ.md` §8 (Part II) + §8.8 (token-budget policy) + AGENTS.md |
 | **architect** | `docs/ARCHITECTURE.md` + `docs/TZ.md` (the sections your pass amends) |
 | **design** | `docs/DESIGN.md` (sections your rev touches) + `docs/Concept.md` §6 |

@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     branch       TEXT NOT NULL,
     tz_section   TEXT NOT NULL DEFAULT '',
     criteria     TEXT NOT NULL DEFAULT '',
+    test_cases   TEXT NOT NULL DEFAULT '',
+    constraints  TEXT NOT NULL DEFAULT '',
     status       TEXT NOT NULL DEFAULT 'todo'
                  CHECK (status IN ('todo','in-progress','ready-for-merge',
                                    'merged','done','blocked')),
@@ -113,6 +115,14 @@ def connect():
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA foreign_keys=ON")
+    # Column migration (2026-11-17, devops, owner directive): task cards carry
+    # test cases + constraints alongside criteria. Old DBs gain the columns
+    # transparently; fresh inits get them from SCHEMA.
+    for col in ("test_cases", "constraints"):
+        try:
+            con.execute(f"ALTER TABLE tasks ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass  # column already exists
     return con
 
 
@@ -227,6 +237,42 @@ def cmd_criteria(args):
     con.commit()
     con.close()
     print(f"task {int(task_id)}: criteria set ({len(text)} chars)")
+
+
+def _set_card_field(args, field, label):
+    # tests|constraints <id> <text> --as <processHash> — same authority as
+    # criteria (the card's creator): the card is the worker's single source
+    # of truth for what to test and what not to touch.
+    process, positional = parse_as(args, "processHash")
+    if len(positional) < 2:
+        die(f"usage: task.py {field} <id> <{label} text> --as <processHash>")
+    if not HEX8.match(process):
+        die(f"process hash '{process}' must be 8 lowercase hex chars")
+    task_id = positional[0]
+    text = " ".join(positional[1:]).strip()
+    if not text:
+        die(f"{label} text must be non-empty")
+
+    con = connect()
+    task = get_task(con, task_id)
+    if task["created_by"] != process:
+        die(f"only the process ({task['created_by']}) may set {label} for task {task['id']}, not '{process}'")
+    con.execute(f"UPDATE tasks SET {field}=?, updated_at=? WHERE id=?",
+                (text, NOW(), task["id"]))
+    log(con, task["id"], process, field, text)
+    con.commit()
+    con.close()
+    print(f"task {int(task_id)}: {label} set ({len(text)} chars)")
+
+
+def cmd_tests(args):
+    # tests <id> <test-cases text> --as <processHash>
+    _set_card_field(args, "test_cases", "test-cases")
+
+
+def cmd_constraints(args):
+    # constraints <id> <constraints text> --as <processHash>
+    _set_card_field(args, "constraints", "constraints")
 
 
 def cmd_assign_tester(args):
@@ -497,6 +543,8 @@ def cmd_show(args):
     print(f"  branch:      {t['branch']}")
     print(f"  tz_section:  {t['tz_section']}")
     print(f"  criteria:    {t['criteria'] or '(none)'}")
+    print(f"  test cases:  {t['test_cases'] or '(none)'}")
+    print(f"  constraints: {t['constraints'] or '(none)'}")
     print(f"  created_by:  {t['created_by']} (process)")
     print(f"  worker:      {t['worker_hash']}")
     print(f"  depends_on:  {t['depends_on']}")
@@ -525,6 +573,8 @@ COMMANDS = {
     "init": cmd_init,
     "new": cmd_new,
     "criteria": cmd_criteria,
+    "tests": cmd_tests,
+    "constraints": cmd_constraints,
     "assign-tester": cmd_assign_tester,
     "status": cmd_status,
     "bug": cmd_bug,

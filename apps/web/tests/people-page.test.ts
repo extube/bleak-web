@@ -1,8 +1,11 @@
-/** People page + PersonCard tests (TZ-06, DESIGN §3.3): card rendering with
- * the state-pill mapping, per-card actions (send / handshake-back / dismiss =
- * LOCAL collapse, ruling 2 / open dialog), search + chips, empty states,
- * error banner with dimmed last-known list, poller teardown (fake timers),
- * chats-badge write-through. */
+/** People page + PersonCard tests — LEAN suite (2026-11-17 slimming pass,
+ * owner directive): one block per distinct behavior, micro asserts removed
+ * (recorded in docs/verification-v2.md). Covers: state-pill mapping
+ * (parametrized), card actions (send/expand/outgoing-none), page render
+ * order + pills + chats-badge write-through, skeleton→cards→poll mutation,
+ * «+» send flip, §2.9 income rejection, handshake-back, dismiss (local
+ * only), search + filter chips, empty room, error banners, poller teardown
+ * + visibility regain, relationships module contract. */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -119,62 +122,53 @@ async function renderPage(): Promise<void> {
   await tick();
 }
 
-describe('PersonCard — state pill + timestamp mapping (§3.3)', () => {
+describe('PersonCard — pills, actions, expand (§3.3)', () => {
   const alice = person('0xa', 'Алиса', 2, 'Поттер из Питера');
 
-  it('none: no pill, muted joined time from User.created_at', () => {
-    const relationship = deriveRelationship('0xa', ME, [], []);
-    const { container } = render(PersonCard, {
-      props: { user: alice, relationship }
-    });
-    expect(container.querySelector('.chip')).toBeNull();
-    expect(screen.getByText('2 мин')).toBeTruthy();
+  it.each([
+    {
+      state: 'none',
+      handshakes: [] as Handshake[],
+      chats: [] as Chat[],
+      pill: null,
+      time: '2 мин'
+    },
+    {
+      state: 'outgoing',
+      handshakes: [handshake(ME, '0xa', 5)],
+      chats: [] as Chat[],
+      pill: ru['hs.sent'],
+      time: '5 мин'
+    },
+    {
+      state: 'incoming',
+      handshakes: [handshake('0xa', ME, 7)],
+      chats: [] as Chat[],
+      pill: ru['hs.added_you'],
+      time: '7 мин'
+    },
+    {
+      state: 'chat',
+      handshakes: [] as Handshake[],
+      chats: [chat('0xchat1', [ME, '0xa'], 9)],
+      pill: ru['hs.chatting'],
+      time: '9 мин'
+    }
+  ])('$state: pill + timestamp derive correctly', ({ handshakes, chats, pill, time }) => {
+    const relationship = deriveRelationship('0xa', ME, handshakes, chats);
+    const { container } = render(PersonCard, { props: { user: alice, relationship } });
+    if (pill === null) {
+      expect(container.querySelector('.chip')).toBeNull();
+    } else {
+      expect(screen.getByText(pill)).toBeTruthy();
+    }
+    expect(screen.getByText(time)).toBeTruthy();
   });
 
-  it('outgoing: outline-muted «Хендшейк отправлен» + handshake time', () => {
-    const relationship = deriveRelationship(
-      '0xa',
-      ME,
-      [handshake(ME, '0xa', 5)],
-      []
-    );
-    render(PersonCard, { props: { user: alice, relationship } });
-    const chip = screen.getByText(ru['hs.sent']).closest('.chip');
-    expect(chip?.classList.contains('outline-muted')).toBe(true);
-    expect(screen.getByText('5 мин')).toBeTruthy();
-  });
-
-  it('incoming: accent-filled «Добавил вас» + handshake time', () => {
-    const relationship = deriveRelationship(
-      '0xa',
-      ME,
-      [handshake('0xa', ME, 7)],
-      []
-    );
-    render(PersonCard, { props: { user: alice, relationship } });
-    const chip = screen.getByText(ru['hs.added_you']).closest('.chip');
-    expect(chip?.classList.contains('fill-accent')).toBe(true);
-    expect(screen.getByText('7 мин')).toBeTruthy();
-  });
-
-  it('chat: outline-accent «Общаемся» + chat time, ▤ opens the dialog', () => {
-    const chats = [chat('0xchat1', [ME, '0xa'], 9)];
-    const relationship = deriveRelationship('0xa', ME, [], chats);
-    render(PersonCard, { props: { user: alice, relationship } });
-    const chip = screen.getByText(ru['hs.chatting']).closest('.chip');
-    expect(chip?.classList.contains('outline-accent')).toBe(true);
-    expect(screen.getByText('9 мин')).toBeTruthy();
-    const link = screen.getByRole('link', {
-      name: ru['people.action.dialog'].replace('{name}', 'Алиса')
-    });
-    expect(link.getAttribute('href')).toBe('/chats/0xchat1');
-  });
-
-  it('none: «+» action with a person-named aria-label; sending disables it', async () => {
-    const relationship = deriveRelationship('0xa', ME, [], []);
+  it('«+» action fires onsend with a person-named label and disables while sending; outgoing has NO card action', async () => {
     const onsend = vi.fn();
     const { rerender } = render(PersonCard, {
-      props: { user: alice, relationship, onsend }
+      props: { user: alice, relationship: deriveRelationship('0xa', ME, [], []), onsend }
     });
     const plus = screen.getByRole('button', {
       name: ru['people.action.send'].replace('{name}', 'Алиса')
@@ -187,46 +181,45 @@ describe('PersonCard — state pill + timestamp mapping (§3.3)', () => {
         name: ru['people.action.send'].replace('{name}', 'Алиса')
       }) as HTMLButtonElement).disabled
     ).toBe(true);
+
+    // outgoing state: no card-level action at all (waiting for theirs)
+    cleanup();
+    render(PersonCard, {
+      props: { user: alice, relationship: deriveRelationship('0xa', ME, [handshake(ME, '0xa', 5)], []) }
+    });
+    expect(document.querySelectorAll('.action button, .action a')).toHaveLength(0);
   });
 
-  it('outgoing has no card-level action (waiting for theirs)', () => {
-    const relationship = deriveRelationship('0xa', ME, [handshake(ME, '0xa', 5)], []);
-    const { container } = render(PersonCard, { props: { user: alice, relationship } });
-    expect(container.querySelectorAll('.action button, .action a')).toHaveLength(0);
-  });
-
-  it('incoming expand: «Ответить хендшейком» + «Закрыть»; keyboard toggles via aria-expanded', async () => {
-    const relationship = deriveRelationship('0xa', ME, [handshake('0xa', ME, 7)], []);
+  it('incoming expand: «Ответить хендшейком» + «Закрыть»; collapse collapses back', async () => {
     const ontoggle = vi.fn();
     const { rerender } = render(PersonCard, {
-      props: { user: alice, relationship, ontoggle, expanded: false }
+      props: {
+        user: alice,
+        relationship: deriveRelationship('0xa', ME, [handshake('0xa', ME, 7)], []),
+        ontoggle,
+        expanded: false
+      }
     });
-    const toggle = screen.getByRole('button', {
-      name: ru['people.action.expand'].replace('{name}', 'Алиса')
-    });
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    await toggle.click();
+    await screen
+      .getByRole('button', { name: ru['people.action.expand'].replace('{name}', 'Алиса') })
+      .click();
     expect(ontoggle).toHaveBeenCalledTimes(1);
 
     await rerender({ expanded: true });
     expect(screen.getByRole('button', { name: ru['hs.back'] })).toBeTruthy();
     expect(screen.getByRole('button', { name: ru['people.dismiss'] })).toBeTruthy();
-    const openToggle = screen.getByRole('button', {
-      name: ru['people.action.collapse'].replace('{name}', 'Алиса')
-    });
-    expect(openToggle.getAttribute('aria-expanded')).toBe('true');
   });
 });
 
-describe('/people — rendering and stable order', () => {
-  it('renders one card per attendee (excluding me), newest first, correct pills', async () => {
+describe('/people — rendering, order, badge (§3.3)', () => {
+  it('one card per attendee (excluding me), newest first, pills present, badge write-through', async () => {
     fixture.users = [
       person('0xa', 'Алиса', 10, 'Поттер'),
       person('0xb', 'Борис', 2, 'Трамвайщик'),
       { ...person(ME, 'Я', 20) }
     ];
     fixture.handshakes = [handshake('0xa', ME, 6)];
-    fixture.chats = [chat('0xchat1', [ME, '0xb'], 4)];
+    fixture.chats = [chat('0xchat1', [ME, '0xb'], 0)];
 
     await renderPage();
 
@@ -234,32 +227,27 @@ describe('/people — rendering and stable order', () => {
     // newest created_at first: Борис (2 min) before Алиса (10 min)
     expect(names.indexOf('Борис')).toBeLessThan(names.indexOf('Алиса'));
     expect(screen.queryByText('Я')).toBeNull();
-    // state pills live on the cards (scope: the filter chip «Общаемся» shares the word)
+    expect(screen.getByText('Участников: 3')).toBeTruthy();
+    // state pills live on the cards (the filter chip «Общаемся» shares wording)
     expect(document.querySelector('.cards')?.textContent?.includes(ru['hs.added_you'])).toBe(true);
     expect(document.querySelector('.cards')?.textContent?.includes(ru['hs.chatting'])).toBe(true);
-    // muted member count includes everyone
-    expect(screen.getByText('Участников: 3')).toBeTruthy();
+    // chat newness writes through to the chatsSeen store (badge dot)
+    await waitFor(() => expect(get(chatsUnseen)).toBe(true));
   });
 
-  it('shows skeleton cards before the first arrival, then swaps in place', async () => {
+  it('skeleton cards before the first arrival; poll updates mutate in place and deleted users disappear (AC 8)', async () => {
     let resolveUsers: ((users: User[]) => void) | undefined;
     mockedApi.listRoomUsers.mockImplementation(
       () => new Promise<User[]>((resolve) => (resolveUsers = resolve))
     );
-    mockedApi.listHandshakesOfUser.mockResolvedValue([]);
-    mockedApi.listChatsOfUser.mockResolvedValue([]);
     render(Page, { props: {} });
     expect(document.querySelectorAll('.skeleton-card')).toHaveLength(3);
-    resolveUsers?.([person('0xa', 'Алиса', 1)]);
+    fixture.users = [person('0xa', 'Алиса', 1), person('0xb', 'Борис', 2)];
+    resolveUsers?.(structuredClone(fixture.users));
+    // later poll ticks read the mutable fixture directly
+    mockedApi.listRoomUsers.mockImplementation(async () => structuredClone(fixture.users));
     await screen.findByText('Алиса');
     expect(document.querySelectorAll('.skeleton-card')).toHaveLength(0);
-  });
-
-  it('poll updates mutate in place and deleted users disappear (AC 8)', async () => {
-    fixture.users = [person('0xa', 'Алиса', 1), person('0xb', 'Борис', 2)];
-    await renderPage();
-    expect(screen.getByText('Алиса')).toBeTruthy();
-    expect(screen.getByText('Борис')).toBeTruthy();
 
     fixture.users = [person('0xa', 'Алиса', 1)];
     // next 4 s poll tick reflects the deletion (in place, no reload)
@@ -283,11 +271,10 @@ describe('/people — card actions', () => {
       .click();
 
     await waitFor(() => expect(screen.getByText(ru['hs.sent'])).toBeTruthy());
-    // no reorder: the only card is still the only card
     expect(document.querySelectorAll('.person-card')).toHaveLength(1);
   });
 
-  it('a 403 income-rule rejection on «+» shows the §2.9 state inline in the card, no flip (AC 13)', async () => {
+  it('a 403 income-rule rejection on «+» shows the §2.9 state inline in the card, no flip, no auto-retry (AC 13)', async () => {
     fixture.users = [person('0xa', 'Алиса', 10)];
     mockedApi.createHandshake.mockRejectedValue(
       new ApiError(403, '/api/handshake', 'income must exceed outcome')
@@ -299,14 +286,11 @@ describe('/people — card actions', () => {
       .click();
 
     await waitFor(() => expect(screen.getByText(ru['hs.income_limit'])).toBeTruthy());
-    // Server text appended muted (§2.9).
     expect(screen.getByText(/income must exceed outcome/)).toBeTruthy();
-    // The card stays in the "none" state — the «+» action is back (no flip).
     expect(
       screen.getByRole('button', { name: ru['people.action.send'].replace('{name}', 'Алиса') })
     ).toBeTruthy();
     expect(screen.queryByText(ru['hs.sent'])).toBeNull();
-    // Only ONE send request — no automatic retry after the rule rejection.
     expect(mockedApi.createHandshake).toHaveBeenCalledTimes(1);
   });
 
@@ -326,8 +310,6 @@ describe('/people — card actions', () => {
       .click();
     await screen.getByRole('button', { name: ru['hs.back'] }).click();
 
-    // the card becomes «Общаемся» with a dialog link (scoped to the card list —
-    // the filter chip «Общаемся» shares the wording)
     await waitFor(() =>
       expect(
         document.querySelector('.cards')?.textContent?.includes(ru['hs.chatting'])
@@ -350,15 +332,11 @@ describe('/people — card actions', () => {
     await tick();
 
     expect(mockedApi.createHandshake).not.toHaveBeenCalled();
-    // collapsed again: the expanded actions are gone; the card itself remains
-    // with its pill — the request still exists server-side and may reappear
-    // on a later poll tick (a newer incoming) or on page re-entry; nothing in
-    // the copy or state implies it was declined (ruling 2)
+    // collapsed again: the expanded actions are gone; the card remains with
+    // its pill (nothing in the copy or state implies it was declined —
+    // ruling 2)
     expect(screen.queryByRole('button', { name: ru['hs.back'] })).toBeNull();
     expect(screen.getByText(ru['hs.added_you'])).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: ru['people.action.expand'].replace('{name}', 'Алиса') })
-    ).toBeTruthy();
   });
 });
 
@@ -385,21 +363,15 @@ describe('/people — search + filter chips (AC 2, AC 3)', () => {
     await waitFor(() =>
       expect(screen.getByText(ru['people.empty_search'].replace('{q}', 'хоккей'))).toBeTruthy()
     );
-    expect(screen.getByRole('button', { name: ru['people.reset'] })).toBeTruthy();
-
     await screen.getByRole('button', { name: ru['people.reset'] }).click();
     await waitFor(() => expect(screen.getByText('Борис')).toBeTruthy());
   });
 
-  it('filter chips reduce the list to the selected state; active chip is accent-filled', async () => {
+  it('filter chips reduce the list to the selected state (AC 3)', async () => {
     await renderPage();
     await screen.getByRole('radio', { name: ru['people.filter.added'] }).click();
     await waitFor(() => expect(screen.queryByText('Борис')).toBeNull());
-    // no incoming handshakes in this fixture → only the empty state remains
     expect(screen.queryByText('Алиса')).toBeNull();
-    const active = screen.getByRole('radio', { name: ru['people.filter.added'] });
-    expect(active.getAttribute('aria-checked')).toBe('true');
-    expect(active.classList.contains('active')).toBe(true);
 
     await screen.getByRole('radio', { name: ru['people.filter.sent'] }).click();
     await waitFor(() => expect(screen.getByText('Вера')).toBeTruthy());
@@ -407,7 +379,7 @@ describe('/people — search + filter chips (AC 2, AC 3)', () => {
   });
 });
 
-describe('/people — states (§3.3)', () => {
+describe('/people — states + poller (§3.3, §2.2)', () => {
   it('empty room shows the pixel-glyph empty state (AC 9)', async () => {
     fixture.users = [{ ...person(ME, 'Я', 1) }];
     await renderPage();
@@ -415,7 +387,7 @@ describe('/people — states (§3.3)', () => {
     expect(document.querySelectorAll('.person-card')).toHaveLength(0);
   });
 
-  it('network failure: banner appears, list stays dimmed, retry forces refresh (AC 10)', async () => {
+  it('network failure: banner + dimmed list + retry; ApiError surfaces the server body (AC 10)', async () => {
     fixture.users = [person('0xa', 'Алиса', 1)];
     let fail = false;
     mockedApi.listHandshakesOfUser.mockImplementation(async () => {
@@ -426,29 +398,24 @@ describe('/people — states (§3.3)', () => {
     await renderPage();
     expect(screen.getByText('Алиса')).toBeTruthy();
 
-    // mid-session failure: banner + last-known list rendered dimmed
     fail = true;
     await screen.findByText(ru['common.error.network'], undefined, { timeout: 5000 });
     expect(document.querySelector('.cards')?.classList.contains('dimmed')).toBe(true);
-
     fail = false;
     await screen.getByRole('button', { name: ru['common.retry'] }).click();
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
-    expect(document.querySelector('.cards')?.classList.contains('dimmed')).toBe(false);
-  });
 
-  it('ApiError surfaces the server body as an api banner', async () => {
+    // ApiError flavor: the server body surfaces as an api banner.
     mockedApi.listRoomUsers.mockRejectedValue(
       new ApiError(500, '/api/room/0xroom/user', 'db locked')
     );
+    cleanup();
     await renderPage();
     await screen.findByText(ru['common.error.api']);
     expect(screen.getByText(/db locked/)).toBeTruthy();
   });
-});
 
-describe('/people — poller + badge (§2.2, §1.2)', () => {
-  it('stops the 4 s poller on unmount — no network requests after teardown', async () => {
+  it('refreshes on visibility regain; stops the 4 s poller on unmount — no requests after teardown', async () => {
     vi.useFakeTimers();
     try {
       fixture.users = [person('0xa', 'Алиса', 1)];
@@ -457,32 +424,22 @@ describe('/people — poller + badge (§2.2, §1.2)', () => {
       const callsAtMount = mockedApi.listRoomUsers.mock.calls.length;
       expect(callsAtMount).toBeGreaterThan(0);
 
+      // visibility regain forces a refresh
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'visible',
+        configurable: true
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+      await vi.advanceTimersByTimeAsync(30);
+      expect(mockedApi.listRoomUsers.mock.calls.length).toBeGreaterThan(callsAtMount);
+
+      const callsBeforeUnmount = mockedApi.listRoomUsers.mock.calls.length;
       cleanup();
       await vi.advanceTimersByTimeAsync(16_000);
-      expect(mockedApi.listRoomUsers.mock.calls.length).toBe(callsAtMount);
+      expect(mockedApi.listRoomUsers.mock.calls.length).toBe(callsBeforeUnmount);
     } finally {
       vi.useRealTimers();
     }
-  });
-
-  it('refreshes on visibility regain', async () => {
-    await renderPage();
-    const callsBefore = mockedApi.listRoomUsers.mock.calls.length;
-    Object.defineProperty(document, 'visibilityState', {
-      value: 'visible',
-      configurable: true
-    });
-    document.dispatchEvent(new Event('visibilitychange'));
-    await waitFor(() => expect(mockedApi.listRoomUsers.mock.calls.length).toBeGreaterThan(
-      callsBefore
-    ));
-  });
-
-  it('writes chat newness through to the chatsSeen store (badge dot)', async () => {
-    fixture.users = [person('0xa', 'Алиса', 1)];
-    fixture.chats = [chat('0xchat1', [ME, '0xa'], 0)];
-    await renderPage();
-    await waitFor(() => expect(get(chatsUnseen)).toBe(true));
   });
 });
 

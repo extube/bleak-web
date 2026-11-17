@@ -423,35 +423,37 @@ describe('Credential errors map to ApiError.status verbatim (plain-text bodies k
     return new BleakClient({ baseUrl: 'http://node.test', fetch: fetchImpl });
   }
 
-  it('401 on a credentialed mutation keeps the identity of the error (status 401)', async () => {
-    const client = makeStatusClient(401, 'invalid token');
-    const error = await client
-      .updateRoomUser('0xr', '0xu', { name: 'x' }, { token: 'tok' })
-      .catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(ApiError);
-    expect((error as ApiError).status).toBe(401);
-    expect((error as Error).message).toContain('invalid token');
-  });
-
-  it('403 (income rule / wrong record) maps to status 403 verbatim', async () => {
-    const client = makeStatusClient(403, 'income must exceed outcome');
-    const error = await client
-      .createHandshake({ from_address: 'a', to_address: 'b', status: 1 }, { token: 'tok' })
-      .catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(ApiError);
-    expect((error as ApiError).status).toBe(403);
-    expect((error as Error).message).toContain('income must exceed outcome');
-  });
-
-  it('410 (mutual code already used) maps to status 410 verbatim', async () => {
-    const client = makeStatusClient(410, 'mutual code already used');
-    const error = await client
-      .createMutualHandshake('tok', { user_address: '0xu', mutual_code: 'code' })
-      .catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(ApiError);
-    expect((error as ApiError).status).toBe(410);
-    expect((error as Error).message).toContain('mutual code already used');
-  });
+  it.each([
+    {
+      status: 401,
+      body: 'invalid token',
+      call: (client: BleakClient) => client.updateRoomUser('0xr', '0xu', { name: 'x' }, { token: 'tok' }),
+      what: 'a credentialed mutation'
+    },
+    {
+      status: 403,
+      body: 'income must exceed outcome',
+      call: (client: BleakClient) =>
+        client.createHandshake({ from_address: 'a', to_address: 'b', status: 1 }, { token: 'tok' }),
+      what: 'the income rule / wrong record'
+    },
+    {
+      status: 410,
+      body: 'mutual code already used',
+      call: (client: BleakClient) =>
+        client.createMutualHandshake('tok', { user_address: '0xu', mutual_code: 'code' }),
+      what: 'the mutual code already used'
+    }
+  ])(
+    '$status on $what maps to status $status verbatim (plain-text body kept)',
+    async ({ status, body, call }) => {
+      const client = makeStatusClient(status, body);
+      const error = await call(client).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(ApiError);
+      expect((error as ApiError).status).toBe(status);
+      expect((error as Error).message).toContain(body);
+    }
+  );
 
   it('network failures still wrap in NetworkError', async () => {
     const fetchImpl = vi.fn(async () => {
