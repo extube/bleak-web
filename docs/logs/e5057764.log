@@ -2,3 +2,4 @@
 2026-11-17T19:46:37Z [process] v2.1 round: DESIGN.md 4.8 amendment written; wave-1 opened (tasks 22-25, workers 4c6d9997/dac03d93/7803a7a4/9760e9a5 running in parallel)
 2026-11-17T19:51:16Z [process] task 25 ready-for-merge; landing deferred (4c6d9997 has uncommitted edits in shared checkout); shared-checkout protocol sent to active workers 4c6d9997/dac03d93/7803a7a4; stray commit 31c3d08 on dac03d93 branch noted (harmless for squash, content lands via task 25)
 2026-11-17T20:06:23Z [process] wave 1 closed: tasks 22-25 landed (squash e7a2fb6/9f83ae3/74ea872/2458681), wave CI green (lint clean, 488 tests, build 0 errors); shared-checkout races caused 3 stray commits, all resolved via union squash landing; opening wave 2 serially
+2026-11-17T20:38:57Z [process] wave 2 closed: tasks 26-28 landed (e4f2335/852808c/c180309), wave CI green (505 tests); P8 verification sweep opened (task 29, worker ca16ac6c) - branch deletions deferred to devops (squash -d ancestry limit)

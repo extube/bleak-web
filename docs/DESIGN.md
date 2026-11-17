@@ -1952,9 +1952,11 @@ These owner change requests amend the rules above for this round:
    placement keeps a distinct hit area per user; verified at phone widths.
 4. **Profile settings block (amends §3.6):** token regeneration, UI language
    switching and exit-room are grouped into a visible settings block;
-   exit-room is rendered in red (`--color-danger` #e05252, new functional
-   token, white `--color-text` on it passes AA) behind a confirmation
-   question (existing `ConfirmDialog`).
+   exit-room is rendered in red (`--color-danger` **#c53030** — amended
+   2026-11-17, v2.1 round: the originally drafted #e05252 measures only
+   ≈3.3:1 with `--color-text`; the delivered #c53030 measures **4.80:1**,
+   AA ≥4.5 verified numerically in the danger-contrast test) behind a
+   confirmation question (existing `ConfirmDialog`).
 5. **Import persona row (amends §4.7 copy):** the device-vault row drops the
    room-address segment (`join.import.saved_at` no longer renders
    `{room}`) — it overflowed the card contour.

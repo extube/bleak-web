@@ -1,0 +1,2 @@
+2026-11-17T20:42:17Z [worker] v2.1 verification sweep: P1-P7 all verified on dev tip c180309 (source greps + landed code read); 8 named suites spot-checked green (116 tests); wave-CI record: lint clean, 505 tests, build 0 errors (wave 2 close, process log e5057764 20:38:57Z); writing docs/verification-v21.md
+2026-11-17T20:43:38Z [worker] committed 608c625: docs/verification-v21.md + session record (only my 3 files staged; foreign edits untouched); handover: setting ready-for-merge
