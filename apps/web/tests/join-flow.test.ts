@@ -285,7 +285,10 @@ describe('JoinFlow — vault-driven import (Concept §6.2)', () => {
     ]);
     await openVault();
     expect(screen.getByText('Старая персона')).toBeTruthy();
-    expect(screen.getByText(/комната 0xoldroom/)).toBeTruthy();
+    // Concept §7.1.7: the room address is no longer displayed on the row —
+    // the muted line shows only the saved date.
+    expect(screen.queryByText(/комната/)).toBeNull();
+    expect(screen.getByText(/Сохранено/)).toBeTruthy();
     // No GET /api/room beyond the preview: the picker never lists servers.
     expect(mockedApi.getRoom).toHaveBeenCalledTimes(1); // the room preview only
     expect(mockedApi.listRoomUsers).toHaveBeenCalledTimes(1); // the member count only

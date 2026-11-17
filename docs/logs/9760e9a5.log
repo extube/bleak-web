@@ -1,0 +1,4 @@
+2026-11-17T19:46:41Z [worker] task 25 started: read card + Concept §7.1.7; status in-progress
+2026-11-17T19:47:18Z [worker] targeted runs green: join-flow + i18n (29 passed); saved_at copy updated in en/ru + VaultList row + test assertions
+2026-11-17T19:48:58Z [worker] INCIDENT: first commit 31c3d08 landed on feature/dac03d93-tz3-02-bright-chat-avatar-colors (parallel worker switched the shared checkout mid-flight); re-applied the same 5-file change on my branch; process must be told about the stray commit on dac03d93's branch
+2026-11-17T19:49:19Z [worker] commit 317b5cb on feature/9760e9a5-tz3-07-import-address-removal (pathspec commit, only my 5 files); targeted tests re-run green on identical diff; full make test/lint/build already green pre-commit

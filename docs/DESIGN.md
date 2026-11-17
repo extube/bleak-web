@@ -1925,6 +1925,40 @@ extend both files.)
 
 ---
 
+### 4.8 v2.1 UI-polish amendments (2026-11-17, owner-approved Concept §7)
+
+These owner change requests amend the rules above for this round:
+
+1. **Functional color-coding accents (amends §4.1 "no new color values").**
+   The palette gains four bright, hash-derived accent hues for chat-bubble
+   and personage-art coding, defined in `tokens.css`:
+   `--color-code-yellow` (#fedc5c, = `--color-accent`), `--color-code-orange`
+   (#ffa24a), `--color-code-blue` (#63a8ff), `--color-code-violet` (#b58cff).
+   Assignment: `fnv1a(address) % 4` → yellow/orange/blue/violet, deterministic
+   per participant. Bubble backgrounds are dark tints:
+   `--color-bubble-{yellow,orange,blue,violet}` =
+   `color-mix(in srgb, <hue> 18%, var(--color-surface))` (derived tokens only).
+   **AA pairs:** bubble text stays `--color-text` (#f0f0f0) — verified ≥4.5:1
+   against each tinted background; avatar-art hues are decorative (no text
+   on them). Charcoal base and general yellow-accent discipline are
+   unchanged outside chat bubbles + avatar art.
+2. **Avatar padding (amends §4.3):** the generated user icon gets 1px of
+   padding in its backdrop color on all sides — the art never touches the
+   card/surface edge, at every rendered size.
+3. **Radar (amends §3.2):** other users' icons carry no name labels (only
+   the "you" chip keeps a name); the minimum distance between the "you"
+   chip and the nearest user icon is increased; nodes rotate together with
+   the rings (no counter-rotation); nodes never overlap — collision-avoided
+   placement keeps a distinct hit area per user; verified at phone widths.
+4. **Profile settings block (amends §3.6):** token regeneration, UI language
+   switching and exit-room are grouped into a visible settings block;
+   exit-room is rendered in red (`--color-danger` #e05252, new functional
+   token, white `--color-text` on it passes AA) behind a confirmation
+   question (existing `ConfirmDialog`).
+5. **Import persona row (amends §4.7 copy):** the device-vault row drops the
+   room-address segment (`join.import.saved_at` no longer renders
+   `{room}`) — it overflowed the card contour.
+
 ## 5. Design-decision rationale (short)
 
 - **Radar ring semantics = relationship distance**, not random placement: the

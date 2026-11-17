@@ -43,7 +43,7 @@ export const ru: Record<MessageKey, string> = {
   'join.import.subtitle': 'Персоны, созданные на этом телефоне.',
   'join.import.pick_persona': 'Выберите персону',
   'join.import.empty': 'На этом устройстве пока нет сохранённых персон.',
-  'join.import.saved_at': 'Сохранено {date} · комната {room}',
+  'join.import.saved_at': 'Сохранено {date}',
   'join.import.row_aria': 'Импортировать персону {name}',
   'join.import.dead':
     'Эта персона больше не существует на сервере. Запись останется в списке, но импорт невозможен.',
