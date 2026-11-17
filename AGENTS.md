@@ -84,8 +84,12 @@ The workflow is based on a `dev` branch with feature and bugfix branches.
 
 ### Primary agents — user-selected in the TUI
 
-- Only two agents talk to the user, and the **user selects them in the
-  OpenCode TUI**; no agent spawns them:
+- The user selects the primary agents in the OpenCode TUI; no agent spawns
+  them:
+  - **root** — universal full-access agent (owner directive 2026-11-17):
+    can do anything, never asks for permission, may offer the owner options
+    when a decision is genuinely theirs; the only gate it keeps is the
+    approval prompt on pushing `main` (that prompt IS the owner's consent);
   - **concept** — when the user wants to change or drive the **product**
     (concept, reviews, approvals, build-loop decisions);
   - **devops** — when the user wants to change the **environment** (system

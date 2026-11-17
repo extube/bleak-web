@@ -29,6 +29,7 @@ work around it — never loop on denied probes.
 | **process** | `git checkout dev` · `git merge --no-ff feature\|bug/*` · branch create/delete for `feature/*`+`bug/*` · `task.py` · scripts · `make *` | commits (any) · `git branch -f`/rebase · merges into `main` |
 | **architect / design** | git read-only (log/show/diff); **design: no git writes**; architect commits only on its own doc branch | product-code edits, worker branches |
 | **concept / devops (primary)** | broad (incl. merges into `dev`, config edits at user direction) | `git push * main` (approval-gated) · commit-identity overrides (mechanically denied) |
+| **root (primary, full access)** | everything: shell, edits (incl. `/mount/bleak-node/**`), subagents, environment settings — **never asks for permission**; may offer the owner options on genuinely ambiguous decisions | `git push * main` only (the owner-consent prompt — the single remaining gate) |
 | **all** | file tools within the repo (workers deny: `AGENTS.md`, `Makefile`, `docs/{Concept,TZ}.md`, `docs/sessions/**`, `.opencode/**`) | edits to `/mount/bleak-node/**` (read-only) |
 
 Also true for every agent: `subagent` spawning is role-scoped (workers deny
