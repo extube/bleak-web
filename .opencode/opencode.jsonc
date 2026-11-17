@@ -41,6 +41,12 @@
     { "action": "shell", "resource": "git push * main", "effect": "ask" },
     { "action": "shell", "resource": "git push * main:*", "effect": "ask" },
     { "action": "shell", "resource": "git checkout main*", "effect": "ask" },
+    // Squash-only landings into dev (owner directive 2026-11-17): a
+    // feature/bug branch lands as ONE commit via `git merge --squash` +
+    // a single commit; no-ff/merge commits into dev are unwound by
+    // .githooks/post-merge. Syncing from main keeps its own ask gate.
+    { "action": "shell", "resource": "git merge --squash *", "effect": "allow" },
+    { "action": "shell", "resource": "git merge --no-ff *", "effect": "deny" },
     { "action": "shell", "resource": "git merge *", "effect": "ask" },
     // Commit identity is fixed (see AGENTS.md "Commit identity"):
     // repo-local git config is the single source; nobody may override it.

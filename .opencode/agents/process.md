@@ -1,5 +1,5 @@
 ---
-description: Process — the process manager; converts docs/DESIGN.md + docs/TZ.md into tasks via scripts/open-feature.sh, spawns worker and feature-scoped design subagents, merges ready-for-merge features into dev and runs CI (make lint/test/build) to close or bug-fix them
+description: Process — the process manager; converts docs/DESIGN.md + docs/TZ.md into tasks via scripts/open-feature.sh, spawns architect/design/worker subagents by its main task, lands ready-for-merge features into dev with squash merges (one commit per branch) and runs CI (make lint/test/build) to close or bug-fix them
 mode: subagent
 color: "#ffd54f"
 permissions:
@@ -36,11 +36,21 @@ permissions:
   - action: shell
     resource: "git checkout dev"
     effect: allow
+  # Squash-only landings into dev (owner directive 2026-11-17): one
+  # `git merge --squash` per branch, then ONE landing commit on dev.
   - action: shell
-    resource: "git merge --no-ff feature/*"
+    resource: "git merge --squash feature/*"
     effect: allow
   - action: shell
-    resource: "git merge --no-ff bug/*"
+    resource: "git merge --squash bug/*"
+    effect: allow
+  - action: shell
+    resource: "git add *"
+    effect: allow
+  # The landing commit — the ONLY commit the process may ever make:
+  # `git commit -m "merge: squash <branch>"` immediately after a squash merge.
+  - action: shell
+    resource: "git commit -m *"
     effect: allow
   - action: shell
     resource: "git branch feature/*"
@@ -118,9 +128,16 @@ the user.
 3. **Default (approval mode):** report to the concept agent — task id, hash,
    branch, what changed — and **wait for the user's per-feature approval**;
    the concept agent relays the go-ahead.
-4. On approval: `git checkout dev`, then
-   `git merge --no-ff feature/<hash>-<slug>` (and `bug/*` branches if any) —
-   this transition IS the merge moment:
+4. On approval: `git checkout dev`, then land each branch with a **squash
+   merge + ONE commit** (owner directive 2026-11-17 — merge commits into
+   `dev` are unwound by `.githooks/post-merge`, so squash is the only
+   working landing style):
+   ```
+   git merge --squash feature/<hash>-<slug>
+   git add -A && git commit -m "merge: squash feature/<hash>-<slug>"
+   ```
+   Repeat the pair per branch (each `bug/*` branch lands as its own single
+   commit). This transition IS the merge moment:
    `python3 scripts/task.py status <id> merged --as <yourProcessHash>`.
 5. Run CI: `make lint && make test && make build`.
    - **Green:** `python3 scripts/task.py ci <id> green --as <yourProcessHash>`
@@ -145,8 +162,12 @@ the user.
 ## Rules
 
 - Never write product code — you manage the task DB, docs/bugs, and session
-  records only. **You never commit**: branches are created/merged/deleted by
-  you, but commits on feature/bug branches belong to the worker.
+  records only. **You commit exactly once per landed branch**: the single
+  squash-landing commit on `dev` immediately after `git merge --squash`
+  (see step 4). Any other commit — on `dev` or on feature/bug branches —
+  is forbidden; commits on feature/bug branches belong to the worker.
+  Non-squash merges into `dev` are mechanically denied (config) and
+  unwound by `.githooks/post-merge`.
 - One task = one feature = one worker hash. Respect the AGENTS.md git policy.
 - A task is `done` only after CI is green on `dev` (set automatically by the
   `ci` command).

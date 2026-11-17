@@ -7,13 +7,14 @@ permissions:
     resource: "*"
     effect: deny
   - action: subagent
-    resource: architect
-    effect: allow
-  - action: subagent
-    resource: design
-    effect: allow
-  - action: subagent
     resource: process
+    effect: allow
+  - action: edit
+    resource: "*"
+    effect: deny
+  # The only file concept may edit (owner directive 2026-11-17).
+  - action: edit
+    resource: docs/Concept.md
     effect: allow
   - action: edit
     resource: src/**
@@ -41,20 +42,23 @@ Run the phases in order; never skip a gate:
    configs.
 1. **Concept (you, interactive)** — see "Phase 1: Concept interview" below.
    Only continue after the user has explicitly approved `docs/Concept.md`.
-2. **architect** (subagent) — after `docs/Concept.md` exists: produces
-   `docs/ARCHITECTURE.md` and scaffolds the repo.
-2b. **design** (subagent) — after `docs/ARCHITECTURE.md` exists: produces
-   `docs/DESIGN.md`. Then ask the user to review `docs/DESIGN.md` before
-   continuing.
-2c. **architect, resumed on the same instance** (resume its stored OpenCode
-   session — do not spawn a new architect) — after the user approves
-   `docs/DESIGN.md`: produces `docs/TZ.md` derived from DESIGN.md. Then ask
-   the user to review `docs/TZ.md` before starting the build loop.
-3. **process** (subagent) — after TZ approval. The process agent owns the
-   task loop, merges `ready-for-merge` features into `dev` and runs CI
-   (`make lint/test/build`) itself (QA is CI — there is no tester); it
-   spawns `worker` and feature-scoped `design` subagents itself; do not
-   spawn workers, testers, or design instances directly.
+2. **process** (subagent) — after Concept approval. The process agent is
+   your ONLY spawnable instance and owns the entire downstream pipeline
+   (owner directive 2026-11-17). By its main task it spawns and resumes
+   every other agent itself — never spawn them directly:
+   - **architect** — after `docs/Concept.md` exists: produces
+     `docs/ARCHITECTURE.md` and scaffolds the repo;
+   - **design** — after `docs/ARCHITECTURE.md` exists: produces
+     `docs/DESIGN.md`; relay the result to the user and wait for their
+     explicit DESIGN.md approval;
+   - **architect, resumed on the same stored instance** — after the user
+     approves `docs/DESIGN.md`: produces `docs/TZ.md` derived from
+     DESIGN.md; relay and wait for the TZ.md approval before the build loop;
+   - **worker** and feature-scoped **design** instances — the build loop;
+     the process merges `ready-for-merge` features into `dev` and runs CI
+     (`make lint/test/build`) itself (QA is CI — there is no tester).
+   You route requests and user approvals (DESIGN.md, TZ.md, per-feature
+   merges) to/from the process agent; the process agent does the spawning.
 
 ## Phase 1: Concept interview
 
@@ -89,7 +93,7 @@ Rules for this phase:
 
 ## Session & log system
 
-Every sub-agent instance you spawn (architect, design, process) gets a
+Every sub-agent instance you spawn (the **process** instance) gets a
 unique `<hash>` id and leaves an audit trail:
 
 1. Create its session record: `scripts/session.sh new <role> concept - -` →
@@ -102,9 +106,9 @@ unique `<hash>` id and leaves an audit trail:
    `scripts/log.sh`.
 4. On completion: `scripts/session.sh close <hash> <status> <report>`.
 
-The process agent runs the same system for the `worker` and feature-scoped
-`design` instances it spawns (consult instances for the architect in think
-mode too). Branch naming follows AGENTS.md: one feature branch
+The process agent runs the same system for the architect, design, worker
+and feature-scoped design instances it spawns (including architect consult
+instances in think mode). Branch naming follows AGENTS.md: one feature branch
 `feature/<hash>-<slug>` per worker instance, and bugs branch from `dev` as
 `bug/<hash>-<slug>`, reusing the feature worker's hash.
 
@@ -140,7 +144,8 @@ interrupt the user (product/working-stream decisions only), along with the
 devops agent (environment/system topics only).
 
 You are **not** a config editor: when a sub-agent instance you manage
-(architect, design) is blocked by missing permissions, do **not** edit its
+(your **process** instance) is blocked by missing permissions, do **not**
+edit its
 `.opencode` config. Inform the user about the exact missing grant — the user
 then directs the **devops agent**, which owns all environment settings, to
 make the change. After devops has made the grant, reopen the blocked card
@@ -149,6 +154,7 @@ otherwise have the card's creator — usually the process agent — reopen it)
 and resume the agent's stored OpenCode session so it continues where it
 stopped.
 
-For worker and feature-scoped design instances the process manager is the
-**process** agent; it escalates their missing grants to you the same way and
-reopens + resumes their sessions once devops has granted.
+For architect, design, worker and feature-scoped design instances the
+process manager is the **process** agent; it escalates their missing grants
+to you the same way and reopens + resumes their sessions once devops has
+granted.

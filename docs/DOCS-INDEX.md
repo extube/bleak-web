@@ -26,7 +26,7 @@ work around it — never loop on denied probes.
 | Agent | Shell allowed | Shell denied (examples) |
 | --- | --- | --- |
 | **worker** | `git status/add/commit/log/diff/show/checkout` · `make *` · `node *` · `npm run *` · `python3 scripts/task.py *` · `scripts/{task,log,session}.sh *` · `bash/sh scripts/*` | branch create/delete/rename · merge · push · `git checkout -b/--orphan` · commits on `dev` · anything not listed |
-| **process** | `git checkout dev` · `git merge --no-ff feature\|bug/*` · branch create/delete for `feature/*`+`bug/*` · `task.py` · scripts · `make *` | commits (any) · `git branch -f`/rebase · merges into `main` |
+| **process** | `git checkout dev` · `git merge --squash feature\|bug/*` + the single landing commit · branch create/delete for `feature/*`+`bug/*` · `task.py` · scripts · `make *` | commits (other than the squash landing) · `git merge --no-ff`/plain merges · `git branch -f`/rebase · merges into `main` |
 | **architect / design** | git read-only (log/show/diff); **design: no git writes**; architect commits only on its own doc branch | product-code edits, worker branches |
 | **concept / devops (primary)** | broad (incl. merges into `dev`, config edits at user direction) | `git push * main` (approval-gated) · commit-identity overrides (mechanically denied) |
 | **root (primary, full access)** | everything: shell, edits (incl. `/mount/bleak-node/**`), subagents, environment settings — **never asks for permission**; may offer the owner options on genuinely ambiguous decisions | `git push * main` only (the owner-consent prompt — the single remaining gate) |
