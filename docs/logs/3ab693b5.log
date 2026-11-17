@@ -1,0 +1,4 @@
+2026-11-17T20:31:44Z [worker] started task 28: read card, status in-progress, checked out feature/3ab693b5-tz3-06-profile-settings-block
+2026-11-17T20:34:43Z [worker] tz3-06: tokens.css --color-danger #c53030 added; profile.settings.title EN/RU added; settings block heading + red .leave wired; targeted tests green (35+21); measured AA #f0f0f0 on #c53030 = 4.7994:1
+2026-11-17T20:36:06Z [worker] tz3-06: gates done — make test 461+23+8 green, make lint clean, make build green (0 svelte-check errors); committing
+2026-11-17T20:36:38Z [worker] tz3-06 committed on feature/3ab693b5-tz3-06-profile-settings-block as ae066c2

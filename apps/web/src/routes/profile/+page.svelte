@@ -431,7 +431,8 @@
         oneditgreeting={openGreeting}
         oneditinterests={() => (view = 'interests')}
       />
-      <section class="settings pixel-corners">
+      <section class="settings pixel-corners" aria-label={translate($locale, 'profile.settings.title')}>
+        <h2 class="settings-title">{translate($locale, 'profile.settings.title')}</h2>
         <div class="setting">
           <span class="setting-label">{translate($locale, 'common.locale')}</span>
           <LocaleControl />
@@ -588,6 +589,12 @@
     flex-direction: column;
     gap: var(--space-4);
   }
+  /* Concept §7.1.6 / DESIGN §4.8.4: the settings block is visibly titled —
+   * locale, token rotation and the red exit-room live inside it. */
+  .settings-title {
+    margin: 0;
+    font-size: 20px;
+  }
   .setting {
     display: flex;
     align-items: center;
@@ -619,7 +626,12 @@
       color 120ms ease-out;
   }
   .leave {
-    color: var(--color-text-muted);
+    /* Exit-room (Concept §7.1.6, DESIGN §4.8.4): the one destructive
+     * action renders RED — --color-danger fill with light --color-text
+     * text (AA ≥4.5:1, verified numerically in tests). */
+    background: var(--color-danger);
+    color: var(--color-text);
+    border: none;
   }
   .spinner {
     width: 14px;

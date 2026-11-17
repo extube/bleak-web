@@ -7,6 +7,8 @@
  * (identity+vault written only after 2xx; 403 keeps them), leave room
  * (clears identity + mutual code; failure keeps identity), persona 404. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
@@ -439,5 +441,84 @@ describe('persona 404 (AC 8)', () => {
     expect(screen.getByText(ru['profile.not_found'])).toBeTruthy();
     await screen.getByRole('button', { name: ru['profile.exit'] }).click();
     await waitFor(() => expect(get(identity)).toBeNull());
+  });
+});
+
+/**
+ * Concept §7.1.6 / DESIGN §4.8.4 — profile settings block: the existing
+ * settings rows (locale, token rotation, exit-room) become ONE titled
+ * settings block; the exit-room action renders red via the new
+ * --color-danger token (light --color-text text, AA ≥4.5:1 verified
+ * numerically below — tokens.css is parsed as the palette source of
+ * truth, same approach as tests/bubble-contrast.test.ts).
+ */
+const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
+  ? process.cwd()
+  : join(process.cwd(), 'apps', 'web');
+const TOKENS_CSS = readFileSync(join(WEB_ROOT, 'src/lib/styles/tokens.css'), 'utf8');
+const PAGE_SOURCE = readFileSync(join(WEB_ROOT, 'src/routes/profile/+page.svelte'), 'utf8');
+
+function hexToRgb(hex: string): [number, number, number] {
+  return [
+    parseInt(hex.slice(1, 3), 16),
+    parseInt(hex.slice(3, 5), 16),
+    parseInt(hex.slice(5, 7), 16)
+  ];
+}
+
+function luminance(hex: string): number {
+  const lin = (value: number): number => {
+    const s = value / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  const [r, g, b] = hexToRgb(hex);
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+function contrast(fg: string, bg: string): number {
+  const sorted = [luminance(fg), luminance(bg)].sort((a, b) => b - a);
+  const hi = sorted[0] ?? 0;
+  const lo = sorted[1] ?? 0;
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+describe('settings block (Concept §7.1.6, DESIGN §4.8.4)', () => {
+  it('the settings rows render under a titled settings heading (RU + EN)', async () => {
+    const { setLocale } = await import('../src/lib/i18n/locale');
+    const { en } = await import('../src/lib/i18n/en');
+    await renderPage();
+    // RU (default): the heading and all three rows inside the block.
+    expect(screen.getByRole('heading', { name: ru['profile.settings.title'] })).toBeTruthy();
+    expect(screen.getByText(ru['common.locale'])).toBeTruthy();
+    expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
+    expect(screen.getByRole('button', { name: ru['profile.leave'] })).toBeTruthy();
+    // EN: the same heading re-renders through the locale store.
+    setLocale('en');
+    await tick();
+    await tick();
+    expect(screen.getByRole('heading', { name: en['profile.settings.title'] })).toBeTruthy();
+    setLocale('ru');
+    await tick();
+  });
+
+  it('the exit button uses the danger token with light text, AA ≥4.5:1 on it', () => {
+    // tokens.css defines --color-danger: #c53030 (DESIGN §4.8.4 card value).
+    expect(TOKENS_CSS).toMatch(/--color-danger:\s*#c53030\s*;/);
+    // The page wires the exit action onto the token with light text.
+    expect(PAGE_SOURCE).toMatch(/\.leave\s*\{[^}]*background:\s*var\(--color-danger\)/);
+    expect(PAGE_SOURCE).toMatch(/\.leave\s*\{[^}]*color:\s*var\(--color-text\)/);
+    // Numeric AA check: #f0f0f0 (--color-text) on #c53030 must be ≥4.5:1.
+    const ratio = contrast('#f0f0f0', '#c53030');
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('the exit-room confirmation question stays wired (ConfirmDialog + confirm_body)', async () => {
+    mockedApi.deleteRoomUser.mockResolvedValue(undefined);
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.leave'] }).click();
+    await tick();
+    // The question is asked before any DELETE — the dialog shows the body.
+    expect(screen.getByText(ru['profile.leave.confirm_body'])).toBeTruthy();
+    expect(mockedApi.deleteRoomUser).not.toHaveBeenCalled();
   });
 });

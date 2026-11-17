@@ -6,6 +6,8 @@
  * four bright code-coding hues + their chat-bubble tints + the vivid
  * avatar-art palettes (chat bubbles and personage art only — the charcoal
  * base and the yellow accent discipline everywhere else are unchanged).
+ * v2.1 (Concept §7.1.6, DESIGN §4.8.4): adds --color-danger — the red
+ * exit-room token, the single functional red exception.
  */
 :root {
   /* --- palette ---------------------------------------------------------- */
@@ -23,6 +25,11 @@
    * light backdrop. Shared by the host share-kit QR frame and the profile
    * badge QR; QR dark modules use --color-surface (#101213) via that token. */
   --color-qr-frame: #f0f0f0;
+
+  /* Functional red exception (Concept §7.1.6, DESIGN §4.8.4): destructive
+   * exit-room action only. --color-text (#f0f0f0) on it is ≥4.5:1 AA
+   * (verified numerically in tests/profile-page.test.ts). */
+  --color-danger: #c53030;
 
   /* --- v2.1 code-coding hues (Concept §7.1.2, DESIGN §4.8.1) -------------- */
   /* Four bright functional accents for chat-bubble and personage-art color

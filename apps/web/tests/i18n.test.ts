@@ -233,6 +233,13 @@ describe('DESIGN §4.7 copy table coverage', () => {
   });
 });
 
+describe('v2.1 UI-polish round keys (DESIGN §4.8)', () => {
+  it('the settings-block heading exists in both dictionaries (Concept §7.1.6)', () => {
+    expect(en['profile.settings.title']).toBe('Settings');
+    expect(ru['profile.settings.title']).toBe('Настройки');
+  });
+});
+
 describe('placeholder interpolation', () => {
   it('interpolates {n} / {q} / {name} params in both languages', () => {
     expect(translate('ru', 'room.around', { n: '12' })).toBe('12 вокруг вас');
