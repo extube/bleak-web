@@ -1,8 +1,9 @@
 /**
  * Avatar trait derivation tests (TZ-02): FNV-1a determinism and trait
- * bounds (DESIGN §4.3).
+ * bounds (DESIGN §4.3); PixelAvatar backdrop padding (§4.8.2).
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, render } from '@testing-library/svelte';
 import {
   CODE_HUES,
   codeHue,
@@ -11,6 +12,7 @@ import {
   isParseableAddress,
   TRAIT_COUNTS
 } from '../src/lib/avatar/traits';
+import PixelAvatar from '../src/lib/components/PixelAvatar.svelte';
 
 describe('fnv1a', () => {
   it('is deterministic', () => {
@@ -123,5 +125,69 @@ describe('isParseableAddress — pixel-ghost fallback condition', () => {
     expect(isParseableAddress('   ')).toBe(false);
     expect(isParseableAddress(null)).toBe(false);
     expect(isParseableAddress(undefined)).toBe(false);
+  });
+});
+
+describe('PixelAvatar — backdrop padding (Concept §7.1.3, DESIGN §4.8.2)', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  const SIZES = [16, 32, 44, 56, 64];
+
+  function frameOf(container: HTMLElement): HTMLElement {
+    const frame = container.firstElementChild;
+    if (!(frame instanceof HTMLElement)) throw new Error('PixelAvatar frame not rendered');
+    return frame;
+  }
+
+  function svgOf(container: HTMLElement): Element {
+    const svg = container.querySelector('svg');
+    if (!svg) throw new Error('PixelAvatar svg not rendered');
+    return svg;
+  }
+
+  it('pads the art by 1px per side at every rendered size, keeping the outer box the declared size', () => {
+    for (const size of SIZES) {
+      const { container } = render(PixelAvatar, { props: { address: '0xdeadbeef', size } });
+      const frame = frameOf(container);
+      // The outer box never changes — consumers need no layout adjustments.
+      expect(frame.style.width).toBe(`${size}px`);
+      expect(frame.style.height).toBe(`${size}px`);
+      // The art content shrinks by the padding (1px per side), not the box.
+      const svg = svgOf(container);
+      expect(svg.getAttribute('width')).toBe(String(size - 2));
+      expect(svg.getAttribute('height')).toBe(String(size - 2));
+    }
+  });
+
+  it('the padding color is the SAME token that fills the art backdrop (per-address backdrop family)', () => {
+    for (const address of ['0xdeadbeef', '0xuser7', '0xroom123']) {
+      const expected = `var(--color-art-backdrop-${deriveTraits(address).backdrop + 1})`;
+      const { container } = render(PixelAvatar, { props: { address, size: 44 } });
+      const frame = frameOf(container);
+      expect(frame.getAttribute('style'), address).toContain(expected);
+      const backdropGroup = container.querySelector('g[fill]');
+      expect(backdropGroup?.getAttribute('fill'), address).toBe(expected);
+    }
+  });
+
+  it('own persona pads in the accent; the ghost fallback pads in the elevated surface', () => {
+    const { container: own } = render(PixelAvatar, { props: { address: '0xme', size: 64, own: true } });
+    expect(frameOf(own).getAttribute('style')).toContain('var(--color-accent)');
+    expect(own.querySelector('g[fill]')?.getAttribute('fill')).toBe('var(--color-accent)');
+
+    const { container: ghost } = render(PixelAvatar, { props: { address: null, size: 44 } });
+    expect(frameOf(ghost).getAttribute('style')).toContain('var(--color-surface-elevated)');
+    expect(ghost.querySelector('g[fill]')?.getAttribute('fill')).toBe('var(--color-surface-elevated)');
+  });
+
+  it('the ghost fallback keeps its padded outer box unchanged too', () => {
+    const { container } = render(PixelAvatar, { props: { address: null, size: 56 } });
+    const frame = frameOf(container);
+    expect(frame.style.width).toBe('56px');
+    const svg = svgOf(container);
+    expect(svg.getAttribute('width')).toBe('54');
+    expect(svg.getAttribute('height')).toBe('54');
   });
 });
