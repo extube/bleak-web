@@ -6,7 +6,6 @@
  */
 export const en = {
   /* --- shell / navigation (DESIGN §1.2, §4.7) --- */
-  'app.title': 'bleak-web',
   'nav.room': 'Around',
   'nav.people': 'People',
   'nav.chats': 'Chats',

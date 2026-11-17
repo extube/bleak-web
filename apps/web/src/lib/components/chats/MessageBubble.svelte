@@ -1,18 +1,25 @@
 <script lang="ts">
   /**
-   * MessageBubble (DESIGN §3.5): one transcript entry. mine (my persona is a
-   * speaker when agents quote it) right-aligned on the elevated surface;
-   * theirs left on the surface; both .pixel-corners, 14px Inter, max-width
-   * 80%. Speaker name (11px muted) + relative time under each bubble. The
-   * accessible <li> name is «{speaker}: {first 60 chars}» (route computes it
-   * via lib/chats/view.bubbleAriaLabel). Plain text only — pre-wrap.
+   * MessageBubble (DESIGN §3.5, §4.8.1): one transcript entry. mine (my
+   * persona is a speaker when agents quote it) right-aligned; theirs left.
+   * Both take the code hue of the address that speaks — fnv1a(address) % 4
+   * (lib/avatar/traits.ts) → `--color-bubble-<hue>` token background; the
+   * bubble text stays --color-text (AA ≥4.5:1 on every tint, verified in
+   * tests/bubble-contrast.test.ts). Both .pixel-corners, 14px Inter,
+   * max-width 80%. Speaker name (11px muted) + relative time under each
+   * bubble. The accessible <li> name is «{speaker}: {first 60 chars}»
+   * (route computes it via lib/chats/view.bubbleAriaLabel). Plain text
+   * only — pre-wrap.
    */
   import type { Message } from '@bleak/api-client';
+  import { codeHue } from '#lib/avatar/traits';
 
   interface Props {
     message: Message;
-    /** `message.from === identity.userAddress` (mine → right/elevated). */
+    /** `message.from === identity.userAddress` (mine → right). */
     mine: boolean;
+    /** My persona address — 'mine' bubbles take MY code hue (§4.8.1). */
+    myAddress: string;
     /** Resolved speaker name (raw address fallback). */
     speaker: string;
     /** Relative time of `created_at`. */
@@ -21,11 +28,13 @@
     label: string;
   }
 
-  let { message, mine, speaker, time, label }: Props = $props();
+  let { message, mine, myAddress, speaker, time, label }: Props = $props();
+
+  const hue = $derived(codeHue(mine ? myAddress : message.from));
 </script>
 
 <li class="row" class:mine aria-label={label}>
-  <div class="bubble pixel-corners" class:mine class:theirs={!mine}>
+  <div class="bubble pixel-corners code-{hue}" class:mine class:theirs={!mine}>
     <p class="content">{message.content}</p>
   </div>
   <p class="meta">
@@ -59,6 +68,21 @@
   }
   .bubble.theirs {
     background: var(--color-surface);
+  }
+  /* Code-hue tint override (§4.8.1): every bubble carries its speaker's
+   * hue; text stays --color-text above. Declared after mine/theirs so the
+   * hue wins. */
+  .bubble.code-yellow {
+    background: var(--color-bubble-yellow);
+  }
+  .bubble.code-orange {
+    background: var(--color-bubble-orange);
+  }
+  .bubble.code-blue {
+    background: var(--color-bubble-blue);
+  }
+  .bubble.code-violet {
+    background: var(--color-bubble-violet);
   }
   .content {
     margin: 0;

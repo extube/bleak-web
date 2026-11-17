@@ -3,7 +3,14 @@
  * bounds (DESIGN §4.3).
  */
 import { describe, expect, it } from 'vitest';
-import { deriveTraits, fnv1a, isParseableAddress, TRAIT_COUNTS } from '../src/lib/avatar/traits';
+import {
+  CODE_HUES,
+  codeHue,
+  deriveTraits,
+  fnv1a,
+  isParseableAddress,
+  TRAIT_COUNTS
+} from '../src/lib/avatar/traits';
 
 describe('fnv1a', () => {
   it('is deterministic', () => {
@@ -69,6 +76,39 @@ describe('deriveTraits — determinism and bounds', () => {
       glasses: 3,
       backdrop: 5
     });
+  });
+});
+
+describe('codeHue — chat color assignment (Concept §7.1.2, DESIGN §4.8.1)', () => {
+  it('is the exact fnv1a(address) % 4 rule over the documented hue order', () => {
+    for (const address of ['0xme', '0xa', '0xdeadbeef', '0xroom123', 'Тестовая персона', '']) {
+      expect(codeHue(address)).toBe(CODE_HUES[fnv1a(address) % 4]);
+    }
+    expect(CODE_HUES).toEqual(['yellow', 'orange', 'blue', 'violet']);
+  });
+
+  it('is deterministic: same address ⇒ same hue', () => {
+    expect(codeHue('0xalice')).toBe(codeHue('0xalice'));
+    expect(codeHue('0xbob')).toBe(codeHue('0xbob'));
+  });
+
+  it('always returns one of the four hues, and all four are reachable', () => {
+    const addresses = Array.from({ length: 256 }, (_, i) => `0xuser${i}`);
+    const seen = new Set<string>();
+    for (const address of addresses) {
+      expect(CODE_HUES).toContain(codeHue(address));
+      seen.add(codeHue(address));
+    }
+    expect(seen.size).toBe(4);
+  });
+
+  it('the two sides of a chat get their own hues (mine is NOT fixed yellow)', () => {
+    // Distinct addresses may share a hue (4 buckets), but the mine side is
+    // hashed from MY address — not hardwired.
+    const hues = new Set(
+      ['0xme', '0xa', '0xb', '0xc', '0xd', '0xe'].map((address) => codeHue(address))
+    );
+    expect(hues.size).toBeGreaterThan(1);
   });
 });
 

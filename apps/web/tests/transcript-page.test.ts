@@ -46,6 +46,7 @@ import { goto } from '$app/navigation';
 import { api, apiRaw } from '#lib/api/client';
 import { saveHostRoom, clearHostRoom } from '#lib/stores/hostSession';
 import { identity } from '#lib/stores/identity';
+import { codeHue } from '../src/lib/avatar/traits';
 import Page from '../src/routes/chats/[address]/+page.svelte';
 import { ru } from '../src/lib/i18n/ru';
 
@@ -170,6 +171,11 @@ describe('transcript rendering + live updates (§3.5 AC 1–4, 9, 12)', () => {
     expect(screen.getByText('networking')).toBeTruthy();
     expect(screen.getByText('ai-future')).toBeTruthy();
     expect(screen.getByText('ru')).toBeTruthy();
+    // §4.8.1 color coding: each bubble carries its speaker's code hue.
+    const bubbles = document.querySelectorAll('.bubble');
+    expect(bubbles[0]?.classList.contains(`code-${codeHue('0xa')}`)).toBe(true);
+    expect(bubbles[1]?.classList.contains(`code-${codeHue(ME)}`)).toBe(true);
+    expect(bubbles[2]?.classList.contains(`code-${codeHue('0xa')}`)).toBe(true);
   });
 
   it('new messages appear within one 2 s poll tick without reload (AC 3)', async () => {

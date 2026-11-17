@@ -7,7 +7,6 @@ import type { MessageKey } from './en';
  */
 export const ru: Record<MessageKey, string> = {
   /* --- shell / navigation --- */
-  'app.title': 'bleak-web',
   'nav.room': 'Рядом',
   'nav.people': 'Люди',
   'nav.chats': 'Диалоги',
