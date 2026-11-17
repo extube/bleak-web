@@ -72,7 +72,7 @@ The workflow is based on a `dev` branch with feature and bugfix branches.
 | Don't merge into `main` | Never merge any branch into `main`. |
 | Don't commit to `dev` | Never commit directly on the `dev` branch. |
 | Pushing `dev` and feature/bug branches | Allowed to the project remote at the user's direction. |
-| Merging into `dev` is allowed | You may merge `feature/*` and `bug/*` branches into `dev`. |
+| Merging into `dev` is allowed | You may land `feature/*` and `bug/*` branches into `dev` — **squash-only** (owner directive 2026-11-17): `git merge --squash <branch>` + a single commit; merge commits into `dev` are unwound by `.githooks/post-merge` (exception: syncing from `main`). |
 
 ### Local clones
 
