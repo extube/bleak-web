@@ -34,11 +34,14 @@ export const MAX_RADAR_NODES = 14;
 export const RING_ORBIT_DURATIONS_S: readonly [number, number, number] = [60, 90, 20];
 
 /**
- * Ring radii as fractions of the radar's half min-dimension (§4.8.3: the
+ * Ring radii as fractions of the radar's half MAX-dimension (§4.8.3: the
  * rings are scaled UP from the old 0.28 / 0.56 / 0.84 so the inner ring
  * clears the enlarged exclusion zone around the "you" chip — the old
  * 0.28 ring put icons right against the chip on phone stages). Measured
  * from the center; RadarRings draws the same fractions (viewBox half = 100).
+ * §4.10.1 (Concept §9.1.3): the dimension is the STAGE's max side — the
+ * stage element itself is sized to the max viewport dimension, so the
+ * ring diameter spans the larger viewport dimension.
  */
 export const RING_FRACTIONS: readonly [number, number, number] = [0.56, 0.7, 0.84];
 
@@ -88,7 +91,7 @@ export interface RadarPlacement {
   ring: RingIndex;
   /** Angle in degrees 0..359 (0° right of center, clockwise on screen). */
   angle: number;
-  /** Radius as a fraction of the radar's half min-dimension (0 < r < 1). */
+  /** Radius as a fraction of the radar's half max-dimension (0 < r < 1). */
   radiusFrac: number;
 }
 
@@ -113,12 +116,30 @@ export function nodePosition(
   stageWidth: number,
   stageHeight: number
 ): { x: number; y: number } {
-  const radius = placement.radiusFrac * (Math.min(stageWidth, stageHeight) / 2);
+  // §4.10.1 (Concept §9.1.3): radii scale against HALF OF THE MAX stage
+  // dimension — the stage is sized to the max viewport dimension, so the
+  // ring diameter equals max(screen-width, screen-height).
+  const radius = placement.radiusFrac * (Math.max(stageWidth, stageHeight) / 2);
   const angleRad = (placement.angle * Math.PI) / 180;
   return {
     x: stageWidth / 2 + Math.cos(angleRad) * radius,
     y: stageHeight / 2 + Math.sin(angleRad) * radius
   };
+}
+
+/**
+ * Stage element size for a measured viewport box (§4.10.1, Concept
+ * §9.1.3): the radar stage is a SQUARE of side max(width, height) — the
+ * radar spans the larger viewport dimension, centered; the page container
+ * clips the overflow beyond the viewport edge (no horizontal scrollbar).
+ * Pure and deterministic (unit tests: tests/radar-placement.test.ts).
+ */
+export function radarStageSize(
+  availWidth: number,
+  availHeight: number
+): { width: number; height: number } {
+  const side = Math.max(availWidth, availHeight);
+  return { width: side, height: side };
 }
 
 export interface RadarNodeInput {
@@ -203,7 +224,11 @@ export function layoutRadarNodes(
   const points: RadarLayoutPoint[] = [];
   for (const entry of ordered) {
     const placement = radarPlacement(entry.address, entry.state);
-    const baseRadius = placement.radiusFrac * (Math.min(stageWidth, stageHeight) / 2);
+    // §4.10.1: the designed ring radius scales against half of the MAX
+    // stage dimension (the stage is the max-dimension square); the probe
+    // still clips every candidate onto the stage rect (rayMaxRadius), so
+    // all guarantees stay relative to the STAGE.
+    const baseRadius = placement.radiusFrac * (Math.max(stageWidth, stageHeight) / 2);
     const chosen = resolvePoint(
       entry.address,
       placement,

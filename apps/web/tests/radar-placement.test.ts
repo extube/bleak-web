@@ -18,6 +18,7 @@ import {
   moreCounterPlacement,
   nodePosition,
   radarPlacement,
+  radarStageSize,
   ringFor
 } from '../src/lib/room/radar';
 import type { RelationshipState } from '../src/lib/room/relationships';
@@ -106,12 +107,36 @@ describe('nodePosition — center + polar offset in stage pixels', () => {
     expect(pos.y).toBeCloseTo(200 + Math.sin(rad) * radius, 6);
   });
 
-  it('uses the min dimension when the stage is not square', () => {
-    const placement = radarPlacement('0xa', 'chat');
-    const pos = nodePosition({ ...placement, angle: 0 }, 800, 200);
-    // radius = frac * (min(800,200)/2) = frac * 100 → x = 400 + radius, y = 100
-    expect(pos.y).toBe(100);
-    expect(pos.x).toBeCloseTo(400 + placement.radiusFrac * 100, 6);
+  it('uses HALF OF THE MAX dimension when the stage is not square (§4.10.1)', () => {
+    // Concept §9.1.3: the ring diameter equals max(screen-w, screen-h) —
+    // the placement math scales against half of the max stage dimension,
+    // in BOTH orientations.
+    for (const [width, height] of [[320, 640], [640, 320]] as const) {
+      const placement = radarPlacement('0xa', 'chat');
+      const pos = nodePosition({ ...placement, angle: 0 }, width, height);
+      // radius = frac * (max(320,640)/2) = frac * 320
+      expect(pos.x - width / 2).toBeCloseTo(placement.radiusFrac * 320, 6);
+    }
+    const landscape = nodePosition({ ...radarPlacement('0xa', 'chat'), angle: 90 }, 800, 200);
+    // radius = frac * (max(800,200)/2) = frac * 400 → y = 100 + frac*400
+    expect(landscape.y - 100).toBeCloseTo(radarPlacement('0xa', 'chat').radiusFrac * 400, 6);
+  });
+});
+
+describe('radarStageSize — stage spans the max viewport dimension (§4.10.1)', () => {
+  it.each([
+    [320, 640, 'portrait phone 320×640: stage = 640'],
+    [640, 320, 'landscape 640×320: stage = 640'],
+    [390, 844, 'large portrait phone'],
+    [1024, 768, 'landscape tablet'],
+    [800, 800, 'already square: stage = 800'],
+    [0, 0, 'unmeasured: degenerate 0×0 stage']
+  ])('%s', (availWidth, availHeight, label) => {
+    const side = Math.max(availWidth, availHeight);
+    expect(radarStageSize(availWidth, availHeight), label).toEqual({
+      width: side,
+      height: side
+    });
   });
 });
 
@@ -214,6 +239,40 @@ function assertInvariants(
     }
   }
 }
+
+describe('layoutRadarNodes — max-dimension stage (§4.10.1, parametrized)', () => {
+  /**
+   * Concept §9.1.3: the radar spans the LARGER viewport dimension — the
+   * page sizes the stage to radarStageSize(w, h) and runs the layout on
+   * that square. Both orientations must produce the same square stage and
+   * keep every v2.2 guarantee relative to it.
+   */
+  it.each([
+    [320, 640, 'portrait phone 320×640 → stage 640'],
+    [640, 320, 'landscape 640×320 → stage 640']
+  ])('%s: invariants hold on the square stage', (availWidth, availHeight, label) => {
+    const stage = radarStageSize(availWidth, availHeight);
+    expect(stage.width, label).toBe(640);
+    expect(stage.height, label).toBe(640);
+    const points = layoutRadarNodes(entries(14, mixedStates), stage.width, stage.height);
+    expect(points, label).toHaveLength(14);
+    assertInvariants(points, stage.width, stage.height);
+  });
+
+  it('a lone inner-ring node rides its ring measured from HALF OF THE MAX dimension', () => {
+    const stage = radarStageSize(320, 640); // portrait phone → 640×640
+    const [point] = layoutRadarNodes(
+      [{ address: '0xchat-user', state: 'chat' }],
+      stage.width,
+      stage.height
+    );
+    if (!point) throw new Error('missing layout point');
+    // base = RING_FRACTIONS[0] * (max(320,640)/2) = 0.56 * 320
+    const base = RING_FRACTIONS[0] * (Math.max(320, 640) / 2);
+    expect(point.radiusPx).toBeGreaterThanOrEqual(base * 0.94 - 1e-9);
+    expect(point.radiusPx).toBeLessThanOrEqual(base * 1.06 + 1e-9);
+  });
+});
 
 describe('layoutRadarNodes — collision-avoided layout (§4.8.3b/d/e)', () => {
   it('guarantees center gap, no overlap and on-canvas at every stage size', () => {

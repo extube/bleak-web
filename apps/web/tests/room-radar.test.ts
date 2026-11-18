@@ -382,6 +382,66 @@ describe('/room — v2.2 radar motion (DESIGN §4.9.1/4.9.2/4.9.12)', () => {
   });
 });
 
+describe('/room — max-dimension radar stage (§4.10.1, Concept §9.1.3)', () => {
+  /**
+   * Component CSS is NOT injected under happy-dom (external stylesheets),
+   * so layout contracts are pinned two ways: the measured stage square is
+   * asserted on the rendered DOM (a getBoundingClientRect stub provides the
+   * viewport box), and the clipping/centering CSS contract is pinned
+   * against the component source (same readFileSync pattern as above).
+   */
+  const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
+    ? process.cwd()
+    : join(process.cwd(), 'apps', 'web');
+  function pageSource(): string {
+    return readFileSync(join(WEB_ROOT, 'src/routes/room/+page.svelte'), 'utf8');
+  }
+
+  function stubViewportBox(width: number, height: number): void {
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+      width,
+      height,
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: width,
+      bottom: height,
+      toJSON: () => ({})
+    } as DOMRect);
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    [320, 640, 'portrait phone 320×640: stage = 640'],
+    [640, 320, 'landscape 640×320: stage = 640']
+  ])('%s — the stage element is sized to the max dimension, centered', async (w, h, label) => {
+    stubViewportBox(w, h);
+    mountIdentity();
+    render(RoomPage, { props: {} });
+    await screen.findByText('3 вокруг вас'); // data loaded ⇒ measure effect ran
+
+    const stage = document.querySelector('.radar-stage');
+    expect(stage, label).toBeTruthy();
+    const style = stage?.getAttribute('style') ?? '';
+    expect(style).toContain('width: 640px');
+    expect(style).toContain('height: 640px');
+  });
+
+  it('the clipping wrapper hides the overflow: no horizontal scrollbar', () => {
+    const pageCss = pageSource();
+    // The wrapper (flex child of the 100dvh page) clips the oversized square.
+    expect(pageCss).toMatch(/\.stage\s*\{[^}]*overflow:\s*hidden/);
+    // The square stage is centered on the page.
+    expect(pageCss).toMatch(/\.radar-stage\s*\{[^}]*left:\s*50%/);
+    expect(pageCss).toMatch(/\.radar-stage\s*\{[^}]*top:\s*50%/);
+    expect(pageCss).toMatch(/\.radar-stage\s*\{[^}]*transform:\s*translate\(-50%,\s*-50%\)/);
+  });
+});
+
 describe('/room — HandshakeSheet per-state actions (AC 4–7)', () => {
   it('no handshake: tapping a node opens the sheet; send POSTs from me and refreshes', async () => {
     mountIdentity();

@@ -26,6 +26,7 @@
     moreCounterPlacement,
     nodePosition,
     radarPlacement,
+    radarStageSize,
     RING_ORBIT_DURATIONS_S
   } from '#lib/room/radar';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
@@ -132,17 +133,22 @@
   // --- radar stage geometry ----------------------------------------------
   let stageW = $state(0);
   let stageH = $state(0);
-  let stageEl: HTMLElement | null = $state(null);
+  let stageWrapEl: HTMLElement | null = $state(null);
 
   // Measured once per mount + on resize (no ResizeObserver dependency);
-  // px math in lib/room/radar.ts uses these (fraction of the min dimension).
+  // px math in lib/room/radar.ts uses these (fraction of the max dimension).
+  // §4.10.1 (Concept §9.1.3): the stage element is a SQUARE of side
+  // max(clientWidth, clientHeight) of the measured box — the radar spans
+  // the larger viewport dimension; the clipping wrapper below hides the
+  // overflow beyond the viewport edge (no horizontal scrollbar).
   $effect(() => {
-    const el = stageEl;
+    const el = stageWrapEl;
     if (!el) return;
     const measure = (): void => {
       const rect = el.getBoundingClientRect();
-      stageW = rect.width;
-      stageH = rect.height;
+      const stage = radarStageSize(rect.width, rect.height);
+      stageW = stage.width;
+      stageH = stage.height;
     };
     measure();
     window.addEventListener('resize', measure);
@@ -356,75 +362,80 @@
       </div>
     {/if}
 
-    <main class="stage" bind:this={stageEl}>
-      <RadarRings animate={hasLoaded} />
+    <main class="stage" bind:this={stageWrapEl}>
+      <!-- §4.10.1: the radar stage is a SQUARE of side max(w, h), centered
+           in the clipping wrapper; the wrapper (overflow: hidden) clips the
+           overflow beyond the viewport edge — no horizontal scrollbar. -->
+      <div class="radar-stage" style:width="{stageW}px" style:height="{stageH}px">
+        <RadarRings animate={hasLoaded} />
 
-      <div class="center">
-        <div class="me-chip pixel-corners">
-          <PixelAvatar address={me.userAddress} size={64} own label={myUser?.name ?? me.userAddress} />
-          <span class="me-name">{myUser?.name ?? me.userAddress}</span>
-        </div>
-        <p class="around" aria-live="polite">
-          {translate($locale, 'room.around', { n: String(aroundCount) })}
-        </p>
-        {#if hasLoaded && aroundCount === 0}
-          <p class="empty-copy">{translate($locale, 'room.empty')}</p>
-        {/if}
-      </div>
-
-      {#if !hasLoaded}
-        {#each loadingDots as dot, i (i)}
-          <span
-            class="skel-dot"
-            style:left="{dot.x}px"
-            style:top="{dot.y}px"
-            aria-hidden="true"
-          ></span>
-        {/each}
-      {:else if nodes.length > 0}
-        <!-- §4.9.1/4.9.2: one rotating orbit layer per ring speed. Each
-             node rides its own full-stage .orbit-unit at its ring's
-             duration (60s/90s/20s, RING_ORBIT_DURATIONS_S), phase-locked
-             to the common epoch via a negative --orbit-delay; the node
-             content counter-rotates inside (RadarNode §4.9.1) so icons
-             stay upright while riding. §4.9.12: elements are keyed
-             stable, so ring-level changes glide via the button's CSS
-             left/top transition. The «+N ещё» counter rides the outer
-             (ring 3) speed and stays upright too. -->
-        <div class="nodes-orbit" class:dimmed={banner !== null}>
-          {#each orbitItems as item (item.key)}
-            <div
-              class="orbit-unit"
-              class:ring-0={item.ring === 0}
-              class:ring-1={item.ring === 1}
-              class:ring-2={item.ring === 2}
-              style:--orbit-duration="{item.durationS}s"
-              style:--orbit-delay="-{item.delayS}s"
-            >
-              <RadarNode
-                user={item.node.user}
-                relationship={item.node.rel}
-                x={item.node.point.x}
-                y={item.node.point.y}
-                onclick={() => openNode(item.node.user)}
-              />
-            </div>
-          {/each}
-          {#if moreOrbit}
-            <div
-              class="orbit-unit ring-2"
-              style:--orbit-duration="{moreOrbit.durationS}s"
-              style:--orbit-delay="-{moreOrbit.delayS}s"
-            >
-              <span
-                class="more-counter"
-                style:left="{morePos.x}px"
-                style:top="{morePos.y}px"
-              >{moreLabel}</span>
-            </div>
+        <div class="center">
+          <div class="me-chip pixel-corners">
+            <PixelAvatar address={me.userAddress} size={64} own label={myUser?.name ?? me.userAddress} />
+            <span class="me-name">{myUser?.name ?? me.userAddress}</span>
+          </div>
+          <p class="around" aria-live="polite">
+            {translate($locale, 'room.around', { n: String(aroundCount) })}
+          </p>
+          {#if hasLoaded && aroundCount === 0}
+            <p class="empty-copy">{translate($locale, 'room.empty')}</p>
           {/if}
         </div>
-      {/if}
+
+        {#if !hasLoaded}
+          {#each loadingDots as dot, i (i)}
+            <span
+              class="skel-dot"
+              style:left="{dot.x}px"
+              style:top="{dot.y}px"
+              aria-hidden="true"
+            ></span>
+          {/each}
+        {:else if nodes.length > 0}
+          <!-- §4.9.1/4.9.2: one rotating orbit layer per ring speed. Each
+               node rides its own full-stage .orbit-unit at its ring's
+               duration (60s/90s/20s, RING_ORBIT_DURATIONS_S), phase-locked
+               to the common epoch via a negative --orbit-delay; the node
+               content counter-rotates inside (RadarNode §4.9.1) so icons
+               stay upright while riding. §4.9.12: elements are keyed
+               stable, so ring-level changes glide via the button's CSS
+               left/top transition. The «+N ещё» counter rides the outer
+               (ring 3) speed and stays upright too. -->
+          <div class="nodes-orbit" class:dimmed={banner !== null}>
+            {#each orbitItems as item (item.key)}
+              <div
+                class="orbit-unit"
+                class:ring-0={item.ring === 0}
+                class:ring-1={item.ring === 1}
+                class:ring-2={item.ring === 2}
+                style:--orbit-duration="{item.durationS}s"
+                style:--orbit-delay="-{item.delayS}s"
+              >
+                <RadarNode
+                  user={item.node.user}
+                  relationship={item.node.rel}
+                  x={item.node.point.x}
+                  y={item.node.point.y}
+                  onclick={() => openNode(item.node.user)}
+                />
+              </div>
+            {/each}
+            {#if moreOrbit}
+              <div
+                class="orbit-unit ring-2"
+                style:--orbit-duration="{moreOrbit.durationS}s"
+                style:--orbit-delay="-{moreOrbit.delayS}s"
+              >
+                <span
+                  class="more-counter"
+                  style:left="{morePos.x}px"
+                  style:top="{morePos.y}px"
+                >{moreLabel}</span>
+              </div>
+            {/if}
+          </div>
+        {/if}
+      </div>
     </main>
 
     <HandshakeSheet
@@ -538,6 +549,17 @@
     margin-top: 56px;
     margin-bottom: var(--bottom-tabbar-height);
     overflow: hidden;
+  }
+  /* §4.10.1 (Concept §9.1.3): the radar stage element is a SQUARE of side
+   * max(clientWidth, clientHeight) — the radar spans the larger viewport
+   * dimension. Centered on the page; the clipping wrapper above hides the
+   * overflow beyond the viewport edge (no horizontal scrollbar). All
+   * placement guarantees (lib/room/radar.ts) stay relative to the STAGE. */
+  .radar-stage {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
   }
   .center {
     position: absolute;

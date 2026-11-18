@@ -1,0 +1,4 @@
+2026-11-18T09:07:31Z [worker] task 37 started: radar ring diameter = max(w,h); reading card + Concept §9.1 + DESIGN §4.10
+2026-11-18T09:10:05Z [worker] radar.ts: nodePosition/layout base radius now scale against half of the MAX stage dimension; added pure radarStageSize() helper; +page.svelte: clipping wrapper + centered square .radar-stage sized max(w,h)
+2026-11-18T09:11:33Z [worker] gates: targeted radar suites green (32+23, sweep incl. 66), full make test 506 passed, make lint clean, make build ok (0 svelte-check errors) — handover commit next
+2026-11-18T09:11:48Z [worker] handover commit b09a825 on feature/aa68ec16-tz4-08-radar-geometry-maxdim (6 files); setting card ready-for-merge
