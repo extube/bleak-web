@@ -6653,3 +6653,16 @@
 2026-11-18T17:02:24Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=git status --short; git status -sb | head -1
 2026-11-18T17:02:29Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=git config --global --add safe.directory /workspace && git config --global --add safe.directory /mount/bleak-node && git status --short && git status -sb | head
 2026-11-18T17:02:34Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=git checkout -b feature/1640ba9e-log-sweep && git add docs/logs/1640ba9e.log docs/logs/activity.log && git commit -m "docs: devops + activity log sweep (demo ru
+2026-11-18T17:02:45Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=cd /mount/bleak-node && ADDR=0.0.0.0:8989 make run
+2026-11-18T17:02:45Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=HELPER_PORT=8787 INVITE_URL_BASE=http://localhost:4000/ npm run dev -w @bleak/helper
+2026-11-18T17:02:45Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=cd /workspace/apps/web && BLEAK_NODE_URL=http://localhost:8989 HELPER_DEV_URL=http://localhost:8787 node_modules/.bin/vite dev --port 4000
+2026-11-18T17:02:45Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=sh /workspace/data/demo/watcher.sh
+2026-11-18T17:02:51Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=i=0; until curl -s -o /dev/null http://localhost:8989/api/room && curl -s http://localhost:4000/ | grep -q "<"; do i=$((i+1)); [ $i -gt 30 ] && break; sleep 1; 
+2026-11-18T17:03:02Z | ses_e14f6c41effeENVKLE475fCiPO | - | session.execution.succeeded | {"sessionID":"ses_e14f6c41effeENVKLE475fCiPO"}
+2026-11-18T17:17:18Z | ses_e14f6c41effeENVKLE475fCiPO | - | session.execution.started | {"sessionID":"ses_e14f6c41effeENVKLE475fCiPO"}
+2026-11-18T17:17:22Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=scripts/log.sh log 1640ba9e "devops session closed by owner (/exit). Final state: backend :8989, helper :8787, web :4000, handshake watcher running (persistent 
+2026-11-18T17:17:26Z | ses_e14f6c41effeENVKLE475fCiPO | - | session.execution.succeeded | {"sessionID":"ses_e14f6c41effeENVKLE475fCiPO"}
+2026-11-18T17:17:39Z | ses_e14f6c41effeENVKLE475fCiPO | - | session.execution.started | {"sessionID":"ses_e14f6c41effeENVKLE475fCiPO"}
+2026-11-18T17:17:42Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=git config --global --get-all safe.directory 2>/dev/null | head -2; git status --short; git status -sb | head -1
+2026-11-18T17:17:45Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=git status --short && git status -sb | head -1
+2026-11-18T17:17:48Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=git checkout -b feature/1640ba9e-log-sweep-2 && git add docs/logs/1640ba9e.log docs/logs/activity.log && git commit -m "docs: log sweep — devops session close r
