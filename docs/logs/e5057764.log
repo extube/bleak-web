@@ -6,3 +6,5 @@
 2026-11-17T20:45:31Z [process] ROUND COMPLETE: 8/8 tasks closed green (22-29); final dev tip e02d62a; verification-v21.md records 7/7 P-items PASS; session closed done - final report to concept agent
 2026-11-18T07:55:51Z [process] Owner approved Concept.md §8 v2.2 round (12 change requests, 2026-11-18); autonomous mode continues; demo-run request remains on hold.
 2026-11-18T07:57:44Z [process] v2.2 round started: DESIGN 4.9 amendment written; T1 opened (task 30, worker 40da6dc9 running serially); wave plan A=radar T1+T2, B=profile T3+T4, C=dialog T5+T6, T7 sweep last
+2026-11-18T08:13:53Z [process] wave A closed: tasks 30+31 landed (226d2ef/9a0712d), wave CI green (511 tests); wave B opened: task 32 (worker d8b9f8a7) settings route
+2026-11-18T08:23:21Z [process] ADVICE NEEDED (task 32 outline leave AA) resolved via architect consult ses_e12403104ffeDR7qNOvwvcmQ7S: option B - border --color-danger #c53030 (3:1 non-text OK), font new --color-danger-text #e05252 (4.92:1 AA); DESIGN 4.9.3 amendment to follow at landing

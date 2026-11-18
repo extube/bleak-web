@@ -15,26 +15,20 @@
    * «QR обновлён» note. A registration failure keeps the last QR; the next
    * tick retries. Stats are fetched on mount + after mutations (§2.2 row).
    *
-   * Token rotation (§3.6 settings): confirm dialog (other-device lockout
-   * copy) → generate the new secret → `rotateUserToken` (Bearer = current,
-   * body = new raw) → replace `identity.token` + rewrite the matching
-   * `bleak.tokenVault` entry in place — written ONLY after a 2xx. 401 → the
-   * §2.8 global gate; 403 → inline server text, identity kept.
+   * Token rotation and the leave-room exit live on the /profile/settings
+   * sub-page (Concept §8.1.3, DESIGN §4.9.3); this page links to it.
    *
-   * Leave room clears identity AND the mutual code (`clearIdentity` does
-   * both) → `/`. Editors swap the badge card inline (one screen at a time).
+   * Editors swap the badge card inline (one screen at a time).
    * Interests are the client-side mock (architecture §8.1 — no network).
    */
   import { get } from 'svelte/store';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { ApiError, NetworkError, type Handshake, type User } from '@bleak/api-client';
-  import { identity, initIdentity, clearIdentity, saveIdentity, type Identity } from '#lib/stores/identity';
+  import { identity, initIdentity, clearIdentity, type Identity } from '#lib/stores/identity';
   import { initMutualCode, mutualCode, saveMutualCode } from '#lib/stores/mutualCode';
-  import { updateVaultEntryToken } from '#lib/stores/tokenVault';
   import { requireIdentityOrRedirect } from '#lib/nav/guard';
   import { api } from '#lib/api/client';
-  import { generateTokenSecret } from '#lib/crypto/secrets';
   import { Poller } from '#lib/polling/poller';
   import type { PersonaDraft } from '#lib/join';
   import { locale, translate } from '#lib/i18n/locale';
@@ -48,11 +42,8 @@
   import GreetingEditor from '#lib/components/profile/GreetingEditor.svelte';
   import InterestsEditor from '#lib/components/profile/InterestsEditor.svelte';
   import ErrorBanner from '#lib/components/ErrorBanner.svelte';
-  import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
   import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
-  import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
-  import LocaleControl from '#lib/components/join/LocaleControl.svelte';
 
   // Hard reload on /profile: the layout hydrates identity in its onMount,
   // which runs after this page's script — hydrate defensively (idempotent)
@@ -306,63 +297,7 @@
     }
   }
 
-  // --- token rotation (v2, §3.6 settings) --------------------------------------
-  let rotateOpen = $state(false);
-  let pendingRotate = $state(false);
-  let rotateError = $state<string | null>(null);
-  let rotatedFlash = $state(false);
-  let rotatedTimer: ReturnType<typeof setTimeout> | null = null;
-
-  /**
-   * Rotation: Bearer = the CURRENT persona token (auto-injected), body = the
-   * new raw secret. `identity.token` + the matching vault entry are written
-   * ONLY after a 2xx — a 401 abandons the attempt through the §2.8 gate with
-   * no partial client writes (§8.4 caveat), a 403 shows inline server text
-   * with the identity kept.
-   */
-  async function rotateToken(): Promise<void> {
-    const id = me;
-    if (!id || pendingRotate) return;
-    pendingRotate = true;
-    rotateError = null;
-    try {
-      const newRaw = generateTokenSecret();
-      await api.rotateUserToken(id.roomAddress, id.userAddress, newRaw);
-      saveIdentity({ roomAddress: id.roomAddress, userAddress: id.userAddress, token: newRaw });
-      updateVaultEntryToken(id.roomAddress, id.userAddress, newRaw);
-      rotatedFlash = true;
-      if (rotatedTimer) clearTimeout(rotatedTimer);
-      rotatedTimer = setTimeout(() => (rotatedFlash = false), 2000);
-    } catch (cause) {
-      rotateError = serverText(cause) ?? translate(get(locale), 'common.error');
-    } finally {
-      pendingRotate = false;
-    }
-  }
-
-  // --- leave room -------------------------------------------------------------
-  let leaveOpen = $state(false);
-  let pendingLeave = $state(false);
-  let leaveError = $state<string | null>(null);
-
-  async function leaveRoom(): Promise<void> {
-    const id = me;
-    if (!id || pendingLeave) return;
-    pendingLeave = true;
-    leaveError = null;
-    try {
-      await api.deleteRoomUser(id.roomAddress, id.userAddress);
-      // clearIdentity also clears the one-time mutual code (§10.4).
-      clearIdentity();
-      leaveOpen = false;
-      void goto(resolve('/'));
-    } catch (cause) {
-      // Identity kept — the persona still exists in the room.
-      leaveError = serverText(cause) ?? translate(get(locale), 'common.error');
-    } finally {
-      pendingLeave = false;
-    }
-  }
+  // --- token rotation + leave room (moved to /profile/settings, §8.1.3) -------
 
   function exitNotFound(): void {
     clearIdentity();
@@ -431,37 +366,11 @@
         oneditgreeting={openGreeting}
         oneditinterests={() => (view = 'interests')}
       />
-      <section class="settings pixel-corners" aria-label={translate($locale, 'profile.settings.title')}>
-        <h2 class="settings-title">{translate($locale, 'profile.settings.title')}</h2>
-        <div class="setting">
-          <span class="setting-label">{translate($locale, 'common.locale')}</span>
-          <LocaleControl />
-        </div>
-        <button
-          type="button"
-          class="rotate"
-          disabled={pendingRotate}
-          onclick={() => (rotateOpen = true)}
-        >
-          <PixelIcon name="key" size={16} />
-          <span>{translate($locale, 'profile.rotate.row')}</span>
-          {#if pendingRotate}<span class="spinner" aria-hidden="true"></span>{/if}
-        </button>
-        {#if rotatedFlash && !rotateError}
-          <p class="rotated-flash" aria-live="polite">
-            ✓ {translate($locale, 'profile.rotate.done')}
-          </p>
-        {/if}
-        {#if rotateError}
-          <p class="field-error" role="alert" aria-live="polite">{rotateError}</p>
-        {/if}
-        <button type="button" class="leave" onclick={() => (leaveOpen = true)}>
-          {translate($locale, 'profile.leave')}
-        </button>
-        {#if leaveError}
-          <p class="field-error" role="alert" aria-live="polite">{leaveError}</p>
-        {/if}
-      </section>
+      <!-- Settings affordance (Concept §8.1.3): the settings block lives on
+           the /profile/settings sub-page now — a real link per §2.6. -->
+      <a class="settings-row" href={resolve('/profile/settings')}>
+        <span>{translate($locale, 'profile.settings.title')}</span>
+      </a>
     {:else if view === 'persona'}
       <PersonaEditor
         {user}
@@ -494,22 +403,6 @@
   {/if}
 </main>
 
-<ConfirmDialog
-  bind:open={rotateOpen}
-  title={translate($locale, 'profile.rotate.title')}
-  body={translate($locale, 'profile.rotate.body')}
-  confirmLabel={translate($locale, 'profile.rotate.cta')}
-  onconfirm={rotateToken}
-/>
-
-<ConfirmDialog
-  bind:open={leaveOpen}
-  title={translate($locale, 'profile.leave')}
-  body={translate($locale, 'profile.leave.confirm_body')}
-  confirmLabel={translate($locale, 'profile.leave')}
-  onconfirm={leaveRoom}
-/>
-
 <style>
   .profile-page {
     flex: 1;
@@ -530,7 +423,7 @@
     color: var(--color-accent);
   }
   .badge,
-  .settings {
+  .settings-row {
     background: var(--color-surface);
     border-radius: var(--radius-lg);
     padding: var(--space-5);
@@ -584,82 +477,23 @@
     font-size: 14px;
     transition: opacity 120ms ease-out;
   }
-  .settings {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-  /* Concept §7.1.6 / DESIGN §4.8.4: the settings block is visibly titled —
-   * locale, token rotation and the red exit-room live inside it. */
-  .settings-title {
-    margin: 0;
-    font-size: 20px;
-  }
-  .setting {
+  .settings-row {
+    /* Settings affordance (Concept §8.1.3): the block moved to the
+     * /profile/settings sub-page — the row is a real link (§2.6) styled
+     * like the other cards, full-width touch target. */
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4);
-    flex-wrap: wrap;
-  }
-  .setting-label {
-    font-size: 14px;
-    color: var(--color-text-muted);
-  }
-  .rotate,
-  .leave {
-    align-self: flex-start;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
     min-height: var(--touch-target);
-    padding: 0 var(--space-5);
-    background: transparent;
-    border: 1px solid var(--color-text-disabled-strong);
     color: var(--color-text);
-    border-radius: var(--radius-pill);
     font-weight: 600;
-    font-size: 14px;
+    font-size: 16px;
     font-family: var(--font-body);
-    transition:
-      border-color 120ms ease-out,
-      color 120ms ease-out;
-  }
-  .leave {
-    /* Exit-room (Concept §7.1.6, DESIGN §4.8.4): the one destructive
-     * action renders RED — --color-danger fill with light --color-text
-     * text (AA ≥4.5:1, verified numerically in tests). */
-    background: var(--color-danger);
-    color: var(--color-text);
-    border: none;
-  }
-  .spinner {
-    width: 14px;
-    height: 14px;
-    border: 2px solid var(--color-text-muted);
-    border-right-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  .rotated-flash {
-    margin: 0;
-    font-size: 14px;
-    color: var(--color-accent);
-  }
-  .field-error {
-    margin: 0;
-    color: var(--color-accent);
-    font-size: 14px;
-  }
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
+    transition: opacity 120ms ease-out;
   }
   @media (min-width: 720px) {
     /* Badge card max-width 560px centered (§3.6 responsive). */
     .badge,
-    .settings {
+    .settings-row {
       max-width: 560px;
       width: 100%;
       align-self: center;

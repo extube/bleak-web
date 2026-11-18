@@ -1974,7 +1974,12 @@ Owner change requests refining v2.1 output (all frontend-only):
    fast (implemented as one rotating orbit layer per ring).
 3. **Settings route:** the settings block moves from the profile page to a
    new `/profile/settings` route; the leave-room button renders as
-   **red font + red border only** (no filled background).
+   **red font + red border only** (no filled background). Contrast roles
+   (architect consult, 2026-11-18): border keeps `--color-danger` #c53030
+   (3.43:1 — WCAG 1.4.11 non-text ≥3:1 ✓); the font role uses the new
+   `--color-danger-text` **#e05252** (4.92:1 on `--color-surface` — AA
+   ≥4.5 ✓; the §4.8.4 originally drafted red, whose white-contrast weakness
+   only mattered in the filled-button era).
 4. **Avatar change button:** the circular control on the persona/avatar
    change field becomes rounded (reduced radius, not a full circle).
 5. **Profile stats — exactly 3:** Sent (renamed from Handshakes),

@@ -27,9 +27,18 @@
   --color-qr-frame: #f0f0f0;
 
   /* Functional red exception (Concept §7.1.6, DESIGN §4.8.4): destructive
-   * exit-room action only. --color-text (#f0f0f0) on it is ≥4.5:1 AA
-   * (verified numerically in tests/profile-page.test.ts). */
+   * exit-room action only. Since the v2.2 outline restyle (Concept §8.1.3,
+   * DESIGN §4.9.3) it is drawn as red border on the transparent surface —
+   * no filled background (#c53030 on --color-surface measures 3.43:1,
+   * passing WCAG 1.4.11 non-text ≥3:1; verified numerically in
+   * tests/profile-settings.test.ts). */
   --color-danger: #c53030;
+  /* Font role of the same danger pair (architect consult on the v2.2
+   * outline style): --color-danger-text is the ORIGINALLY DRAFTED danger
+   * red from DESIGN §4.8.4 — its 3.3:1 weakness vs white only mattered in
+   * the filled era; on the dark surface it measures ≈4.92:1 (AA ≥4.5) for
+   * the FONT role. The border stays --color-danger (#c53030). */
+  --color-danger-text: #e05252;
 
   /* --- v2.1 code-coding hues (Concept §7.1.2, DESIGN §4.8.1) -------------- */
   /* Four bright functional accents for chat-bubble and personage-art color
