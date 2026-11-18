@@ -2096,6 +2096,21 @@ round:
 4. **Join form layout:** the 6-digit code input stays inside the card
    bounds at all widths (overflow fix).
 
+### 4.12.1 v2.6 addendum amendments (2026-11-18, owner-approved Concept §12)
+
+5. **Phone full-screen forms (refines §4.12.4):** on phone-sized viewports
+   (**< 720px** — the design system's existing breakpoint; desktop
+   `min-width: 720px` layouts unchanged) the following render as
+   **full-screen forms** — the form fills the viewport with no floating
+   card chrome competing for width, and all content stays in bounds:
+   enter-code (join form incl. the 6-digit input), import profile,
+   return-to-event, and the profile page.
+6. **§11.1.4 reopened as a bug round:** the previous overflow fix did not
+   hold at phone sizes — the join input must be verified to stay inside
+   the form at **320 / 360 / 390px** widths with behavior tests (not a
+   one-off style tweak), routed as `bug/5c1c6036-join-input-overflow`
+   (the hash of the worker that owns the §11.1.4 fix).
+
 ## 5. Design-decision rationale (short)
 
 - **Radar ring semantics = relationship distance**, not random placement: the

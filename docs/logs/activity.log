@@ -6407,3 +6407,242 @@
 2026-11-18T13:24:44Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:edit | path=/workspace/docs/logs/activity.log
 2026-11-18T13:24:46Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=git checkout dev
 2026-11-18T13:25:44Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=git add docs/logs/activity.log && git commit -m "docs: activity appends (doc-sync card 55)" && git checkout dev && git merge --squash feature/d5f180e1-tz4-26-do
+2026-11-18T13:25:48Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=python3 scripts/task.py status 55 merged --as e5057764
+2026-11-18T13:25:51Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=make lint && make test && make build
+2026-11-18T13:26:38Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=python3 scripts/task.py ci 55 green --as e5057764
+2026-11-18T13:26:42Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=scripts/log.sh log e5057764 "tz4-26 doc-sync closed: task 55 landed (d441432, Concept 9-11 verbatim + DESIGN 4.9-4.12 + records, +3645/-3), full CI green (584 t
+2026-11-18T13:26:47Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | - | session.execution.succeeded | {"sessionID":"ses_e14f974b2ffe9BGMoWmZ1vQYsB"}
+2026-11-18T13:28:03Z | ses_e14fbbf88ffed1gB111gC1qiCO | - | session.execution.started | {"sessionID":"ses_e14fbbf88ffed1gB111gC1qiCO"}
+2026-11-18T13:28:25Z | ses_e14fbbf88ffed1gB111gC1qiCO | concept | tool:edit | path=/workspace/docs/Concept.md
+2026-11-18T13:28:31Z | ses_e14fbbf88ffed1gB111gC1qiCO | concept | tool:edit | path=/workspace/docs/Concept.md
+2026-11-18T13:28:36Z | ses_e14fbbf88ffed1gB111gC1qiCO | concept | tool:subagent | sessionID=ses_e14f974b2ffe9BGMoWmZ1vQYsB
+2026-11-18T13:28:36Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | - | session.execution.started | {"sessionID":"ses_e14f974b2ffe9BGMoWmZ1vQYsB"}
+2026-11-18T13:28:55Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:grep | path=/workspace/docs/Concept.md
+2026-11-18T13:28:59Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:read | path=/workspace/docs/Concept.md
+2026-11-18T13:29:02Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:grep | path=/workspace/apps/web/src/lib/styles/base.css
+2026-11-18T13:29:07Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:grep | path=/workspace/apps/web/src
+2026-11-18T13:29:10Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:grep | path=/workspace/apps/web/src
+2026-11-18T13:29:27Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:edit | path=/workspace/docs/DESIGN.md
+2026-11-18T13:29:30Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=git branch bug/5c1c6036-join-input-overflow dev
+2026-11-18T13:29:34Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=python3 scripts/task.py new "tz4-26a join-input overflow re-fix (bug round, 320/360/390 verified)" "-" "bug/5c1c6036-join-input-overflow" "5c1c6036" "-" --as e5
+2026-11-18T13:29:47Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:write | path=/workspace/docs/bugs/join-input-overflow-1.log
+2026-11-18T13:29:50Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=python3 scripts/task.py bug 53 5c1c6036 join-input-overflow high docs/bugs/join-input-overflow-1.log --as e5057764
+2026-11-18T13:30:11Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=git branch -d bug/5c1c6036-join-input-overflow && git branch feature/5c1c6036-join-input-overflow dev
+2026-11-18T13:30:15Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=python3 scripts/task.py new "tz4-26a join-input overflow re-fix (320/360/390 verified, bug round on tz4-24)" "-" "feature/5c1c6036-join-input-overflow" "5c1c603
+2026-11-18T13:30:23Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=python3 scripts/task.py criteria 56 "BUG ROUND (Concept §12.2; §11.1.4 treated as NOT FIXED — the task-53 fix did not hold at phone size; owner report in docs/b
+2026-11-18T13:30:26Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=python3 scripts/task.py tests 56 "tests/join-flow.test.ts (layout diagnosis + regression at 320/360/390); tests/digit-input.test.ts + tests/code-input.test.ts (
+2026-11-18T13:30:30Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=python3 scripts/task.py constraints 56 "Layout-only (DigitInput/CodeEntry/join card chain); no behavior change to input logic; no copy change; no new dependenci
+2026-11-18T13:30:34Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=sh scripts/session.sh set 5c1c6036 task 56 && sh scripts/session.sh set 5c1c6036 branch feature/5c1c6036-join-input-overflow && sh scripts/session.sh set 5c1c60
+2026-11-18T13:30:46Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:subagent | sessionID=ses_e11455118ffee94wiSbYlqTBSZ
+2026-11-18T13:30:46Z | ses_e11455118ffee94wiSbYlqTBSZ | - | session.execution.started | {"sessionID":"ses_e11455118ffee94wiSbYlqTBSZ"}
+2026-11-18T13:30:48Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=python3 scripts/task.py show 56
+2026-11-18T13:30:48Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=git status
+2026-11-18T13:30:50Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=python3 scripts/task.py status 56 in-progress --as 5c1c6036
+2026-11-18T13:30:50Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:read | path=/workspace/docs/bugs/join-input-overflow-1.log
+2026-11-18T13:30:50Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=scripts/log.sh log e5057764 "v2.6 addendum (Concept 12): DESIGN 4.12.1 items 5-6 written (phone breakpoint = <720px per existing system); bug round routed as ta
+2026-11-18T13:30:52Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:grep | path=/workspace/docs/Concept.md
+2026-11-18T13:30:54Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:read | path=/workspace/docs/Concept.md
+2026-11-18T13:30:56Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=git checkout feature/5c1c6036-join-input-overflow
+2026-11-18T13:30:57Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | - | session.execution.succeeded | {"sessionID":"ses_e14f974b2ffe9BGMoWmZ1vQYsB"}
+2026-11-18T13:31:03Z | ses_e14fbbf88ffed1gB111gC1qiCO | - | session.execution.succeeded | {"sessionID":"ses_e14fbbf88ffed1gB111gC1qiCO"}
+2026-11-18T13:31:32Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=git diff HEAD~0 --stat; git log --oneline -5
+2026-11-18T13:31:32Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:glob | pattern=apps/web/src/lib/styles/*.css
+2026-11-18T13:31:32Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=node -e "const p=require('./apps/web/package.json'); console.log(JSON.stringify({dev:p.devDependencies, dep:p.dependencies}, null, 1))"
+2026-11-18T13:31:46Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:read | path=/workspace/apps/web/src/lib/styles/base.css
+2026-11-18T13:31:49Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:read | path=/workspace/apps/web/src/routes/+page.svelte
+2026-11-18T13:31:49Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:glob | pattern=apps/web/src/routes/+layout.svelte
+2026-11-18T13:31:51Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:read | path=/workspace/apps/web/src/routes/+layout.svelte
+2026-11-18T13:32:48Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:grep | path=/workspace/apps/web/src
+2026-11-18T13:32:48Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:grep | path=/workspace/apps/web/src/lib/components/join
+2026-11-18T13:33:05Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=scripts/log.sh log 5c1c6036 "task 56 started: root cause = .digit-input is an unconstrained flex item (min-width:auto) inside CodeEntry .cells flex row — it siz
+2026-11-18T13:33:05Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:edit | path=/workspace/apps/web/src/lib/components/join/CodeEntry.svelte
+2026-11-18T13:33:10Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:edit | path=/workspace/apps/web/src/lib/components/DigitInput.svelte
+2026-11-18T13:33:16Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:edit | path=/workspace/apps/web/src/lib/components/join/JoinFlow.svelte
+2026-11-18T13:33:18Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:grep | path=/workspace/apps/web/src/lib/components/join/JoinFlow.svelte
+2026-11-18T13:33:21Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:edit | path=/workspace/apps/web/src/lib/components/join/CodeEntry.svelte
+2026-11-18T13:33:24Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:edit | path=/workspace/apps/web/src/lib/components/join/CodeEntry.svelte
+2026-11-18T13:33:27Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:read | path=/workspace/apps/web/tests/join-flow.test.ts
+2026-11-18T13:33:53Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:edit | path=/workspace/apps/web/tests/join-flow.test.ts
+2026-11-18T13:33:55Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=npm run test -w @bleak/web -- tests/join-flow.test.ts tests/digit-input.test.ts tests/code-input.test.ts
+2026-11-18T13:34:02Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=make test
+2026-11-18T13:34:21Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=make lint
+2026-11-18T13:34:28Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=make build
+2026-11-18T13:35:02Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:edit | path=/workspace/apps/web/src/lib/components/join/CodeEntry.svelte
+2026-11-18T13:35:05Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=npm run test -w @bleak/web -- tests/join-flow.test.ts
+2026-11-18T13:35:11Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=make build
+2026-11-18T13:35:37Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=scripts/log.sh log 5c1c6036 "task 56 fix: root cause .digit-input was an unconstrained flex item (min-width:auto) inside CodeEntry .cells flex row — sized to ca
+2026-11-18T13:35:39Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=git checkout feature/5c1c6036-join-input-overflow && git add apps/web/src/lib/components/DigitInput.svelte apps/web/src/lib/components/join/CodeEntry.svelte app
+2026-11-18T13:35:43Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=python3 scripts/task.py status 56 ready-for-merge --as 5c1c6036 && scripts/session.sh close 5c1c6036 done "task 56 bug round: root cause = .digit-input unconstr
+2026-11-18T13:35:46Z | ses_e11455118ffee94wiSbYlqTBSZ | worker | tool:shell | command=git checkout feature/5c1c6036-join-input-overflow && git add docs/sessions/5c1c6036.md docs/logs/5c1c6036.log && git commit -m "docs(session): close 5c1c6036 ta
+2026-11-18T13:35:54Z | ses_e11455118ffee94wiSbYlqTBSZ | - | session.execution.succeeded | {"sessionID":"ses_e11455118ffee94wiSbYlqTBSZ"}
+2026-11-18T13:35:54Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | - | session.execution.started | {"sessionID":"ses_e14f974b2ffe9BGMoWmZ1vQYsB"}
+2026-11-18T13:35:57Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=git checkout dev
+2026-11-18T13:36:00Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=git merge --squash feature/5c1c6036-join-input-overflow
+2026-11-18T13:36:04Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=git add docs/logs/e5057764.log && git commit -m "merge: squash feature/5c1c6036-join-input-overflow" && python3 scripts/task.py status 56 merged --as e5057764
+2026-11-18T13:36:08Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=sh scripts/open-feature.sh tz4-27-phone-fullscreen-forms - --as e5057764 --title "tz4-27 phone (<720px): full-screen forms for enter-code/import/return/profile"
+2026-11-18T13:36:15Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=python3 scripts/task.py criteria 57 "Phone full-screen forms (Concept §12.1, DESIGN §4.12.1 item 5): on phone-sized viewports (<720px — the design system's exis
+2026-11-18T13:36:19Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=python3 scripts/task.py tests 57 "tests/join-flow.test.ts + tests/join-machine.test.ts (enter-code/import surfaces); tests/profile-page.test.ts (profile full-sc
+2026-11-18T13:36:22Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=python3 scripts/task.py constraints 57 "Layout/CSS only (the four surfaces + their tests); no behavior or copy changes; no new dependencies; no backend changes;
+2026-11-18T13:36:33Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:subagent | description=tz4-27 phone fullscreen forms
+2026-11-18T13:36:33Z | ses_e11206844ffeVA5s50ryI4un7h | worker | session.created | {"sessionID":"ses_e11206844ffeVA5s50ryI4un7h","projectID":"9dc2a2df60a184c6e78737baf17243182cfb6034","location":{"directory":"/workspace"},"subpath":"","parentI
+2026-11-18T13:36:33Z | ses_e11206844ffeVA5s50ryI4un7h | - | session.execution.started | {"sessionID":"ses_e11206844ffeVA5s50ryI4un7h"}
+2026-11-18T13:36:35Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=python3 scripts/task.py show 57
+2026-11-18T13:36:35Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=git status && git branch --show-current 2>/dev/null || true
+2026-11-18T13:36:36Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=git status
+2026-11-18T13:36:36Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=sh scripts/session.sh set 9c056c0b opencode-session ses_e11206844ffeVA5s50ryI4un7h && scripts/log.sh log e5057764 "task 56 landed (607241c) join overflow ROOT C
+2026-11-18T13:36:37Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=python3 scripts/task.py status 57 in-progress --as 9c056c0b
+2026-11-18T13:36:38Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=scripts/log.sh log 9c056c0b "task 57 started: read card, status in-progress"
+2026-11-18T13:36:40Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=git checkout feature/9c056c0b-tz4-27-phone-fullscreen-forms
+2026-11-18T13:36:41Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | - | session.execution.succeeded | {"sessionID":"ses_e14f974b2ffe9BGMoWmZ1vQYsB"}
+2026-11-18T13:36:41Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:grep | path=/workspace/docs/Concept.md
+2026-11-18T13:36:41Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:grep | path=/workspace/docs/DESIGN.md
+2026-11-18T13:36:43Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/docs/Concept.md
+2026-11-18T13:36:43Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/docs/DESIGN.md
+2026-11-18T13:36:45Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:glob | pattern=src/routes/**/+page.svelte
+2026-11-18T13:36:45Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:glob | pattern=src/lib/**/*.svelte
+2026-11-18T13:36:47Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:glob | pattern=**/*.svelte
+2026-11-18T13:36:48Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/apps/web/src/routes/+page.svelte
+2026-11-18T13:36:50Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/apps/web/src/lib/components/join/JoinFlow.svelte
+2026-11-18T13:36:52Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/apps/web/src/lib/components/join/CodeEntry.svelte
+2026-11-18T13:36:54Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/apps/web/src/lib/components/join/VaultList.svelte
+2026-11-18T13:36:55Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/apps/web/src/routes/profile/+page.svelte
+2026-11-18T13:36:57Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/apps/web/src/routes/+layout.svelte
+2026-11-18T13:36:57Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:glob | pattern=apps/web/src/**/*.css
+2026-11-18T13:36:59Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/apps/web/src/lib/styles/base.css
+2026-11-18T13:37:01Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/apps/web/src/lib/styles/tokens.css
+2026-11-18T13:37:03Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:glob | pattern=apps/web/tests/*.ts
+2026-11-18T13:37:04Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/apps/web/tests/profile-page.test.ts
+2026-11-18T13:37:07Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/apps/web/tests/join-flow.test.ts
+2026-11-18T13:38:28Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/apps/web/src/lib/components/ErrorBanner.svelte
+2026-11-18T13:38:28Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/apps/web/src/lib/components/join/NoticeCard.svelte
+2026-11-18T13:38:32Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:grep | path=/workspace/apps/web/tests/sweep.test.ts
+2026-11-18T13:38:33Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/apps/web/tests/sweep.test.ts
+2026-11-18T13:39:20Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:grep | path=/workspace/apps/web/src
+2026-11-18T13:39:20Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=sed -n '1,40p' Makefile
+2026-11-18T13:39:22Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=cat Makefile
+2026-11-18T13:39:24Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/Makefile
+2026-11-18T13:39:30Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:edit | path=/workspace/apps/web/src/lib/components/join/JoinFlow.svelte
+2026-11-18T13:39:34Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:edit | path=/workspace/apps/web/src/routes/+page.svelte
+2026-11-18T13:39:39Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:edit | path=/workspace/apps/web/src/routes/profile/+page.svelte
+2026-11-18T13:39:42Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:scripts/log.sh | command=log 9c056c0b "implemented phone full-screen media queries (max-width:719px) in routes/+page.svelte, join/JoinFlow.svelte, routes/profile/+page.svelte — card-bec
+2026-11-18T13:39:44Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=scripts/log.sh log 9c056c0b "implemented phone full-screen media queries (max-width:719px) in routes/+page.svelte, join/JoinFlow.svelte, routes/profile/+page.sv
+2026-11-18T13:40:23Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:grep | path=/workspace/apps/web/tests
+2026-11-18T13:40:26Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:read | path=/workspace/apps/web/tests/sweep.test.ts
+2026-11-18T13:40:43Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:edit | path=/workspace/apps/web/tests/join-flow.test.ts
+2026-11-18T13:40:58Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:edit | path=/workspace/apps/web/tests/profile-page.test.ts
+2026-11-18T13:41:03Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=npm run test -w @bleak/web -- tests/join-flow.test.ts tests/join-machine.test.ts tests/profile-page.test.ts tests/sweep.test.ts tests/digit-input.test.ts tests/
+2026-11-18T13:41:06Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=npm run test -w @bleak/web -- tests/join-flow.test.ts tests/join-machine.test.ts tests/profile-page.test.ts tests/sweep.test.ts tests/digit-input.test.ts tests/
+2026-11-18T13:41:14Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=make test
+2026-11-18T13:41:34Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=make lint
+2026-11-18T13:41:42Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=make build
+2026-11-18T13:42:01Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:edit | path=/workspace/apps/web/tests/join-flow.test.ts
+2026-11-18T13:42:04Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:edit | path=/workspace/apps/web/tests/profile-page.test.ts
+2026-11-18T13:42:06Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=npm run test -w @bleak/web -- tests/join-flow.test.ts tests/profile-page.test.ts
+2026-11-18T13:42:12Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=make test
+2026-11-18T13:42:31Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=make lint
+2026-11-18T13:42:38Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=make build
+2026-11-18T13:43:07Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=git checkout feature/9c056c0b-tz4-27-phone-fullscreen-forms && git status && git diff --stat
+2026-11-18T13:43:11Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=scripts/session.sh close 9c056c0b done "task 57 tz4-27 phone full-screen forms: layout/CSS-only v2.6 treatment — at <720px (media max-width:719px) the join card
+2026-11-18T13:43:14Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=scripts/log.sh log 9c056c0b "gates: targeted suites green; make test green (23+8+560); make lint clean; make build green (svelte-check 0 errors) — handing over"
+2026-11-18T13:43:17Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=git checkout feature/9c056c0b-tz4-27-phone-fullscreen-forms && git add apps/web/src/lib/components/join/JoinFlow.svelte apps/web/src/routes/+page.svelte apps/we
+2026-11-18T13:43:19Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=git commit -m "feat(tz4-27): phone (<720px) full-screen forms — join enter-code/import/return card + profile badge card become the page (Concept §12, DESIGN §4.
+2026-11-18T13:43:21Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=python3 scripts/task.py status 57 ready-for-merge --as 9c056c0b
+2026-11-18T13:43:23Z | ses_e11206844ffeVA5s50ryI4un7h | worker | tool:shell | command=git log --oneline -3 && git status
+2026-11-18T13:43:33Z | ses_e11206844ffeVA5s50ryI4un7h | - | session.execution.succeeded | {"sessionID":"ses_e11206844ffeVA5s50ryI4un7h"}
+2026-11-18T13:43:33Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | - | session.execution.started | {"sessionID":"ses_e14f974b2ffe9BGMoWmZ1vQYsB"}
+2026-11-18T13:43:37Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=git checkout dev
+2026-11-18T13:43:39Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=git merge --squash feature/9c056c0b-tz4-27-phone-fullscreen-forms
+2026-11-18T13:43:42Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=git add docs/logs/e5057764.log && git commit -m "merge: squash feature/9c056c0b-tz4-27-phone-fullscreen-forms" && python3 scripts/task.py status 57 merged --as 
+2026-11-18T13:43:46Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=sh scripts/open-feature.sh tz4-28-verify-v26 - --as e5057764 --title "tz4-28 verification sweep v2.6 (verification-only; completes the 8-12 record)"
+2026-11-18T13:43:52Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=python3 scripts/task.py criteria 58 "Verification-only sweep (TZ §8.8 rule 3; no product code, no new test files): verify BOTH items of Concept §12 on dev. (1) 
+2026-11-18T13:43:55Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=python3 scripts/task.py tests 58 "Existing suites stay green (no new test files): make test record; join-flow/digit-input/code-input/profile-page suites as evid
+2026-11-18T13:43:59Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=python3 scripts/task.py constraints 58 "Verification-only: no product-code changes; no new test files; docs/verification-v26.md + your session/log records are t
+2026-11-18T13:44:08Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:subagent | description=tz4-28 verify v2.6 sweep
+2026-11-18T13:44:08Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | session.created | {"sessionID":"ses_e1119746dffeSVtebTHBwP7iIM","projectID":"9dc2a2df60a184c6e78737baf17243182cfb6034","location":{"directory":"/workspace"},"subpath":"","parentI
+2026-11-18T13:44:09Z | ses_e1119746dffeSVtebTHBwP7iIM | - | session.execution.started | {"sessionID":"ses_e1119746dffeSVtebTHBwP7iIM"}
+2026-11-18T13:44:11Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=python3 scripts/task.py show 58
+2026-11-18T13:44:11Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git status && git branch --show-current
+2026-11-18T13:44:12Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=sh scripts/session.sh set 3111a3f0 opencode-session ses_e1119746dffeSVtebTHBwP7iIM && scripts/log.sh log e5057764 "task 57 landed (698a48b) phone full-screen fo
+2026-11-18T13:44:14Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=python3 scripts/task.py status 58 in-progress --as 3111a3f0
+2026-11-18T13:44:14Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git checkout feature/3111a3f0-tz4-28-verify-v26
+2026-11-18T13:44:16Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=scripts/log.sh 3111a3f0 "task 58 started: verification sweep v2.6; branch feature/3111a3f0-tz4-28-verify-v26 checked out; reading Concept §12, DESIGN §4.12.1, v
+2026-11-18T13:44:16Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:grep | path=/workspace/docs/Concept.md
+2026-11-18T13:44:18Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=scripts/log.sh log 3111a3f0 "task 58 started: verification sweep v2.6; branch checked out"
+2026-11-18T13:44:18Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:read | path=/workspace/docs/Concept.md
+2026-11-18T13:44:18Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | - | session.execution.succeeded | {"sessionID":"ses_e14f974b2ffe9BGMoWmZ1vQYsB"}
+2026-11-18T13:44:19Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:grep | path=/workspace/docs/DESIGN.md
+2026-11-18T13:44:19Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:read | path=/workspace/docs/verification-v25.md
+2026-11-18T13:44:21Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:read | path=/workspace/docs/verification-v25.md
+2026-11-18T13:44:21Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:read | path=/workspace/docs/DESIGN.md
+2026-11-18T13:44:27Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git log --oneline -12 dev
+2026-11-18T13:44:27Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=python3 scripts/task.py list
+2026-11-18T13:44:31Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:glob | pattern=apps/web/src/**/DigitInput.svelte
+2026-11-18T13:44:31Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:grep | path=/workspace/apps/web/src
+2026-11-18T13:44:32Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:read | path=/workspace/apps/web/src/lib/components/join/CodeEntry.svelte
+2026-11-18T13:44:33Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:read | path=/workspace/apps/web/src/lib/components/DigitInput.svelte
+2026-11-18T13:44:37Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:grep | path=/workspace/apps/web
+2026-11-18T13:44:39Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:read | path=/workspace/apps/web/tests/join-flow.test.ts
+2026-11-18T13:44:44Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:grep | path=/workspace/apps/web/src
+2026-11-18T13:44:46Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:read | path=/workspace/apps/web/src/lib/components/join/JoinFlow.svelte
+2026-11-18T13:44:46Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:read | path=/workspace/apps/web/src/routes/+page.svelte
+2026-11-18T13:44:51Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:grep | path=/workspace/apps/web/src
+2026-11-18T13:44:51Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:read | path=/workspace/apps/web/src/routes/profile/+page.svelte
+2026-11-18T13:44:54Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:grep | path=/workspace/apps/web/tests
+2026-11-18T13:44:55Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:read | path=/workspace/apps/web/tests/profile-page.test.ts
+2026-11-18T13:45:00Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git show --stat 607241c
+2026-11-18T13:45:00Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git show --stat 698a48b
+2026-11-18T13:45:04Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:glob | pattern=apps/web/tests/*{code-input,digit-input}*.test.ts
+2026-11-18T13:45:06Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=npm run test -w @bleak/web -- tests/join-flow.test.ts tests/digit-input.test.ts tests/code-input.test.ts tests/profile-page.test.ts
+2026-11-18T13:45:14Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=grep -c " it(" apps/web/tests/join-flow.test.ts apps/web/tests/digit-input.test.ts apps/web/tests/code-input.test.ts apps/web/tests/profile-page.test.ts
+2026-11-18T13:45:14Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=grep -n "space-2\|space-5" apps/web/src/lib/styles/tokens.css
+2026-11-18T13:45:16Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:grep | path=/workspace/apps/web/tests
+2026-11-18T13:45:16Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:grep | path=/workspace/apps/web/src/lib/styles/tokens.css
+2026-11-18T13:45:22Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=scripts/log.sh log 3111a3f0 "verification evidence gathered: item 1 structural fix in CodeEntry .cells (plain block, min-width:0) + DigitInput .digit-input (wid
+2026-11-18T13:45:22Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git show --stat HEAD
+2026-11-18T13:45:25Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:grep | path=/workspace/docs/verification-v24.md
+2026-11-18T13:45:26Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:read | path=/workspace/docs/verification-v24.md
+2026-11-18T13:45:29Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:grep | path=/workspace/apps/web/src/lib/chats/view.ts
+2026-11-18T13:46:27Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:write | path=/workspace/docs/verification-v26.md
+2026-11-18T13:46:30Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=scripts/log.sh log 3111a3f0 "docs/verification-v26.md written: 2/2 PASS (item 1 join overflow re-fix, item 2 phone full-screen forms), gate record with DELTA-WA
+2026-11-18T13:46:33Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git checkout feature/3111a3f0-tz4-28-verify-v26
+2026-11-18T13:46:36Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git add docs/verification-v26.md docs/logs/3111a3f0.log docs/sessions/3111a3f0.md
+2026-11-18T13:46:37Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git status
+2026-11-18T13:46:39Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git commit -m "docs: verification-v26 — §12 sweep (join overflow re-fix + phone full-screen forms verified 2/2 PASS)"
+2026-11-18T13:46:44Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=scripts/session.sh close 3111a3f0 done "Verification sweep v2.6 complete: 2/2 PASS — (1) join overflow re-fix verified (root cause + structural fix + flex-math 
+2026-11-18T13:46:46Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git checkout feature/3111a3f0-tz4-28-verify-v26
+2026-11-18T13:46:48Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git add docs/sessions/3111a3f0.md
+2026-11-18T13:46:49Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git commit -m "docs: close session 3111a3f0 (verification-v26 handover)"
+2026-11-18T13:46:52Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=python3 scripts/task.py status 58 ready-for-merge --as 3111a3f0
+2026-11-18T13:46:53Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=scripts/log.sh log 3111a3f0 "task 58 handed over: ready-for-merge; commits 00e0361 (verification doc + session/log) and 4ba7c80 (session close) on feature/3111a
+2026-11-18T13:47:03Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git checkout feature/3111a3f0-tz4-28-verify-v26
+2026-11-18T13:47:05Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git add docs/logs/3111a3f0.log
+2026-11-18T13:47:06Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git commit -m "docs: final log entries for 3111a3f0 handover"
+2026-11-18T13:47:07Z | ses_e1119746dffeSVtebTHBwP7iIM | worker | tool:shell | command=git status
+2026-11-18T13:47:18Z | ses_e1119746dffeSVtebTHBwP7iIM | - | session.execution.succeeded | {"sessionID":"ses_e1119746dffeSVtebTHBwP7iIM"}
+2026-11-18T13:47:19Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | - | session.execution.started | {"sessionID":"ses_e14f974b2ffe9BGMoWmZ1vQYsB"}
+2026-11-18T13:47:23Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=git checkout dev
+2026-11-18T13:47:25Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=git merge --squash feature/3111a3f0-tz4-28-verify-v26
+2026-11-18T13:47:28Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=git add docs/bugs/join-input-overflow-1.log docs/logs/e5057764.log && git commit -m "merge: squash feature/3111a3f0-tz4-28-verify-v26" && python3 scripts/task.p
+2026-11-18T13:47:31Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=make lint && make test && make build
+2026-11-18T13:48:17Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:grep | path=/workspace/docs/verification-v26.md
+2026-11-18T13:48:21Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:edit | path=/workspace/docs/verification-v26.md
+2026-11-18T13:48:24Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:edit | path=/workspace/docs/verification-v26.md
+2026-11-18T13:48:28Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=git add docs/verification-v26.md && git commit -m "docs: fill delta-wave CI record into verification-v26.md (process QA run 2026-11-18T13:47Z, dev b464d8d - lin
+2026-11-18T13:48:35Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=scripts/session.sh close e5057764 done "v2.2-v2.6 rounds COMPLETE (Concept 8-12): 28/28 tasks closed green (30-58). v2.2: 30-36 (verification-v22.md 12/12). v2.
+2026-11-18T13:48:38Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | process | tool:shell | command=scripts/log.sh log e5057764 "v2.2-v2.6 ROUNDS COMPLETE: 28/28 tasks closed green (30-58); final dev tip a38da57; verification-v22..v26 all recorded; session clo
+2026-11-18T13:48:49Z | ses_e14f974b2ffe9BGMoWmZ1vQYsB | - | session.execution.succeeded | {"sessionID":"ses_e14f974b2ffe9BGMoWmZ1vQYsB"}
+2026-11-18T15:35:32Z | ses_e14f6c41effeENVKLE475fCiPO | - | session.execution.started | {"sessionID":"ses_e14f6c41effeENVKLE475fCiPO"}
+2026-11-18T15:35:39Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=cd /mount/bleak-node && ADDR=0.0.0.0:8989 make run
+2026-11-18T15:35:39Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=HELPER_PORT=8787 INVITE_URL_BASE=http://localhost:4000/ npm run dev -w @bleak/helper
+2026-11-18T15:35:39Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=cd /workspace/apps/web && BLEAK_NODE_URL=http://localhost:8989 HELPER_DEV_URL=http://localhost:8787 node_modules/.bin/vite dev --port 4000
+2026-11-18T15:35:47Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=mkdir -p /workspace/data/demo && cat > /workspace/data/demo/watcher.sh <<'EOF' #!/bin/sh # Handshake watcher for Dev Chat EN (0xb9f91da8...) — PERSISTENT copy i
+2026-11-18T15:35:53Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=i=0; until curl -s -o /dev/null http://localhost:8989/api/room && curl -s http://localhost:4000/ | grep -q "<"; do i=$((i+1)); [ $i -gt 30 ] && break; sleep 1; 
+2026-11-18T15:35:57Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=scripts/log.sh log 1640ba9e "RESUMED after reboot #3 (user direction): backend :8989 + helper :8787 + web :4000 green, proxies verified, invite 845406 valid, 9 
+2026-11-18T15:36:01Z | ses_e14f6c41effeENVKLE475fCiPO | - | session.execution.succeeded | {"sessionID":"ses_e14f6c41effeENVKLE475fCiPO"}
+2026-11-18T15:42:49Z | ses_e14f6c41effeENVKLE475fCiPO | - | session.execution.started | {"sessionID":"ses_e14f6c41effeENVKLE475fCiPO"}
+2026-11-18T15:42:54Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=git status --short; echo ===; git status -sb | head -2; echo ===; git diff --stat | tail -5
+2026-11-18T15:42:58Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=git config --global --add safe.directory /workspace && git config --global --add safe.directory /mount/bleak-node && cat /root/.gitconfig
+2026-11-18T15:42:59Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=git status --short; echo ===; git status -sb | head -2
+2026-11-18T15:43:05Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=git diff --stat; echo ===; git diff docs/Concept.md | head -40
+2026-11-18T15:43:07Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=git diff docs/DESIGN.md | head -25; echo ===; git diff docs/sessions/e5057764.md
+2026-11-18T15:43:13Z | ses_e14f6c41effeENVKLE475fCiPO | devops | tool:shell | command=git checkout -b feature/1640ba9e-coordination-docs-sync && git add -A && git commit -m "docs: v2.6 addendum (Concept §12 phone full-screen forms + DESIGN 4.12.1

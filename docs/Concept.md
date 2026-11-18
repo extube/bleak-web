@@ -602,6 +602,32 @@ method; verification sweep extended to §11.
 
 ---
 
+## 12. v2.6 addendum — phone full-screen forms; join overflow re-fix — ✅ APPROVED (2026-11-18)
+
+Owner report (chat, 2026-11-18): the §11.1.4 join-input fix did not hold —
+at **phone size the join input still overflows the form**. Binding decision:
+
+1. **Phone screens → full-screen forms.** On phone-sized viewports the
+   following render as **full-screen forms** (the form fills the viewport —
+   no floating card chrome competing for width; content stays inside
+   bounds):
+   - **Enter code** (join form, with the 6-digit input — the overflow must
+     be structurally gone at every phone width);
+   - **Import profile**;
+   - **Return to event** (per §10.1.1);
+   - **Profile page** form.
+   Desktop keeps the current layout. The phone breakpoint follows the
+   design system's existing breakpoints (the process/design agent fixes
+   the exact value).
+2. The §11.1.4 overflow is treated as **not fixed** — a bug round on the
+   join flow verifies the input stays inside the form at 320px/360px/390px
+   widths (behavior tests, not just a one-off style tweak).
+
+The process routes this per its standing method (bug round + full-screen
+task, verification updated, autonomous mode, RU/EN parity, suite green).
+
+---
+
 ## Approval
 
 - [x] Topics 1–5 decided (all ✅ approved above)
@@ -624,3 +650,4 @@ method; verification sweep extended to §11.
 - [x] Owner approved **§9 v2.3 addendum** (6 refinements to in-flight §8, incl. the Deepa palette, chat 2026-11-18) → folded into the running §8 loop by the process agent.
 - [x] Owner approved **§10 v2.4 addendum** (8 refinements incl. import="return to event" redefinition, chat 2026-11-18) → folded into the running loop by the process agent.
 - [x] Owner approved **§11 v2.5 addendum** (4 refinements: leave≠delete fix, chat-list restyle, copy sweep, join-form layout, chat 2026-11-18) → folded into the running loop by the process agent.
+- [x] Owner approved **§12 v2.6 addendum** (phone full-screen forms for enter/import/return/profile; join overflow re-fixed as a bug round, chat 2026-11-18) → routed to the process agent.
