@@ -5,10 +5,11 @@
  * (hash-only bodies — raw never sent), persona editor, greeting editor
  * (question rule + regenerate), interests (no network), persona 404 — plus
  * the §8.1.3 settings relocation (the leave/rotate rows moved to
- * /profile/settings; this page renders only a nav affordance). The moved
+ * /profile/settings; this page renders a nav affordance). The moved
  * settings logic itself is covered by tests/profile-settings.test.ts. The
  * v2.2 polish (Concept §8.1.4/8.1.5 — exactly-three renamed stat tiles and
- * the rounded avatar-change button) is covered at the bottom of the file. */
+ * the rounded avatar-change button) is covered at the bottom of the file,
+ * plus the §9.1.2 settings corner button (DESIGN §4.10.2). */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
@@ -473,6 +474,50 @@ describe('settings relocation (Concept §8.1.3, DESIGN §4.9.3)', () => {
     expect(screen.getByRole('link', { name: en['profile.settings.title'] })).toBeTruthy();
     setLocale('ru');
     await tick();
+  });
+});
+
+describe('settings corner button (Concept §9.1.2, DESIGN §4.10.2)', () => {
+  it('a settings link sits in the page header top-right corner; the body-level row is absorbed', async () => {
+    const { container } = render(Page, { props: {} });
+    await waitFor(() => expect(mockedApi.getRoomUser).toHaveBeenCalled());
+    await tick();
+    await tick();
+
+    // The entry lives at the header level, above the content column.
+    const corner = container.querySelector('.header .settings-corner') as HTMLAnchorElement | null;
+    expect(corner).toBeTruthy();
+    expect(corner?.getAttribute('href')).toBe('/profile/settings');
+    expect(corner?.textContent).toContain(ru['profile.settings.title']);
+    // The body-level settings row from the relocation task is absorbed —
+    // exactly ONE settings entry point (no duplicate route/affordance).
+    expect(container.querySelector('.settings-row')).toBeNull();
+  });
+
+  it('EN parity: the corner label follows the locale', async () => {
+    await renderPage();
+    const { setLocale } = await import('../src/lib/i18n/locale');
+    const { en } = await import('../src/lib/i18n/en');
+    setLocale('en');
+    await tick();
+    await tick();
+    const corner = document.querySelector('.settings-corner') as HTMLAnchorElement | null;
+    expect(corner?.textContent).toContain(en['profile.settings.title']);
+    setLocale('ru');
+    await tick();
+  });
+
+  it('the corner button is styled like the other icon buttons — rounded square, tokens only', () => {
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/routes/profile/+page.svelte'),
+      'utf8'
+    );
+    const block = source.match(/\.settings-corner\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(block).toContain('border-radius: var(--radius-md)');
+    expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b/); // tokens only, no raw hex
+    // Header-level flex placement (top-right, above the content column).
+    const header = source.match(/\.header\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(header).toContain('justify-content: space-between');
   });
 });
 

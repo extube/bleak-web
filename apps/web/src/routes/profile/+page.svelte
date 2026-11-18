@@ -16,7 +16,10 @@
    * tick retries. Stats are fetched on mount + after mutations (§2.2 row).
    *
    * Token rotation and the leave-room exit live on the /profile/settings
-   * sub-page (Concept §8.1.3, DESIGN §4.9.3); this page links to it.
+   * sub-page (Concept §8.1.3, DESIGN §4.9.3); this page links to it via a
+   * settings button in the page header's TOP-RIGHT corner (Concept §9.1.2,
+   * DESIGN §4.10.2) — the body-level row from the relocation task is
+   * absorbed into that corner entry.
    *
    * Editors swap the badge card inline (one screen at a time).
    * Interests are the client-side mock (architecture §8.1 — no network).
@@ -311,8 +314,13 @@
 </script>
 
 <main class="profile-page">
+  <!-- Settings corner entry (Concept §9.1.2, DESIGN §4.10.2): a real link
+       (§2.6) at the header level, top-right, above the content column. -->
   <header class="header">
     <h1>{translate($locale, 'profile.title')}</h1>
+    <a class="settings-corner" href={resolve('/profile/settings')}>
+      {translate($locale, 'profile.settings.title')}
+    </a>
   </header>
 
   {#if banner}
@@ -366,11 +374,6 @@
         oneditgreeting={openGreeting}
         oneditinterests={() => (view = 'interests')}
       />
-      <!-- Settings affordance (Concept §8.1.3): the settings block lives on
-           the /profile/settings sub-page now — a real link per §2.6. -->
-      <a class="settings-row" href={resolve('/profile/settings')}>
-        <span>{translate($locale, 'profile.settings.title')}</span>
-      </a>
     {:else if view === 'persona'}
       <PersonaEditor
         {user}
@@ -414,16 +417,43 @@
     flex-direction: column;
     gap: var(--space-4);
   }
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    /* Wrapping keeps the corner entry clear of the title at phone widths. */
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
   .header h1 {
     font-size: 32px;
+  }
+  .settings-corner {
+    /* Compact labeled button in the header's top-right corner (§4.10.2):
+     * the rounded-square treatment of the other icon buttons, tokens
+     * only, full touch target. */
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-4);
+    border: 1px solid var(--color-text-disabled-strong);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text-muted);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition:
+      border-color 120ms ease-out,
+      color 120ms ease-out;
   }
   .saved-flash {
     margin: 0;
     font-size: 14px;
     color: var(--color-accent);
   }
-  .badge,
-  .settings-row {
+  .badge {
     background: var(--color-surface);
     border-radius: var(--radius-lg);
     padding: var(--space-5);
@@ -477,23 +507,9 @@
     font-size: 14px;
     transition: opacity 120ms ease-out;
   }
-  .settings-row {
-    /* Settings affordance (Concept §8.1.3): the block moved to the
-     * /profile/settings sub-page — the row is a real link (§2.6) styled
-     * like the other cards, full-width touch target. */
-    display: flex;
-    align-items: center;
-    min-height: var(--touch-target);
-    color: var(--color-text);
-    font-weight: 600;
-    font-size: 16px;
-    font-family: var(--font-body);
-    transition: opacity 120ms ease-out;
-  }
   @media (min-width: 720px) {
     /* Badge card max-width 560px centered (§3.6 responsive). */
-    .badge,
-    .settings-row {
+    .badge {
       max-width: 560px;
       width: 100%;
       align-self: center;

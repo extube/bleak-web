@@ -1,0 +1,4 @@
+2026-11-18T09:12:45Z [worker] task 38 in-progress; branch checked out
+2026-11-18T09:13:54Z [worker] implemented settings corner button in profile header (absorbed body settings-row); extended profile-page tests
+2026-11-18T09:14:43Z [worker] gates green: targeted profile-page 19/19, make test 509/509, make lint clean, make build pass; handover commit next
+2026-11-18T09:14:48Z [worker] handover commit 6c01bc9 pushed to task status ready-for-merge
