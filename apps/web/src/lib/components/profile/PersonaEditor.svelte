@@ -120,16 +120,15 @@
   input.invalid {
     border-color: var(--color-accent);
   }
-  /* Concept §9.1.1 / DESIGN §4.10.3: typeface reverted to the body face
-   * (Inter) with a muted red — the danger color mixed toward transparency,
-   * never solid; uppercase + weight keep the heading treatment. */
+  /* Concept §10.1.3 / DESIGN §4.11.3: body face (Inter) with a muted red
+   * (danger color mixed toward transparency, never solid); no uppercase,
+   * and smaller than the content below — size contrast is the hierarchy. */
   .private-bio-heading {
     margin: 0;
     font-family: var(--font-body);
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    text-transform: none;
     color: color-mix(in srgb, var(--color-danger-text) 70%, transparent);
   }
   .field-error {

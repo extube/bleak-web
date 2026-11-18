@@ -254,18 +254,17 @@
     overflow-wrap: anywhere;
     white-space: pre-wrap;
   }
-  /* Concept §9.1.1 / DESIGN §4.10.3: the private-bio heading keeps the
-   * v2.2 position (caption above the private content) but the typeface
-   * reverts to the body face (Inter) and the color becomes a MUTED red —
-   * the danger color mixed toward transparency, never solid. Size/weight
-   * + uppercase keep it a heading, distinct from the bio text below. */
+  /* Concept §10.1.3 / DESIGN §4.11.3: the private-bio heading keeps the
+   * v2.2 position (caption above the private content), the body face
+   * (Inter) and a MUTED red (danger color mixed toward transparency,
+   * never solid), but drops the uppercase and becomes SMALLER than the
+   * bio text below it — size contrast alone provides the hierarchy. */
   .private-bio-heading {
     margin: 0 0 var(--space-1);
     font-family: var(--font-body);
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    text-transform: none;
     color: color-mix(in srgb, var(--color-danger-text) 70%, transparent);
   }
   /* Concept §9.1.4 / DESIGN §4.10.4: a clear vertical gap between the

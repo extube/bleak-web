@@ -434,14 +434,15 @@ describe('avatar-change button radius (Concept §8.1.4, DESIGN §4.9.4)', () => 
   });
 });
 
-describe('private-bio heading (Concept §9.1.1, DESIGN §4.10.3)', () => {
-  it('the «only your agent sees this» heading reverts to the body face with a MUTED red, still distinct from the content below', async () => {
+describe('private-bio heading (Concept §10.1.3, DESIGN §4.11.3)', () => {
+  it('the «only your agent sees this» heading is small, sentence case, and keeps the muted red', async () => {
     await renderPage();
     const heading = document.querySelector('.private-bio-heading');
     expect(heading?.textContent).toBe(ru['profile.private_bio.caption']);
-    // The v2.3 amendment: body face (Inter — NOT the Handjet pixel font),
+    // The v2.4 amendment: body face (Inter — NOT the Handjet pixel font)
     // and a muted red derived from the danger token via color-mix (never
-    // solid); the uppercase treatment keeps the heading hierarchy.
+    // solid); the uppercase is dropped and the heading becomes SMALLER
+    // than the private content below it — size contrast is the hierarchy.
     const source = readFileSync(
       join(WEB_ROOT, 'src/lib/components/profile/ProfileBadge.svelte'),
       'utf8'
@@ -452,15 +453,24 @@ describe('private-bio heading (Concept §9.1.1, DESIGN §4.10.3)', () => {
     expect(block).toContain('color-mix(in srgb, var(--color-danger-text) 70%, transparent)');
     expect(block).not.toContain('var(--color-text-muted)');
     expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b/); // tokens only, no raw hex
-    expect(block).toContain('text-transform: uppercase');
+    // Sentence case: the transform is explicitly none, no uppercase left.
+    expect(block).toContain('text-transform: none');
+    expect(block).not.toContain('uppercase');
+    // Smaller than the private bio text (14px) below it.
+    const headingSize = Number(block.match(/font-size:\s*(\d+)px/)?.[1]);
+    const bioBlock = source.match(/\.bio-text\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    const bioSize = Number(bioBlock.match(/font-size:\s*(\d+)px/)?.[1]);
+    expect(headingSize).toBeGreaterThan(0);
+    expect(bioSize).toBeGreaterThan(0);
+    expect(headingSize).toBeLessThan(bioSize);
     // The heading sits ABOVE the private content in the badge block.
-    const bioBlock = source.match(/for_agent[\s\S]*?bio-text/)?.[0] ?? '';
-    expect(bioBlock.indexOf('private-bio-heading')).toBeLessThan(
-      bioBlock.indexOf('bio-text')
+    const orderBlock = source.match(/for_agent[\s\S]*?bio-text/)?.[0] ?? '';
+    expect(orderBlock.indexOf('private-bio-heading')).toBeLessThan(
+      orderBlock.indexOf('bio-text')
     );
   });
 
-  it('the persona editor caption carries the same reverted treatment (body face + muted red)', () => {
+  it('the persona editor caption carries the same small sentence-case treatment (body face + muted red)', () => {
     const source = readFileSync(
       join(WEB_ROOT, 'src/lib/components/profile/PersonaEditor.svelte'),
       'utf8'
@@ -470,6 +480,11 @@ describe('private-bio heading (Concept §9.1.1, DESIGN §4.10.3)', () => {
     expect(block).not.toContain('var(--font-pixel)');
     expect(block).toContain('color-mix(in srgb, var(--color-danger-text) 70%, transparent)');
     expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(block).toContain('text-transform: none');
+    expect(block).not.toContain('uppercase');
+    const headingSize = Number(block.match(/font-size:\s*(\d+)px/)?.[1]);
+    expect(headingSize).toBeGreaterThan(0);
+    expect(headingSize).toBeLessThan(14); // smaller than the 14px content size
   });
 });
 
