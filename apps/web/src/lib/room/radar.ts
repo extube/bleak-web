@@ -10,8 +10,9 @@
  *
  * §4.8.3 (owner request, Concept §7.1 item 5): no name labels on other
  * users' icons (component-level), an increased minimum distance between
- * the "you" chip and the nearest icon, nodes riding the ring spin with no
- * counter-rotation (page-level), and never-overlapping icons.
+ * the "you" chip and the nearest icon, nodes riding the ring spin (page
+ * level: upright riding + per-ring speeds, DESIGN §4.9.1/4.9.2), and
+ * never-overlapping icons.
  *
  * TZ §7.3 pin: ">14 attendees → 14 lowest" means LOWEST NUMERIC HASH VALUES
  * ascending (not lexicographic).
@@ -22,6 +23,15 @@ import type { RelationshipState } from './relationships';
 
 /** >14 attendees: only these render on the radar; the full list is /people. */
 export const MAX_RADAR_NODES = 14;
+
+/**
+ * Per-ring orbit durations in seconds (DESIGN §4.9.2, owner example): ring
+ * 1 (inner, chat) fastest, ring 2 (middle, pending handshakes) a bit
+ * slower, ring 3 (outer, none-state) very fast. Motion constants only —
+ * the placement math above is untouched; the page's orbit layers and
+ * RadarRings' ring lines read this single source.
+ */
+export const RING_ORBIT_DURATIONS_S: readonly [number, number, number] = [60, 90, 20];
 
 /**
  * Ring radii as fractions of the radar's half min-dimension (§4.8.3: the

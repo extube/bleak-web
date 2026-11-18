@@ -1961,6 +1961,42 @@ These owner change requests amend the rules above for this round:
    room-address segment (`join.import.saved_at` no longer renders
    `{room}`) — it overflowed the card contour.
 
+### 4.9 v2.2 UI-polish amendments (2026-11-18, owner-approved Concept §8)
+
+Owner change requests refining v2.1 output (all frontend-only):
+
+1. **Radar upright riding (amends §4.8.3c):** icons travel with the rings
+   but never spin on their own axis — orbit position rotates, icon
+   orientation stays upright (icon content counter-rotates inside the
+   orbit layer).
+2. **Per-ring speeds:** each ring rotates at a distinct speed per the
+   owner's example — ring 1 faster, ring 2 slightly slower, ring 3 very
+   fast (implemented as one rotating orbit layer per ring).
+3. **Settings route:** the settings block moves from the profile page to a
+   new `/profile/settings` route; the leave-room button renders as
+   **red font + red border only** (no filled background).
+4. **Avatar change button:** the circular control on the persona/avatar
+   change field becomes rounded (reduced radius, not a full circle).
+5. **Profile stats — exactly 3:** Sent (renamed from Handshakes),
+   Added you, Chatting (renamed from Dialogs); other metrics removed.
+6. **Private-bio heading:** the "only your agent sees this" caption is
+   styled distinctly from the private content below it.
+7. **Chat colors:** chats-list cards get bright §7.1.2 color-coding
+   backgrounds; in the dialog the interlocutor's bubbles keep the bright
+   background, own bubbles revert to the previous muted styling.
+8. **Dialog times:** message timestamps as hh:mm; a locale-formatted date
+   label (e.g. "8 September" / "8 сентября") sits centered at the top of
+   the chat.
+9. **Kickoff removed from the dialog view:** the "Restart the dialog"
+   button (and its confirm) leave the attendee dialog; host drill-down
+   kickoff unaffected.
+10. **Dialog header:** phase/scenario (theme) chips removed; the
+    interlocutor's public info (public bio) is shown instead.
+11. **Radar "added you" marker:** the yellow ring around such icons is
+    replaced by a small yellow dot at the icon's top-right corner.
+12. **Ring-level transitions:** icon movement between ring levels animates
+    smoothly (CSS transition on the orbit position).
+
 ## 5. Design-decision rationale (short)
 
 - **Radar ring semantics = relationship distance**, not random placement: the

@@ -1,0 +1,4 @@
+2026-11-18T07:57:44Z [worker] task 30 in-progress; reading Concept 8.1 + DESIGN 4.9 items
+2026-11-18T08:03:47Z [worker] design decided: per-node full-stage orbit units with ring-keyed durations (60/90/20s), epoch negative-delay phase-lock, stable keyed elements so CSS left/top transition covers ring moves
+2026-11-18T08:08:12Z [worker] implemented upright riding + per-ring orbit units (60/90/20s, epoch negative-delay phase-lock) + left/top transition; tests extended (6 new); make test green 480/480
+2026-11-18T08:09:46Z [worker] committed 02b4d82 on feature/40da6dc9-tz4-01-radar-motion-upright-speeds; gates: test 480/480, lint clean, build ok

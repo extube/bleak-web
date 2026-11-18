@@ -1,29 +1,40 @@
 <script lang="ts">
   /**
-   * RadarRings (DESIGN §3.2 + §4.8.3 amendment): three dashed rings —
+   * RadarRings (DESIGN §3.2 + §4.8.3 + §4.9.2): three dashed rings —
    * decorative layer only (aria-hidden, §2.6; never focusable). Radii
    * follow RING_FRACTIONS of the viewBox half (56 / 70 / 84 — scaled up
    * from 28/56/84 so the inner ring clears the enlarged "you"-chip
-   * exclusion zone, matching lib/room/radar.ts). The 90 s ambient rotation
-   * (§4.6, transform-only) starts only when data has arrived (loading
-   * state shows static rings) and is disabled under prefers-reduced-motion
-   * by the base.css rule. Token-only colors; `.pixel-corners` is never
-   * applied here (§4.5).
+   * exclusion zone, matching lib/room/radar.ts). §4.9.2: each ring rotates
+   * at its ring's distinct speed ("each ring with its items" — the ring
+   * line shares the speed of the nodes riding it, RING_ORBIT_DURATIONS_S:
+   * 60s / 90s / 20s). The ambient rotation (§4.6, transform-only) starts
+   * only when data has arrived (loading state shows static rings) and is
+   * disabled under prefers-reduced-motion by the base.css rule. Token-only
+   * colors; `.pixel-corners` is never applied here (§4.5).
    */
+  import { RING_FRACTIONS, RING_ORBIT_DURATIONS_S } from '#lib/room/radar';
+
   interface Props {
     /** Rings rotate only after the first successful poll tick. */
     animate?: boolean;
   }
 
   let { animate = false }: Props = $props();
+
+  // One spinning group per ring: radius from the shared fractions, duration
+  // from the shared per-ring speed constants (single source, radar.ts).
+  const rings = RING_FRACTIONS.map((fraction, i) => ({
+    r: fraction * 100,
+    durationS: RING_ORBIT_DURATIONS_S[i]
+  }));
 </script>
 
 <svg class="rings" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-  <g class:animate>
-    <circle cx="100" cy="100" r="56" />
-    <circle cx="100" cy="100" r="70" />
-    <circle cx="100" cy="100" r="84" />
-  </g>
+  {#each rings as ring, i (i)}
+    <g class:animate style:animation-duration="{ring.durationS}s">
+      <circle cx="100" cy="100" r={ring.r} />
+    </g>
+  {/each}
 </svg>
 
 <style>
@@ -47,6 +58,7 @@
   }
   g.animate {
     animation: spin 90s linear infinite;
+    /* Inline animation-duration (per-ring, above) overrides this fallback. */
   }
   @keyframes spin {
     from {
