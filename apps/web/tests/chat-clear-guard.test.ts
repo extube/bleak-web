@@ -2,12 +2,13 @@
  * the attendee /chats/[address] view must never expose a clear-history
  * control — attendees never clear chats. This regression guard pins the
  * page's interactive controls (button/a) to the exact allowed set per
- * state and asserts that NO control triggers or labels a history clear
- * (no clearChatHistory call through either credential context, no
- * «Очистить историю» / "Clear history" label anywhere). The HOST
- * drill-down clear (MemberDrillDown + hostApi.clearChatHistory) is
- * intentionally unaffected by the owner request — the last row proves it
- * is still present and wired. */
+ * state (the kickoff button left the dialog view — Concept §8.1.9 — so the
+ * allowed set shrank accordingly) and asserts that NO control triggers or
+ * labels a history clear (no clearChatHistory call through either
+ * credential context, no «Очистить историю» / "Clear history" label
+ * anywhere). The HOST drill-down clear (MemberDrillDown +
+ * hostApi.clearChatHistory) is intentionally unaffected by the owner
+ * request — the last row proves it is still present and wired. */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -65,19 +66,15 @@ const mockedApiRaw = vi.mocked(apiRaw, true);
 /** The exact clear strings the owner removed (ru + en; host.drill keys). */
 const CLEAR_LABELS = [ru['host.drill.clear'], en['host.drill.clear']];
 
-/** Allowed interactive-control labels per attendee state (Concept §7.1.4). */
+/** Allowed interactive-control labels per attendee state (Concept §7.1.4;
+ * the kickoff button left the dialog view — Concept §8.1.9 — so the allowed
+ * set shrank to the back control, the jump chip and the not-found link). */
 const PINS = {
-  transcript: [ru['common.back'], ru['chat.kickoff']],
-  confirmOpen: [
-    ru['common.back'],
-    ru['chat.kickoff'],
-    ru['chat.kickoff.confirm_run'],
-    ru['common.cancel']
-  ],
-  chip: [ru['common.back'], ru['chat.kickoff'], ru['chat.scroll_bottom']],
-  // The footer (kickoff + stub) renders in every state, not-found included.
-  notFound: [ru['common.back'], ru['chat.kickoff'], ru['chat.back_to_list']],
-  hostView: [ru['common.back'], ru['chat.kickoff']]
+  transcript: [ru['common.back']],
+  chip: [ru['common.back'], ru['chat.scroll_bottom']],
+  // The footer (contact stub) renders in every state, not-found included.
+  notFound: [ru['common.back'], ru['chat.back_to_list']],
+  hostView: [ru['common.back']]
 };
 
 const fixture = {
@@ -197,7 +194,6 @@ function expectExactly(allowed: string[]): void {
 describe('attendee chat clear guard (Concept §7.1.4 — no clear-history control)', () => {
   it.each([
     ['transcript view', 'transcript'],
-    ['kickoff confirm dialog open', 'confirmOpen'],
     ['not-found state', 'notFound'],
     ['host-view (room-token observer) mode', 'hostView']
   ])('%s: interactive controls are pinned to the allowed set; none triggers or labels a clear', async (_name, state) => {
@@ -217,11 +213,6 @@ describe('attendee chat clear guard (Concept §7.1.4 — no clear-history contro
       await screen.findByText(ru['chat.host_view'], undefined, { timeout: 4000 });
     } else {
       await renderPage();
-      if (state === 'confirmOpen') {
-        await screen.getByRole('button', { name: ru['chat.kickoff'] }).click();
-        await tick();
-        expect(screen.getByText(ru['chat.kickoff.confirm_title'])).toBeTruthy();
-      }
     }
 
     expectExactly(PINS[state as keyof typeof PINS]);

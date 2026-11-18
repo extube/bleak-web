@@ -2,17 +2,21 @@
  * derivation (counterpart, «+N»), stable ordering + poll diffs (reference
  * identity preserved on identical snapshots), transcript alignment, speaker
  * resolution with raw-address fallback, accessible bubble names (60 chars),
- * bottom-stickiness for auto-scroll, and the back-target rule (§1.3). */
+ * bottom-stickiness for auto-scroll, the back-target rule (§1.3), and the
+ * v2.2 Intl time/date formatters (Concept §8.1.8 — the kickoff speaker
+ * wording is retired). */
 import { describe, expect, it } from 'vitest';
 import type { Chat, Message, User } from '@bleak/api-client';
 import {
   backTarget,
   bubbleAriaLabel,
+  chatDateLabel,
   describeChat,
   isMyMessage,
   isNearBottom,
   mergeChats,
   mergeMessages,
+  messageTime,
   speakerName,
   stableChats
 } from '../src/lib/chats/view';
@@ -173,5 +177,31 @@ describe('backTarget (§1.3: history back → fallback /chats)', () => {
 
   it('no meaningful history → /chats', () => {
     expect(backTarget(1)).toBe('list');
+  });
+});
+
+describe('messageTime + chatDateLabel (Concept §8.1.8, DESIGN §4.9.8)', () => {
+  it('message time is absolute 24-hour hh:mm via Intl with the active locale', () => {
+    const at = new Date(2026, 8, 8, 14, 5).toISOString();
+    expect(messageTime(at, 'ru')).toMatch(/^\d{2}:\d{2}$/);
+    expect(messageTime(at, 'en')).toMatch(/^\d{2}:\d{2}$/);
+    const morning = new Date(2026, 8, 8, 9, 30).toISOString();
+    expect(messageTime(morning, 'ru')).toMatch(/^09:30$/);
+    // Not the retired relative wording.
+    expect(messageTime(at, 'ru')).not.toContain('мин');
+  });
+
+  it('date label is a locale day+month label (day-first: «8 сентября» / "8 September")', () => {
+    const at = new Date(2026, 8, 8, 14, 5).toISOString();
+    // en-GB is day-first with the long month name ("8 September").
+    expect(chatDateLabel(at, 'en')).toBe('8 September');
+    // The RU glyphs follow the runtime ICU data (full in browsers; some
+    // Node builds restrict locales and fall back), so the helper is pinned
+    // to the same Intl formatter it uses with the active-locale tag.
+    const expected = new Intl.DateTimeFormat('ru-RU', {
+      day: 'numeric',
+      month: 'long'
+    }).format(new Date(at));
+    expect(chatDateLabel(at, 'ru')).toBe(expected);
   });
 });

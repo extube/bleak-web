@@ -431,6 +431,29 @@ describe('avatar-change button radius (Concept §8.1.4, DESIGN §4.9.4)', () => 
   });
 });
 
+describe('private-bio heading (Concept §8.1.6, DESIGN §4.9.6)', () => {
+  it('the «only your agent sees this» heading is styled DISTINCTLY from the private content below it', async () => {
+    await renderPage();
+    const heading = document.querySelector('.private-bio-heading');
+    expect(heading?.textContent).toBe(ru['profile.private_bio.caption']);
+    // Distinct hierarchy: pixel font like the section titles, uppercase,
+    // muted — vs the 14px Inter bio text below it.
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/lib/components/profile/ProfileBadge.svelte'),
+      'utf8'
+    );
+    const block = source.match(/\.private-bio-heading\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(block).toContain('font-family: var(--font-pixel)');
+    expect(block).toContain('text-transform: uppercase');
+    expect(block).toContain('var(--color-text-muted)');
+    // The heading sits ABOVE the private content in the badge block.
+    const bioBlock = source.match(/for_agent[\s\S]*?bio-text/)?.[0] ?? '';
+    expect(bioBlock.indexOf('private-bio-heading')).toBeLessThan(
+      bioBlock.indexOf('bio-text')
+    );
+  });
+});
+
 describe('settings relocation (Concept §8.1.3, DESIGN §4.9.3)', () => {
   it('the leave/rotate rows are GONE from /profile; a settings nav link renders instead (RU + EN)', async () => {
     const { setLocale } = await import('../src/lib/i18n/locale');

@@ -63,8 +63,10 @@
   </div>
   <div class="field">
     <label for="persona-edit-private">{translate($locale, 'join.form.private_bio')}</label>
+    <!-- Concept §8.1.6: the «only your agent sees this» heading is styled
+         DISTINCTLY from the private content (pixel font, uppercase, muted). -->
+    <p class="private-bio-heading">{translate($locale, 'profile.private_bio.caption')}</p>
     <input id="persona-edit-private" type="text" maxlength={255} bind:value={privateBio} />
-    <p class="caption">{translate($locale, 'profile.private_bio.caption')}</p>
   </div>
 
   {#if errorMessage}
@@ -117,9 +119,13 @@
   input.invalid {
     border-color: var(--color-accent);
   }
-  .caption {
+  .private-bio-heading {
     margin: 0;
+    font-family: var(--font-pixel);
     font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
     color: var(--color-text-muted);
   }
   .field-error {

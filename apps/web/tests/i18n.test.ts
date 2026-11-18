@@ -137,9 +137,10 @@ const DESIGN_4_7_KEYS: string[] = [
   'people.filter.sent', 'people.filter.added', 'people.filter.chatting',
   // chats
   'chats.empty', 'chats.find_people',
-  // chat transcript
-  'chat.warming_up', 'chat.kickoff', 'chat.kickoff.confirm_body',
-  'chat.kickoff.speaker', 'chat.contact_stub', 'chat.not_found',
+  // chat transcript — the kickoff button left the dialog view (Concept
+  // §8.1.9): 'chat.kickoff' and 'chat.kickoff.speaker' are retired; the
+  // confirm copy stays (host drill-down kickoff uses it).
+  'chat.warming_up', 'chat.kickoff.confirm_body', 'chat.contact_stub', 'chat.not_found',
   // profile
   'profile.greeting.rule', 'profile.greeting.no_questions',
   'profile.private_bio.caption', 'profile.qr.caption', 'profile.leave',
@@ -182,7 +183,7 @@ describe('DESIGN §4.7 copy table coverage', () => {
       expect((ru as Record<string, string>)[key]?.trim().length).toBeGreaterThan(0);
       expect((en as Record<string, string>)[key]?.trim().length).toBeGreaterThan(0);
     }
-    expect(DESIGN_4_7_KEYS).toHaveLength(101);
+    expect(DESIGN_4_7_KEYS).toHaveLength(99);
   });
 
   it('the retired v1 key host.token.label is gone (renamed to host.gate.label)', () => {
@@ -240,15 +241,33 @@ describe('v2.1 UI-polish round keys (DESIGN §4.8)', () => {
   });
 });
 
+describe('v2.2 UI-polish round keys (DESIGN §4.9)', () => {
+  it('kickoff button/speaker keys are retired from BOTH dictionaries; the confirm copy stays (Concept §8.1.9)', () => {
+    expect(ru).not.toHaveProperty('chat.kickoff');
+    expect(en).not.toHaveProperty('chat.kickoff');
+    expect(ru).not.toHaveProperty('chat.kickoff.speaker');
+    expect(en).not.toHaveProperty('chat.kickoff.speaker');
+    expect(ru['chat.kickoff.confirm_title']).toBeTruthy();
+    expect(en['chat.kickoff.confirm_title']).toBeTruthy();
+    expect(ru['chat.kickoff.confirm_run']).toBeTruthy();
+    expect(en['chat.kickoff.confirm_run']).toBeTruthy();
+  });
+
+  it('the private-bio caption key is present in both dictionaries (Concept §8.1.6)', () => {
+    expect(ru['profile.private_bio.caption']).toBe('видно только вашему агенту');
+    expect(en['profile.private_bio.caption']).toBe('only your agent sees this');
+  });
+});
+
 describe('placeholder interpolation', () => {
   it('interpolates {n} / {q} / {name} params in both languages', () => {
     expect(translate('ru', 'room.around', { n: '12' })).toBe('12 вокруг вас');
     expect(translate('en', 'room.around', { n: '12' })).toBe('12 around you');
-    expect(translate('ru', 'chat.kickoff.speaker', { name: 'Алиса' })).toBe(
-      'Первым говорит Алиса'
+    expect(translate('ru', 'chat.new_message', { name: 'Алиса' })).toBe(
+      'Новое сообщение от Алиса'
     );
-    expect(translate('en', 'chat.kickoff.speaker', { name: 'Alice' })).toBe(
-      'Alice speaks first'
+    expect(translate('en', 'chat.new_message', { name: 'Alice' })).toBe(
+      'New message from Alice'
     );
     expect(translate('ru', 'people.empty_search', { q: 'Ива' })).toBe(
       'Никого не найдено по «Ива»'

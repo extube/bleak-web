@@ -1,11 +1,12 @@
 /** /chats/[address] transcript page tests — LEAN suite (2026-11-17 slimming
  * pass, owner directive): one block per distinct behavior, micro/scroll
  * asserts removed (recorded in docs/verification-v2.md). Covers: oldest-first
- * render + header chips, 2 s live poll, network banner + recovery, poller
- * teardown, kickoff confirm (cancel + confirm + clear + speaker note),
- * warming row, kickoff failure, 404 state, contact stub, the permanent
- * NO-COMPOSER check (owner ruling 4), and the viewer fallback (room-token
- * retry, host-401 gate replication, host-view kickoff, no-token 401). */
+ * render + header (public bio replaces theme chips), 2 s live poll, network
+ * banner + recovery, poller teardown, warming row, 404 state, contact stub,
+ * the permanent NO-COMPOSER check (owner ruling 4; the kickoff button left
+ * the dialog view — Concept §8.1.9), the v2.2 polish (hh:mm times, date
+ * label, no kickoff, public info header), and the viewer fallback
+ * (room-token retry, host-401 gate replication, no-token 401). */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -27,16 +28,14 @@ vi.mock('$app/paths', () => ({
 
 const apiRawMock = vi.hoisted(() => ({
   getChat: vi.fn(),
-  listChatMessages: vi.fn(),
-  kickoffChat: vi.fn()
+  listChatMessages: vi.fn()
 }));
 
 vi.mock('#lib/api/client', () => ({
   api: {
     getChat: vi.fn(),
     listChatMessages: vi.fn(),
-    listRoomUsers: vi.fn(),
-    kickoffChat: vi.fn()
+    listRoomUsers: vi.fn()
   },
   apiRaw: apiRawMock,
   HOST_RESET_KEY: 'bleak.hostReset'
@@ -49,6 +48,7 @@ import { identity } from '#lib/stores/identity';
 import { codeHue } from '../src/lib/avatar/traits';
 import Page from '../src/routes/chats/[address]/+page.svelte';
 import { ru } from '../src/lib/i18n/ru';
+import { en } from '../src/lib/i18n/en';
 
 const ME = '0xme';
 const ROOM = '0xroom';
@@ -124,10 +124,8 @@ beforeEach(() => {
   mockedApi.getChat.mockImplementation(async () => structuredClone(fixture.chat ?? baseChat()));
   mockedApi.listRoomUsers.mockImplementation(async () => structuredClone(fixture.users));
   mockedApi.listChatMessages.mockImplementation(async () => structuredClone(fixture.messages));
-  mockedApi.kickoffChat.mockResolvedValue({ chat: CHAT, cleared: 2, speaker: '0xa' });
   mockedApiRaw.getChat.mockImplementation(async () => structuredClone(fixture.chat ?? baseChat()));
   mockedApiRaw.listChatMessages.mockImplementation(async () => structuredClone(fixture.messages));
-  mockedApiRaw.kickoffChat.mockResolvedValue({ chat: CHAT, cleared: 2, speaker: '0xa' });
 });
 
 afterEach(() => {
@@ -150,7 +148,11 @@ function withMessages(...messages: Message[]): void {
 }
 
 describe('transcript rendering + live updates (§3.5 AC 1–4, 9, 12)', () => {
-  it('renders oldest-first with mine/theirs alignment, speakers and header chips', async () => {
+  it('renders oldest-first with mine/theirs alignment, speakers and the public-info header', async () => {
+    fixture.users = [
+      person(ME, 'Я'),
+      { ...person('0xa', 'Алиса'), public_bio: 'Работаю с глиной' }
+    ];
     withMessages(
       message('tx1', '0xa', 'Привет, я твой новый контакт.', 120),
       message('tx2', ME, 'Привет! Чем занимаешься?', 60),
@@ -165,12 +167,11 @@ describe('transcript rendering + live updates (§3.5 AC 1–4, 9, 12)', () => {
     expect(rows[0]?.classList.contains('mine')).toBe(false);
     expect(rows[1]?.classList.contains('mine')).toBe(true);
     expect(rows[0]?.textContent).toContain('Алиса');
-    expect(rows[0]?.textContent).toContain('2 мин');
-    // header: counterpart name + verbatim phase/scenario/language chips
+    // header: counterpart name + the public info in place of theme chips
     expect(document.querySelector('h1')?.textContent).toBe('Алиса');
-    expect(screen.getByText('networking')).toBeTruthy();
-    expect(screen.getByText('ai-future')).toBeTruthy();
-    expect(screen.getByText('ru')).toBeTruthy();
+    expect(screen.getByText('Работаю с глиной')).toBeTruthy();
+    expect(screen.queryByText('networking')).toBeNull();
+    expect(screen.queryByText('ai-future')).toBeNull();
     // §4.8.1 color coding: each bubble carries its speaker's code hue.
     const bubbles = document.querySelectorAll('.bubble');
     expect(bubbles[0]?.classList.contains(`code-${codeHue('0xa')}`)).toBe(true);
@@ -224,53 +225,61 @@ describe('transcript rendering + live updates (§3.5 AC 1–4, 9, 12)', () => {
   });
 });
 
-describe('kickoff flow (§3.5 AC 5, 6)', () => {
-  beforeEach(() => {
-    withMessages(message('tx1', '0xa', 'Раз.', 200), message('tx2', ME, 'Два.', 100));
-    mockedApi.kickoffChat.mockImplementation(async () => {
-      fixture.messages = [];
-      return { chat: CHAT, cleared: 2, speaker: '0xa' };
-    });
+describe('v2.2 dialog polish (Concept §8.1.8/9/10, DESIGN §4.9.8/9/10)', () => {
+  it('message times render as absolute 24-hour hh:mm (active locale), not relative', async () => {
+    withMessages(message('tx1', '0xa', 'Первое сообщение.', 60));
+    await renderPage();
+    const time = document.querySelector('.time')?.textContent ?? '';
+    expect(time).toMatch(/^\d{2}:\d{2}$/);
+    expect(time).not.toContain('мин');
+    const expected = new Intl.DateTimeFormat('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23'
+    }).format(new Date(fixture.messages[0]?.created_at ?? ''));
+    expect(time).toBe(expected);
   });
 
-  it('cancel closes without effects; confirm POSTs kickoff, clears the transcript, shows the speaker note and the warming row until the next message', async () => {
+  it('a locale day+month date label sits centered above the first message; none while warming up', async () => {
     await renderPage();
-    await screen.getByRole('button', { name: ru['chat.kickoff'] }).click();
-    await tick();
-    expect(screen.getByText(ru['chat.kickoff.confirm_title'])).toBeTruthy();
-    await screen.getByRole('button', { name: ru['common.cancel'] }).click();
-    await tick();
-    expect(mockedApi.kickoffChat).not.toHaveBeenCalled();
-    expect(screen.getByText('Раз.')).toBeTruthy(); // transcript untouched
+    expect(document.querySelector('.date-label')).toBeNull();
 
-    // Confirm path.
-    await screen.getByRole('button', { name: ru['chat.kickoff'] }).click();
-    await tick();
-    await screen.getByRole('button', { name: ru['chat.kickoff.confirm_run'] }).click();
-    await waitFor(() => expect(mockedApi.kickoffChat).toHaveBeenCalledWith(CHAT));
-    await waitFor(() =>
-      expect(
-        screen.getByText(ru['chat.kickoff.speaker'].replace('{name}', 'Алиса'))
-      ).toBeTruthy()
-    );
-    await screen.findByText(ru['chat.warming_up'], undefined, { timeout: 4000 });
-
-    // The first polled message clears the warming row.
-    withMessages(message('tx9', '0xa', 'Начнём заново.', 2));
-    await screen.findByText('Начнём заново.', undefined, { timeout: 4000 });
-    expect(screen.queryByText(ru['chat.warming_up'])).toBeNull();
+    withMessages(message('tx1', '0xa', 'Первое сообщение.', 60));
+    await screen.findByText('Первое сообщение.', undefined, { timeout: 4000 });
+    const label = document.querySelector('.date-label');
+    expect(label).toBeTruthy();
+    const expected = new Intl.DateTimeFormat('ru-RU', {
+      day: 'numeric',
+      month: 'long'
+    }).format(new Date(fixture.messages[0]?.created_at ?? ''));
+    expect(label?.textContent).toBe(expected);
   });
 
-  it('kickoff failure surfaces the error and keeps the transcript', async () => {
-    mockedApi.kickoffChat.mockRejectedValue(
-      new NetworkError(`/api/chat/${CHAT}/kickoff`, new Error('offline'))
-    );
+  it('the kickoff button and its confirm are GONE from the dialog view (§8.1.9)', async () => {
+    withMessages(message('tx1', '0xa', 'Привет.', 60));
     await renderPage();
-    await screen.getByRole('button', { name: ru['chat.kickoff'] }).click();
-    await screen.getByRole('button', { name: ru['chat.kickoff.confirm_run'] }).click();
+    expect(document.querySelector('.kickoff')).toBeNull();
+    expect(screen.queryByText(ru['chat.kickoff.confirm_title'] ?? '')).toBeNull();
+    // The retired keys are gone from BOTH dictionaries (RU/EN parity kept).
+    expect(ru).not.toHaveProperty('chat.kickoff');
+    expect(ru).not.toHaveProperty('chat.kickoff.speaker');
+    expect(en).not.toHaveProperty('chat.kickoff');
+    expect(en).not.toHaveProperty('chat.kickoff.speaker');
+  });
 
-    await screen.findByText(ru['common.error.network'], undefined, { timeout: 4000 });
-    expect(screen.getByText('Раз.')).toBeTruthy();
+  it('the header shows the counterpart public bio when present and nothing extra when absent', async () => {
+    withMessages(message('tx1', '0xa', 'Привет.', 60));
+    // No public bio (fixture default) → no extra header line.
+    await renderPage();
+    expect(document.querySelector('.public-bio')).toBeNull();
+
+    cleanup();
+    fixture.users = [person(ME, 'Я'), { ...person('0xa', 'Алиса'), public_bio: 'Глинодел' }];
+    render(Page, { props: {} });
+    await screen.findByText('Привет.', undefined, { timeout: 4000 });
+    await tick();
+    const bio = document.querySelector('.public-bio');
+    expect(bio?.textContent).toBe('Глинодел');
   });
 });
 
@@ -295,7 +304,7 @@ describe('states: 404, contact stub (§3.5 AC 7, 8)', () => {
 });
 
 describe('NO-COMPOSER (owner ruling 4, permanent — §3.5 AC 13)', () => {
-  it('the transcript UI contains no input/textarea/send control; only back, kickoff (+confirm), contact stub', async () => {
+  it('the transcript UI contains no input/textarea/send control; only the back control (kickoff left, §8.1.9)', async () => {
     withMessages(message('tx1', '0xa', 'Привет.', 60));
     await renderPage();
 
@@ -310,8 +319,7 @@ describe('NO-COMPOSER (owner ruling 4, permanent — §3.5 AC 13)', () => {
         button.textContent?.trim() || button.getAttribute('aria-label') || ''
     );
     expect(labels).toContain(ru['common.back']);
-    expect(labels).toContain(ru['chat.kickoff']);
-    expect(buttons).toHaveLength(2);
+    expect(buttons).toHaveLength(1);
     // POST /api/message is not wired: the api mock exposes no sendMessage usage
     expect(mockedApi).not.toHaveProperty('sendMessage');
   });
@@ -379,31 +387,6 @@ describe('transcript viewer fallback (§3.5 AC 14, ARCHITECTURE §10.3)', () => 
       userAddress: ME
     });
     expect(goto).not.toHaveBeenCalled();
-  });
-
-  it('kickoff in host-view mode goes through the room token', async () => {
-    storeHostSession();
-    withMessages(message('tx1', '0xa', 'Раз.', 200), message('tx2', ME, 'Два.', 100));
-    mockedApi.getChat.mockRejectedValue(
-      new ApiError(403, `/api/chat/${CHAT}`, 'not a participant')
-    );
-    mockedApi.listChatMessages.mockRejectedValue(
-      new ApiError(403, `/api/chat/${CHAT}/message`, 'not a participant')
-    );
-    mockedApiRaw.kickoffChat.mockImplementation(async () => {
-      fixture.messages = [];
-      return { chat: CHAT, cleared: 2, speaker: '0xa' };
-    });
-
-    await renderPage();
-    await screen.findByText(ru['chat.host_view']);
-    await screen.getByRole('button', { name: ru['chat.kickoff'] }).click();
-    await screen.getByRole('button', { name: ru['chat.kickoff.confirm_run'] }).click();
-
-    await waitFor(() =>
-      expect(mockedApiRaw.kickoffChat).toHaveBeenCalledWith(CHAT, { token: 'r-tok' })
-    );
-    expect(mockedApi.kickoffChat).not.toHaveBeenCalled();
   });
 
   it('without a stored room token a 401 renders NO transcript error UI (the §2.8 global gate owns it — AC 15)', async () => {

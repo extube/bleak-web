@@ -99,8 +99,11 @@
     </div>
     <div class="bio">
       <h3 class="bio-label">{translate($locale, 'profile.badge.for_agent')}</h3>
+      <!-- Concept §8.1.6: the «only your agent sees this» heading is styled
+           DISTINCTLY from the private content below it (pixel font, uppercase
+           letter case, muted). -->
+      <p class="private-bio-heading">{translate($locale, 'profile.private_bio.caption')}</p>
       <p class="bio-text">{user.private_bio === '' ? '—' : user.private_bio}</p>
-      <p class="caption">{translate($locale, 'profile.private_bio.caption')}</p>
     </div>
   </section>
 
@@ -249,6 +252,18 @@
     color: var(--color-text-muted);
     overflow-wrap: anywhere;
     white-space: pre-wrap;
+  }
+  /* Concept §8.1.6 / DESIGN §4.9.6: the private-bio heading is visually
+   * distinct from the private content below it — Handjet pixel font like
+   * the section titles, uppercase, muted (vs the 14px Inter bio text). */
+  .private-bio-heading {
+    margin: 0 0 var(--space-1);
+    font-family: var(--font-pixel);
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-text-muted);
   }
   .row-head {
     display: flex;

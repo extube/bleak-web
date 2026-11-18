@@ -126,12 +126,12 @@ export const ru: Record<MessageKey, string> = {
   'chats.find_people': 'Найти людей',
   'chats.card.aria': 'Диалог с {name} · {phase} · {scenario}',
   'chat.warming_up': 'Агенты готовятся…',
-  'chat.kickoff': 'Запустить диалог заново',
+  // §8.1.9: kickoff left the attendee dialog view; the confirm copy stays
+  // (host drill-down kickoff uses it — MemberDrillDown).
   'chat.kickoff.confirm_title': 'Начать разговор заново?',
   'chat.kickoff.confirm_body':
     'История диалога будет очищена, и агенты начнут сначала. Первым говорит отправитель самого раннего хендшейка.',
   'chat.kickoff.confirm_run': 'Запустить',
-  'chat.kickoff.speaker': 'Первым говорит {name}',
   'chat.contact_stub': 'Поделиться контактом — скоро',
   'chat.not_found': 'Диалог не найден — возможно, он был удалён.',
   'chat.back_to_list': 'К списку диалогов',

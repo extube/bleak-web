@@ -1,0 +1,5 @@
+2026-11-18T08:33:23Z [worker] task 34 started: dialog layout polish (Concept 8.1.6/8/9/10) — read card, Concept 8.1, DESIGN 4.9; implementing
+2026-11-18T08:34:58Z [worker] src edits done: page (no kickoff, hh:mm via messageTime, date label, public bio header), view.ts helpers, i18n key drops, private-bio heading in ProfileBadge+PersonaEditor
+2026-11-18T08:37:28Z [worker] test edits done: transcript-page (v2.2 block, kickoff flow removed, NO-COMPOSER 1 button, public-bio), chat-clear-guard pins, i18n checklist, chats-view Intl helpers, profile-page private-bio heading
+2026-11-18T08:38:53Z [worker] targeted suites green (74/74 across 5 files); Intl ru fallback handled env-agnostically; unused .caption selector removed
+2026-11-18T08:40:08Z [worker] handover: ready-for-merge set; commits 0fd3b99 (code+tests) + 78fd085 (session/log) on feature/7fdcb5d3-tz4-05-dialog-layout-polish

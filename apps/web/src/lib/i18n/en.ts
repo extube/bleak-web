@@ -125,12 +125,12 @@ export const en = {
   'chats.find_people': 'Find people',
   'chats.card.aria': 'Dialog with {name} · {phase} · {scenario}',
   'chat.warming_up': 'The agents are warming up…',
-  'chat.kickoff': 'Restart the dialog',
+  // §8.1.9: kickoff left the attendee dialog view; the confirm copy stays
+  // (host drill-down kickoff uses it — MemberDrillDown).
   'chat.kickoff.confirm_title': 'Start the conversation over?',
   'chat.kickoff.confirm_body':
     'The dialog history will be cleared and the agents will start over. The sender of the earliest handshake speaks first.',
   'chat.kickoff.confirm_run': 'Restart',
-  'chat.kickoff.speaker': '{name} speaks first',
   'chat.contact_stub': 'Share contact — coming later',
   'chat.not_found': 'Dialog not found — it may have been deleted.',
   'chat.back_to_list': 'Back to dialogs',
