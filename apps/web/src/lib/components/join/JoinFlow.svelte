@@ -342,6 +342,8 @@
   }
   .gone-card h2 {
     font-size: 28px;
+    /* Room names are user data — a long unbroken word must not overflow. */
+    overflow-wrap: anywhere;
   }
   .vh {
     position: absolute;

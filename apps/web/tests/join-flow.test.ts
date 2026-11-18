@@ -441,16 +441,24 @@ describe('JoinFlow — scanner mount (context *a*, QrScanner public API)', () =>
 
 });
 
-describe('JoinFlow — digit-row layout inside the card (Concept §11.1.4, DESIGN §4.12.4)', () => {
+describe('JoinFlow — digit-row layout inside the card at 320/360/390 (Concept §12.2, DESIGN §4.12.1 item 6)', () => {
   /**
    * happy-dom runs no layout engine (component CSS is not applied — the
-   * same limitation the radar orbit tests document), so the narrow-width
-   * overflow regression check pins the CSS contract against the component
-   * sources, plus the numeric diagnosis: the old FIXED row (6×56px cells
-   * + 5×var(--space-2) gaps = 376px) could not fit the card's content box
-   * (viewport − 2×--space-5 join padding − 2×--space-5 card padding =
-   * 224px at the narrowest supported 320px viewport), overflowing any
-   * viewport under 376 + 96 = 472px.
+   * same limitation the radar orbit tests document), so the width
+   * regression is verified BEHAVIORALLY as the flex layout math the
+   * browser runs, over every required phone width (320/360/390), driven
+   * by the real tokens and the real DOM structure (render JoinFlow, count
+   * the row's cells).
+   *
+   * Root cause of the re-fix (task 56): the task-53 cell flexibility
+   * (flex 1 1 0 / min-width 0 / max-width 56px) never ENGAGED —
+   * `.digit-input` sat inside CodeEntry's `.cells` flex row as an
+   * unconstrained flex item (min-width: auto): it sized to its capped
+   * content (6×56px + 5×gap = 376px) and never shrank, so the row
+   * overflowed the card's content box at ALL THREE widths (224/264/294px
+   * at 320/360/390). Fix: `.cells` is a plain block and `.digit-input` is
+   * width-constrained (width: 100%; min-width: 0) — the row tracks the
+   * content box and the cells then grow/shrink inside it.
    */
   const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
     ? process.cwd()
@@ -466,30 +474,79 @@ describe('JoinFlow — digit-row layout inside the card (Concept §11.1.4, DESIG
     return Number(match[1]);
   }
 
-  it('diagnosis: the fixed 376px row exceeded the 224px content box at ~320px', () => {
-    const gap = token('space-2');
-    const padding = token('space-5');
-    const fixedRow = 6 * 56 + 5 * gap; // the pre-fix cell width ×6 + gaps
-    expect(fixedRow).toBe(376);
-    const content320 = 320 - 2 * padding - 2 * padding;
-    expect(content320).toBe(224);
-    expect(fixedRow).toBeGreaterThan(content320);
+  const GAP = token('space-2'); // cell gap (var(--space-2))
+  const PADDING = token('space-5'); // join container AND card padding
+  const CELL_CAP = 56; // the design cell size (max-width)
+  /** Card content box at viewport W: join side padding ×2 + card padding ×2. */
+  function contentBox(viewport: number): number {
+    return viewport - 2 * PADDING - 2 * PADDING;
+  }
+  /**
+   * The browser's flex algorithm for this row: container = content box,
+   * items flex-basis 0 / grow 1 / max-width 56, gap between items. Under
+   * the width-constrained row the cells grow to fill the box, clamped at
+   * the cap; the row is the items + gaps. Returns { cell, row }.
+   */
+  function flexRow(viewport: number): { cell: number; row: number } {
+    const box = contentBox(viewport);
+    const free = box - 5 * GAP; // space after the fixed gaps
+    const cell = Math.min(CELL_CAP, free / 6); // grow: free / 6 each, capped
+    return { cell, row: 6 * cell + 5 * GAP };
+  }
+
+  it('diagnosis: the 376px content-locked row overflowed ALL THREE required widths', () => {
+    const locked = 6 * CELL_CAP + 5 * GAP;
+    expect(locked).toBe(376);
+    for (const viewport of [320, 360, 390]) {
+      expect(locked).toBeGreaterThan(contentBox(viewport));
+    }
+    expect(contentBox(320)).toBe(224);
+    expect(contentBox(360)).toBe(264);
+    expect(contentBox(390)).toBe(294);
   });
 
-  it('the digit row stays inside the card at ~320px and does not regress larger widths', () => {
-    const css = source('src/lib/components/DigitInput.svelte');
-    // No fixed cell width — nothing can force the row past the content box
-    // (max-/min-width on the flexible sizing are fine; lookbehind skips them).
-    expect(css).not.toMatch(/(?<![-\w])width:\s*56px/);
-    // Flexible cells: equal flex-grow/shrink, no minimum content width.
-    expect(css).toMatch(/input\s*\{[^}]*flex:\s*1 1 0/);
-    expect(css).toMatch(/input\s*\{[^}]*min-width:\s*0/);
-    // …capped at the 56px design size, so wide viewports are unchanged.
-    expect(css).toMatch(/input\s*\{[^}]*max-width:\s*56px/);
-    // Touch-target height preserved (56px ≥ --touch-target 48px).
-    expect(css).toMatch(/input\s*\{[^}]*height:\s*56px/);
-    // Gap and paddings stay on the spacing tokens (token discipline).
-    expect(css).toMatch(/gap:\s*var\(--space-2\)/);
-    expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  it('behavior: the row fits the card content box at 320px, 360px AND 390px', () => {
+    for (const viewport of [320, 360, 390]) {
+      const { cell, row } = flexRow(viewport);
+      const box = contentBox(viewport);
+      expect(row, `viewport ${viewport}px`).toBeLessThanOrEqual(box);
+      // Exactly fits — the row tracks the content box (no dead side gaps
+      // that could hide a lock), cells stay a usable digit target.
+      expect(row, `viewport ${viewport}px`).toBe(box);
+      expect(cell, `viewport ${viewport}px`).toBeGreaterThanOrEqual(24);
+      expect(cell, `viewport ${viewport}px`).toBeLessThanOrEqual(CELL_CAP);
+    }
+    // Wide screens unchanged: the cells cap at the 56px design size.
+    expect(flexRow(720).cell).toBe(CELL_CAP);
+  });
+
+  it('structure: the rendered JoinFlow row is the 6-cell flex row the math applies to', () => {
+    render(JoinFlow, { props: {} });
+    const group = screen.getByRole('group', { name: ru['join.code.label'] });
+    expect(group.className).toMatch(/digit-input/);
+    expect(group.querySelectorAll('input')).toHaveLength(6);
+  });
+
+  it('CSS contract: the row is width-constrained and NOT nested in a flex container', () => {
+    // The re-fix: .digit-input tracks the content box (no min-content lock).
+    const digitCss = source('src/lib/components/DigitInput.svelte');
+    expect(digitCss).toMatch(/\.digit-input\s*\{[^}]*width:\s*100%/);
+    expect(digitCss).toMatch(/\.digit-input\s*\{[^}]*min-width:\s*0/);
+    // Cells: flexible, capped, height (touch target) preserved, token gap.
+    expect(digitCss).not.toMatch(/(?<![-\w])width:\s*56px/);
+    expect(digitCss).toMatch(/input\s*\{[^}]*flex:\s*1 1 0/);
+    expect(digitCss).toMatch(/input\s*\{[^}]*min-width:\s*0/);
+    expect(digitCss).toMatch(/input\s*\{[^}]*max-width:\s*56px/);
+    expect(digitCss).toMatch(/input\s*\{[^}]*height:\s*56px/);
+    expect(digitCss).toMatch(/gap:\s*var\(--space-2\)/);
+    expect(digitCss).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    // The lock's enabler: CodeEntry's .cells is no longer a flex container —
+    // .digit-input must never again sit in it as an unconstrained flex item.
+    const entryCss = source('src/lib/components/join/CodeEntry.svelte');
+    expect(entryCss).not.toMatch(/\.cells\s*\{[^}]*display:\s*flex/);
+    // Long words (title, gone-card room names) wrap instead of overflowing.
+    expect(entryCss).toMatch(/h1\s*\{[^}]*overflow-wrap:\s*anywhere/);
+    const flowCss = source('src/lib/components/join/JoinFlow.svelte');
+    expect(flowCss).toMatch(/\.gone-card h2\s*\{[^}]*overflow-wrap:\s*anywhere/);
   });
 });

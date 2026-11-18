@@ -142,6 +142,14 @@
     display: flex;
     gap: var(--space-2);
     justify-content: center;
+    /* §4.12.1 item 6: the row itself must be width-constrained — without
+     * min-width: 0 it is an unconstrained flex item that sizes to its
+     * capped 376px content and never engages the cell shrink. With
+     * width: 100% the row tracks the card's content box; on wide screens
+     * the cells cap at the 56px design size and center via
+     * justify-content. */
+    width: 100%;
+    min-width: 0;
   }
   /* §4.12.4 overflow fix (Concept §11.1.4): the cells shrink to the card's
    * content box instead of forcing a fixed 376px row (6×56px + 5×8px gaps,
