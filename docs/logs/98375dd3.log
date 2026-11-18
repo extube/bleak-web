@@ -1,0 +1,4 @@
+2026-11-18T11:05:56Z [worker] task 49 in-progress; verification sweep started
+2026-11-18T11:06:00Z [worker] task 49 in-progress; verification sweep started
+2026-11-18T11:08:34Z [worker] verification: all 8 items checked against dev tip 6f6cea0 in source; backend gap for §10.1.7 confirmed against /mount/bleak-node swagger.json model.Chat+server.ChatResponse and internal/db/chat.go
+2026-11-18T11:08:34Z [worker] spot-runs green: chats-page+last-message+chats-view = 46 tests; profile-page+profile-settings+join-machine+join-flow+identity+tabbar+radar-placement+avatar = 140 tests; no full make gates (delta-wave CI is the process's)
