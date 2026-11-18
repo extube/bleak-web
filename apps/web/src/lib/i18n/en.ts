@@ -174,6 +174,7 @@ export const en = {
   'profile.qr.aria': 'Your one-time handshake QR',
   'profile.saved': 'Saved',
   'profile.settings.title': 'Settings',
+  'profile.settings.persona': 'Persona',
   'profile.leave': 'Leave the room',
   'profile.leave.confirm_body':
     'Your persona will be removed from the room along with its handshakes and dialogs.',

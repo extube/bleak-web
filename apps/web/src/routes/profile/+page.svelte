@@ -21,7 +21,11 @@
    * DESIGN §4.10.2) — the body-level row from the relocation task is
    * absorbed into that corner entry.
    *
-   * Editors swap the badge card inline (one screen at a time).
+   * Concept §10.1.4 / DESIGN §4.11.4: this page is READ-ONLY display —
+   * the persona-edit affordances (badge edit buttons + the inline editors)
+   * left /profile; ALL persona editing (name/bios, greeting, interests)
+   * lives on /profile/settings.
+   *
    * Interests are the client-side mock (architecture §8.1 — no network).
    */
   import { get } from 'svelte/store';
@@ -33,7 +37,6 @@
   import { requireIdentityOrRedirect } from '#lib/nav/guard';
   import { api } from '#lib/api/client';
   import { Poller } from '#lib/polling/poller';
-  import type { PersonaDraft } from '#lib/join';
   import { locale, translate } from '#lib/i18n/locale';
   import {
     loadInterestIds,
@@ -41,9 +44,6 @@
   } from '#lib/stores/interests';
   import { decideBadgeAction, registerFreshMutualCode } from '#lib/components/profile/liveQr';
   import ProfileBadge from '#lib/components/profile/ProfileBadge.svelte';
-  import PersonaEditor from '#lib/components/profile/PersonaEditor.svelte';
-  import GreetingEditor from '#lib/components/profile/GreetingEditor.svelte';
-  import InterestsEditor from '#lib/components/profile/InterestsEditor.svelte';
   import ErrorBanner from '#lib/components/ErrorBanner.svelte';
   import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
@@ -55,11 +55,8 @@
   initMutualCode();
   const guarded = requireIdentityOrRedirect();
 
-  type View = 'badge' | 'persona' | 'greeting' | 'interests';
-
   const me = $derived($identity);
 
-  let view = $state<View>('badge');
   let loading = $state(true);
   let notFound = $state(false);
   let banner = $state<{ kind: 'network' | 'api'; text: string | null } | null>(null);
@@ -76,8 +73,8 @@
     return entry.userAddress === id.userAddress ? entry.code : null;
   });
 
-  // Interests re-derive on locale change and on badge re-entry after editing
-  // (the mock store is read from localStorage — cheap, client-side only).
+  // Interests re-derive on locale change (the mock store is read from
+  // localStorage — cheap, client-side only).
   let interestsEpoch = $state(0);
   const interests = $derived.by(() => {
     void interestsEpoch; // dependency: re-read after interest edits
@@ -196,110 +193,6 @@
     }
   }
 
-  // --- transient inline success (no toast system in v1) ---------------------
-  let savedFlash = $state(false);
-  let flashTimer: ReturnType<typeof setTimeout> | null = null;
-
-  function flashSaved(): void {
-    savedFlash = true;
-    if (flashTimer) clearTimeout(flashTimer);
-    flashTimer = setTimeout(() => (savedFlash = false), 2000);
-  }
-
-  // --- persona editor --------------------------------------------------------
-  let personaError = $state<{ kind: 'network' | 'api'; text: string | null } | null>(null);
-  let pendingPersona = $state(false);
-
-  async function savePersona(draft: PersonaDraft): Promise<void> {
-    const id = me;
-    if (!id || pendingPersona) return; // double-submit prevented
-    pendingPersona = true;
-    personaError = null;
-    try {
-      // Omitted-field semantics: send ALL THREE fields (DESIGN §3.6).
-      const updated = await api.updateRoomUser(id.roomAddress, id.userAddress, {
-        name: draft.name,
-        public_bio: draft.publicBio,
-        private_bio: draft.privateBio
-      });
-      user = updated;
-      refresh(); // stats may lag behind the rename; refresh everything
-      view = 'badge';
-      flashSaved();
-    } catch (cause) {
-      personaError = bannerOf(cause);
-    } finally {
-      pendingPersona = false;
-    }
-  }
-
-  // --- greeting editor --------------------------------------------------------
-  let greetingText = $state('');
-  let greetingLoading = $state(false);
-  let greetingError = $state<{
-    kind: 'network' | 'api' | 'no_questions';
-    text: string | null;
-  } | null>(null);
-  let pendingGreeting = $state(false);
-  let pendingRegenerate = $state(false);
-
-  async function openGreeting(): Promise<void> {
-    const id = me;
-    if (!id) return;
-    view = 'greeting';
-    greetingError = null;
-    // Fallback display while the canonical greeting loads.
-    greetingText = user?.greeting ?? '';
-    greetingLoading = true;
-    try {
-      const greeting = await api.getUserGreeting(id.roomAddress, id.userAddress);
-      greetingText = greeting.greeting;
-    } catch (cause) {
-      greetingError = bannerOf(cause);
-    } finally {
-      greetingLoading = false;
-    }
-  }
-
-  async function saveGreeting(next: string): Promise<void> {
-    const id = me;
-    if (!id || pendingGreeting) return;
-    pendingGreeting = true;
-    greetingError = null;
-    try {
-      const greeting = await api.putUserGreeting(id.roomAddress, id.userAddress, next);
-      greetingText = greeting.greeting;
-      if (user) user = { ...user, greeting: greeting.greeting };
-      refresh();
-      view = 'badge';
-      flashSaved();
-    } catch (cause) {
-      // Server 400 (question-free rule slipping through) → the same copy.
-      greetingError =
-        cause instanceof ApiError && cause.status === 400
-          ? { kind: 'no_questions', text: null }
-          : bannerOf(cause);
-    } finally {
-      pendingGreeting = false;
-    }
-  }
-
-  async function regenerate(): Promise<void> {
-    const id = me;
-    if (!id || pendingRegenerate) return;
-    pendingRegenerate = true;
-    greetingError = null;
-    try {
-      const greeting = await api.regenerateGreeting(id.roomAddress, id.userAddress);
-      // Fills the editor only — NOT saved until Save is pressed (§3.6).
-      greetingText = greeting.greeting;
-    } catch (cause) {
-      greetingError = bannerOf(cause);
-    } finally {
-      pendingRegenerate = false;
-    }
-  }
-
   // --- token rotation + leave room (moved to /profile/settings, §8.1.3) -------
 
   function exitNotFound(): void {
@@ -325,10 +218,6 @@
 
   {#if banner}
     <ErrorBanner kind={banner.kind} message={banner.text} onretry={refresh} />
-  {/if}
-
-  {#if savedFlash && view === 'badge'}
-    <p class="saved-flash" aria-live="polite">✓ {translate($locale, 'profile.saved')}</p>
   {/if}
 
   {#if loading && user === null}
@@ -358,51 +247,15 @@
       </button>
     </div>
   {:else if user}
-    {#if view === 'badge'}
-      <ProfileBadge
-        {user}
-        {interests}
-        handshakes={handshakesTotal}
-        dialogs={dialogsTotal}
-        addedYou={addedYou}
-        mutualCode={badgeCode}
-        qrRefreshed={qrRefreshed}
-        oneditpersona={() => {
-          view = 'persona';
-          personaError = null;
-        }}
-        oneditgreeting={openGreeting}
-        oneditinterests={() => (view = 'interests')}
-      />
-    {:else if view === 'persona'}
-      <PersonaEditor
-        {user}
-        pending={pendingPersona}
-        error={personaError}
-        onsave={savePersona}
-        oncancel={() => (view = 'badge')}
-      />
-    {:else if view === 'greeting'}
-      {#key greetingText}
-        <GreetingEditor
-          greeting={greetingText}
-          loading={greetingLoading}
-          pending={pendingGreeting}
-          regeneratePending={pendingRegenerate}
-          error={greetingError}
-          onsave={saveGreeting}
-          onregenerate={regenerate}
-          oncancel={() => (view = 'badge')}
-        />
-      {/key}
-    {:else if view === 'interests'}
-      <InterestsEditor
-        ondone={() => {
-          view = 'badge';
-          interestsEpoch += 1;
-        }}
-      />
-    {/if}
+    <ProfileBadge
+      {user}
+      {interests}
+      handshakes={handshakesTotal}
+      dialogs={dialogsTotal}
+      addedYou={addedYou}
+      mutualCode={badgeCode}
+      qrRefreshed={qrRefreshed}
+    />
   {/if}
 </main>
 
@@ -447,11 +300,6 @@
     transition:
       border-color 120ms ease-out,
       color 120ms ease-out;
-  }
-  .saved-flash {
-    margin: 0;
-    font-size: 14px;
-    color: var(--color-accent);
   }
   .badge {
     background: var(--color-surface);

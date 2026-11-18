@@ -1,17 +1,12 @@
-/** /profile page tests — LEAN suite (2026-11-17 slimming pass, owner
- * directive): one block per distinct behavior, micro/aria asserts removed
- * (recorded in docs/verification-v2.md). Covers: badge render (with the
- * live-flag no-registration assert), live QR registration/rotation/failure
- * (hash-only bodies — raw never sent), persona editor, greeting editor
- * (question rule + regenerate), interests (no network), persona 404 — plus
- * the §8.1.3 settings relocation (the leave/rotate rows moved to
- * /profile/settings; this page renders a nav affordance). The moved
- * settings logic itself is covered by tests/profile-settings.test.ts. The
- * v2.2 polish (Concept §8.1.4/8.1.5 — exactly-three renamed stat tiles and
- * the rounded avatar-change button) is covered at the bottom of the file,
- * plus the §9.1.2 settings corner button (DESIGN §4.10.2), and the v2.3
- * amendments (Concept §9.1.1/§9.1.4 — private-bio heading revert + interests
- * title margin, DESIGN §4.10.3/4.10.4). */
+/** /profile page tests — LEAN suite. Covers the READ-ONLY badge page
+ * (Concept §10.1.4, DESIGN §4.11.4): badge render (with the live-flag
+ * no-registration assert), live QR registration/rotation/failure (hash-only
+ * bodies — raw never sent), persona 404, the read-only display (NO persona
+ * edit affordances — all persona editing lives in /profile/settings, whose
+ * editors are covered by tests/profile-settings.test.ts), the exactly-three
+ * stat tiles (Concept §8.1.5), the §9.1.2 settings corner button (DESIGN
+ * §4.10.2), and the v2.3 amendments (Concept §9.1.1/§9.1.4 — private-bio
+ * heading + interests title margin, DESIGN §4.10.3/4.10.4). */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
@@ -33,13 +28,7 @@ vi.mock('#lib/api/client', () => ({
     getRoomUser: vi.fn(),
     listHandshakesOfUser: vi.fn(),
     listChatsOfUser: vi.fn(),
-    updateRoomUser: vi.fn(),
-    getUserGreeting: vi.fn(),
-    putUserGreeting: vi.fn(),
-    regenerateGreeting: vi.fn(),
-    deleteRoomUser: vi.fn(),
-    registerMutualCode: vi.fn(),
-    rotateUserToken: vi.fn()
+    registerMutualCode: vi.fn()
   }
 }));
 
@@ -48,7 +37,6 @@ vi.mock('#lib/crypto/secrets', () => ({
   // is a CONSTANT (independent of its input), so hash-only registration is
   // assertable — the raw value appears in no hashed output either.
   generateMutualCode: () => 'MUTUALRAWCODE',
-  generateTokenSecret: () => 'N'.repeat(43),
   sha256Hex: async () => 'FAKEHASH'
 }));
 
@@ -121,9 +109,7 @@ beforeEach(() => {
   mockedApi.getRoomUser.mockResolvedValue(userFixture({ mutual_code_live: true }));
   mockedApi.listHandshakesOfUser.mockResolvedValue([]);
   mockedApi.listChatsOfUser.mockResolvedValue([]);
-  mockedApi.getUserGreeting.mockResolvedValue({ address: ME, greeting: 'Привет! Я про трамваи.' });
   mockedApi.registerMutualCode.mockResolvedValue(undefined);
-  mockedApi.rotateUserToken.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -228,136 +214,36 @@ describe('live badge QR (AC 14)', () => {
   });
 });
 
-describe('persona editor (AC 2)', () => {
-  it('saves all three fields via PUT updateRoomUser and reflects them', async () => {
-    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
-    mockedApi.updateRoomUser.mockResolvedValue(
-      userFixture({ name: 'Стеклодув', public_bio: 'Новое био', private_bio: 'Секрет' })
-    );
+describe('read-only display (Concept §10.1.4, DESIGN §4.11.4)', () => {
+  it('NO persona edit affordances remain on /profile — no edit buttons, editors live in /profile/settings', async () => {
+    localStorage.setItem('bleak.interests', JSON.stringify([]));
     await renderPage();
-
-    await screen
-      .getByRole('button', { name: ru['profile.persona.edit'] })
-      .click();
-    await tick();
-
-    const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
-    nameInput.value = 'Стеклодув';
-    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-    const publicInput = screen.getByLabelText(ru['join.form.public_bio']) as HTMLInputElement;
-    publicInput.value = 'Новое био';
-    publicInput.dispatchEvent(new Event('input', { bubbles: true }));
-
-    await screen.getByRole('button', { name: ru['common.save'] }).click();
-
-    await waitFor(() =>
-      expect(mockedApi.updateRoomUser).toHaveBeenCalledWith(ROOM, ME, {
-        name: 'Стеклодув',
-        public_bio: 'Новое био',
-        private_bio: 'Люблю глина и стеклодувное дело'
-      })
-    );
-    await waitFor(() => expect(screen.getByText('Стеклодув')).toBeTruthy());
-  });
-
-  it('cancel returns to the badge without a PUT', async () => {
-    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
-    await renderPage();
-    await screen.getByRole('button', { name: ru['profile.persona.edit'] }).click();
-    await screen.getByRole('button', { name: ru['common.cancel'] }).click();
-    await tick();
-    expect(mockedApi.updateRoomUser).not.toHaveBeenCalled();
-    expect(screen.getByText('Трамвайщик')).toBeTruthy();
-  });
-});
-
-describe('greeting editor (AC 3, 4)', () => {
-  it('blocks saving when the text contains a question mark — half-width or full-width — with the rule copy', async () => {
-    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
-    await renderPage();
-    await screen.getByRole('button', { name: ru['profile.greeting.edit'] }).click();
-    await waitFor(() => expect(mockedApi.getUserGreeting).toHaveBeenCalled());
-    await tick();
-
-    const textarea = screen.getByLabelText(ru['profile.greeting.label']) as HTMLTextAreaElement;
-    textarea.value = 'Кто здесь?';
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    await tick();
-    expect((screen.getByRole('button', { name: ru['common.save'] }) as HTMLButtonElement).disabled)
-      .toBe(true);
-    expect(screen.getByText(ru['profile.greeting.no_questions'])).toBeTruthy();
-    expect(mockedApi.putUserGreeting).not.toHaveBeenCalled();
-
-    // The full-width ？ is blocked by the same rule.
-    textarea.value = '你好？';
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    await tick();
-    expect((screen.getByRole('button', { name: ru['common.save'] }) as HTMLButtonElement).disabled)
-      .toBe(true);
-  });
-
-  it('saves via PUT putUserGreeting when question-free (AC 3)', async () => {
-    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
-    mockedApi.putUserGreeting.mockResolvedValue({ address: ME, greeting: 'Новый оффлайн-режим' });
-    await renderPage();
-    await screen.getByRole('button', { name: ru['profile.greeting.edit'] }).click();
-    await waitFor(() => expect(mockedApi.getUserGreeting).toHaveBeenCalled());
-    await tick();
-
-    const textarea = screen.getByLabelText(ru['profile.greeting.label']) as HTMLTextAreaElement;
-    textarea.value = 'Новый оффлайн-режим';
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    await screen.getByRole('button', { name: ru['common.save'] }).click();
-
-    await waitFor(() =>
-      expect(mockedApi.putUserGreeting).toHaveBeenCalledWith(ROOM, ME, 'Новый оффлайн-режим')
-    );
-    await waitFor(() => expect(screen.getByText('Новый оффлайн-режим')).toBeTruthy());
-  });
-
-  it('regenerate fills the editor without saving until Save (AC 4)', async () => {
-    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
-    mockedApi.regenerateGreeting.mockResolvedValue({
-      address: ME,
-      greeting: 'Сгенерировано из био'
-    });
-    await renderPage();
-    await screen.getByRole('button', { name: ru['profile.greeting.edit'] }).click();
-    await waitFor(() => expect(mockedApi.getUserGreeting).toHaveBeenCalled());
-    await tick();
-
-    await screen.getByRole('button', { name: ru['profile.greeting.regenerate'] }).click();
-    await waitFor(() =>
-      expect(screen.getByLabelText(ru['profile.greeting.label'])).toHaveProperty('value', 'Сгенерировано из био')
-    );
-    expect(mockedApi.putUserGreeting).not.toHaveBeenCalled();
-    // the badge still shows the old greeting
-    await screen.getByRole('button', { name: ru['common.cancel'] }).click();
-    await tick();
+    // The badge-header persona edit button and the greeting/interests edit
+    // controls are GONE from the profile page.
+    expect(screen.queryByRole('button', { name: ru['profile.persona.edit'] })).toBeNull();
+    expect(screen.queryByRole('button', { name: ru['profile.greeting.edit'] })).toBeNull();
+    expect(screen.queryByRole('button', { name: ru['profile.interests.edit'] })).toBeNull();
+    expect(screen.queryByRole('button', { name: ru['profile.interests.add'] })).toBeNull();
+    // The persona is still displayed in full: greeting preview, bios,
+    // interests title (read-only section labels, not edit affordances).
     expect(screen.getByText('Привет! Я про трамваи.')).toBeTruthy();
+    expect(screen.getByText('Поттер из Питера')).toBeTruthy();
+    expect(screen.getByText(ru['profile.interests.title'])).toBeTruthy();
+    // The persona records the page renders NO editing api calls.
+    expect(mockedApi.getRoomUser).toHaveBeenCalled(); // badge poll only
   });
-});
 
-describe('interests editor (AC 5)', () => {
-  it('toggling chips persists locally and NEVER issues a network request', async () => {
-    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
-    await renderPage();
-    await screen.getByRole('button', { name: ru['profile.interests.edit'] }).click();
-    await tick();
-
-    const callsBefore = mockedApi.getRoomUser.mock.calls.length;
-    const chip = screen.getByRole('button', { name: /Велосипед/ });
-    await chip.click();
-    await tick();
-
-    expect(JSON.parse(localStorage.getItem('bleak.interests') ?? '[]')).toEqual(['cycling']);
-    // no api call was made by editing interests
-    expect(mockedApi.getRoomUser.mock.calls.length).toBe(callsBefore);
-
-    // the badge re-reads the store when returning to it
-    await screen.getByRole('button', { name: ru['profile.interests.done'] }).click();
-    await tick();
-    expect(screen.getByText('Велосипед')).toBeTruthy();
+  it('the badge component carries no edit callbacks or edit icons (source-level)', () => {
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/lib/components/profile/ProfileBadge.svelte'),
+      'utf8'
+    );
+    expect(source).not.toContain('oneditpersona');
+    expect(source).not.toContain('oneditgreeting');
+    expect(source).not.toContain('oneditinterests');
+    expect(source).not.toMatch(/PixelIcon\s+name="edit"/);
+    // The «add interests» chip was an edit affordance — gone too.
+    expect(source).not.toContain('add-chip');
   });
 });
 
@@ -417,20 +303,6 @@ describe('profile stats — exactly three (Concept §8.1.5, DESIGN §4.9.5)', ()
     expect(screen.getByText(en['profile.stats.dialogs_label'])).toBeTruthy(); // Chatting
     setLocale('ru');
     await tick();
-  });
-});
-
-describe('avatar-change button radius (Concept §8.1.4, DESIGN §4.9.4)', () => {
-  it('the persona/avatar edit control on the badge is a rounded square — not a full circle', () => {
-    const source = readFileSync(
-      join(WEB_ROOT, 'src/lib/components/profile/ProfileBadge.svelte'),
-      'utf8'
-    );
-    const block = source.match(/\.icon-button\s*\{[\s\S]*?\}/)?.[0] ?? '';
-    expect(block).toContain('border-radius: var(--radius-md)');
-    // The full-circle shapes are gone from the control (pill-on-square and
-    // literal 50% would both render as a circle on the 48px touch target).
-    expect(block).not.toMatch(/border-radius:\s*(?:var\(--radius-pill\)|50%)/);
   });
 });
 
@@ -571,4 +443,3 @@ describe('settings corner button (Concept §9.1.2, DESIGN §4.10.2)', () => {
     expect(header).toContain('justify-content: space-between');
   });
 });
-

@@ -7,6 +7,14 @@
    * SegmentedControl, token-rotation row + its ConfirmDialog, and the
    * leave-room button + its ConfirmDialog + error display).
    *
+   * Concept §10.1.4 / DESIGN §4.11.4: ALL persona editing lives here — the
+   * PersonaEditor (name/public/private bio), the GreetingEditor and the
+   * InterestsEditor moved wholesale from /profile with their logic intact
+   * (same handlers/stores; the profile page itself is read-only display
+   * now). The persona section swaps to one editor at a time (the same
+   * inline-swap pattern the profile page used) and returns to the settings
+   * rows after save/cancel.
+   *
    * Token rotation (§3.6 settings): confirm dialog (other-device lockout
    * copy) → generate the new secret → `rotateUserToken` (Bearer = current,
    * body = new raw) → replace `identity.token` + rewrite the matching
@@ -24,17 +32,22 @@
   import { get } from 'svelte/store';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { ApiError } from '@bleak/api-client';
+  import { ApiError, NetworkError, type User } from '@bleak/api-client';
   import { identity, initIdentity, clearIdentity, saveIdentity } from '#lib/stores/identity';
   import { updateVaultEntryToken } from '#lib/stores/tokenVault';
   import { requireIdentityOrRedirect } from '#lib/nav/guard';
   import { api } from '#lib/api/client';
   import { generateTokenSecret } from '#lib/crypto/secrets';
   import { backTarget } from '#lib/chats/view';
+  import type { PersonaDraft } from '#lib/join';
   import { locale, translate } from '#lib/i18n/locale';
   import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import LocaleControl from '#lib/components/join/LocaleControl.svelte';
+  import PersonaEditor from '#lib/components/profile/PersonaEditor.svelte';
+  import GreetingEditor from '#lib/components/profile/GreetingEditor.svelte';
+  import InterestsEditor from '#lib/components/profile/InterestsEditor.svelte';
+  import ErrorBanner from '#lib/components/ErrorBanner.svelte';
 
   // Hard reload on a guarded route: hydrate identity defensively (idempotent).
   initIdentity();
@@ -42,12 +55,150 @@
 
   const me = $derived($identity);
 
+  // --- persona editing (moved from /profile, Concept §10.1.4) ------------------
+  type View = 'rows' | 'persona' | 'greeting' | 'interests';
+
+  let view = $state<View>('rows');
+  let user = $state<User | null>(null);
+  let loadError = $state<{ kind: 'network' | 'api'; text: string | null } | null>(null);
+
   // --- error mapping (§2.1) ------------------------------------------------
   function serverText(err: unknown): string | null {
     if (!(err instanceof ApiError)) return err instanceof Error ? err.message : null;
     const marker = ': ';
     const idx = err.message.indexOf(marker);
     return idx >= 0 ? err.message.slice(idx + marker.length) : err.message;
+  }
+
+  function bannerOf(err: unknown): { kind: 'network' | 'api'; text: string | null } {
+    return err instanceof NetworkError
+      ? { kind: 'network', text: null }
+      : { kind: 'api', text: serverText(err) };
+  }
+
+  /** The persona editors prefill from the persona record (§3.6) — one
+   *  mount-time fetch (no poller on this sub-page; §2.2 cadence table). */
+  async function loadUser(): Promise<void> {
+    const id = get(identity);
+    if (!id) return;
+    try {
+      user = await api.getRoomUser(id.roomAddress, id.userAddress);
+      loadError = null;
+    } catch (cause) {
+      loadError = bannerOf(cause);
+    }
+  }
+
+  $effect(() => {
+    if (!guarded) return;
+    void loadUser();
+  });
+
+  // --- transient inline success (no toast system in v1) ---------------------
+  let savedFlash = $state(false);
+  let flashTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function flashSaved(): void {
+    savedFlash = true;
+    if (flashTimer) clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => (savedFlash = false), 2000);
+  }
+
+  // --- persona editor --------------------------------------------------------
+  let personaError = $state<{ kind: 'network' | 'api'; text: string | null } | null>(null);
+  let pendingPersona = $state(false);
+
+  function openPersona(): void {
+    view = 'persona';
+    personaError = null;
+  }
+
+  async function savePersona(draft: PersonaDraft): Promise<void> {
+    const id = me;
+    if (!id || pendingPersona) return; // double-submit prevented
+    pendingPersona = true;
+    personaError = null;
+    try {
+      // Omitted-field semantics: send ALL THREE fields (DESIGN §3.6).
+      const updated = await api.updateRoomUser(id.roomAddress, id.userAddress, {
+        name: draft.name,
+        public_bio: draft.publicBio,
+        private_bio: draft.privateBio
+      });
+      user = updated;
+      view = 'rows';
+      flashSaved();
+    } catch (cause) {
+      personaError = bannerOf(cause);
+    } finally {
+      pendingPersona = false;
+    }
+  }
+
+  // --- greeting editor --------------------------------------------------------
+  let greetingText = $state('');
+  let greetingLoading = $state(false);
+  let greetingError = $state<{
+    kind: 'network' | 'api' | 'no_questions';
+    text: string | null;
+  } | null>(null);
+  let pendingGreeting = $state(false);
+  let pendingRegenerate = $state(false);
+
+  async function openGreeting(): Promise<void> {
+    const id = me;
+    if (!id) return;
+    view = 'greeting';
+    greetingError = null;
+    // Fallback display while the canonical greeting loads.
+    greetingText = user?.greeting ?? '';
+    greetingLoading = true;
+    try {
+      const greeting = await api.getUserGreeting(id.roomAddress, id.userAddress);
+      greetingText = greeting.greeting;
+    } catch (cause) {
+      greetingError = bannerOf(cause);
+    } finally {
+      greetingLoading = false;
+    }
+  }
+
+  async function saveGreeting(next: string): Promise<void> {
+    const id = me;
+    if (!id || pendingGreeting) return;
+    pendingGreeting = true;
+    greetingError = null;
+    try {
+      const greeting = await api.putUserGreeting(id.roomAddress, id.userAddress, next);
+      greetingText = greeting.greeting;
+      if (user) user = { ...user, greeting: greeting.greeting };
+      view = 'rows';
+      flashSaved();
+    } catch (cause) {
+      // Server 400 (question-free rule slipping through) → the same copy.
+      greetingError =
+        cause instanceof ApiError && cause.status === 400
+          ? { kind: 'no_questions', text: null }
+          : bannerOf(cause);
+    } finally {
+      pendingGreeting = false;
+    }
+  }
+
+  async function regenerate(): Promise<void> {
+    const id = me;
+    if (!id || pendingRegenerate) return;
+    pendingRegenerate = true;
+    greetingError = null;
+    try {
+      const greeting = await api.regenerateGreeting(id.roomAddress, id.userAddress);
+      // Fills the editor only — NOT saved until Save is pressed (§3.6).
+      greetingText = greeting.greeting;
+    } catch (cause) {
+      greetingError = bannerOf(cause);
+    } finally {
+      pendingRegenerate = false;
+    }
   }
 
   // --- token rotation (v2, §3.6 settings) --------------------------------------
@@ -145,36 +296,86 @@
       <h1>{translate($locale, 'profile.settings.title')}</h1>
     </header>
 
-    <section class="settings pixel-corners" aria-label={translate($locale, 'profile.settings.title')}>
-      <div class="setting">
-        <span class="setting-label">{translate($locale, 'common.locale')}</span>
-        <LocaleControl />
-      </div>
-      <button
-        type="button"
-        class="rotate"
-        disabled={pendingRotate}
-        onclick={() => (rotateOpen = true)}
-      >
-        <PixelIcon name="key" size={16} />
-        <span>{translate($locale, 'profile.rotate.row')}</span>
-        {#if pendingRotate}<span class="spinner" aria-hidden="true"></span>{/if}
-      </button>
-      {#if rotatedFlash && !rotateError}
-        <p class="rotated-flash" aria-live="polite">
-          ✓ {translate($locale, 'profile.rotate.done')}
-        </p>
+    {#if savedFlash && view === 'rows'}
+      <p class="saved-flash" aria-live="polite">✓ {translate($locale, 'profile.saved')}</p>
+    {/if}
+
+    {#if view === 'rows'}
+      <!-- Persona editing section (Concept §10.1.4, DESIGN §4.11.4): the
+           editors moved here wholesale from /profile — one editor at a
+           time via the inline-swap pattern; the rows return after
+           save/cancel. -->
+      <section class="persona pixel-corners" aria-label={translate($locale, 'profile.settings.persona')}>
+        <h2 class="section-title">{translate($locale, 'profile.settings.persona')}</h2>
+        <button type="button" class="row" onclick={openPersona}>
+          {translate($locale, 'profile.persona.edit')}
+        </button>
+        <button type="button" class="row" onclick={openGreeting}>
+          {translate($locale, 'profile.greeting.edit')}
+        </button>
+        <button type="button" class="row" onclick={() => (view = 'interests')}>
+          {translate($locale, 'profile.interests.edit')}
+        </button>
+      </section>
+
+      <section class="settings pixel-corners" aria-label={translate($locale, 'profile.settings.title')}>
+        <div class="setting">
+          <span class="setting-label">{translate($locale, 'common.locale')}</span>
+          <LocaleControl />
+        </div>
+        <button
+          type="button"
+          class="rotate"
+          disabled={pendingRotate}
+          onclick={() => (rotateOpen = true)}
+        >
+          <PixelIcon name="key" size={16} />
+          <span>{translate($locale, 'profile.rotate.row')}</span>
+          {#if pendingRotate}<span class="spinner" aria-hidden="true"></span>{/if}
+        </button>
+        {#if rotatedFlash && !rotateError}
+          <p class="rotated-flash" aria-live="polite">
+            ✓ {translate($locale, 'profile.rotate.done')}
+          </p>
+        {/if}
+        {#if rotateError}
+          <p class="field-error" role="alert" aria-live="polite">{rotateError}</p>
+        {/if}
+        <button type="button" class="leave" onclick={() => (leaveOpen = true)}>
+          {translate($locale, 'profile.leave')}
+        </button>
+        {#if leaveError}
+          <p class="field-error" role="alert" aria-live="polite">{leaveError}</p>
+        {/if}
+      </section>
+    {:else if view === 'persona'}
+      {#if user}
+        <PersonaEditor
+          {user}
+          pending={pendingPersona}
+          error={personaError}
+          onsave={savePersona}
+          oncancel={() => (view = 'rows')}
+        />
+      {:else if loadError}
+        <ErrorBanner kind={loadError.kind} message={loadError.text} onretry={loadUser} />
       {/if}
-      {#if rotateError}
-        <p class="field-error" role="alert" aria-live="polite">{rotateError}</p>
-      {/if}
-      <button type="button" class="leave" onclick={() => (leaveOpen = true)}>
-        {translate($locale, 'profile.leave')}
-      </button>
-      {#if leaveError}
-        <p class="field-error" role="alert" aria-live="polite">{leaveError}</p>
-      {/if}
-    </section>
+    {:else if view === 'greeting'}
+      {#key greetingText}
+        <GreetingEditor
+          greeting={greetingText}
+          loading={greetingLoading}
+          pending={pendingGreeting}
+          regeneratePending={pendingRegenerate}
+          error={greetingError}
+          onsave={saveGreeting}
+          onregenerate={regenerate}
+          oncancel={() => (view = 'rows')}
+        />
+      {/key}
+    {:else if view === 'interests'}
+      <InterestsEditor ondone={() => (view = 'rows')} />
+    {/if}
   </main>
 
   <ConfirmDialog
@@ -226,13 +427,41 @@
     border-radius: var(--radius-pill);
     transition: color 120ms ease-out;
   }
-  .settings {
+  .settings,
+  .persona {
     background: var(--color-surface);
     border-radius: var(--radius-lg);
     padding: var(--space-5);
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
+  }
+  .section-title {
+    margin: 0;
+    font-size: 20px;
+  }
+  .row {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--touch-target);
+    padding: 0 var(--space-5);
+    background: transparent;
+    border: 1px solid var(--color-text-disabled-strong);
+    color: var(--color-text);
+    border-radius: var(--radius-pill);
+    font-weight: 600;
+    font-size: 14px;
+    font-family: var(--font-body);
+    transition:
+      border-color 120ms ease-out,
+      color 120ms ease-out;
+  }
+  .saved-flash {
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-accent);
   }
   .setting {
     display: flex;
@@ -299,7 +528,8 @@
   }
   @media (min-width: 720px) {
     /* Settings card max-width 560px centered (§3.6 responsive). */
-    .settings {
+    .settings,
+    .persona {
       max-width: 560px;
       width: 100%;
       align-self: center;

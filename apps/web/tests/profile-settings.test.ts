@@ -1,18 +1,25 @@
-/** /profile/settings tests (Concept §8.1.3, DESIGN §4.9.3): the settings
- * block moved off /profile onto this sub-page — a pure logic move, so the
- * moved suites assert the same behaviors against the new route: heading +
- * rows render (RU + EN), token rotation (identity + vault written only
- * after 2xx; 403 keeps them), leave room (confirmation question first;
- * clears identity + mutual code; failure keeps identity), outline-style
- * leave button (red font + red border, no filled background), back
- * navigation, and no tab bar (sub-page pattern). */
+/** /profile/settings tests (Concept §8.1.3, DESIGN §4.9.3; persona edits per
+ * Concept §10.1.4 / DESIGN §4.11.4): the settings block moved off /profile
+ * onto this sub-page — a pure logic move, so the moved suites assert the
+ * same behaviors against the new route: heading + rows render (RU + EN),
+ * token rotation (identity + vault written only after 2xx; 403 keeps them),
+ * leave room (confirmation question first; clears identity + mutual code;
+ * failure keeps identity), outline-style leave button (red font + red
+ * border, no filled background), back navigation, and no tab bar
+ * (sub-page pattern).
+ *
+ * ALL persona editing lives here now (Concept §10.1.4): the persona section
+ * hosts the PersonaEditor (name/public/private bio), GreetingEditor and
+ * InterestsEditor moved wholesale from /profile — the same handler logic,
+ * asserted with the same behaviors the old /profile suites pinned (editor
+ * suites moved from tests/profile-page.test.ts). */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
-import { ApiError } from '@bleak/api-client';
+import { ApiError, type User } from '@bleak/api-client';
 import { identity } from '../src/lib/stores/identity';
 import { mutualCode } from '../src/lib/stores/mutualCode';
 import { tokenVault } from '../src/lib/stores/tokenVault';
@@ -24,6 +31,11 @@ vi.mock('$app/paths', () => ({
 
 vi.mock('#lib/api/client', () => ({
   api: {
+    getRoomUser: vi.fn(),
+    updateRoomUser: vi.fn(),
+    getUserGreeting: vi.fn(),
+    putUserGreeting: vi.fn(),
+    regenerateGreeting: vi.fn(),
     deleteRoomUser: vi.fn(),
     rotateUserToken: vi.fn()
   }
@@ -48,6 +60,22 @@ const ROOM = '0xroom';
 const TOKEN = 'persona-token';
 const mockedApi = vi.mocked(api, true);
 
+function userFixture(overrides: Partial<User> = {}): User {
+  return {
+    address: ME,
+    room: ROOM,
+    name: 'Трамвайщик',
+    greeting: 'Привет! Я про трамваи.',
+    public_bio: 'Поттер из Питера',
+    private_bio: 'Люблю глина и стеклодувное дело',
+    language: 'ru',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    deleted_at: null,
+    ...overrides
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
@@ -60,6 +88,9 @@ beforeEach(() => {
     JSON.stringify({ roomAddress: ROOM, userAddress: ME, token: TOKEN })
   );
   identity.set({ roomAddress: ROOM, userAddress: ME, token: TOKEN });
+  // The persona editors prefill from the persona record (mount-time fetch).
+  mockedApi.getRoomUser.mockResolvedValue(userFixture());
+  mockedApi.getUserGreeting.mockResolvedValue({ address: ME, greeting: 'Привет! Я про трамваи.' });
   mockedApi.rotateUserToken.mockResolvedValue(undefined);
   mockedApi.deleteRoomUser.mockResolvedValue(undefined);
 });
@@ -73,15 +104,18 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function renderPage(): void {
+async function renderPage(): Promise<void> {
   render(Page, { props: {} });
+  await waitFor(() => expect(mockedApi.getRoomUser).toHaveBeenCalled());
+  await tick();
+  await tick();
 }
 
 describe('settings route renders (AC: heading, locale, rows; RU + EN)', () => {
   it('renders the heading, locale control, rotate row and leave button (RU + EN)', async () => {
     const { setLocale } = await import('../src/lib/i18n/locale');
     const { en } = await import('../src/lib/i18n/en');
-    renderPage();
+    await renderPage();
     expect(screen.getByRole('heading', { name: ru['profile.settings.title'] })).toBeTruthy();
     expect(screen.getByText(ru['common.locale'])).toBeTruthy();
     expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
@@ -97,7 +131,7 @@ describe('settings route renders (AC: heading, locale, rows; RU + EN)', () => {
   });
 
   it('is a sub-page: no tab bar (scoped style) + back navigation falling back to /profile', async () => {
-    renderPage();
+    await renderPage();
     // The /chats/[address] sub-page pattern: the tab bar is hidden while the
     // route is mounted (scoped style injected into <head>).
     expect(document.head.innerHTML).toContain('nav.tabbar');
@@ -105,6 +139,161 @@ describe('settings route renders (AC: heading, locale, rows; RU + EN)', () => {
     await screen.getByRole('button', { name: ru['common.back'] }).click();
     const { goto } = await import('$app/navigation');
     await waitFor(() => expect(goto).toHaveBeenCalledWith('/profile'));
+  });
+});
+
+describe('persona editing section (Concept §10.1.4, DESIGN §4.11.4)', () => {
+  it('renders the persona section with the three editor rows (RU + EN)', async () => {
+    const { setLocale } = await import('../src/lib/i18n/locale');
+    const { en } = await import('../src/lib/i18n/en');
+    await renderPage();
+    expect(screen.getByRole('heading', { name: ru['profile.settings.persona'] })).toBeTruthy();
+    expect(screen.getByRole('button', { name: ru['profile.persona.edit'] })).toBeTruthy();
+    expect(screen.getByRole('button', { name: ru['profile.greeting.edit'] })).toBeTruthy();
+    expect(screen.getByRole('button', { name: ru['profile.interests.edit'] })).toBeTruthy();
+    // EN parity through the locale store.
+    setLocale('en');
+    await tick();
+    await tick();
+    expect(screen.getByRole('heading', { name: en['profile.settings.persona'] })).toBeTruthy();
+    expect(screen.getByRole('button', { name: en['profile.persona.edit'] })).toBeTruthy();
+    setLocale('ru');
+    await tick();
+  });
+});
+
+describe('persona editor (AC 2, moved from /profile)', () => {
+  it('opens from the persona row, prefills from the persona record, and saves all three fields via PUT updateRoomUser', async () => {
+    mockedApi.updateRoomUser.mockResolvedValue(
+      userFixture({ name: 'Стеклодув', public_bio: 'Новое био', private_bio: 'Секрет' })
+    );
+    await renderPage();
+
+    await screen.getByRole('button', { name: ru['profile.persona.edit'] }).click();
+    await tick();
+
+    const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
+    expect(nameInput.value).toBe('Трамвайщик'); // prefilled from getRoomUser
+    nameInput.value = 'Стеклодув';
+    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    const publicInput = screen.getByLabelText(ru['join.form.public_bio']) as HTMLInputElement;
+    publicInput.value = 'Новое био';
+    publicInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+    await screen.getByRole('button', { name: ru['common.save'] }).click();
+
+    await waitFor(() =>
+      expect(mockedApi.updateRoomUser).toHaveBeenCalledWith(ROOM, ME, {
+        name: 'Стеклодув',
+        public_bio: 'Новое био',
+        private_bio: 'Люблю глина и стеклодувное дело'
+      })
+    );
+    // After the save the editor returns to the settings rows with the
+    // transient «Saved» note (the badge re-fetches on /profile).
+    await waitFor(() =>
+      expect(screen.getByText(ru['profile.saved'], { exact: false })).toBeTruthy()
+    );
+    expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
+  });
+
+  it('cancel returns to the rows without a PUT', async () => {
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.persona.edit'] }).click();
+    await screen.getByRole('button', { name: ru['common.cancel'] }).click();
+    await tick();
+    expect(mockedApi.updateRoomUser).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
+  });
+});
+
+describe('greeting editor (AC 3, 4, moved from /profile)', () => {
+  it('blocks saving when the text contains a question mark — half-width or full-width — with the rule copy', async () => {
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.greeting.edit'] }).click();
+    await waitFor(() => expect(mockedApi.getUserGreeting).toHaveBeenCalled());
+    await tick();
+
+    const textarea = screen.getByLabelText(ru['profile.greeting.label']) as HTMLTextAreaElement;
+    textarea.value = 'Кто здесь?';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await tick();
+    expect((screen.getByRole('button', { name: ru['common.save'] }) as HTMLButtonElement).disabled)
+      .toBe(true);
+    expect(screen.getByText(ru['profile.greeting.no_questions'])).toBeTruthy();
+    expect(mockedApi.putUserGreeting).not.toHaveBeenCalled();
+
+    // The full-width ？ is blocked by the same rule.
+    textarea.value = '你好？';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await tick();
+    expect((screen.getByRole('button', { name: ru['common.save'] }) as HTMLButtonElement).disabled)
+      .toBe(true);
+  });
+
+  it('saves via PUT putUserGreeting when question-free (AC 3) and returns to the rows', async () => {
+    mockedApi.putUserGreeting.mockResolvedValue({ address: ME, greeting: 'Новый оффлайн-режим' });
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.greeting.edit'] }).click();
+    await waitFor(() => expect(mockedApi.getUserGreeting).toHaveBeenCalled());
+    await tick();
+
+    const textarea = screen.getByLabelText(ru['profile.greeting.label']) as HTMLTextAreaElement;
+    textarea.value = 'Новый оффлайн-режим';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await screen.getByRole('button', { name: ru['common.save'] }).click();
+
+    await waitFor(() =>
+      expect(mockedApi.putUserGreeting).toHaveBeenCalledWith(ROOM, ME, 'Новый оффлайн-режим')
+    );
+    await waitFor(() =>
+      expect(screen.getByText(ru['profile.saved'], { exact: false })).toBeTruthy()
+    );
+    expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
+  });
+
+  it('regenerate fills the editor without saving until Save (AC 4); cancel returns without a PUT', async () => {
+    mockedApi.regenerateGreeting.mockResolvedValue({
+      address: ME,
+      greeting: 'Сгенерировано из био'
+    });
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.greeting.edit'] }).click();
+    await waitFor(() => expect(mockedApi.getUserGreeting).toHaveBeenCalled());
+    await tick();
+
+    await screen.getByRole('button', { name: ru['profile.greeting.regenerate'] }).click();
+    await waitFor(() =>
+      expect(screen.getByLabelText(ru['profile.greeting.label'])).toHaveProperty('value', 'Сгенерировано из био')
+    );
+    expect(mockedApi.putUserGreeting).not.toHaveBeenCalled();
+    // Cancel discards the regenerated text — nothing was saved.
+    await screen.getByRole('button', { name: ru['common.cancel'] }).click();
+    await tick();
+    expect(mockedApi.putUserGreeting).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
+  });
+});
+
+describe('interests editor (AC 5, moved from /profile)', () => {
+  it('toggling chips persists locally and NEVER issues a network request; Done returns to the rows', async () => {
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.interests.edit'] }).click();
+    await tick();
+
+    const callsBefore = mockedApi.getRoomUser.mock.calls.length;
+    const chip = screen.getByRole('button', { name: /Велосипед/ });
+    await chip.click();
+    await tick();
+
+    expect(JSON.parse(localStorage.getItem('bleak.interests') ?? '[]')).toEqual(['cycling']);
+    // no api call was made by editing interests
+    expect(mockedApi.getRoomUser.mock.calls.length).toBe(callsBefore);
+
+    // Done returns to the settings rows.
+    await screen.getByRole('button', { name: ru['profile.interests.done'] }).click();
+    await tick();
+    expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
   });
 });
 
@@ -121,7 +310,7 @@ describe('token rotation (AC 15, moved from /profile)', () => {
 
   it('rotate updates identity + the matching vault entry IN PLACE, only after the 2xx (AC 15)', async () => {
     seedVault();
-    renderPage();
+    await renderPage();
     await screen.getByRole('button', { name: ru['profile.rotate.row'] }).click();
     await tick();
     await screen.getByRole('button', { name: ru['profile.rotate.cta'] }).click();
@@ -147,7 +336,7 @@ describe('token rotation (AC 15, moved from /profile)', () => {
       new ApiError(403, '/api/room/0xroom/user/0xme/token', 'token belongs to another record')
     );
     seedVault();
-    renderPage();
+    await renderPage();
     await screen.getByRole('button', { name: ru['profile.rotate.row'] }).click();
     await tick();
     await screen.getByRole('button', { name: ru['profile.rotate.cta'] }).click();
@@ -160,7 +349,7 @@ describe('token rotation (AC 15, moved from /profile)', () => {
 
 describe('leave room (AC 7, moved from /profile)', () => {
   it('asks the confirmation question BEFORE any DELETE', async () => {
-    renderPage();
+    await renderPage();
     await screen.getByRole('button', { name: ru['profile.leave'] }).click();
     await tick();
     // The question is asked before any DELETE — the dialog shows the body.
@@ -171,7 +360,7 @@ describe('leave room (AC 7, moved from /profile)', () => {
   it('confirms, DELETEs, clears identity AND the one-time mutual code, and navigates to /', async () => {
     localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
     mutualCode.set({ userAddress: ME, code: 'LIVE' });
-    renderPage();
+    await renderPage();
     await screen.getByRole('button', { name: ru['profile.leave'] }).click();
     await tick();
     await screen.getAllByRole('button', { name: ru['profile.leave'] }).pop()!.click();
@@ -187,7 +376,7 @@ describe('leave room (AC 7, moved from /profile)', () => {
     mockedApi.deleteRoomUser.mockRejectedValue(
       new ApiError(409, '/api/room/0xroom/user/0xme', 'income must exceed outcome')
     );
-    renderPage();
+    await renderPage();
     await screen.getByRole('button', { name: ru['profile.leave'] }).click();
     await tick();
     await screen.getAllByRole('button', { name: ru['profile.leave'] }).pop()!.click();

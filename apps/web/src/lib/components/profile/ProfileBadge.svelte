@@ -4,14 +4,18 @@
    * backdrop, own persona), name, read-only agent language, greeting block,
    * bio rows, mock-interest chips, stat tiles and the LIVE personal QR
    * (`u` + one-time `m` from the mutualCode store; badge skeleton until a
-   * code exists — never a broken payload). Purely presentational: data +
-   * edit callbacks come from the route.
+   * code exists — never a broken payload). Purely presentational: data comes
+   * from the route.
+   *
+   * Concept §10.1.4 / DESIGN §4.11.4: the badge is READ-ONLY display — the
+   * persona-edit affordances (the badge-header edit button, the greeting and
+   * interests edit controls) left the profile page; ALL persona editing
+   * lives in /profile/settings.
    */
   import type { User } from '@bleak/api-client';
   import type { Interest } from '#lib/stores/interests';
   import { locale, translate } from '#lib/i18n/locale';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
-  import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import Chip from '#lib/components/Chip.svelte';
   import StatTile from '#lib/components/StatTile.svelte';
   import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
@@ -28,9 +32,6 @@
     mutualCode: string | null;
     /** Transient «QR обновлён» note (auto-hide owned by the page). */
     qrRefreshed?: boolean;
-    oneditpersona?: () => void;
-    oneditgreeting?: () => void;
-    oneditinterests?: () => void;
   }
 
   let {
@@ -40,17 +41,12 @@
     dialogs,
     addedYou,
     mutualCode,
-    qrRefreshed = false,
-    oneditpersona,
-    oneditgreeting,
-    oneditinterests
+    qrRefreshed = false
   }: Props = $props();
 
   const languageMeta = $derived(
     translate($locale, 'profile.language.meta', { language: user.language })
   );
-  const greetingEditLabel = $derived(translate($locale, 'profile.greeting.edit'));
-  const interestsEditLabel = $derived(translate($locale, 'profile.interests.edit'));
   const qrAlt = $derived(translate($locale, 'profile.qr.aria'));
   const qrCaption = $derived(translate($locale, 'profile.qr.caption'));
   const qrOnetime = $derived(translate($locale, 'profile.qr.onetime'));
@@ -67,29 +63,13 @@
       <h2 class="name">{user.name}</h2>
       <p class="meta">{languageMeta}</p>
     </div>
-    <button
-      type="button"
-      class="icon-button"
-      aria-label={translate($locale, 'profile.persona.edit')}
-      onclick={() => oneditpersona?.()}
-    >
-      <PixelIcon name="edit" size={16} />
-    </button>
   </header>
 
-  <section class="greeting" aria-label={greetingEditLabel}>
+  <section class="greeting" aria-label={translate($locale, 'profile.greeting.label')}>
     <blockquote>
       <p>{user.greeting}</p>
       <footer class="caption">{translate($locale, 'profile.greeting.caption')}</footer>
     </blockquote>
-    <button
-      type="button"
-      class="icon-button"
-      aria-label={greetingEditLabel}
-      onclick={() => oneditgreeting?.()}
-    >
-      <PixelIcon name="edit" size={16} />
-    </button>
   </section>
 
   <section class="bios">
@@ -108,24 +88,12 @@
     </div>
   </section>
 
-  <section class="interests" aria-label={interestsEditLabel}>
+  <section class="interests" aria-label={translate($locale, 'profile.interests.title')}>
     <div class="row-head">
       <h3 class="bio-label">{translate($locale, 'profile.interests.title')}</h3>
-      <button
-        type="button"
-        class="icon-button"
-        aria-label={interestsEditLabel}
-        onclick={() => oneditinterests?.()}
-      >
-        <PixelIcon name="edit" size={16} />
-      </button>
     </div>
     {#if interests.length === 0}
       <p class="caption empty-interests">{translate($locale, 'profile.interests.empty')}</p>
-      <button type="button" class="add-chip" onclick={() => oneditinterests?.()}>
-        <PixelIcon name="plus" size={14} />
-        {translate($locale, 'profile.interests.add')}
-      </button>
     {:else}
       <ul class="chips">
         {#each interests as interest (interest.id)}
@@ -190,22 +158,6 @@
     font-size: 14px;
     color: var(--color-text-muted);
   }
-  .icon-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--touch-target);
-    height: var(--touch-target);
-    border: 1px solid var(--color-text-disabled-strong);
-    /* Concept §8.1.4: the persona/avatar edit control is no longer a full
-       circle — a rounded square (--radius-md), consistent with the tiles. */
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--color-text-muted);
-    transition:
-      border-color 120ms ease-out,
-      color 120ms ease-out;
-  }
   .greeting blockquote {
     margin: 0;
     padding: 0 0 0 var(--space-4);
@@ -217,14 +169,6 @@
     margin: 0;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
-  }
-  .greeting {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-3);
-  }
-  .greeting blockquote {
-    flex: 1;
   }
   .caption {
     margin: var(--space-1) 0 0;
@@ -278,21 +222,6 @@
   }
   .empty-interests {
     margin: 0 0 var(--space-2);
-  }
-  .add-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    min-height: 40px;
-    padding: 0 var(--space-4);
-    border: 1px dashed var(--color-text-disabled-strong);
-    border-radius: var(--radius-pill);
-    background: transparent;
-    color: var(--color-text-muted);
-    font-size: 14px;
-    transition:
-      border-color 120ms ease-out,
-      color 120ms ease-out;
   }
   .chips {
     list-style: none;

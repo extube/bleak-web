@@ -175,6 +175,7 @@ export const ru: Record<MessageKey, string> = {
   'profile.qr.aria': 'Ваш одноразовый QR для обмена рукопожатиями',
   'profile.saved': 'Сохранено',
   'profile.settings.title': 'Настройки',
+  'profile.settings.persona': 'Персона',
   'profile.leave': 'Выйти из комнаты',
   'profile.leave.confirm_body':
     'Ваша персона будет удалена из комнаты вместе с хендшейками и диалогами.',
