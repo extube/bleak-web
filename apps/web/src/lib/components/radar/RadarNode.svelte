@@ -7,7 +7,9 @@
    * name; the accessible name carries the relationship state
    * («Алиса — хендшейк ещё не отправлен» …, room.node.* keys). Markers on
    * the middle ring: outgoing → small accent dot on the avatar; incoming →
-   * accent ring around the avatar. Colors via tokens only.
+   * small accent dot at the avatar's top-right corner (§4.9.11: the former
+   * accent ring is replaced by the dot, same visual language as the
+   * outgoing marker). Colors via tokens only.
    *
    * §4.9.1 upright riding: the parent orbit layer rotates, so the node's
    * content (.avatar-box) counter-rotates with the same duration/delay
@@ -61,7 +63,7 @@
     {#if marker === 'outgoing'}
       <span class="out-dot"></span>
     {:else if marker === 'incoming'}
-      <span class="in-ring"></span>
+      <span class="in-dot"></span>
     {/if}
   </span>
 </button>
@@ -120,12 +122,22 @@
     border-radius: 50%;
     background: var(--color-accent);
   }
-  /* Incoming pending: accent ring around the avatar (§3.2). */
-  .in-ring {
+  /* Incoming pending ("added you"): small accent dot at the avatar's
+   * top-right corner (§4.9.11 — replaces the former accent ring; same
+   * visual language as .out-dot). Lives inside the counter-rotating
+   * .avatar-box, so it rides upright with the avatar and does not affect
+   * the button's hit area (markers are aria-hidden with the box). */
+  .in-dot {
     position: absolute;
-    inset: -3px;
-    border: 2px solid var(--color-accent);
+    /* Slight offset outside the corner (§4.9.11: overlapping the avatar
+     * edge is fine) — distinguishes it from .out-dot, which sits inside
+     * the same corner. */
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
+    background: var(--color-accent);
   }
   @keyframes node-in {
     from {

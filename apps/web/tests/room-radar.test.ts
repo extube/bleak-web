@@ -178,9 +178,11 @@ describe('/room — radar composition (AC 1, 3, 8)', () => {
     const orbit = document.querySelector('.nodes-orbit');
     expect(orbit).toBeTruthy();
     for (const node of nodeButtons()) expect(orbit?.contains(node)).toBe(true);
-    // Markers keep working (§3.2): outgoing → accent dot, no incoming ring.
+    // Markers keep working (§4.9.11): outgoing → accent dot, no incoming
+    // ring element remains (the incoming marker is the top-right dot).
     expect(document.querySelector('button.node .out-dot')).toBeTruthy();
     expect(document.querySelector('button.node .in-ring')).toBeNull();
+    expect(document.querySelector('button.node .in-dot')).toBeNull();
   });
 
   it('a soft-deleted attendee (left the room) renders no node', async () => {
@@ -412,7 +414,12 @@ describe('/room — HandshakeSheet per-state actions (AC 4–7)', () => {
     const carolNode = await screen.findByRole('button', {
       name: ru['room.node.incoming'].replace('{name}', 'Кэрол')
     });
-    expect(document.querySelector('button.node .in-ring')).toBeTruthy(); // §3.2 marker
+    // §4.9.11 marker: incoming pending renders the top-right accent dot
+    // inside the counter-rotating avatar box; the former ring is gone.
+    const carolBox = carolNode.querySelector('.avatar-box');
+    expect(carolBox?.querySelector('.in-dot')).toBeTruthy();
+    expect(document.querySelector('button.node .in-ring')).toBeNull();
+    expect(document.querySelector('button.node .out-dot')).toBeNull();
     await carolNode.click();
     expect(await screen.findByText(ru['hs.added_you'])).toBeTruthy();
     await screen.getByRole('button', { name: ru['hs.back'] }).click();
