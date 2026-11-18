@@ -1,15 +1,16 @@
 /**
- * AA contrast check for the §4.8.1 chat-bubble color coding (new AA
- * requirement — growth reason: Concept §7.1.2 adds four functional bubble
- * tints; owner acceptance demands AA-readable text on every tint).
+ * AA contrast check for the chat color coding (v2.3 amendment —
+ * Concept §9.1.5, DESIGN §4.10.5: the owner-provided Deepa palette
+ * replaces the §7.1.2 four-hue set for chat roles; full-opacity
+ * backgrounds, no more 18% tints).
  *
  * The tokens.css file is parsed directly so the check follows the palette
- * source of truth: each `--color-bubble-<hue>` must stay the documented
- * `color-mix(in srgb, <hue> 18%, var(--color-surface))` and keep
- * `--color-text` (#f0f0f0) at ≥4.5:1 on the mixed background. The v2.2
- * amendment (§4.9.7 / Concept §8.1.7) additionally pairs the muted
- * own-bubble surface (--color-surface-elevated) with --color-text. Avatar-art
- * tokens are decorative (no text on them) and are only pinned to exist.
+ * source of truth: each `--color-deepa-<n>` must match the documented
+ * owner palette and keep its paired ink token (`--color-deepa-ink-<n>`,
+ * a var() over --color-surface / --color-text) at ≥4.5:1 on the hue.
+ * The muted own-bubble pairing (--color-surface-elevated +
+ * --color-text, tz4-06 / Concept §8.1.7) stays. Avatar-art tokens are
+ * decorative (no text on them) and are only pinned to exist.
  */
 import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
@@ -20,12 +21,22 @@ const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
   : join(process.cwd(), 'apps', 'web'); // apps/web/ (cwd-safe under happy-dom)
 const CSS = readFileSync(join(WEB_ROOT, 'src/lib/styles/tokens.css'), 'utf8');
 
-/** DESIGN §4.8.1 — the documented hue values (owner-approved palette). */
-const CODE_HUE_HEX: Record<string, string> = {
-  yellow: '#fedc5c',
-  orange: '#ffa24a',
-  blue: '#63a8ff',
-  violet: '#b58cff'
+/** DESIGN §4.10.5 — the documented Deepa hue values (owner palette). */
+const DEEPA_HUE_HEX: Record<string, string> = {
+  '1': '#00b57f',
+  '2': '#e8e000',
+  '3': '#ff5000',
+  '4': '#9b0cff',
+  '5': '#0decff'
+};
+
+/** DESIGN §4.10.5 — dark ink on green/yellow/orange/cyan, light ink on violet. */
+const INK_SOURCE: Record<string, string> = {
+  '1': 'color-surface',
+  '2': 'color-surface',
+  '3': 'color-surface',
+  '4': 'color-text',
+  '5': 'color-surface'
 };
 
 function tokenHex(name: string): string {
@@ -34,33 +45,22 @@ function tokenHex(name: string): string {
   return `#${match[1].toLowerCase()}`;
 }
 
-/** Parse a `--color-bubble-<hue>` declaration: percent over --color-surface. */
-function bubbleMix(hue: string): { hueHex: string; percent: number; surfaceHex: string } {
+/** Parse a `--color-deepa-ink-<n>` declaration: `var(--color-…)` reference. */
+function inkSource(n: string): string {
   const match = CSS.match(
-    new RegExp(
-      `--color-bubble-${hue}:\\s*color-mix\\(in srgb, var\\(--color-code-${hue}\\)\\s*([\\d.]+)%,\\s*var\\(--color-surface\\)\\)`
-    )
+    new RegExp(`--color-deepa-ink-${n}:\\s*var\\(--(color-[a-z-]+)\\)`)
   );
   if (!match?.[1]) {
-    throw new Error(`--color-bubble-${hue} is not the documented color-mix over the surface`);
+    throw new Error(`--color-deepa-ink-${n} is not a var() over a color token`);
   }
-  return { hueHex: tokenHex(`color-code-${hue}`), percent: Number(match[1]), surfaceHex: tokenHex('color-surface') };
+  return match[1];
 }
 
-/** gamma-space sRGB interpolation — exactly what `color-mix(in srgb, …)` does */
-function mix(a: string, b: string, percent: number): [number, number, number] {
-  const t = percent / 100;
-  const parse = (hex: string): [number, number, number] => [
+function parse(hex: string): [number, number, number] {
+  return [
     parseInt(hex.slice(1, 3), 16),
     parseInt(hex.slice(3, 5), 16),
     parseInt(hex.slice(5, 7), 16)
-  ];
-  const ca = parse(a);
-  const cb = parse(b);
-  return ca.map((channel, i) => Math.round(t * channel + (1 - t) * (cb[i] ?? 0))) as [
-    number,
-    number,
-    number
   ];
 }
 
@@ -74,45 +74,57 @@ function luminance([r, g, b]: [number, number, number]): number {
 }
 
 function contrast(fg: string, bg: string): number {
-  const l1 = luminance(mix(fg, fg, 100));
-  const l2 = luminance(mix(bg, bg, 100));
+  const l1 = luminance(parse(fg));
+  const l2 = luminance(parse(bg));
   const [hi, lo] = l1 >= l2 ? [l1, l2] : [l2, l1];
   return (hi + 0.05) / (lo + 0.05);
 }
 
-describe('tokens: §4.8.1 code hues + bubble tints', () => {
-  it('the four code hues match the documented palette values', () => {
-    for (const [hue, hex] of Object.entries(CODE_HUE_HEX)) {
-      expect(tokenHex(`color-code-${hue}`), hue).toBe(hex);
+describe('tokens: §4.10.5 Deepa hues', () => {
+  it('the five Deepa hues match the documented owner palette values', () => {
+    for (const [n, hex] of Object.entries(DEEPA_HUE_HEX)) {
+      expect(tokenHex(`color-deepa-${n}`), n).toBe(hex);
     }
   });
 
-  it('every bubble tint is the documented 18% color-mix over --color-surface', () => {
-    for (const hue of Object.keys(CODE_HUE_HEX)) {
-      expect(bubbleMix(hue).percent, hue).toBe(18);
-      expect(bubbleMix(hue).surfaceHex, hue).toBe(tokenHex('color-surface'));
-    }
-  });
-
-  it('bubble text stays --color-text (#f0f0f0) and the surface stays charcoal', () => {
-    expect(tokenHex('color-text')).toBe('#f0f0f0');
+  it('the surface stays charcoal and the text stays near-white (ink sources)', () => {
     expect(tokenHex('color-surface')).toBe('#101213');
+    expect(tokenHex('color-text')).toBe('#f0f0f0');
   });
 });
 
-describe('AA contrast: --color-text on every bubble tint (§4.8.1, ≥4.5:1)', () => {
-  it.each(Object.keys(CODE_HUE_HEX))('%s tint', (hue) => {
-    const { hueHex, percent, surfaceHex } = bubbleMix(hue);
-    const tint = mix(hueHex, surfaceHex, percent);
-    const ratio = contrast('#f0f0f0', `#${tint.map((c) => c.toString(16).padStart(2, '0')).join('')}`);
-    expect(ratio).toBeGreaterThanOrEqual(4.5);
+describe('AA contrast: ink on every Deepa hue (§4.10.5, ≥4.5:1)', () => {
+  it.each(Object.keys(DEEPA_HUE_HEX))('deepa-%s pairs its ink token (dark ink except violet)', (n) => {
+    // The ink token resolves over the documented source token (dark
+    // surface ink on hues 1/2/3/5, light text ink on violet).
+    expect(inkSource(n), `deepa-ink-${n} source`).toBe(INK_SOURCE[n]);
+  });
+
+  it.each(Object.keys(DEEPA_HUE_HEX))('deepa-%s background with its ink text measures ≥4.5:1', (n) => {
+    const hue = tokenHex(`color-deepa-${n}`);
+    const ink = tokenHex(inkSource(n));
+    const ratio = contrast(ink, hue);
+    // Measured (WCAG helpers above): deepa-1 ≈7.09, deepa-2 ≈13.50,
+    // deepa-3 ≈5.73, deepa-4 ≈4.74 (light ink), deepa-5 ≈13.03.
+    expect(ratio, `deepa-${n}: ${ink} on ${hue} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('the light-ink exception is only violet — every dark-ink hue clears 4.5 with the surface ink', () => {
+    // Guards the pairing table against a silent swap (e.g. light ink on
+    // orange would fail AA the other way).
+    for (const n of ['1', '2', '3', '5']) {
+      const hue = tokenHex(`color-deepa-${n}`);
+      const lightRatio = contrast(tokenHex('color-text'), hue);
+      expect(lightRatio, `deepa-${n} vs light ink`).toBeLessThan(4.5);
+    }
   });
 });
 
-describe('AA contrast: the muted own-bubble pair (§4.9.7 — mine bubbles are NOT hue-tinted)', () => {
+describe('AA contrast: the muted own-bubble pair (§4.9.7 — mine bubbles are NOT hue-coded)', () => {
   it('--color-surface-elevated stays the neutral muted surface (--color-text on it ≈12.35:1)', () => {
-    // Own bubbles reverted to the pre-tz3-02 muted neutral (Concept §8.1.7):
-    // the background is --color-surface-elevated, text stays --color-text.
+    // Own bubbles stay on the pre-tz3-02 muted neutral (Concept §8.1.7,
+    // unchanged by §4.10.5): background --color-surface-elevated, text
+    // stays --color-text.
     const elevated = tokenHex('color-surface-elevated');
     expect(elevated).toBe('#292c2d');
     const ratio = contrast('#f0f0f0', elevated);

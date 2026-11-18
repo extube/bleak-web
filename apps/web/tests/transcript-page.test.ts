@@ -172,14 +172,14 @@ describe('transcript rendering + live updates (§3.5 AC 1–4, 9, 12)', () => {
     expect(screen.getByText('Работаю с глиной')).toBeTruthy();
     expect(screen.queryByText('networking')).toBeNull();
     expect(screen.queryByText('ai-future')).toBeNull();
-    // §4.8.1 color coding as amended by §4.9.7: THEIR bubbles carry the
-    // speaker's code hue; OWN bubbles are muted — no code-* class at all.
+    // §4.10.5 color coding: THEIR bubbles carry the speaker's Deepa hue
+    // (full opacity); OWN bubbles are muted — no deepa-* class at all.
     const bubbles = document.querySelectorAll('.bubble');
-    expect(bubbles[0]?.classList.contains(`code-${codeHue('0xa')}`)).toBe(true);
+    expect(bubbles[0]?.classList.contains(codeHue('0xa'))).toBe(true);
     expect(bubbles[1]?.classList.contains('mine')).toBe(true);
-    expect(bubbles[1]?.classList.contains(`code-${codeHue(ME)}`)).toBe(false);
-    expect(bubbles[1]?.className).not.toMatch(/code-(yellow|orange|blue|violet)/);
-    expect(bubbles[2]?.classList.contains(`code-${codeHue('0xa')}`)).toBe(true);
+    expect(bubbles[1]?.classList.contains(codeHue(ME))).toBe(false);
+    expect(bubbles[1]?.className).not.toMatch(/deepa-[1-5]/);
+    expect(bubbles[2]?.classList.contains(codeHue('0xa'))).toBe(true);
   });
 
   it('new messages appear within one 2 s poll tick without reload (AC 3)', async () => {
@@ -286,20 +286,20 @@ describe('v2.2 dialog polish (Concept §8.1.8/9/10, DESIGN §4.9.8/9/10)', () =>
   });
 });
 
-describe('v2.2 chat colors (Concept §8.1.7, DESIGN §4.9.7)', () => {
-  it('their bubbles keep the bright code-hue background; own bubbles are muted (no code hue)', async () => {
+describe('v2.3 chat colors (Concept §9.1.5, DESIGN §4.10.5 — Deepa palette)', () => {
+  it('their bubbles keep the full-opacity Deepa hue background; own bubbles are muted (no Deepa hue)', async () => {
     withMessages(
       message('tx1', '0xa', 'Привет, я твой новый контакт.', 60),
       message('tx2', ME, 'Привет! Чем занимаешься?', 30)
     );
     await renderPage();
     const bubbles = document.querySelectorAll('.bubble');
-    // theirs: the speaker's hue (unchanged tz3-02 behavior)
-    expect(bubbles[0]?.classList.contains(`code-${codeHue('0xa')}`)).toBe(true);
-    // mine: the muted neutral surface — never MY code hue
+    // theirs: the speaker's Deepa hue (the class IS the hue name)
+    expect(bubbles[0]?.classList.contains(codeHue('0xa'))).toBe(true);
+    // mine: the muted neutral surface — never MY Deepa hue
     expect(bubbles[1]?.classList.contains('mine')).toBe(true);
-    expect(bubbles[1]?.classList.contains(`code-${codeHue(ME)}`)).toBe(false);
-    expect(bubbles[1]?.className).not.toMatch(/code-(yellow|orange|blue|violet)/);
+    expect(bubbles[1]?.classList.contains(codeHue(ME))).toBe(false);
+    expect(bubbles[1]?.className).not.toMatch(/deepa-[1-5]/);
   });
 });
 

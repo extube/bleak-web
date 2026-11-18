@@ -6,14 +6,16 @@
    * count in as data. No message preview in v1 (§5 performance rationale:
    * one extra request per chat per poll is too heavy on venue Wi-Fi).
    * Cards are <a>-wrapped list items with full accessible names:
-   * «Диалог с {name} · {phase} · {scenario}». Per §8.1.7 every card gets
-   * the BRIGHT §7.1.2 color coding: the counterpart's code hue tint
-   * (`--color-bubble-<hue>` via codeHue(counterpartAddress)) as the card
-   * background — the same 18% tint pairing the dialog bubbles use, so
-   * --color-text on it is AA ≥4.5:1 (tests/bubble-contrast.test.ts).
-   * Muted-gray text is bumped to --color-text on the tint (the muted
-   * gray only measures ≈3.9:1 there), and outline-muted chips follow —
-   * text --color-text, border --color-text-muted (≈3.9:1 ≥3:1 non-text).
+   * «Диалог с {name} · {phase} · {scenario}». Per Concept §9.1.5 /
+   * DESIGN §4.10.5 (supersedes §4.9.7) every card gets the bright Deepa
+   * color coding: the counterpart's hue as the FULL-OPACITY card
+   * background (`--color-deepa-<n>` via codeHue(counterpartAddress));
+   * text on the card pairs with the hue's ink token
+   * (`--color-deepa-ink-<n>` — AA ≥4.5:1, tests/bubble-contrast.test.ts):
+   * name, time, «+N» extra and the outline-muted chips all switch to the
+   * ink pairing (chip borders stay muted-on-hue via the ink). A missing
+   * counterpart address (degenerate 0-participant case) keeps the neutral
+   * surface.
    */
   import { resolve } from '$app/paths';
   import type { Chat, User } from '@bleak/api-client';
@@ -39,11 +41,10 @@
 
   const name = $derived(counterpart?.name ?? counterpartAddress ?? chat.address);
   const time = $derived(relativeTime(chat.created_at, now, $locale));
-  // §4.9.7: the card wears the counterpart's hue; a missing counterpart
-  // address (degenerate 0-participant case) keeps the neutral surface.
-  const hueClass = $derived(
-    counterpartAddress === null ? '' : `code-${codeHue(counterpartAddress)}`
-  );
+  // §4.10.5: the card wears the counterpart's Deepa hue; a missing
+  // counterpart address (degenerate 0-participant case) keeps the neutral
+  // surface. The hue string IS the class name (deepa-1…deepa-5).
+  const hueClass = $derived(counterpartAddress === null ? '' : codeHue(counterpartAddress));
   const aria = $derived(
     translate($locale, 'chats.card.aria', {
       name,
@@ -92,42 +93,66 @@
   .chat-card:active {
     opacity: 0.8;
   }
-  /* Bright §7.1.2 color coding (§4.9.7): the counterpart's hue tint as the
-   * card background — the same --color-bubble-* pairing as the dialog
-   * bubbles (18% over the surface). Declared after the base so the hue
-   * wins. */
-  .chat-card.code-yellow {
-    background: var(--color-bubble-yellow);
+  /* Bright Deepa color coding (§4.10.5): the counterpart's hue as the
+   * FULL-OPACITY card background, with the hue's ink token as the text
+   * color (name inherits it). Declared after the base so the hue wins. */
+  .chat-card.deepa-1 {
+    background: var(--color-deepa-1);
+    color: var(--color-deepa-ink-1);
   }
-  .chat-card.code-orange {
-    background: var(--color-bubble-orange);
+  .chat-card.deepa-2 {
+    background: var(--color-deepa-2);
+    color: var(--color-deepa-ink-2);
   }
-  .chat-card.code-blue {
-    background: var(--color-bubble-blue);
+  .chat-card.deepa-3 {
+    background: var(--color-deepa-3);
+    color: var(--color-deepa-ink-3);
   }
-  .chat-card.code-violet {
-    background: var(--color-bubble-violet);
+  .chat-card.deepa-4 {
+    background: var(--color-deepa-4);
+    color: var(--color-deepa-ink-4);
   }
-  /* AA on the tint: --color-text-muted only measures ≈3.9:1 on the 18%
-   * hues — secondary card text bumps to --color-text (≥10:1). */
-  .chat-card.code-yellow .extra,
-  .chat-card.code-yellow .time,
-  .chat-card.code-orange .extra,
-  .chat-card.code-orange .time,
-  .chat-card.code-blue .extra,
-  .chat-card.code-blue .time,
-  .chat-card.code-violet .extra,
-  .chat-card.code-violet .time {
-    color: var(--color-text);
+  .chat-card.deepa-5 {
+    background: var(--color-deepa-5);
+    color: var(--color-deepa-ink-5);
   }
-  /* Chips stay legible on the tint: text to --color-text, border up to
-   * --color-text-muted (≈3.9:1 — WCAG 1.4.11 non-text ≥3:1). */
-  .chat-card.code-yellow :global(.chip.outline-muted),
-  .chat-card.code-orange :global(.chip.outline-muted),
-  .chat-card.code-blue :global(.chip.outline-muted),
-  .chat-card.code-violet :global(.chip.outline-muted) {
-    color: var(--color-text);
-    border-color: var(--color-text-muted);
+  /* AA on the full-opacity hue: secondary card text (time, «+N») pairs
+   * with the ink token too — no muted gray on a bright hue. */
+  .chat-card.deepa-1 .extra,
+  .chat-card.deepa-1 .time,
+  .chat-card.deepa-2 .extra,
+  .chat-card.deepa-2 .time,
+  .chat-card.deepa-3 .extra,
+  .chat-card.deepa-3 .time,
+  .chat-card.deepa-4 .extra,
+  .chat-card.deepa-4 .time,
+  .chat-card.deepa-5 .extra,
+  .chat-card.deepa-5 .time {
+    color: inherit;
+  }
+  /* Chips stay legible on the hue: text AND border pair with the ink
+   * token (muted-on-hue via the ink — WCAG 1.4.11 non-text ≥3:1). */
+  .chat-card.deepa-1 :global(.chip.outline-muted),
+  .chat-card.deepa-2 :global(.chip.outline-muted),
+  .chat-card.deepa-3 :global(.chip.outline-muted),
+  .chat-card.deepa-4 :global(.chip.outline-muted),
+  .chat-card.deepa-5 :global(.chip.outline-muted) {
+    color: inherit;
+  }
+  .chat-card.deepa-1 :global(.chip.outline-muted) {
+    border-color: var(--color-deepa-ink-1);
+  }
+  .chat-card.deepa-2 :global(.chip.outline-muted) {
+    border-color: var(--color-deepa-ink-2);
+  }
+  .chat-card.deepa-3 :global(.chip.outline-muted) {
+    border-color: var(--color-deepa-ink-3);
+  }
+  .chat-card.deepa-4 :global(.chip.outline-muted) {
+    border-color: var(--color-deepa-ink-4);
+  }
+  .chat-card.deepa-5 :global(.chip.outline-muted) {
+    border-color: var(--color-deepa-ink-5);
   }
   .main {
     flex: 1;

@@ -81,12 +81,12 @@ describe('deriveTraits — determinism and bounds', () => {
   });
 });
 
-describe('codeHue — chat color assignment (Concept §7.1.2, DESIGN §4.8.1)', () => {
-  it('is the exact fnv1a(address) % 4 rule over the documented hue order', () => {
+describe('codeHue — chat color assignment (Concept §9.1.5, DESIGN §4.10.5)', () => {
+  it('is the exact fnv1a(address) % 5 rule over the documented Deepa order', () => {
     for (const address of ['0xme', '0xa', '0xdeadbeef', '0xroom123', 'Тестовая персона', '']) {
-      expect(codeHue(address)).toBe(CODE_HUES[fnv1a(address) % 4]);
+      expect(codeHue(address)).toBe(CODE_HUES[fnv1a(address) % 5]);
     }
-    expect(CODE_HUES).toEqual(['yellow', 'orange', 'blue', 'violet']);
+    expect(CODE_HUES).toEqual(['deepa-1', 'deepa-2', 'deepa-3', 'deepa-4', 'deepa-5']);
   });
 
   it('is deterministic: same address ⇒ same hue', () => {
@@ -94,18 +94,18 @@ describe('codeHue — chat color assignment (Concept §7.1.2, DESIGN §4.8.1)', 
     expect(codeHue('0xbob')).toBe(codeHue('0xbob'));
   });
 
-  it('always returns one of the four hues, and all four are reachable', () => {
+  it('always returns one of the five hues, and all five are reachable', () => {
     const addresses = Array.from({ length: 256 }, (_, i) => `0xuser${i}`);
     const seen = new Set<string>();
     for (const address of addresses) {
       expect(CODE_HUES).toContain(codeHue(address));
       seen.add(codeHue(address));
     }
-    expect(seen.size).toBe(4);
+    expect(seen.size).toBe(5);
   });
 
-  it('the two sides of a chat get their own hues (mine is NOT fixed yellow)', () => {
-    // Distinct addresses may share a hue (4 buckets), but the mine side is
+  it('the two sides of a chat get their own hues (mine is NOT fixed to one hue)', () => {
+    // Distinct addresses may share a hue (5 buckets), but the mine side is
     // hashed from MY address — not hardwired.
     const hues = new Set(
       ['0xme', '0xa', '0xb', '0xc', '0xd', '0xe'].map((address) => codeHue(address))

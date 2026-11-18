@@ -135,13 +135,15 @@ describe('/chats — cards (§3.4 AC 1–4)', () => {
     expect(screen.getByText('+2')).toBeTruthy();
   });
 
-  it('every card wears the bright §4.9.7 color coding: the counterpart hue as its background class', async () => {
+  it('every card wears the bright §4.10.5 color coding: the counterpart Deepa hue as its full-opacity background class', async () => {
     await renderPage();
     const link = screen.getByRole('link', { name: /Диалог с Алиса/ });
-    // the counterpart's code hue tint (--color-bubble-<hue>) is applied via
-    // a code-<hue> class on the card — the same pairing the dialog bubbles
-    // use (--color-text on the tint is AA ≥4.5:1, bubble-contrast.test.ts).
-    expect(link.classList.contains(`code-${codeHue('0xa')}`)).toBe(true);
+    // the counterpart's Deepa hue (--color-deepa-<n>, FULL opacity — no
+    // 18% tint anymore) is applied via a deepa-<n> class on the card;
+    // text pairs with --color-deepa-ink-<n> (AA ≥4.5:1,
+    // bubble-contrast.test.ts). The old tint classes are gone.
+    expect(link.classList.contains(codeHue('0xa'))).toBe(true);
+    expect(link.className).not.toMatch(/code-(yellow|orange|blue|violet)/);
   });
 });
 
