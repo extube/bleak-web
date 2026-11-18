@@ -215,7 +215,7 @@ describe('DESIGN §4.7 copy table coverage', () => {
 
   it('spot-checks verbatim rev. 3 RU strings (v2 credentials scope)', () => {
     expect(ru['auth.401.notice']).toBe(
-      'У этой персоны нет действительного ключа доступа — присоединитесь заново по коду события.'
+      'У этого профиля нет действительного ключа доступа — присоединитесь заново по коду события.'
     );
     expect(ru['host.gate.label']).toBe('Токен создания комнаты');
     expect(ru['host.gate.note']).toBe(
@@ -233,10 +233,10 @@ describe('DESIGN §4.7 copy table coverage', () => {
     expect(ru['join.error.invite']).toBe('Код приглашения недействителен или истёк.');
     expect(ru['join.import.title']).toBe('Вернуться на событие');
     expect(ru['join.import.return']).toBe('Вернуться');
-    expect(ru['join.import.row_aria']).toBe('Вернуться к персоне {name}');
-    expect(ru['join.import.empty']).toBe('На этом устройстве пока нет сохранённых персон.');
+    expect(ru['join.import.row_aria']).toBe('Вернуться к профилю {name}');
+    expect(ru['join.import.empty']).toBe('На этом устройстве пока нет сохранённых профилей.');
     expect(ru['join.import.dead']).toBe(
-      'Эта персона больше не существует на сервере. Запись останется в списке, но вернуться в это событие нельзя.'
+      'Этот профиль больше не существует на сервере. Запись останется в списке, но вернуться в это событие нельзя.'
     );
     expect(ru['profile.qr.onetime']).toBe('QR одноразовый — после обмена он обновится сам.');
     expect(ru['profile.qr.aria']).toBe('Ваш одноразовый QR для обмена рукопожатиями');
@@ -249,9 +249,33 @@ describe('DESIGN §4.7 copy table coverage', () => {
 });
 
 describe('v2.1 UI-polish round keys (DESIGN §4.8)', () => {
-  it('the settings-block heading exists in both dictionaries (Concept §7.1.6)', () => {
-    expect(en['profile.settings.title']).toBe('Settings');
-    expect(ru['profile.settings.title']).toBe('Настройки');
+  it('the settings-block heading exists in both dictionaries (Concept §7.1.6; retitled per §11.1.3)', () => {
+    expect(en['profile.settings.title']).toBe('My profile');
+    expect(ru['profile.settings.title']).toBe('Мой профиль');
+  });
+});
+
+describe('v2.5 copy sweep (Concept §11.1.3, DESIGN §4.12.3)', () => {
+  it('edit-screen titles drop the word "Edit" (values only — key names intact)', () => {
+    expect(en['profile.persona.edit']).toBe('Profile');
+    expect(ru['profile.persona.edit']).toBe('Профиль');
+    expect(en['profile.greeting.edit']).toBe('Greeting');
+    expect(ru['profile.greeting.edit']).toBe('Приветствие');
+    expect(en['profile.interests.edit']).toBe('Interests');
+    expect(ru['profile.interests.edit']).toBe('Интересы');
+  });
+
+  it('the persona section heading is retitled "My profile" / «Мой профиль» (owner change request)', () => {
+    expect(en['profile.settings.persona']).toBe('My profile');
+    expect(ru['profile.settings.persona']).toBe('Мой профиль');
+  });
+
+  it('no user-visible "persona" / "персона" remains in any dictionary value', () => {
+    // Word-boundary match: "Personal" (EN) is a different word and stays.
+    const enHits = Object.values(en).filter((v) => /\bpersonas?\b/i.test(v));
+    const ruHits = Object.values(ru).filter((v) => /персона/i.test(v));
+    expect(enHits, `EN values still say persona: ${enHits.join(' | ')}`).toEqual([]);
+    expect(ruHits, `RU values still say персона: ${ruHits.join(' | ')}`).toEqual([]);
   });
 });
 

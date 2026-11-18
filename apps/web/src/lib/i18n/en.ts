@@ -24,7 +24,7 @@ export const en = {
   'join.scan.open': 'Or scan a QR code',
   'join.room.language': 'Agent language: {language}',
   'join.room.members': 'Members: {n}',
-  'join.create_persona': 'Create persona',
+  'join.create_persona': 'Create profile',
   'join.change_code': 'Change code',
   'join.form.name': 'Name',
   'join.form.public_bio': 'What others see',
@@ -36,13 +36,13 @@ export const en = {
   // picking a saved persona enters its room with the stored token —
   // identity restore, no re-creation.
   'join.import.title': 'Return to event',
-  'join.import.subtitle': 'Personas created on this phone.',
+  'join.import.subtitle': 'Profiles created on this phone.',
   'join.import.return': 'Return',
-  'join.import.empty': 'No saved personas on this device yet.',
+  'join.import.empty': 'No saved profiles on this device yet.',
   'join.import.saved_at': 'Saved {date}',
-  'join.import.row_aria': 'Return to persona {name}',
+  'join.import.row_aria': 'Return to profile {name}',
   'join.import.dead':
-    'This persona no longer exists on the server. The entry stays listed, but you cannot return to it.',
+    'This profile no longer exists on the server. The entry stays listed, but you cannot return to it.',
   'join.error.invite': 'The invite code is invalid or expired.',
   'join.resume.title': 'Continue to {room}',
   'join.resume.another': 'Join another event',
@@ -65,7 +65,7 @@ export const en = {
   'scan.invalid_qr': 'This is not a bleak-web QR code.',
   'scan.code_used': 'Code already used — ask them to refresh their badge QR.',
   'scan.own_qr': "That's your own QR — show it to someone else.",
-  'scan.foreign_persona': 'This persona is from another event.',
+  'scan.foreign_persona': 'This profile is from another event.',
   'scan.confirm.title': 'Send mutual handshakes and start the agents?',
   'scan.confirm.cta': 'Trade handshakes',
   'scan.confirm.cancel': 'Cancel',
@@ -77,7 +77,7 @@ export const en = {
   'room.title': 'Around me',
   'room.subtitle': 'Attendees near you in this room.',
   'room.around': '{n} around you',
-  'room.scan.open': 'Scan a persona QR',
+  'room.scan.open': 'Scan a profile QR',
   'room.empty': 'Nobody here yet. Ask the host for the invite code — or share yours.',
   'room.members_more': '+{n} more',
   'room.node.chat': '{name} — your agents are already talking',
@@ -142,7 +142,7 @@ export const en = {
 
   /* --- profile (DESIGN §3.6, §4.7) --- */
   'profile.title': 'Profile',
-  'profile.subtitle': 'Your persona-agent in this room.',
+  'profile.subtitle': 'Your profile in this room.',
   'profile.language.meta': 'Agent language: {language}',
   'profile.greeting.caption': "Opens each of your agent's new dialogs",
   'profile.greeting.rule':
@@ -151,14 +151,14 @@ export const en = {
     'Remove the question marks — the greeting must not contain questions.',
   'profile.greeting.label': 'Greeting',
   'profile.greeting.counter': '{n}/255',
-  'profile.greeting.edit': 'Edit greeting',
+  'profile.greeting.edit': 'Greeting',
   'profile.greeting.regenerate': 'Regenerate',
-  'profile.persona.edit': 'Edit persona',
+  'profile.persona.edit': 'Profile',
   'profile.badge.about': 'About',
   'profile.badge.for_agent': 'For your agent',
   'profile.private_bio.caption': 'only your agent sees this',
   'profile.interests.title': 'Interests',
-  'profile.interests.edit': 'Edit interests',
+  'profile.interests.edit': 'Interests',
   'profile.interests.add': 'Add interests',
   'profile.interests.done': 'Done',
   'profile.interests.note': 'Interests are visible on your profile only.',
@@ -176,17 +176,17 @@ export const en = {
   'profile.qr.refreshed': 'QR refreshed',
   'profile.qr.aria': 'Your one-time handshake QR',
   'profile.saved': 'Saved',
-  'profile.settings.title': 'Settings',
-  'profile.settings.persona': 'Persona',
+  'profile.settings.title': 'My profile',
+  'profile.settings.persona': 'My profile',
   'profile.leave': 'Leave the room',
   'profile.leave.confirm_body':
     'You will leave the event. Your token stays on this device — you can return any time via Return to event.',
-  'profile.not_found': 'Persona not found',
+  'profile.not_found': 'Profile not found',
   'profile.exit': 'Leave',
   'profile.rotate.row': 'Regenerate access token',
   'profile.rotate.title': 'Regenerate the access token?',
   'profile.rotate.body':
-    'The current credential will stop working: other devices holding it will lose access to this persona.',
+    'The current credential will stop working: other devices holding it will lose access to this profile.',
   'profile.rotate.cta': 'Regenerate',
   'profile.rotate.done': 'Credential updated',
 
@@ -251,7 +251,7 @@ export const en = {
 
   /* --- global 401 gate (DESIGN rev. 3 §2.8, §4.7) --- */
   'auth.401.notice':
-    'This persona has no valid access credential — join again with the event code.',
+    'This profile has no valid access credential — join again with the event code.',
 
   /* --- common (DESIGN §2.1, §4.7) --- */
   'common.loading': 'Loading…',

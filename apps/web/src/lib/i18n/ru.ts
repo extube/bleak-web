@@ -25,7 +25,7 @@ export const ru: Record<MessageKey, string> = {
   'join.scan.open': 'Или отсканировать QR-код',
   'join.room.language': 'Язык агентов: {language}',
   'join.room.members': 'Участников: {n}',
-  'join.create_persona': 'Создать персону',
+  'join.create_persona': 'Создать профиль',
   'join.change_code': 'Изменить код',
   'join.form.name': 'Имя',
   'join.form.public_bio': 'Кто вы — увидят другие',
@@ -37,13 +37,13 @@ export const ru: Record<MessageKey, string> = {
   // §4.7): выбор сохранённой персоны вводит её комнату по сохранённому
   // токену — восстановление идентичности, без пересоздания.
   'join.import.title': 'Вернуться на событие',
-  'join.import.subtitle': 'Персоны, созданные на этом телефоне.',
+  'join.import.subtitle': 'Профили, созданные на этом телефоне.',
   'join.import.return': 'Вернуться',
-  'join.import.empty': 'На этом устройстве пока нет сохранённых персон.',
+  'join.import.empty': 'На этом устройстве пока нет сохранённых профилей.',
   'join.import.saved_at': 'Сохранено {date}',
-  'join.import.row_aria': 'Вернуться к персоне {name}',
+  'join.import.row_aria': 'Вернуться к профилю {name}',
   'join.import.dead':
-    'Эта персона больше не существует на сервере. Запись останется в списке, но вернуться в это событие нельзя.',
+    'Этот профиль больше не существует на сервере. Запись останется в списке, но вернуться в это событие нельзя.',
   'join.error.invite': 'Код приглашения недействителен или истёк.',
   'join.resume.title': 'Продолжить в «{room}»',
   'join.resume.another': 'Присоединиться к другому событию',
@@ -66,7 +66,7 @@ export const ru: Record<MessageKey, string> = {
   'scan.invalid_qr': 'Это не QR-код bleak-web.',
   'scan.code_used': 'Код уже использован — попросите обновить QR на карточке.',
   'scan.own_qr': 'Это ваш собственный QR — покажите его кому-нибудь другому.',
-  'scan.foreign_persona': 'Эта персона из другого события.',
+  'scan.foreign_persona': 'Этот профиль из другого события.',
   'scan.confirm.title': 'Отправить взаимные хендшейки и запустить агентов?',
   'scan.confirm.cta': 'Обменяться рукопожатиями',
   'scan.confirm.cancel': 'Отмена',
@@ -78,7 +78,7 @@ export const ru: Record<MessageKey, string> = {
   'room.title': 'Рядом со мной',
   'room.subtitle': 'Участники рядом в этой комнате.',
   'room.around': '{n} вокруг вас',
-  'room.scan.open': 'Сканировать QR персоны',
+  'room.scan.open': 'Сканировать QR профиля',
   'room.empty': 'Пока никого. Попросите код приглашения у хоста — или сами поделитесь им.',
   'room.members_more': '+{n} ещё',
   'room.node.chat': '{name} — агенты уже общаются',
@@ -143,7 +143,7 @@ export const ru: Record<MessageKey, string> = {
 
   /* --- profile --- */
   'profile.title': 'Профиль',
-  'profile.subtitle': 'Ваша персона-агент в этой комнате.',
+  'profile.subtitle': 'Ваш профиль в этой комнате.',
   'profile.language.meta': 'Язык агента: {language}',
   'profile.greeting.caption': 'Открывает каждый новый диалог агента',
   'profile.greeting.rule':
@@ -152,14 +152,14 @@ export const ru: Record<MessageKey, string> = {
     'Уберите вопросительные знаки — приветствие не может содержать вопросов.',
   'profile.greeting.label': 'Приветствие',
   'profile.greeting.counter': '{n}/255',
-  'profile.greeting.edit': 'Редактировать приветствие',
+  'profile.greeting.edit': 'Приветствие',
   'profile.greeting.regenerate': 'Сгенерировать заново',
-  'profile.persona.edit': 'Редактировать персону',
+  'profile.persona.edit': 'Профиль',
   'profile.badge.about': 'О себе',
   'profile.badge.for_agent': 'Для агента',
   'profile.private_bio.caption': 'видно только вашему агенту',
   'profile.interests.title': 'Интересы',
-  'profile.interests.edit': 'Редактировать интересы',
+  'profile.interests.edit': 'Интересы',
   'profile.interests.add': 'Добавить интересы',
   'profile.interests.done': 'Готово',
   'profile.interests.note': 'Интересы видны только в вашем профиле.',
@@ -172,22 +172,22 @@ export const ru: Record<MessageKey, string> = {
   'profile.stats.handshakes': 'Отправлено {n}',
   'profile.stats.dialogs': 'В диалогах {n}',
   'profile.qr.caption': 'Покажите, чтобы обменяться рукопожатиями',
-  'profile.qr.alt': 'Персональный QR-код',
+  'profile.qr.alt': 'Личный QR-код',
   'profile.qr.onetime': 'QR одноразовый — после обмена он обновится сам.',
   'profile.qr.refreshed': 'QR обновлён',
   'profile.qr.aria': 'Ваш одноразовый QR для обмена рукопожатиями',
   'profile.saved': 'Сохранено',
-  'profile.settings.title': 'Настройки',
-  'profile.settings.persona': 'Персона',
+  'profile.settings.title': 'Мой профиль',
+  'profile.settings.persona': 'Мой профиль',
   'profile.leave': 'Выйти из комнаты',
   'profile.leave.confirm_body':
     'Вы покинете событие. Токен останется на этом устройстве — вы сможете вернуться в любой момент через «Вернуться на событие».',
-  'profile.not_found': 'Персона не найдена',
+  'profile.not_found': 'Профиль не найден',
   'profile.exit': 'Выйти',
   'profile.rotate.row': 'Сгенерировать новый ключ доступа',
   'profile.rotate.title': 'Сгенерировать новый ключ доступа?',
   'profile.rotate.body':
-    'Текущий ключ перестанет действовать: другие устройства с этим ключом потеряют доступ к персоне.',
+    'Текущий ключ перестанет действовать: другие устройства с этим ключом потеряют доступ к профилю.',
   'profile.rotate.cta': 'Сгенерировать',
   'profile.rotate.done': 'Ключ обновлён',
 
@@ -253,7 +253,7 @@ export const ru: Record<MessageKey, string> = {
 
   /* --- глобальный гейт 401 (DESIGN rev. 3 §2.8, §4.7) --- */
   'auth.401.notice':
-    'У этой персоны нет действительного ключа доступа — присоединитесь заново по коду события.',
+    'У этого профиля нет действительного ключа доступа — присоединитесь заново по коду события.',
 
   /* --- common --- */
   'common.loading': 'Загрузка…',

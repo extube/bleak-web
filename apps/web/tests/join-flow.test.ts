@@ -347,7 +347,7 @@ describe('JoinFlow — return-to-event vault screen (Concept §10.1.1, §4.11.1)
     await openVault();
     await screen.getByRole('button', { name: vaultRow('Старая персона') }).click();
     // Dead-entry copy with the server text appended muted (§3.1 state table).
-    await screen.findByText(/Эта персона больше не существует/);
+    await screen.findByText(/Этот профиль больше не существует/);
     expect(screen.getByText(/user not found/)).toBeTruthy();
     await tick();
     // No identity restore, no navigation, no creation.
@@ -366,7 +366,7 @@ describe('JoinFlow — return-to-event vault screen (Concept §10.1.1, §4.11.1)
 
     await openVault();
     await screen.getByRole('button', { name: vaultRow('Старая персона') }).click();
-    await screen.findByText(/Эта персона больше не существует/);
+    await screen.findByText(/Этот профиль больше не существует/);
     expect(screen.getByText(/token expired/)).toBeTruthy();
     await tick();
     expect(get(identity)).toBeNull();

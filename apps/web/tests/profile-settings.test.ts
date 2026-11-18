@@ -119,7 +119,9 @@ describe('settings route renders (AC: heading, locale, rows; RU + EN)', () => {
     const { setLocale } = await import('../src/lib/i18n/locale');
     const { en } = await import('../src/lib/i18n/en');
     await renderPage();
-    expect(screen.getByRole('heading', { name: ru['profile.settings.title'] })).toBeTruthy();
+    // level 1: the top-bar h1 — the section h2 now shares the same
+    // «Мой профиль» name (v2.5 copy sweep), so the level disambiguates.
+    expect(screen.getByRole('heading', { level: 1, name: ru['profile.settings.title'] })).toBeTruthy();
     expect(screen.getByText(ru['common.locale'])).toBeTruthy();
     expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
     expect(screen.getByRole('button', { name: ru['profile.leave'] })).toBeTruthy();
@@ -127,7 +129,7 @@ describe('settings route renders (AC: heading, locale, rows; RU + EN)', () => {
     setLocale('en');
     await tick();
     await tick();
-    expect(screen.getByRole('heading', { name: en['profile.settings.title'] })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: en['profile.settings.title'] })).toBeTruthy();
     expect(screen.getByText(en['common.locale'])).toBeTruthy();
     setLocale('ru');
     await tick();
@@ -150,7 +152,9 @@ describe('persona editing section (Concept §10.1.4, DESIGN §4.11.4)', () => {
     const { setLocale } = await import('../src/lib/i18n/locale');
     const { en } = await import('../src/lib/i18n/en');
     await renderPage();
-    expect(screen.getByRole('heading', { name: ru['profile.settings.persona'] })).toBeTruthy();
+    // level 2: the persona section h2 — shares the «Мой профиль» name with
+    // the top-bar h1 after the v2.5 copy sweep; the level disambiguates.
+    expect(screen.getByRole('heading', { level: 2, name: ru['profile.settings.persona'] })).toBeTruthy();
     expect(screen.getByRole('button', { name: ru['profile.persona.edit'] })).toBeTruthy();
     expect(screen.getByRole('button', { name: ru['profile.greeting.edit'] })).toBeTruthy();
     expect(screen.getByRole('button', { name: ru['profile.interests.edit'] })).toBeTruthy();
@@ -158,7 +162,7 @@ describe('persona editing section (Concept §10.1.4, DESIGN §4.11.4)', () => {
     setLocale('en');
     await tick();
     await tick();
-    expect(screen.getByRole('heading', { name: en['profile.settings.persona'] })).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 2, name: en['profile.settings.persona'] })).toBeTruthy();
     expect(screen.getByRole('button', { name: en['profile.persona.edit'] })).toBeTruthy();
     setLocale('ru');
     await tick();

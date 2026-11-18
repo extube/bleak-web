@@ -1,0 +1,2 @@
+2026-11-18T12:54:23Z [worker] tz4-23: i18n copy sweep done (17 keys x2 dicts: Edit dropped, persona->profile, My profile titles); targeted i18n/copy suites green (11 files, 193 tests)
+2026-11-18T12:55:00Z [worker] tz4-23: gates green (make test 551, make lint clean, make build 0 errors); handover commit 7d94c3b; setting ready-for-merge
