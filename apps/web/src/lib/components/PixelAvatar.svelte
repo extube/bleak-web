@@ -5,9 +5,11 @@
    * deterministically from the user address (lib/avatar/traits.ts).
    * The `own` persona's backdrop is the accent (the single non-interactive
    * accent exception — the "you are here" mark); unparseable addresses
-   * render the fixed pixel-ghost portrait. Trait palettes are the vivid
-   * code-hue family tokens (tokens.css --color-art-*, §4.8.1) — decorative
-   * color, token references only.
+   * render the fixed pixel-ghost portrait. Trait palettes are the
+   * Deepa-derived art tokens (tokens.css --color-art-*, redefined onto the
+   * Deepa palette — Concept §9.1.6, DESIGN §4.10.6) — decorative color,
+   * token references only; backdrops are dark derivatives of their Deepa
+   * hue, darker than the art drawn on top.
    * §4.8.2 padding: the frame carries 1px of padding in the SAME color as
    * the backdrop, so the art never touches the card/surface edge at any
    * rendered size — the outer box stays the declared `size` (the art
@@ -46,10 +48,11 @@
 
   let { address = '', size = 44, own = false, label = '' }: Props = $props();
 
-  /* Vivid art palettes (§4.8.1) — token names resolved in tokens.css.
-   * Skins: light warm register; hairs: the four code hues + light platinum;
-   * backdrops: dark shades of the four hues (the light figure stays
-   * recognizable on every backdrop). */
+  /* Deepa-derived art palettes (§4.10.6) — token names resolved in
+   * tokens.css (color-mix/var over the Deepa hues; no raw hex here).
+   * Skins: light warm mixes of deepa-2/deepa-3 over --color-text; hairs:
+   * the five Deepa hues; backdrops: dark 30% mixes of each Deepa hue over
+   * --color-surface (darker than the skin/hair art). */
   const HAIRS: readonly string[] = [
     '--color-art-hair-1',
     '--color-art-hair-2',

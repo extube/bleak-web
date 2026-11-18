@@ -5,7 +5,8 @@
  * v2.1 (Concept §7.1.2, DESIGN §4.8.1): the palette additionally carried
  * four bright code-coding hues + their chat-bubble tints — superseded for
  * chat roles by the v2.3 Deepa palette (Concept §9.1.5, DESIGN §4.10.5);
- * the vivid avatar-art palettes remain.
+ * the vivid avatar-art palettes remain — themselves redefined onto the
+ * Deepa hues in v2.3 (Concept §9.1.6, DESIGN §4.10.6).
  * v2.1 (Concept §7.1.6, DESIGN §4.8.4): adds --color-danger — the red
  * exit-room token, the single functional red exception.
  */
@@ -61,25 +62,29 @@
   --color-deepa-ink-4: var(--color-text);
   --color-deepa-ink-5: var(--color-surface);
 
-  /* Avatar-art palettes (PixelAvatar §4.3, vivid register of the same hue
-   * family per DESIGN §4.8.1). Decorative only — no text is drawn on them.
-   * Skins: light warm register (yellow/orange family). Hairs: the four code
-   * hues + a light platinum. Backdrops: dark shades of the four hues so the
-   * light figure stays recognizable on every backdrop. */
-  --color-art-skin-1: #ffe9c4;
-  --color-art-skin-2: #ffd9a3;
-  --color-art-skin-3: #ffb87f;
-  --color-art-skin-4: #ff9e5e;
-  --color-art-hair-1: #fedc5c;
-  --color-art-hair-2: #ffa24a;
-  --color-art-hair-3: #63a8ff;
-  --color-art-hair-4: #b58cff;
-  --color-art-hair-5: #efe4ff;
-  --color-art-backdrop-1: #24354d;
-  --color-art-backdrop-2: #33284d;
-  --color-art-backdrop-3: #4d2e14;
-  --color-art-backdrop-4: #4d4214;
-  --color-art-backdrop-5: #3a3f6b;
+  /* Avatar-art palettes (PixelAvatar §4.3) — v2.3 (Concept §9.1.6, DESIGN
+   * §4.10.6): the same --color-art-* token family, now derived from the
+   * five Deepa hues. No new raw hex — every value is a color-mix or var()
+   * over existing tokens. Skins: light warm register (deepa-2/deepa-3
+   * lightened with --color-text). Hairs: the five Deepa hues. Backdrops:
+   * DARK derivatives of each Deepa hue (30% hue over --color-surface) —
+   * visually darker than the skin/hair art drawn on top (verified
+   * numerically in tests/bubble-contrast.test.ts and
+   * tests/avatar.test.ts). Decorative only — no text is drawn on them. */
+  --color-art-skin-1: color-mix(in srgb, var(--color-deepa-2) 25%, var(--color-text));
+  --color-art-skin-2: color-mix(in srgb, var(--color-deepa-2) 45%, var(--color-text));
+  --color-art-skin-3: color-mix(in srgb, var(--color-deepa-3) 30%, var(--color-text));
+  --color-art-skin-4: color-mix(in srgb, var(--color-deepa-3) 55%, var(--color-text));
+  --color-art-hair-1: var(--color-deepa-1);
+  --color-art-hair-2: var(--color-deepa-2);
+  --color-art-hair-3: var(--color-deepa-3);
+  --color-art-hair-4: var(--color-deepa-4);
+  --color-art-hair-5: var(--color-deepa-5);
+  --color-art-backdrop-1: color-mix(in srgb, var(--color-deepa-1) 30%, var(--color-surface));
+  --color-art-backdrop-2: color-mix(in srgb, var(--color-deepa-2) 30%, var(--color-surface));
+  --color-art-backdrop-3: color-mix(in srgb, var(--color-deepa-3) 30%, var(--color-surface));
+  --color-art-backdrop-4: color-mix(in srgb, var(--color-deepa-4) 30%, var(--color-surface));
+  --color-art-backdrop-5: color-mix(in srgb, var(--color-deepa-5) 30%, var(--color-surface));
 
   /* Derived alpha variants — values stay within the approved palette
    * (color-mix over existing tokens only; DESIGN §4.1). Never inline

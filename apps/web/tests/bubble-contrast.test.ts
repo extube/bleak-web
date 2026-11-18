@@ -10,7 +10,8 @@
  * a var() over --color-surface / --color-text) at ≥4.5:1 on the hue.
  * The muted own-bubble pairing (--color-surface-elevated +
  * --color-text, tz4-06 / Concept §8.1.7) stays. Avatar-art tokens are
- * decorative (no text on them) and are only pinned to exist.
+ * decorative (no text on them) and are pinned to their Deepa-derived
+ * form plus the darker-than-art backdrop pairing (Concept §9.1.6).
  */
 import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
@@ -54,6 +55,13 @@ function inkSource(n: string): string {
     throw new Error(`--color-deepa-ink-${n} is not a var() over a color token`);
   }
   return match[1];
+}
+
+/** Parse any token declaration value (hex or var()/color-mix expression). */
+function tokenValue(name: string): string {
+  const match = CSS.match(new RegExp(`--${name}:\\s*([^;]+);`));
+  if (!match?.[1]) throw new Error(`token --${name} not found in tokens.css`);
+  return match[1].trim();
 }
 
 function parse(hex: string): [number, number, number] {
@@ -132,10 +140,74 @@ describe('AA contrast: the muted own-bubble pair (§4.9.7 — mine bubbles are N
   });
 });
 
-describe('avatar-art tokens exist (decorative — no AA requirement, §4.8.1)', () => {
-  it('skins (4), hairs (5) and backdrops (5) are declared in tokens.css', () => {
-    for (let i = 1; i <= 4; i += 1) expect(tokenHex(`color-art-skin-${i}`)).toMatch(/^#[0-9a-f]{6}$/);
-    for (let i = 1; i <= 5; i += 1) expect(tokenHex(`color-art-hair-${i}`)).toMatch(/^#[0-9a-f]{6}$/);
-    for (let i = 1; i <= 5; i += 1) expect(tokenHex(`color-art-backdrop-${i}`)).toMatch(/^#[0-9a-f]{6}$/);
+describe('avatar-art tokens: Deepa-derived (Concept §9.1.6, DESIGN §4.10.6)', () => {
+  it('skins (4), hairs (5) and backdrops (5) are declared as Deepa derivatives — no raw hex', () => {
+    // Skins: color-mix of a Deepa hue over --color-text (light warm register).
+    for (let i = 1; i <= 4; i += 1) {
+      expect(tokenValue(`color-art-skin-${i}`)).toMatch(
+        /color-mix\(in srgb, var\(--color-deepa-[1-5]\) \d+%, var\(--color-text\)\)/
+      );
+    }
+    // Hairs: the five Deepa hues directly.
+    for (let i = 1; i <= 5; i += 1) {
+      expect(tokenValue(`color-art-hair-${i}`)).toMatch(/^var\(--color-deepa-[1-5]\)$/);
+    }
+    // Backdrops: DARK derivatives — color-mix of the hue over --color-surface.
+    for (let i = 1; i <= 5; i += 1) {
+      expect(tokenValue(`color-art-backdrop-${i}`)).toMatch(
+        /color-mix\(in srgb, var\(--color-deepa-[1-5]\) \d+%, var\(--color-surface\)\)/
+      );
+    }
+  });
+
+  it('each backdrop is darker than every skin and hair token (darker-than-art pairing)', () => {
+    // Resolve the color-mix/var values numerically (sRGB "in srgb"
+    // interpolation = per-channel linear mix) and compare WCAG luminance.
+    const hueHex: Record<string, string> = {
+      'color-deepa-1': tokenHex('color-deepa-1'),
+      'color-deepa-2': tokenHex('color-deepa-2'),
+      'color-deepa-3': tokenHex('color-deepa-3'),
+      'color-deepa-4': tokenHex('color-deepa-4'),
+      'color-deepa-5': tokenHex('color-deepa-5')
+    };
+    hueHex['color-surface'] = tokenHex('color-surface');
+    hueHex['color-text'] = tokenHex('color-text');
+
+    function sourceHex(name: string): string {
+      const hex = hueHex[name];
+      if (!hex) throw new Error(`no hex source for ${name}`);
+      return hex;
+    }
+
+    function resolve(value: string): [number, number, number] {
+      const direct = value.match(/^var\(--(color-[a-z0-9-]+)\)$/);
+      const directName = direct?.[1];
+      if (directName) return parse(sourceHex(directName));
+      const mix = value.match(
+        /^color-mix\(in srgb, var\(--(color-[a-z0-9-]+)\) (\d+)%, var\(--(color-[a-z0-9-]+)\)\)$/
+      );
+      const fromName = mix?.[1];
+      const pct = mix?.[2];
+      const toName = mix?.[3];
+      if (!fromName || !pct || !toName) throw new Error(`unresolved token value: ${value}`);
+      const from = parse(sourceHex(fromName));
+      const to = parse(sourceHex(toName));
+      const t = Number(pct) / 100;
+      return [
+        Math.round(from[0] * t + to[0] * (1 - t)),
+        Math.round(from[1] * t + to[1] * (1 - t)),
+        Math.round(from[2] * t + to[2] * (1 - t))
+      ];
+    }
+
+    const artLuminance = (name: string): number => luminance(resolve(tokenValue(name)));
+    const skinAndHairMin = Math.min(
+      ...[1, 2, 3, 4].map((i) => artLuminance(`color-art-skin-${i}`)),
+      ...[1, 2, 3, 4, 5].map((i) => artLuminance(`color-art-hair-${i}`))
+    );
+    for (let i = 1; i <= 5; i += 1) {
+      const backdrop = artLuminance(`color-art-backdrop-${i}`);
+      expect(backdrop, `backdrop-${i} darker than min(skin, hair)`).toBeLessThan(skinAndHairMin);
+    }
   });
 });
