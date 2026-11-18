@@ -20,7 +20,7 @@ executed first-hand in this session.
 | Check | Result | Source |
 | --- | --- | --- |
 | Full `make test` re-run by this sweep | **not run** (the process runs the delta-wave CI after this landing) | this session |
-| DELTA-WAVE CI: [pending — process fills] | — | — |
+| DELTA-WAVE CI (2026-11-18T09:36Z, process, dev tip `53c6daa` post-sweep-landing) | **GREEN** — `make lint` clean · `make test` 552 passed (23 api-client + 8 helper + 521 web, 42 files) · `make build` 0 svelte-check errors (11 pre-existing warnings) | process gate run; recorded via `task.py ci` |
 | Landing CI records for the delta wave (tasks 37–41, one CI run per landing, per §8.8) | **all green** — task 37 landed `aba7384` (log 09:12:44Z); 38 `a5b5e3f` (09:15:38Z); 39 `1283bf3` (09:18:36Z); 40 `0f876c7` (09:24:38Z, "AA-verified 4.74–13.5:1"); 41 `957af53` (09:31:39Z) | process log `docs/logs/e5057764.log` |
 | Targeted spot-runs (7 card-anchored suites, first-hand) | **green — 136 tests / 7 files** (avatar + bubble-contrast = 36; room-radar + radar-placement = 55; chats-page + transcript-page + profile-page = 45) | `npm run test -w @bleak/web -- <files>` ×4, all passing (§3) |
 | Owning tasks of the 6 items | **37, 38, 39, 40, 41 — all `merged`** (CI-gated closure follows the delta-wave CI) | `task.py list` at sweep time |
