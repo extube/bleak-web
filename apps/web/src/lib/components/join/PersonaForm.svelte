@@ -1,15 +1,13 @@
 <script lang="ts">
   /**
-   * Step 3a/3b — persona form (DESIGN §3.1): name (required, ≤64),
-   * public/private bios, the import copy notice when prefilled, client-side
-   * empty-name prevention (AC 6) and server-error surfacing (400/409).
+   * Step 3a — persona form (DESIGN §3.1): name (required, ≤64),
+   * public/private bios, client-side empty-name prevention (AC 7) and
+   * server-error surfacing (400/409).
    */
   import { locale, translate } from '#lib/i18n/locale';
   import type { PersonaDraft, PersonaError } from '#lib/join';
 
   interface Props {
-    /** Import prefill (§3.1 step 3b) — shows the copy notice. */
-    prefill?: PersonaDraft | null;
     /** Server-side error mapping (from JoinFlow). */
     error?: { kind: PersonaError; text: string | null } | null;
     /** Create in flight → CTA spinner + disabled (double-submit prevented). */
@@ -18,11 +16,11 @@
     onback?: () => void;
   }
 
-  let { prefill = null, error = null, pending = false, onsubmit, onback }: Props = $props();
+  let { error = null, pending = false, onsubmit, onback }: Props = $props();
 
-  let name = $state(prefill?.name ?? '');
-  let publicBio = $state(prefill?.publicBio ?? '');
-  let privateBio = $state(prefill?.privateBio ?? '');
+  let name = $state('');
+  let publicBio = $state('');
+  let privateBio = $state('');
   let localError = $state<'join.error.name_required' | null>(null);
 
   const errorMessage = $derived.by(() => {
@@ -60,10 +58,6 @@
 </script>
 
 <form class="step" onsubmit={submit}>
-  {#if prefill}
-    <p class="notice">{translate($locale, 'join.import.notice')}</p>
-  {/if}
-
   <div class="field">
     <label for="persona-name">{translate($locale, 'join.form.name')}</label>
     <input
@@ -107,14 +101,6 @@
     flex-direction: column;
     gap: var(--space-3);
     text-align: left;
-  }
-  .notice {
-    margin: 0;
-    padding: var(--space-2) var(--space-3);
-    background: var(--color-accent-soft);
-    color: var(--color-text);
-    border-radius: var(--radius-md);
-    font-size: 14px;
   }
   .field {
     display: flex;

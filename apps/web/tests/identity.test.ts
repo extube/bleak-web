@@ -57,6 +57,36 @@ describe('identity — persistence round-trip', () => {
   });
 });
 
+describe('identity — return-flow restore (Concept §10.1.1, DESIGN §4.11.1)', () => {
+  it('saveIdentity restores the identity from a bleak.tokenVault entry (return-to-event: identity restore, no re-creation)', () => {
+    // The vault entry shape stored at join time (bleak.tokenVault).
+    const vaultEntry = {
+      roomAddress: '0xoldroom',
+      userAddress: '0xold',
+      token: 'stored-vault-token',
+      name: 'Старая персона',
+      savedAt: '2026-11-14T10:00:00Z'
+    };
+    // The return flow feeds the entry's credential fields straight into
+    // saveIdentity — the extra vault metadata (name/savedAt) is dropped.
+    saveIdentity({
+      roomAddress: vaultEntry.roomAddress,
+      userAddress: vaultEntry.userAddress,
+      token: vaultEntry.token
+    });
+    expect(get(identity)).toEqual({
+      roomAddress: '0xoldroom',
+      userAddress: '0xold',
+      token: 'stored-vault-token'
+    });
+    expect(JSON.parse(localStorage.getItem('bleak.identity') ?? '{}')).toEqual({
+      roomAddress: '0xoldroom',
+      userAddress: '0xold',
+      token: 'stored-vault-token'
+    });
+  });
+});
+
 describe('identity — v1 legacy drop at init (§10.4)', () => {
   it('drops a persisted identity without a token and removes the stale blob', () => {
     localStorage.setItem(

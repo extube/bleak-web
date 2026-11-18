@@ -27,8 +27,6 @@ export const ru: Record<MessageKey, string> = {
   'join.room.language': 'Язык агентов: {language}',
   'join.room.members': 'Участников: {n}',
   'join.create_persona': 'Создать персону',
-  'join.import': 'Импортировать из прошлого события',
-  'join.import.notice': 'Персона будет скопирована в это событие',
   'join.change_code': 'Изменить код',
   'join.form.name': 'Имя',
   'join.form.public_bio': 'Кто вы — увидят другие',
@@ -36,16 +34,17 @@ export const ru: Record<MessageKey, string> = {
   'join.error.name_taken': 'Такое имя в комнате уже занято.',
   'join.error.gone': 'Событие больше не доступно.',
   'join.error.name_required': 'Введите имя.',
-  // v2 vault import (DESIGN rev. 3 §4.7) — эти ключи переопределены под
-  // токен-хранилище устройства; ImportRooms/ImportUsers заменяет TZ2-07.
-  'join.import.title': 'Импортировать с этого устройства',
+  // Экран возврата к событию (Concept §10.1.1, DESIGN §4.11.1 — поправляет
+  // §4.7): выбор сохранённой персоны вводит её комнату по сохранённому
+  // токену — восстановление идентичности, без пересоздания.
+  'join.import.title': 'Вернуться на событие',
   'join.import.subtitle': 'Персоны, созданные на этом телефоне.',
-  'join.import.pick_persona': 'Выберите персону',
+  'join.import.return': 'Вернуться',
   'join.import.empty': 'На этом устройстве пока нет сохранённых персон.',
   'join.import.saved_at': 'Сохранено {date}',
-  'join.import.row_aria': 'Импортировать персону {name}',
+  'join.import.row_aria': 'Вернуться к персоне {name}',
   'join.import.dead':
-    'Эта персона больше не существует на сервере. Запись останется в списке, но импорт невозможен.',
+    'Эта персона больше не существует на сервере. Запись останется в списке, но вернуться в это событие нельзя.',
   'join.error.invite': 'Код приглашения недействителен или истёк.',
   'join.resume.title': 'Продолжить в «{room}»',
   'join.resume.another': 'Присоединиться к другому событию',

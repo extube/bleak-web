@@ -26,8 +26,6 @@ export const en = {
   'join.room.language': 'Agent language: {language}',
   'join.room.members': 'Members: {n}',
   'join.create_persona': 'Create persona',
-  'join.import': 'Import from a previous event',
-  'join.import.notice': 'The persona will be copied into this event',
   'join.change_code': 'Change code',
   'join.form.name': 'Name',
   'join.form.public_bio': 'What others see',
@@ -35,16 +33,17 @@ export const en = {
   'join.error.name_taken': 'That name is already taken in the room.',
   'join.error.gone': 'This event is no longer available.',
   'join.error.name_required': 'Enter your name.',
-  // v2 vault import (DESIGN rev. 3 §4.7) — these keys are redefined for the
-  // device token vault; ImportRooms/ImportUsers are replaced by TZ2-07.
-  'join.import.title': 'Import from this device',
+  // Return-to-event screen (Concept §10.1.1, DESIGN §4.11.1 — amends §4.7):
+  // picking a saved persona enters its room with the stored token —
+  // identity restore, no re-creation.
+  'join.import.title': 'Return to event',
   'join.import.subtitle': 'Personas created on this phone.',
-  'join.import.pick_persona': 'Choose a persona',
+  'join.import.return': 'Return',
   'join.import.empty': 'No saved personas on this device yet.',
   'join.import.saved_at': 'Saved {date}',
-  'join.import.row_aria': 'Import persona {name}',
+  'join.import.row_aria': 'Return to persona {name}',
   'join.import.dead':
-    'This persona no longer exists on the server. The entry stays listed, but it cannot be imported.',
+    'This persona no longer exists on the server. The entry stays listed, but you cannot return to it.',
   'join.error.invite': 'The invite code is invalid or expired.',
   'join.resume.title': 'Continue to {room}',
   'join.resume.another': 'Join another event',

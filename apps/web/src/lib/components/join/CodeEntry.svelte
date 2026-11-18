@@ -21,6 +21,9 @@
     shakeKey?: number;
     onsubmit?: (code: string) => void;
     onscan?: () => void;
+    /** Return-to-event entry (§4.11.1): present only when the device vault
+     * holds a saved persona — the path BACK after "join another event". */
+    onreturn?: () => void;
   }
 
   let {
@@ -29,7 +32,8 @@
     error = null,
     shakeKey = 0,
     onsubmit,
-    onscan
+    onscan,
+    onreturn
   }: Props = $props();
 
   let cellsWrap = $state<HTMLElement | null>(null);
@@ -83,6 +87,14 @@
     <PixelIcon name="scan" size={16} />
     {translate($locale, 'join.scan.open')}
   </button>
+
+  {#if onreturn}
+    <!-- Return-to-event entry (§4.11.1): the vault screen is the path BACK. -->
+    <button type="button" class="scan" onclick={() => onreturn?.()}>
+      <PixelIcon name="key" size={16} />
+      {translate($locale, 'join.import.title')}
+    </button>
+  {/if}
 
   <div class="footer">
     <LocaleControl />

@@ -219,10 +219,12 @@ describe('DESIGN §4.7 copy table coverage', () => {
       'Код уже использован — попросите обновить QR на карточке.'
     );
     expect(ru['join.error.invite']).toBe('Код приглашения недействителен или истёк.');
-    expect(ru['join.import.title']).toBe('Импортировать с этого устройства');
+    expect(ru['join.import.title']).toBe('Вернуться на событие');
+    expect(ru['join.import.return']).toBe('Вернуться');
+    expect(ru['join.import.row_aria']).toBe('Вернуться к персоне {name}');
     expect(ru['join.import.empty']).toBe('На этом устройстве пока нет сохранённых персон.');
     expect(ru['join.import.dead']).toBe(
-      'Эта персона больше не существует на сервере. Запись останется в списке, но импорт невозможен.'
+      'Эта персона больше не существует на сервере. Запись останется в списке, но вернуться в это событие нельзя.'
     );
     expect(ru['profile.qr.onetime']).toBe('QR одноразовый — после обмена он обновится сам.');
     expect(ru['profile.qr.aria']).toBe('Ваш одноразовый QR для обмена рукопожатиями');

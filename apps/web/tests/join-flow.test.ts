@@ -2,12 +2,15 @@
  * DigitInput → resolve → preview hand-off, deep-link auto-submit, inline 404
  * with preserved digits, persona creation with the client-generated token
  * (exact v2 body; identity + vault written only after 2xx), the §2.9
- * invite-code rejection state, 409, the vault-driven import (list from
- * bleak.tokenVault, stored-token read, re-create with a NEW token, dead
- * entry, empty vault), and the scanner mount (QrScanner public API). */
+ * invite-code rejection state, 409, the RETURN-TO-EVENT vault screen
+ * (Concept §10.1.1 / DESIGN §4.11.1 — amends §6.2 import semantics: the
+ * Step-1 entry point, stored-token validation, identity restore → /room,
+ * dead/stale entry handling, the copy flow REMOVED), the empty-vault state,
+ * and the scanner mount (QrScanner public API). */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
+import { get } from 'svelte/store';
 import { ApiError, NetworkError, type Room, type User } from '@bleak/api-client';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
@@ -41,6 +44,7 @@ import { InviteResolveError, resolveInviteCode } from '#lib/api/invite-resolve';
 import { api } from '#lib/api/client';
 import { identity } from '#lib/stores/identity';
 import JoinFlow from '../src/lib/components/join/JoinFlow.svelte';
+import VaultList from '../src/lib/components/join/VaultList.svelte';
 import { ru } from '../src/lib/i18n/ru';
 
 const mockedResolve = vi.mocked(resolveInviteCode);
@@ -93,10 +97,6 @@ async function submitViaCta(): Promise<void> {
   fireEvent.submit(document.querySelector('form') as HTMLFormElement);
 }
 
-function seedVault(entries: unknown[]): void {
-  localStorage.setItem('bleak.tokenVault', JSON.stringify(entries));
-}
-
 beforeEach(() => {
   localStorage.clear();
   identity.set(null);
@@ -125,8 +125,9 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
     expect(screen.getByText(/Язык агентов: ru/)).toBeTruthy();
     expect(screen.getByText(/Участников: 1/)).toBeTruthy();
     expect(screen.getByRole('button', { name: ru['join.create_persona'] })).toBeTruthy();
-    // v2: the import option is the device vault.
-    expect(screen.getByRole('button', { name: ru['join.import.title'] })).toBeTruthy();
+    // v2.4 (§4.11.1): the copy-flow import option is REMOVED from the room
+    // preview — the vault screen is return-to-event, reachable from Step 1.
+    expect(screen.queryByRole('button', { name: ru['join.import.title'] })).toBeNull();
     expect(screen.getByRole('button', { name: ru['join.change_code'] })).toBeTruthy();
   });
 
@@ -256,120 +257,89 @@ describe('JoinFlow — persona creation (v2, token in the body)', () => {
   });
 });
 
-describe('JoinFlow — vault-driven import (Concept §6.2)', () => {
-  async function openVault(): Promise<void> {
-    mockedResolve.mockResolvedValue({ roomAddress: room.address });
-    mockedApi.getRoom.mockResolvedValue(room);
-    mockedApi.listRoomUsers.mockResolvedValue([]);
-    render(JoinFlow, { props: {} });
-    pasteCode('123456');
-    await submitViaCta();
-    await screen.findByText(room.name);
-    await screen.getByRole('button', { name: ru['join.import.title'] }).click();
-    await screen.findByText(ru['join.import.subtitle']);
-  }
-
+describe('JoinFlow — return-to-event vault screen (Concept §10.1.1, §4.11.1)', () => {
   function vaultRow(name: string): string {
     return ru['join.import.row_aria'].replace('{name}', name);
   }
 
+  function seedVault(entries: unknown[]): void {
+    localStorage.setItem('bleak.tokenVault', JSON.stringify(entries));
+  }
+
+  const savedEntry = {
+    roomAddress: '0xoldroom',
+    userAddress: '0xold',
+    token: 'stored-vault-token',
+    name: 'Старая персона',
+    savedAt: '2026-11-14T10:00:00Z'
+  };
+
+  async function openVault(): Promise<void> {
+    seedVault([savedEntry]);
+    render(JoinFlow, { props: {} });
+    // The Step-1 entry point: shown when the device vault is non-empty —
+    // the path BACK after "join another event".
+    await screen.getByRole('button', { name: ru['join.import.title'] }).click();
+    await screen.findByText(ru['join.import.subtitle']);
+  }
+
+  it('an empty vault shows NO Step-1 return entry (nothing to return to)', async () => {
+    render(JoinFlow, { props: {} });
+    expect(screen.queryByRole('button', { name: ru['join.import.title'] })).toBeNull();
+  });
+
   it('the picker lists ONLY bleak.tokenVault entries — no server room listing call (AC 11)', async () => {
-    seedVault([
-      {
-        roomAddress: '0xoldroom',
-        userAddress: '0xold',
-        token: 'stored-vault-token',
-        name: 'Старая персона',
-        savedAt: '2026-11-14T10:00:00Z'
-      }
-    ]);
     await openVault();
     expect(screen.getByText('Старая персона')).toBeTruthy();
     // Concept §7.1.7: the room address is no longer displayed on the row —
     // the muted line shows only the saved date.
     expect(screen.queryByText(/комната/)).toBeNull();
     expect(screen.getByText(/Сохранено/)).toBeTruthy();
-    // No GET /api/room beyond the preview: the picker never lists servers.
-    expect(mockedApi.getRoom).toHaveBeenCalledTimes(1); // the room preview only
-    expect(mockedApi.listRoomUsers).toHaveBeenCalledTimes(1); // the member count only
+    // The row is visually marked as RETURN (badge + aria-label, §4.11.1).
+    expect(screen.getByText(ru['join.import.return'])).toBeTruthy();
+    expect(screen.getByRole('button', { name: vaultRow('Старая персона') })).toBeTruthy();
+    // The picker never talks to the server: no GET /api/room at all — the
+    // screen is reachable directly from Step 1, without resolving a code.
+    expect(mockedApi.getRoom).not.toHaveBeenCalled();
+    expect(mockedApi.listRoomUsers).not.toHaveBeenCalled();
+    expect(mockedApi.createRoomUser).not.toHaveBeenCalled();
   });
 
-  it('an empty vault shows the specified copy with a way back to persona creation (AC 14)', async () => {
-    await openVault();
-    expect(screen.getByText(ru['join.import.empty'])).toBeTruthy();
-    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
-    await screen.findByText(ru['join.form.name']);
-  });
-
-  it('picking an entry reads the old persona with ITS STORED token, prefills, and re-creates with a NEW token (AC 12)', async () => {
-    seedVault([
-      {
-        roomAddress: '0xoldroom',
-        userAddress: '0xold',
-        token: 'stored-vault-token',
-        name: 'Старая персона',
-        savedAt: '2026-11-14T10:00:00Z'
-      }
-    ]);
-    mockedApi.getRoomUser.mockResolvedValue(user('0xold', 'Старая персона', 'секрет'));
-    mockedApi.createRoomUser.mockResolvedValue(user('0xnew', 'Старая персона', 'секрет'));
+  it('picking an entry validates the STORED token and ENTERS that room: identity restore → /room, NO re-creation (AC 12 amended)', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(
+      user('0xold', 'Старая персона', 'секрет')
+    );
 
     await openVault();
     await screen.getByRole('button', { name: vaultRow('Старая персона') }).click();
 
-    // Credentialed read: the Bearer token equals the vault entry's stored one.
+    // Validation read: the Bearer token equals the vault entry's stored one.
     await waitFor(() => expect(mockedApi.getRoomUser).toHaveBeenCalled());
     expect(mockedApi.getRoomUser).toHaveBeenCalledWith('0xoldroom', '0xold', {
       token: 'stored-vault-token'
     });
-    // Prefilled form incl. the private bio + the copy notice.
-    await screen.findByText(ru['join.import.notice']);
-    expect((screen.getByLabelText(ru['join.form.name']) as HTMLInputElement).value).toBe(
-      'Старая персона'
-    );
-    expect((screen.getByLabelText(ru['join.form.private_bio']) as HTMLInputElement).value).toBe(
-      'секрет'
-    );
-
-    await submitViaCta();
-    await waitFor(() => expect(mockedApi.createRoomUser).toHaveBeenCalled());
-    expect(mockedApi.createRoomUser).toHaveBeenCalledWith(room.address, {
-      name: 'Старая персона',
-      private_bio: 'секрет',
-      invite_code: '123456',
-      token: 'generated-raw-token' // a NEWLY generated token
-    });
     await tick();
     await tick();
-    // Both vault entries remain: the old persona untouched, the new appended.
-    const vault = JSON.parse(localStorage.getItem('bleak.tokenVault') ?? '[]') as Array<{
-      userAddress: string;
-      roomAddress: string;
-      token: string;
-    }>;
-    expect(vault).toHaveLength(2);
-    expect(vault[0]).toMatchObject({
+    // Identity restore from the entry fields (saveIdentity), then the same
+    // post-join path a normal join takes. No persona POST anywhere.
+    expect(get(identity)).toEqual({
       roomAddress: '0xoldroom',
       userAddress: '0xold',
       token: 'stored-vault-token'
     });
-    expect(vault[1]).toMatchObject({
-      roomAddress: room.address,
-      userAddress: '0xnew',
-      token: 'generated-raw-token'
+    expect(JSON.parse(localStorage.getItem('bleak.identity') ?? 'null')).toEqual({
+      roomAddress: '0xoldroom',
+      userAddress: '0xold',
+      token: 'stored-vault-token'
     });
+    expect(goto).toHaveBeenCalledWith('/room');
+    expect(mockedApi.createRoomUser).not.toHaveBeenCalled();
+    // The vault entry is untouched (append-only; no re-creation appended).
+    const vault = JSON.parse(localStorage.getItem('bleak.tokenVault') ?? '[]');
+    expect(vault).toHaveLength(1);
   });
 
-  it('a dead persona (404 on the credentialed read) shows the dead-entry state and keeps the entry (AC 13)', async () => {
-    seedVault([
-      {
-        roomAddress: '0xoldroom',
-        userAddress: '0xold',
-        token: 'stored-vault-token',
-        name: 'Старая персона',
-        savedAt: '2026-11-14T10:00:00Z'
-      }
-    ]);
+  it('a dead persona (404 on the credentialed read) shows the dead-entry state, does NOT enter, keeps the entry (AC 13)', async () => {
     mockedApi.getRoomUser.mockRejectedValue(
       new ApiError(404, '/api/room/0xoldroom/user/0xold', 'user not found')
     );
@@ -379,10 +349,40 @@ describe('JoinFlow — vault-driven import (Concept §6.2)', () => {
     // Dead-entry copy with the server text appended muted (§3.1 state table).
     await screen.findByText(/Эта персона больше не существует/);
     expect(screen.getByText(/user not found/)).toBeTruthy();
+    await tick();
+    // No identity restore, no navigation, no creation.
+    expect(get(identity)).toBeNull();
+    expect(goto).not.toHaveBeenCalled();
+    expect(mockedApi.createRoomUser).not.toHaveBeenCalled();
     // The vault entry is NOT removed (append-only).
     const vault = JSON.parse(localStorage.getItem('bleak.tokenVault') ?? '[]');
     expect(vault).toHaveLength(1);
+  });
+
+  it('a stale stored token (401) shows the dead-note treatment and does NOT enter (§4.11.1; the §2.8 global gate fires underneath)', async () => {
+    mockedApi.getRoomUser.mockRejectedValue(
+      new ApiError(401, '/api/room/0xoldroom/user/0xold', 'token expired')
+    );
+
+    await openVault();
+    await screen.getByRole('button', { name: vaultRow('Старая персона') }).click();
+    await screen.findByText(/Эта персона больше не существует/);
+    expect(screen.getByText(/token expired/)).toBeTruthy();
+    await tick();
+    expect(get(identity)).toBeNull();
+    expect(goto).not.toHaveBeenCalled();
     expect(mockedApi.createRoomUser).not.toHaveBeenCalled();
+    const vault = JSON.parse(localStorage.getItem('bleak.tokenVault') ?? '[]');
+    expect(vault).toHaveLength(1);
+  });
+
+  it('the empty-vault state shows the specified copy with a way back (VaultList direct render; the Step-1 entry is gated on a non-empty vault)', async () => {
+    render(VaultList, { props: { entries: [] } });
+    expect(screen.getByText(ru['join.import.empty'])).toBeTruthy();
+    await screen.getByRole('button', { name: ru['common.back'] }).click();
+    // No persona-creation escape hatch on the return screen — creation
+    // lives behind the code entry (the back link leaves the screen).
+    expect(screen.queryByRole('button', { name: ru['join.create_persona'] })).toBeNull();
   });
 });
 
