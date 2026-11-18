@@ -1,10 +1,12 @@
 <script lang="ts">
   /**
-   * Step 3b — vault list (DESIGN §3.1 rev. 3 step 6, Concept §6.2): the
-   * device token-vault import picker. Rows are `bleak.tokenVault` entries —
-   * NEVER server rooms (no `GET /api/room` exists in this flow). A row tap
-   * reads the old persona with its stored token; a dead persona surfaces
-   * its error honestly on the row and the entry stays (append-only vault).
+   * The RETURN screen (Concept §10.1.1, DESIGN §4.11.1 — amends §6.2
+   * import semantics): the device token-vault picker. Rows are
+   * `bleak.tokenVault` entries — NEVER server rooms (no `GET /api/room`
+   * exists in this flow). A row tap validates the stored token and enters
+   * THAT room (identity restore, no re-creation); a dead/stale entry
+   * surfaces its error honestly on the row and the entry stays
+   * (append-only vault). Each row is marked "Return / Вернуться".
    */
   import { locale, translate } from '#lib/i18n/locale';
   import { relativeTime } from '#lib/people/view';
@@ -19,16 +21,15 @@
     dead?: { address: string; text: string | null } | null;
     onpick?: (entry: VaultEntry) => void;
     onback?: () => void;
-    /** Empty-vault escape hatch: back to persona creation (§3.1 AC 14). */
-    oncreate?: () => void;
   }
 
-  let { entries, loading = false, dead = null, onpick, onback, oncreate }: Props = $props();
+  let { entries, loading = false, dead = null, onpick, onback }: Props = $props();
 
   const nowMs = $state(Date.now());
   const emptyLabel = $derived(translate($locale, 'join.import.empty'));
   const subtitle = $derived(translate($locale, 'join.import.subtitle'));
   const backLabel = $derived(translate($locale, 'common.back'));
+  const returnBadge = $derived(translate($locale, 'join.import.return'));
 </script>
 
 <div class="step">
@@ -39,11 +40,6 @@
     <p class="muted" role="status">{translate($locale, 'common.loading')}</p>
   {:else if entries.length === 0}
     <p class="muted">{emptyLabel}</p>
-    {#if oncreate}
-      <button type="button" class="link" onclick={() => oncreate?.()}>
-        {translate($locale, 'join.create_persona')}
-      </button>
-    {/if}
   {:else}
     <ul class="rows">
       {#each entries as entry (entry.roomAddress + entry.userAddress)}
@@ -66,7 +62,8 @@
                 })}
               </span>
             </span>
-            <PixelIcon name="plus" size={16} />
+            <span class="badge">{returnBadge}</span>
+            <PixelIcon name="key" size={16} />
           </button>
           {#if dead?.address === entry.userAddress}
             <!-- Dead-entry state (§3.1): the entry stays listed; server
@@ -136,6 +133,15 @@
   .muted {
     color: var(--color-text-muted);
     font-size: 14px;
+  }
+  .badge {
+    flex-shrink: 0;
+    border: 1px solid var(--color-text-disabled-strong);
+    border-radius: var(--radius-pill);
+    color: var(--color-text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px var(--space-2);
   }
   .dead-note {
     margin: var(--space-1) 0 0;

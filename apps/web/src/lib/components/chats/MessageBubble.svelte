@@ -1,12 +1,16 @@
 <script lang="ts">
   /**
-   * MessageBubble (DESIGN §3.5, §4.8.1): one transcript entry. mine (my
-   * persona is a speaker when agents quote it) right-aligned; theirs left.
-   * Both take the code hue of the address that speaks — fnv1a(address) % 4
-   * (lib/avatar/traits.ts) → `--color-bubble-<hue>` token background; the
-   * bubble text stays --color-text (AA ≥4.5:1 on every tint, verified in
-   * tests/bubble-contrast.test.ts). Both .pixel-corners, 14px Inter,
-   * max-width 80%. Speaker name (11px muted) + relative time under each
+   * MessageBubble (DESIGN §3.5 as amended by Concept §9.1.5 /
+   * DESIGN §4.10.5): one transcript entry. mine (my persona is a speaker
+   * when agents quote it) right-aligned; theirs left. Only THEIR bubbles
+   * carry the speaker's Deepa hue — fnv1a(address) % 5
+   * (lib/avatar/traits.ts) → full-opacity `--color-deepa-<n>` background;
+   * the bubble text pairs with the hue's ink token
+   * (`--color-deepa-ink-<n>`, AA ≥4.5:1 — verified in
+   * tests/bubble-contrast.test.ts). OWN bubbles stay muted
+   * (--color-surface-elevated with --color-text, unchanged from tz4-06);
+   * mine never take MY code hue. Both .pixel-corners, 14px Inter,
+   * max-width 80%. Speaker name (11px muted) + absolute time under each
    * bubble. The accessible <li> name is «{speaker}: {first 60 chars}»
    * (route computes it via lib/chats/view.bubbleAriaLabel). Plain text
    * only — pre-wrap.
@@ -18,23 +22,24 @@
     message: Message;
     /** `message.from === identity.userAddress` (mine → right). */
     mine: boolean;
-    /** My persona address — 'mine' bubbles take MY code hue (§4.8.1). */
-    myAddress: string;
     /** Resolved speaker name (raw address fallback). */
     speaker: string;
-    /** Relative time of `created_at`. */
+    /** Absolute time of `created_at`. */
     time: string;
     /** Accessible name: «{speaker}: {first 60 chars}». */
     label: string;
   }
 
-  let { message, mine, myAddress, speaker, time, label }: Props = $props();
+  let { message, mine, speaker, time, label }: Props = $props();
 
-  const hue = $derived(codeHue(mine ? myAddress : message.from));
+  // §4.10.5: the Deepa hue applies to theirs only; mine stays muted — no
+  // `deepa-*` class is emitted for own bubbles at all. The hue string IS
+  // the class name (deepa-1…deepa-5).
+  const hueClass = $derived(mine ? '' : codeHue(message.from));
 </script>
 
 <li class="row" class:mine aria-label={label}>
-  <div class="bubble pixel-corners code-{hue}" class:mine class:theirs={!mine}>
+  <div class="bubble pixel-corners {hueClass}" class:mine class:theirs={!mine}>
     <p class="content">{message.content}</p>
   </div>
   <p class="meta">
@@ -62,27 +67,39 @@
   .bubble {
     padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-md);
+    color: var(--color-text);
   }
+  /* Muted own bubbles (§4.9.7, unchanged by §4.10.5): the pre-tz3-02
+   * neutral surface tint — NOT a Deepa hue. --color-text on it measures
+   * ≈12.3:1 (AA ≥4.5). */
   .bubble.mine {
     background: var(--color-surface-elevated);
   }
   .bubble.theirs {
     background: var(--color-surface);
   }
-  /* Code-hue tint override (§4.8.1): every bubble carries its speaker's
-   * hue; text stays --color-text above. Declared after mine/theirs so the
-   * hue wins. */
-  .bubble.code-yellow {
-    background: var(--color-bubble-yellow);
+  /* Deepa-hue override (§4.10.5): only the INTERLOCUTOR'S bubbles carry
+   * their speaker's full-opacity hue; text pairs with the hue's ink
+   * token. Declared after mine/theirs so the hue wins. */
+  .bubble.deepa-1 {
+    background: var(--color-deepa-1);
+    color: var(--color-deepa-ink-1);
   }
-  .bubble.code-orange {
-    background: var(--color-bubble-orange);
+  .bubble.deepa-2 {
+    background: var(--color-deepa-2);
+    color: var(--color-deepa-ink-2);
   }
-  .bubble.code-blue {
-    background: var(--color-bubble-blue);
+  .bubble.deepa-3 {
+    background: var(--color-deepa-3);
+    color: var(--color-deepa-ink-3);
   }
-  .bubble.code-violet {
-    background: var(--color-bubble-violet);
+  .bubble.deepa-4 {
+    background: var(--color-deepa-4);
+    color: var(--color-deepa-ink-4);
+  }
+  .bubble.deepa-5 {
+    background: var(--color-deepa-5);
+    color: var(--color-deepa-ink-5);
   }
   .content {
     margin: 0;
@@ -90,7 +107,7 @@
     font-size: 14px;
     line-height: 1.45;
     letter-spacing: 0.02em;
-    color: var(--color-text);
+    color: inherit; /* the bubble's pairing: --color-text (mine) / ink token (theirs) */
     white-space: pre-wrap; /* plain text; a 255-symbol message never overflows (AC 10) */
     overflow-wrap: anywhere;
   }

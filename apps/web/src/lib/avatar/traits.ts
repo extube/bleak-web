@@ -52,20 +52,23 @@ export function isParseableAddress(address: string | null | undefined): address 
 }
 
 /**
- * Chat color coding (Concept §7.1.2, DESIGN §4.8.1): four bright functional
- * hues, assigned deterministically per address — `fnv1a(address) % 4` →
- * yellow/orange/blue/violet. Both sides of a transcript use the same rule:
- * a bubble takes the hue of the address that speaks (mine included — it is
- * NOT a fixed yellow). The hue names map to `--color-bubble-<hue>` tokens
- * in tokens.css; consumers render them as a `code-<hue>` class, never an
- * inline color.
+ * Chat color coding (Concept §9.1.5, DESIGN §4.10.5 — supersedes the
+ * §7.1.2 four-hue set): the five bright Deepa hues, assigned
+ * deterministically per address — `fnv1a(address) % 5` → deepa-1…deepa-5.
+ * In the dialog only the INTERLOCUTOR'S bubble takes the speaker's hue;
+ * own bubbles stay on the muted neutral surface (§8.1.7). Chats-list cards
+ * use the counterpart's hue as the full-opacity card background. The hue
+ * names map to `--color-deepa-<n>` tokens in tokens.css (text on a hue
+ * pairs with its `--color-deepa-ink-<n>` token); consumers render them as
+ * a `deepa-<n>` class, never an inline color. The avatar palette (task:
+ * avatar Deepa art) derives from the same five hues.
  */
-export const CODE_HUES = ['yellow', 'orange', 'blue', 'violet'] as const;
+export const CODE_HUES = ['deepa-1', 'deepa-2', 'deepa-3', 'deepa-4', 'deepa-5'] as const;
 
 export type CodeHue = (typeof CODE_HUES)[number];
 
 export function codeHue(address: string): CodeHue {
-  // fnv1a % 4 is always a valid index; the fallback only satisfies
+  // fnv1a % 5 is always a valid index; the fallback only satisfies
   // noUncheckedIndexedAccess (same pattern as PixelAvatar's pick()).
-  return CODE_HUES[fnv1a(address) % CODE_HUES.length] ?? 'yellow';
+  return CODE_HUES[fnv1a(address) % CODE_HUES.length] ?? 'deepa-1';
 }

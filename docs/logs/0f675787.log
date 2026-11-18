@@ -1,0 +1,4 @@
+2026-11-18T10:28:19Z [worker] task 44 started: import -> return-to-event redefinition; reading card + concept/design sections
+2026-11-18T10:36:26Z [worker] implemented return-to-event: join.ts machine rework (choose-return, verifyVaultEntry, 401->dead), JoinFlow restore path, RoomPreview copy-flow option removed, PersonaForm prefill/notice removed, VaultList Return badge/aria, CodeEntry Step-1 entry, i18n RU/EN rework; targeted suites green (80)
+2026-11-18T10:37:28Z [worker] gates: make test green (523/42 files), make lint clean, make build ok (0 svelte-check errors, pre-existing warnings only); handing over
+2026-11-18T10:37:41Z [worker] handover: commit b6f3a38 on feature/0f675787-tz4-15-import-return-to-event; task 44 set ready-for-merge

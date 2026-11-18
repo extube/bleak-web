@@ -1,0 +1,2 @@
+2026-11-17T20:30:23Z [worker] implemented tz3-05 radar fixes: radar.ts layoutRadarNodes (collision-avoided, MIN_CENTER_GAP_PX=128, rings rescaled 0.56/0.70/0.84), RadarNode label removed + circular 52px hit area, RadarRings radii, /room nodes-orbit spin layer; targeted tests 23+14 green
+2026-11-17T20:30:33Z [worker] gates: make test 466+31 green, make lint clean, make build ok (pre-existing svelte-check warnings only, unrelated files); commit 7b89143 on feature/cf05020d-tz3-05-radar-labels-rotation; task 27 ready-for-merge

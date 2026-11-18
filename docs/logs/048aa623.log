@@ -1,0 +1,2 @@
+2026-11-18T10:26:05Z [worker] task 43 started: read card, checking out feature branch
+2026-11-18T10:26:54Z [worker] implemented §10.1.3: heading 11px sentence-case in ProfileBadge+PersonaEditor, tests rewritten; targeted profile-page run 21/21 green

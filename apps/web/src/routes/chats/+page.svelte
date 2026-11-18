@@ -1,14 +1,22 @@
 <script lang="ts">
   /**
-   * /chats — Dialog list (DESIGN §3.4, TZ-07).
+   * /chats — Dialog list (DESIGN §3.4 as amended by §4.11.5–7, TZ-07).
    *
    * One Poller (route file only, §2.2): listChatsOfUser + cached
    * listRoomUsers (name resolution) at 4 s, refresh() on mount and
    * visibility regain, stop() on teardown. Visiting /chats writes the
    * chatsSeen store — the TabBar badge dot clears (§1.2, AC 6). Cards show
-   * the counterpart (participants minus me; «+N» when ≠ 2), verbatim
-   * phase/scenario chips and the relative Chat.created_at — NO message
-   * preview (performance, §5).
+   * the counterpart (participants minus me; «+N» when ≠ 2) with the
+   * v2.4 §4.11.5–7 item content: NO theme text; instead the LAST-MESSAGE
+   * preview + its time — per the owner's 2026-11-18 frontend-only decision
+   * each listed chat's transcript is fetched (`api.listChatMessages`,
+   * light: chats are capped ≈26 messages) and the last message lands in
+   * the session-local `lastMessages` cache. Cadence (owner ruling: mount +
+   * every poll cycle for the visible list is acceptable): on mount and on
+   * EVERY poll tick the visible chat addresses are refreshed through
+   * `refreshLastMessages` — the store's in-flight guard keeps the 4 s
+   * cadence from piling up requests, failures keep the previous cached
+   * entry, and an empty transcript (fresh/cleared chat) shows no preview.
    */
   import { get } from 'svelte/store';
   import { ApiError, NetworkError, type Chat, type User } from '@bleak/api-client';
@@ -17,6 +25,7 @@
   import { api } from '#lib/api/client';
   import { Poller } from '#lib/polling/poller';
   import { markChatsSeen } from '#lib/stores/chatsSeen';
+  import { refreshLastMessages, lastMessages } from '#lib/stores/lastMessage';
   import { describeChat, mergeChats, stableChats } from '#lib/chats/view';
   import { locale, translate } from '#lib/i18n/locale';
   import ChatCard from '#lib/components/chats/ChatCard.svelte';
@@ -32,7 +41,6 @@
   let chats = $state<readonly Chat[]>([]);
   let users = $state<readonly User[]>([]);
   let loading = $state(true);
-  let nowMs = $state(Date.now());
   let pollError = $state<null | { kind: 'network' | 'api'; message: string | null }>(null);
 
   function errorFrom(cause: unknown): { kind: 'network' | 'api'; message: string | null } {
@@ -51,9 +59,15 @@
     // Poll diff: identical sequence keeps its reference (no re-render, §2.2).
     chats = mergeChats(chats, nextChats);
     users = nextUsers;
-    nowMs = Date.now();
     loading = false;
     pollError = null;
+    // §4.11.6 last-message previews: refresh the visible list's cache every
+    // tick (best-effort — failures never surface on the page itself).
+    void refreshLastMessages(
+      stableChats(chats).map((chat) => chat.address),
+      id.userAddress,
+      (address) => api.listChatMessages(address)
+    );
   }
 
   const poller = new Poller({
@@ -85,13 +99,15 @@
   // --- derived view --------------------------------------------------------
   const me = $derived($identity);
   const userByAddress = $derived(new Map(users.map((user) => [user.address, user])));
+  const lastByAddress = $derived($lastMessages);
   const cards = $derived(
     me
       ? stableChats(chats).map((chat) => {
           const data = describeChat(chat, me.userAddress);
           return {
             ...data,
-            user: data.counterpart ? (userByAddress.get(data.counterpart) ?? null) : null
+            user: data.counterpart ? (userByAddress.get(data.counterpart) ?? null) : null,
+            lastMessage: lastByAddress.get(chat.address) ?? null
           };
         })
       : []
@@ -145,7 +161,7 @@
           counterpart={card.user}
           counterpartAddress={card.counterpart}
           extra={card.extra}
-          now={nowMs}
+          lastMessage={card.lastMessage}
         />
       {/each}
     </ul>

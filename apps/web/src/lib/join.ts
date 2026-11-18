@@ -10,10 +10,14 @@
  * - persona creation carries `invite_code` + a client-generated raw token
  *   in the body (NO auth header) and writes the identity + the device
  *   token vault ONLY after a 2xx;
- * - import is vault-driven: the picker lists `bleak.tokenVault` entries —
- *   NEVER `GET /api/room` or any server-side persona picker — and reads
- *   the old persona with its stored token (the documented explicit-token
- *   override; a stale token's 401 still hits the global §2.8 gate).
+ * - the vault picker is the RETURN screen (Concept §10.1.1, DESIGN
+ *   §4.11.1 — amends §6.2 import semantics): selecting a saved persona
+ *   enters THAT room with its stored token — identity restore, no
+ *   re-creation (no helper copy call, no persona POST). The picker lists
+ *   `bleak.tokenVault` entries — NEVER `GET /api/room` or any server-side
+ *   persona picker — and validates the stored token with the documented
+ *   explicit-token read (a stale token's 401 still hits the global §2.8
+ *   gate; the row shows the dead-note treatment and does not enter).
  */
 import type { CreateUserRequestV2, Room, User } from '@bleak/api-client';
 import { ApiError, NetworkError } from '@bleak/api-client';
@@ -39,8 +43,8 @@ export interface JoinClients {
   listRoomUsers: (room: string) => Promise<User[]>;
   /**
    * Credentialed persona read — the join layer passes the credential
-   * explicitly (the vault entry's stored token, §10.6 import). The
-   * attendee context's global 401 gate still applies to this call.
+   * explicitly (the vault entry's stored token, §10.6 return-flow
+   * validation). The attendee context's global 401 gate still applies.
    */
   getRoomUser: (room: string, address: string, options?: { token?: string }) => Promise<User>;
   /** Persona creation: NO auth header — the body carries the credentials. */
@@ -58,7 +62,7 @@ const defaultClients: JoinClients = {
   generateToken: () => generateTokenSecret()
 };
 
-/** A persona form value (Step 3a fields; import prefills these). */
+/** A persona form value (Step 3a fields). */
 export interface PersonaDraft {
   name: string;
   publicBio: string;
@@ -83,11 +87,11 @@ export async function resolveRoomByCode(
 }
 
 /**
- * Create the persona in the target room (§3.1 step 3a — and the create of
- * the vault-import copy): a client-generated raw token rides in the body
- * together with `invite_code`; NO auth header (join, §10.2). Returns the
- * created persona AND the generated token so the caller can persist
- * identity + vault entry — both writes happen ONLY after this 2xx.
+ * Create the persona in the target room (§3.1 step 3a): a client-generated
+ * raw token rides in the body together with `invite_code`; NO auth header
+ * (join, §10.2). Returns the created persona AND the generated token so
+ * the caller can persist identity + vault entry — both writes happen ONLY
+ * after this 2xx.
  */
 export async function createPersona(
   roomAddress: string,
@@ -108,11 +112,15 @@ export async function createPersona(
 }
 
 /**
- * Vault-import read: fetch the old persona WITH its stored token (full
- * fields incl. `private_bio`; §10.6). One credentialed read per import
- * selection; the vault entry itself is never mutated or removed.
+ * Return-flow validation read (Concept §10.1.1 / DESIGN §4.11.1): fetch
+ * the saved persona WITH its stored token (the documented explicit-token
+ * override, §10.6). One credentialed read per selection; a 2xx means the
+ * stored credential is live → the caller restores the identity from the
+ * entry and enters the room. The vault entry itself is never mutated or
+ * removed (append-only); a 404/403/401 surfaces the dead-entry treatment
+ * on the row (401 also trips the global §2.8 gate underneath).
  */
-export function readVaultPersona(
+export function verifyVaultEntry(
   entry: VaultEntry,
   clients: JoinClients = defaultClients
 ): Promise<User> {
@@ -163,20 +171,18 @@ export function personaErrorOf(err: unknown): { kind: PersonaError; text: string
 }
 
 /**
- * Vault-import read errors: a dead persona (server 404/403 or another
+ * Return-read errors: a dead/stale entry (server 404/401/403 or another
  * rejection on the credentialed read) surfaces honestly on the row (the
- * entry is never removed, append-only vault); `auth` marks a 401 — the
- * global §2.8 gate has already cleared the identity and queued the
- * redirect to `/`, so the caller renders nothing extra.
+ * entry is never removed, append-only vault); the entry stays listed and
+ * the flow does NOT enter. A 401 has additionally tripped the global §2.8
+ * gate (identity cleared, notice flag set) — on `/` that is the stale-
+ * token path, and the row still shows the dead-note.
  */
-export type VaultError = 'dead' | 'network' | 'auth';
+export type VaultError = 'dead' | 'network';
 
 export function vaultErrorOf(err: unknown): { kind: VaultError; text: string | null } {
   if (err instanceof NetworkError) return { kind: 'network', text: null };
-  if (err instanceof ApiError) {
-    if (err.status === 401) return { kind: 'auth', text: null };
-    return { kind: 'dead', text: apiErrorText(err) };
-  }
+  if (err instanceof ApiError) return { kind: 'dead', text: apiErrorText(err) };
   return { kind: 'dead', text: err instanceof Error ? err.message : String(err) };
 }
 
@@ -237,38 +243,31 @@ export interface JoinState {
   room: Room | null;
   /** Members of the target room (count only, §3.1). */
   members: User[];
-  /** Prefilled persona form (import) + the copy notice. */
-  prefill: PersonaDraft | null;
-  /** Whether the prefill came from a vault entry (back goes to the vault). */
-  importing: boolean;
 }
 
 export const initialJoinState: JoinState = {
   step: 'code',
   code: '',
   room: null,
-  members: [],
-  prefill: null,
-  importing: false
+  members: []
 };
 
 export type JoinEvent =
   | { type: 'code-input'; code: string }
   | { type: 'resolved'; room: Room; members: User[] }
   | { type: 'choose-create' }
-  | { type: 'choose-import' }
-  | { type: 'vault-picked'; user: User }
+  | { type: 'choose-return' }
   | { type: 'change-code' }
   | { type: 'back' };
 
-/** Back navigation per step: persona → (vault | room preview), vault → room,
- * room → code entry. */
+/** Back navigation per step: persona → room preview, vault (the return
+ * screen) → code entry, room → code entry. */
 function previousStep(state: JoinState): JoinStep {
   switch (state.step) {
     case 'persona':
-      return state.importing ? 'vault' : 'room';
-    case 'vault':
       return 'room';
+    case 'vault':
+      return 'code';
     default:
       return 'code';
   }
@@ -281,20 +280,9 @@ export function reduce(state: JoinState, event: JoinEvent): JoinState {
     case 'resolved':
       return { ...state, step: 'room', room: event.room, members: event.members };
     case 'choose-create':
-      return { ...state, step: 'persona', prefill: null, importing: false };
-    case 'choose-import':
-      return { ...state, step: 'vault', prefill: null, importing: false };
-    case 'vault-picked':
-      return {
-        ...state,
-        step: 'persona',
-        prefill: {
-          name: event.user.name,
-          publicBio: event.user.public_bio,
-          privateBio: event.user.private_bio
-        },
-        importing: true
-      };
+      return { ...state, step: 'persona' };
+    case 'choose-return':
+      return { ...state, step: 'vault' };
     case 'change-code':
       return { ...initialJoinState };
     case 'back':

@@ -1952,12 +1952,164 @@ These owner change requests amend the rules above for this round:
    placement keeps a distinct hit area per user; verified at phone widths.
 4. **Profile settings block (amends §3.6):** token regeneration, UI language
    switching and exit-room are grouped into a visible settings block;
-   exit-room is rendered in red (`--color-danger` #e05252, new functional
-   token, white `--color-text` on it passes AA) behind a confirmation
-   question (existing `ConfirmDialog`).
+   exit-room is rendered in red (`--color-danger` **#c53030** — amended
+   2026-11-17, v2.1 round: the originally drafted #e05252 measures only
+   ≈3.3:1 with `--color-text`; the delivered #c53030 measures **4.80:1**,
+   AA ≥4.5 verified numerically in the danger-contrast test) behind a
+   confirmation question (existing `ConfirmDialog`).
 5. **Import persona row (amends §4.7 copy):** the device-vault row drops the
    room-address segment (`join.import.saved_at` no longer renders
    `{room}`) — it overflowed the card contour.
+
+### 4.9 v2.2 UI-polish amendments (2026-11-18, owner-approved Concept §8)
+
+Owner change requests refining v2.1 output (all frontend-only):
+
+1. **Radar upright riding (amends §4.8.3c):** icons travel with the rings
+   but never spin on their own axis — orbit position rotates, icon
+   orientation stays upright (icon content counter-rotates inside the
+   orbit layer).
+2. **Per-ring speeds:** each ring rotates at a distinct speed per the
+   owner's example — ring 1 faster, ring 2 slightly slower, ring 3 very
+   fast (implemented as one rotating orbit layer per ring).
+3. **Settings route:** the settings block moves from the profile page to a
+   new `/profile/settings` route; the leave-room button renders as
+   **red font + red border only** (no filled background). Contrast roles
+   (architect consult, 2026-11-18): border keeps `--color-danger` #c53030
+   (3.43:1 — WCAG 1.4.11 non-text ≥3:1 ✓); the font role uses the new
+   `--color-danger-text` **#e05252** (4.92:1 on `--color-surface` — AA
+   ≥4.5 ✓; the §4.8.4 originally drafted red, whose white-contrast weakness
+   only mattered in the filled-button era).
+4. **Avatar change button:** the circular control on the persona/avatar
+   change field becomes rounded (reduced radius, not a full circle).
+5. **Profile stats — exactly 3:** Sent (renamed from Handshakes),
+   Added you, Chatting (renamed from Dialogs); other metrics removed.
+6. **Private-bio heading:** the "only your agent sees this" caption is
+   styled distinctly from the private content below it.
+7. **Chat colors:** chats-list cards get bright §7.1.2 color-coding
+   backgrounds; in the dialog the interlocutor's bubbles keep the bright
+   background, own bubbles revert to the previous muted styling.
+8. **Dialog times:** message timestamps as hh:mm; a locale-formatted date
+   label (e.g. "8 September" / "8 сентября") sits centered at the top of
+   the chat.
+9. **Kickoff removed from the dialog view:** the "Restart the dialog"
+   button (and its confirm) leave the attendee dialog; host drill-down
+   kickoff unaffected.
+10. **Dialog header:** phase/scenario (theme) chips removed; the
+    interlocutor's public info (public bio) is shown instead.
+11. **Radar "added you" marker:** the yellow ring around such icons is
+    replaced by a small yellow dot at the icon's top-right corner.
+12. **Ring-level transitions:** icon movement between ring levels animates
+    smoothly (CSS transition on the orbit position).
+
+### 4.10 v2.3 addendum amendments (2026-11-18, owner-approved Concept §9)
+
+Six refinements to the v2.2 output; these supersede the parts of §4.8/§4.9
+they touch:
+
+1. **Radar geometry (amends §3.2/§4.8.3):** the ring diameter equals
+   **max(screen-width, screen-height)** — the radar spans the larger
+   viewport dimension (stage element sized to the larger dimension,
+   centered; overflow beyond the viewport is expected; placement
+   guarantees stay relative to the stage).
+2. **Settings entry (amends §4.9.3):** the profile page gets a settings
+   button in its **top-right corner** leading to `/profile/settings`
+   (in addition to the existing affordance).
+3. **Private-bio heading (amends §4.9.6):** position/order as delivered in
+   v2.2 stays; typeface reverts to the **previous (Inter) font**; color =
+   **muted red** (red with some opacity — derived from
+   `--color-danger-text` via alpha/color-mix, tokens only).
+4. **Interests spacing:** margin added between the "Interests" title and
+   the interest items.
+5. **Deepa palette — canonical chat color-coding (supersedes §4.8.1's
+   four-hue set for chat/avatar coding per §9.1.5/§9.1.6):** tokens
+   `--color-deepa-1..5`: #00B57F (green), #E8E000 (yellow), #FF5000
+   (orange), #9B0CFF (violet), #0DECFF (cyan). Chats-list cards and
+   interlocutor bubbles get **full-opacity** Deepa backgrounds (no more
+   18% tints for these roles); own messages stay muted. Assignment becomes
+   `fnv1a(address) % 5`. Per-hue ink pairings (tokens
+   `--color-deepa-ink-1..5`) keep text AA ≥4.5 on every hue — dark ink on
+   green/yellow/orange/cyan, light ink on violet; pairing values verified
+   numerically in the contrast tests.
+6. **Avatar generation (amends §4.8.2/§4.9):** personage art uses the
+   Deepa palette (art tokens derived from the five hues); the icon's
+   background is **darker than the personage image** (dark derivative of
+   its hue, e.g. color-mix over `--color-surface`); the 1px
+   background-colored padding (§7.1.3) stays.
+
+### 4.11 v2.4 addendum amendments (2026-11-18, owner-approved Concept §10)
+
+Eight refinements; two are **escalated (see below)**, six delivered in this
+round:
+
+1. **Import = "return to event" (amends §6.2 import semantics):** the
+   import screen lists saved vault personas; selecting one **enters that
+   room directly using the stored token** (identity restore, no
+   re-creation), the persona is marked **"Return / Вернуться"**; the
+   copy-persona-into-new-room flow is superseded and its UI removed;
+   §6.2 vault storage stays.
+2. **Radar center gap smaller (amends §4.8.3b/§4.10.1):** the minimum
+   distance between the "you" chip and the nearest ring is reduced;
+   the no-overlap rule stays.
+3. **Private-bio heading (refines §9.1.1/§4.10.3):** smaller than the
+   content below, sentence case (no uppercase), stays Inter + muted red.
+4. **No profile edit button:** the user-info edit button leaves the
+   profile page; all persona editing lives in `/profile/settings`.
+5. **Chat color tied to user id (refines §4.10.5):** the Deepa hue is
+   derived deterministically from the interlocutor's user id (already the
+   `fnv1a(address) % 5` rule — pinned by test as the user-id contract).
+6. **Chat item content — ESCALATED:** last-message preview + time need
+   chat data the bleak-node `model.Chat` contract does not carry
+   (no last-message fields; `phase` is a free theme string, not a
+   lifecycle state). Pending owner decision (backend fields vs degraded
+   frontend approximation). The deliverable part — removing the
+   theme/scenario text from list items — proceeds.
+7. **Chat item status icon — ESCALATED:** active/finished states are not
+   exposed by the API contract (same gap as item 6). Pending the same
+   owner decision.
+8. **Host out of the footer:** the Host entry leaves the bottom
+   navigation; the `/host` route stays reachable by URL; a new entry path
+   will be designed later.
+
+### 4.12 v2.5 addendum amendments (2026-11-18, owner-approved Concept §11)
+
+1. **Leave ≠ delete (bug fix, amends the exit flow; §4.11.1 return
+   depends on it):** the attendee exit never deletes the persona on the
+   server (no hard or soft delete — the `deleteRoomUser` call leaves the
+   exit flow). Leaving is purely local: clear the active identity +
+   one-time mutual code; the persona token **stays in `bleak.tokenVault`**
+   so return-to-event (§10.1.1) always works. The backend DELETE persona
+   endpoint remains for explicit deletion elsewhere (host drill-down).
+   The leave confirmation copy no longer implies deletion.
+2. **Chat list — no background colors (amends §4.10.5/§4.11.5–7 for the
+   LIST role):** chat list items return to the neutral surface (like the
+   rest of the app); color-coding lives on the item's avatar/personage in
+   the Deepa palette, the same way /people colors avatars. Dialog message
+   bubbles KEEP their Deepa colors. The right-side status marks render as
+   reminders in the chat's message color (the interlocutor's Deepa hue),
+   and the loading icon is animated (rotating).
+3. **Copy sweep (i18n values only):** drop "Edit" from edit-screen titles
+   ("Edit persona/greeting/interests" → "Persona/Greeting/Interests");
+   rename "persona" → "profile" (EN) and "персона" → "профиль" (RU)
+   throughout the UI copy; the settings-block title becomes
+   **"My profile" / «Мой профиль»**.
+4. **Join form layout:** the 6-digit code input stays inside the card
+   bounds at all widths (overflow fix).
+
+### 4.12.1 v2.6 addendum amendments (2026-11-18, owner-approved Concept §12)
+
+5. **Phone full-screen forms (refines §4.12.4):** on phone-sized viewports
+   (**< 720px** — the design system's existing breakpoint; desktop
+   `min-width: 720px` layouts unchanged) the following render as
+   **full-screen forms** — the form fills the viewport with no floating
+   card chrome competing for width, and all content stays in bounds:
+   enter-code (join form incl. the 6-digit input), import profile,
+   return-to-event, and the profile page.
+6. **§11.1.4 reopened as a bug round:** the previous overflow fix did not
+   hold at phone sizes — the join input must be verified to stay inside
+   the form at **320 / 360 / 390px** widths with behavior tests (not a
+   one-off style tweak), routed as `bug/5c1c6036-join-input-overflow`
+   (the hash of the worker that owns the §11.1.4 fix).
 
 ## 5. Design-decision rationale (short)
 

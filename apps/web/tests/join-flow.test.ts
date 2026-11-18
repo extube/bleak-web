@@ -2,12 +2,17 @@
  * DigitInput → resolve → preview hand-off, deep-link auto-submit, inline 404
  * with preserved digits, persona creation with the client-generated token
  * (exact v2 body; identity + vault written only after 2xx), the §2.9
- * invite-code rejection state, 409, the vault-driven import (list from
- * bleak.tokenVault, stored-token read, re-create with a NEW token, dead
- * entry, empty vault), and the scanner mount (QrScanner public API). */
+ * invite-code rejection state, 409, the RETURN-TO-EVENT vault screen
+ * (Concept §10.1.1 / DESIGN §4.11.1 — amends §6.2 import semantics: the
+ * Step-1 entry point, stored-token validation, identity restore → /room,
+ * dead/stale entry handling, the copy flow REMOVED), the empty-vault state,
+ * and the scanner mount (QrScanner public API). */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
+import { get } from 'svelte/store';
 import { ApiError, NetworkError, type Room, type User } from '@bleak/api-client';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
@@ -39,8 +44,9 @@ vi.mock('#lib/api/client', () => ({
 import { goto } from '$app/navigation';
 import { InviteResolveError, resolveInviteCode } from '#lib/api/invite-resolve';
 import { api } from '#lib/api/client';
-import { identity } from '#lib/stores/identity';
+import { clearIdentity, identity, saveIdentity } from '#lib/stores/identity';
 import JoinFlow from '../src/lib/components/join/JoinFlow.svelte';
+import VaultList from '../src/lib/components/join/VaultList.svelte';
 import { ru } from '../src/lib/i18n/ru';
 
 const mockedResolve = vi.mocked(resolveInviteCode);
@@ -93,10 +99,6 @@ async function submitViaCta(): Promise<void> {
   fireEvent.submit(document.querySelector('form') as HTMLFormElement);
 }
 
-function seedVault(entries: unknown[]): void {
-  localStorage.setItem('bleak.tokenVault', JSON.stringify(entries));
-}
-
 beforeEach(() => {
   localStorage.clear();
   identity.set(null);
@@ -125,8 +127,9 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
     expect(screen.getByText(/Язык агентов: ru/)).toBeTruthy();
     expect(screen.getByText(/Участников: 1/)).toBeTruthy();
     expect(screen.getByRole('button', { name: ru['join.create_persona'] })).toBeTruthy();
-    // v2: the import option is the device vault.
-    expect(screen.getByRole('button', { name: ru['join.import.title'] })).toBeTruthy();
+    // v2.4 (§4.11.1): the copy-flow import option is REMOVED from the room
+    // preview — the vault screen is return-to-event, reachable from Step 1.
+    expect(screen.queryByRole('button', { name: ru['join.import.title'] })).toBeNull();
     expect(screen.getByRole('button', { name: ru['join.change_code'] })).toBeTruthy();
   });
 
@@ -256,120 +259,89 @@ describe('JoinFlow — persona creation (v2, token in the body)', () => {
   });
 });
 
-describe('JoinFlow — vault-driven import (Concept §6.2)', () => {
-  async function openVault(): Promise<void> {
-    mockedResolve.mockResolvedValue({ roomAddress: room.address });
-    mockedApi.getRoom.mockResolvedValue(room);
-    mockedApi.listRoomUsers.mockResolvedValue([]);
-    render(JoinFlow, { props: {} });
-    pasteCode('123456');
-    await submitViaCta();
-    await screen.findByText(room.name);
-    await screen.getByRole('button', { name: ru['join.import.title'] }).click();
-    await screen.findByText(ru['join.import.subtitle']);
-  }
-
+describe('JoinFlow — return-to-event vault screen (Concept §10.1.1, §4.11.1)', () => {
   function vaultRow(name: string): string {
     return ru['join.import.row_aria'].replace('{name}', name);
   }
 
+  function seedVault(entries: unknown[]): void {
+    localStorage.setItem('bleak.tokenVault', JSON.stringify(entries));
+  }
+
+  const savedEntry = {
+    roomAddress: '0xoldroom',
+    userAddress: '0xold',
+    token: 'stored-vault-token',
+    name: 'Старая персона',
+    savedAt: '2026-11-14T10:00:00Z'
+  };
+
+  async function openVault(): Promise<void> {
+    seedVault([savedEntry]);
+    render(JoinFlow, { props: {} });
+    // The Step-1 entry point: shown when the device vault is non-empty —
+    // the path BACK after "join another event".
+    await screen.getByRole('button', { name: ru['join.import.title'] }).click();
+    await screen.findByText(ru['join.import.subtitle']);
+  }
+
+  it('an empty vault shows NO Step-1 return entry (nothing to return to)', async () => {
+    render(JoinFlow, { props: {} });
+    expect(screen.queryByRole('button', { name: ru['join.import.title'] })).toBeNull();
+  });
+
   it('the picker lists ONLY bleak.tokenVault entries — no server room listing call (AC 11)', async () => {
-    seedVault([
-      {
-        roomAddress: '0xoldroom',
-        userAddress: '0xold',
-        token: 'stored-vault-token',
-        name: 'Старая персона',
-        savedAt: '2026-11-14T10:00:00Z'
-      }
-    ]);
     await openVault();
     expect(screen.getByText('Старая персона')).toBeTruthy();
     // Concept §7.1.7: the room address is no longer displayed on the row —
     // the muted line shows only the saved date.
     expect(screen.queryByText(/комната/)).toBeNull();
     expect(screen.getByText(/Сохранено/)).toBeTruthy();
-    // No GET /api/room beyond the preview: the picker never lists servers.
-    expect(mockedApi.getRoom).toHaveBeenCalledTimes(1); // the room preview only
-    expect(mockedApi.listRoomUsers).toHaveBeenCalledTimes(1); // the member count only
+    // The row is visually marked as RETURN (badge + aria-label, §4.11.1).
+    expect(screen.getByText(ru['join.import.return'])).toBeTruthy();
+    expect(screen.getByRole('button', { name: vaultRow('Старая персона') })).toBeTruthy();
+    // The picker never talks to the server: no GET /api/room at all — the
+    // screen is reachable directly from Step 1, without resolving a code.
+    expect(mockedApi.getRoom).not.toHaveBeenCalled();
+    expect(mockedApi.listRoomUsers).not.toHaveBeenCalled();
+    expect(mockedApi.createRoomUser).not.toHaveBeenCalled();
   });
 
-  it('an empty vault shows the specified copy with a way back to persona creation (AC 14)', async () => {
-    await openVault();
-    expect(screen.getByText(ru['join.import.empty'])).toBeTruthy();
-    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
-    await screen.findByText(ru['join.form.name']);
-  });
-
-  it('picking an entry reads the old persona with ITS STORED token, prefills, and re-creates with a NEW token (AC 12)', async () => {
-    seedVault([
-      {
-        roomAddress: '0xoldroom',
-        userAddress: '0xold',
-        token: 'stored-vault-token',
-        name: 'Старая персона',
-        savedAt: '2026-11-14T10:00:00Z'
-      }
-    ]);
-    mockedApi.getRoomUser.mockResolvedValue(user('0xold', 'Старая персона', 'секрет'));
-    mockedApi.createRoomUser.mockResolvedValue(user('0xnew', 'Старая персона', 'секрет'));
+  it('picking an entry validates the STORED token and ENTERS that room: identity restore → /room, NO re-creation (AC 12 amended)', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(
+      user('0xold', 'Старая персона', 'секрет')
+    );
 
     await openVault();
     await screen.getByRole('button', { name: vaultRow('Старая персона') }).click();
 
-    // Credentialed read: the Bearer token equals the vault entry's stored one.
+    // Validation read: the Bearer token equals the vault entry's stored one.
     await waitFor(() => expect(mockedApi.getRoomUser).toHaveBeenCalled());
     expect(mockedApi.getRoomUser).toHaveBeenCalledWith('0xoldroom', '0xold', {
       token: 'stored-vault-token'
     });
-    // Prefilled form incl. the private bio + the copy notice.
-    await screen.findByText(ru['join.import.notice']);
-    expect((screen.getByLabelText(ru['join.form.name']) as HTMLInputElement).value).toBe(
-      'Старая персона'
-    );
-    expect((screen.getByLabelText(ru['join.form.private_bio']) as HTMLInputElement).value).toBe(
-      'секрет'
-    );
-
-    await submitViaCta();
-    await waitFor(() => expect(mockedApi.createRoomUser).toHaveBeenCalled());
-    expect(mockedApi.createRoomUser).toHaveBeenCalledWith(room.address, {
-      name: 'Старая персона',
-      private_bio: 'секрет',
-      invite_code: '123456',
-      token: 'generated-raw-token' // a NEWLY generated token
-    });
     await tick();
     await tick();
-    // Both vault entries remain: the old persona untouched, the new appended.
-    const vault = JSON.parse(localStorage.getItem('bleak.tokenVault') ?? '[]') as Array<{
-      userAddress: string;
-      roomAddress: string;
-      token: string;
-    }>;
-    expect(vault).toHaveLength(2);
-    expect(vault[0]).toMatchObject({
+    // Identity restore from the entry fields (saveIdentity), then the same
+    // post-join path a normal join takes. No persona POST anywhere.
+    expect(get(identity)).toEqual({
       roomAddress: '0xoldroom',
       userAddress: '0xold',
       token: 'stored-vault-token'
     });
-    expect(vault[1]).toMatchObject({
-      roomAddress: room.address,
-      userAddress: '0xnew',
-      token: 'generated-raw-token'
+    expect(JSON.parse(localStorage.getItem('bleak.identity') ?? 'null')).toEqual({
+      roomAddress: '0xoldroom',
+      userAddress: '0xold',
+      token: 'stored-vault-token'
     });
+    expect(goto).toHaveBeenCalledWith('/room');
+    expect(mockedApi.createRoomUser).not.toHaveBeenCalled();
+    // The vault entry is untouched (append-only; no re-creation appended).
+    const vault = JSON.parse(localStorage.getItem('bleak.tokenVault') ?? '[]');
+    expect(vault).toHaveLength(1);
   });
 
-  it('a dead persona (404 on the credentialed read) shows the dead-entry state and keeps the entry (AC 13)', async () => {
-    seedVault([
-      {
-        roomAddress: '0xoldroom',
-        userAddress: '0xold',
-        token: 'stored-vault-token',
-        name: 'Старая персона',
-        savedAt: '2026-11-14T10:00:00Z'
-      }
-    ]);
+  it('a dead persona (404 on the credentialed read) shows the dead-entry state, does NOT enter, keeps the entry (AC 13)', async () => {
     mockedApi.getRoomUser.mockRejectedValue(
       new ApiError(404, '/api/room/0xoldroom/user/0xold', 'user not found')
     );
@@ -377,12 +349,79 @@ describe('JoinFlow — vault-driven import (Concept §6.2)', () => {
     await openVault();
     await screen.getByRole('button', { name: vaultRow('Старая персона') }).click();
     // Dead-entry copy with the server text appended muted (§3.1 state table).
-    await screen.findByText(/Эта персона больше не существует/);
+    await screen.findByText(/Этот профиль больше не существует/);
     expect(screen.getByText(/user not found/)).toBeTruthy();
+    await tick();
+    // No identity restore, no navigation, no creation.
+    expect(get(identity)).toBeNull();
+    expect(goto).not.toHaveBeenCalled();
+    expect(mockedApi.createRoomUser).not.toHaveBeenCalled();
     // The vault entry is NOT removed (append-only).
     const vault = JSON.parse(localStorage.getItem('bleak.tokenVault') ?? '[]');
     expect(vault).toHaveLength(1);
+  });
+
+  it('a stale stored token (401) shows the dead-note treatment and does NOT enter (§4.11.1; the §2.8 global gate fires underneath)', async () => {
+    mockedApi.getRoomUser.mockRejectedValue(
+      new ApiError(401, '/api/room/0xoldroom/user/0xold', 'token expired')
+    );
+
+    await openVault();
+    await screen.getByRole('button', { name: vaultRow('Старая персона') }).click();
+    await screen.findByText(/Этот профиль больше не существует/);
+    expect(screen.getByText(/token expired/)).toBeTruthy();
+    await tick();
+    expect(get(identity)).toBeNull();
+    expect(goto).not.toHaveBeenCalled();
     expect(mockedApi.createRoomUser).not.toHaveBeenCalled();
+    const vault = JSON.parse(localStorage.getItem('bleak.tokenVault') ?? '[]');
+    expect(vault).toHaveLength(1);
+  });
+
+  it('the owner round-trip after a local leave (Concept §11.1.1 + §10.1.1): clearIdentity — the whole client-side leave — keeps the vault entry; the pick validates the stored token and enters the room', async () => {
+    // Join-time device state: the active identity + the saved vault entry.
+    seedVault([savedEntry]);
+    saveIdentity({
+      roomAddress: savedEntry.roomAddress,
+      userAddress: savedEntry.userAddress,
+      token: savedEntry.token
+    });
+    mockedApi.getRoomUser.mockResolvedValue(user('0xold', 'Старая персона'));
+    // The leave is PURELY LOCAL (§11.1.1): its entire client-side effect is
+    // clearIdentity (identity + the one-time mutual code) — no server
+    // delete call anywhere, so the vault entry (and thus the return path)
+    // stays intact.
+    clearIdentity();
+    expect(get(identity)).toBeNull();
+    expect(JSON.parse(localStorage.getItem('bleak.tokenVault') ?? '[]')).toEqual([savedEntry]);
+
+    // The return-to-event pick (the owner's exact repro: import screen →
+    // the persona STILL EXISTS on the server) → identity restore → /room.
+    await openVault();
+    await screen.getByRole('button', { name: vaultRow('Старая персона') }).click();
+    await waitFor(() => expect(mockedApi.getRoomUser).toHaveBeenCalled());
+    expect(mockedApi.getRoomUser).toHaveBeenCalledWith('0xoldroom', '0xold', {
+      token: 'stored-vault-token'
+    });
+    await tick();
+    await tick();
+    expect(get(identity)).toEqual({
+      roomAddress: '0xoldroom',
+      userAddress: '0xold',
+      token: 'stored-vault-token'
+    });
+    expect(goto).toHaveBeenCalledWith('/room');
+    // The vault entry is untouched (append-only).
+    expect(JSON.parse(localStorage.getItem('bleak.tokenVault') ?? '[]')).toEqual([savedEntry]);
+  });
+
+  it('the empty-vault state shows the specified copy with a way back (VaultList direct render; the Step-1 entry is gated on a non-empty vault)', async () => {
+    render(VaultList, { props: { entries: [] } });
+    expect(screen.getByText(ru['join.import.empty'])).toBeTruthy();
+    await screen.getByRole('button', { name: ru['common.back'] }).click();
+    // No persona-creation escape hatch on the return screen — creation
+    // lives behind the code entry (the back link leaves the screen).
+    expect(screen.queryByRole('button', { name: ru['join.create_persona'] })).toBeNull();
   });
 });
 
@@ -400,4 +439,197 @@ describe('JoinFlow — scanner mount (context *a*, QrScanner public API)', () =>
     expect(cells().map((c) => c.value).join('')).toBe('123456');
   });
 
+});
+
+describe('JoinFlow — digit-row layout inside the card at 320/360/390 (Concept §12.2, DESIGN §4.12.1 item 6)', () => {
+  /**
+   * happy-dom runs no layout engine (component CSS is not applied — the
+   * same limitation the radar orbit tests document), so the width
+   * regression is verified BEHAVIORALLY as the flex layout math the
+   * browser runs, over every required phone width (320/360/390), driven
+   * by the real tokens and the real DOM structure (render JoinFlow, count
+   * the row's cells).
+   *
+   * Root cause of the re-fix (task 56): the task-53 cell flexibility
+   * (flex 1 1 0 / min-width 0 / max-width 56px) never ENGAGED —
+   * `.digit-input` sat inside CodeEntry's `.cells` flex row as an
+   * unconstrained flex item (min-width: auto): it sized to its capped
+   * content (6×56px + 5×gap = 376px) and never shrank, so the row
+   * overflowed the card's content box at ALL THREE widths (224/264/294px
+   * at 320/360/390). Fix: `.cells` is a plain block and `.digit-input` is
+   * width-constrained (width: 100%; min-width: 0) — the row tracks the
+   * content box and the cells then grow/shrink inside it.
+   */
+  const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
+    ? process.cwd()
+    : join(process.cwd(), 'apps', 'web');
+  function source(relativePath: string): string {
+    return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
+  }
+  function token(name: string): number {
+    const match = readFileSync(join(WEB_ROOT, 'src/lib/styles/tokens.css'), 'utf8').match(
+      new RegExp(`--${name}:\\s*(\\d+)px`)
+    );
+    if (!match?.[1]) throw new Error(`token --${name} (px) not found in tokens.css`);
+    return Number(match[1]);
+  }
+
+  const GAP = token('space-2'); // cell gap (var(--space-2))
+  const PADDING = token('space-5'); // join container AND card padding
+  const CELL_CAP = 56; // the design cell size (max-width)
+  /** Card content box at viewport W: join side padding ×2 + card padding ×2. */
+  function contentBox(viewport: number): number {
+    return viewport - 2 * PADDING - 2 * PADDING;
+  }
+  /**
+   * The browser's flex algorithm for this row: container = content box,
+   * items flex-basis 0 / grow 1 / max-width 56, gap between items. Under
+   * the width-constrained row the cells grow to fill the box, clamped at
+   * the cap; the row is the items + gaps. Returns { cell, row }.
+   */
+  function flexRow(viewport: number): { cell: number; row: number } {
+    const box = contentBox(viewport);
+    const free = box - 5 * GAP; // space after the fixed gaps
+    const cell = Math.min(CELL_CAP, free / 6); // grow: free / 6 each, capped
+    return { cell, row: 6 * cell + 5 * GAP };
+  }
+
+  it('diagnosis: the 376px content-locked row overflowed ALL THREE required widths', () => {
+    const locked = 6 * CELL_CAP + 5 * GAP;
+    expect(locked).toBe(376);
+    for (const viewport of [320, 360, 390]) {
+      expect(locked).toBeGreaterThan(contentBox(viewport));
+    }
+    expect(contentBox(320)).toBe(224);
+    expect(contentBox(360)).toBe(264);
+    expect(contentBox(390)).toBe(294);
+  });
+
+  it('behavior: the row fits the card content box at 320px, 360px AND 390px', () => {
+    for (const viewport of [320, 360, 390]) {
+      const { cell, row } = flexRow(viewport);
+      const box = contentBox(viewport);
+      expect(row, `viewport ${viewport}px`).toBeLessThanOrEqual(box);
+      // Exactly fits — the row tracks the content box (no dead side gaps
+      // that could hide a lock), cells stay a usable digit target.
+      expect(row, `viewport ${viewport}px`).toBe(box);
+      expect(cell, `viewport ${viewport}px`).toBeGreaterThanOrEqual(24);
+      expect(cell, `viewport ${viewport}px`).toBeLessThanOrEqual(CELL_CAP);
+    }
+    // Wide screens unchanged: the cells cap at the 56px design size.
+    expect(flexRow(720).cell).toBe(CELL_CAP);
+  });
+
+  it('structure: the rendered JoinFlow row is the 6-cell flex row the math applies to', () => {
+    render(JoinFlow, { props: {} });
+    const group = screen.getByRole('group', { name: ru['join.code.label'] });
+    expect(group.className).toMatch(/digit-input/);
+    expect(group.querySelectorAll('input')).toHaveLength(6);
+  });
+
+  it('CSS contract: the row is width-constrained and NOT nested in a flex container', () => {
+    // The re-fix: .digit-input tracks the content box (no min-content lock).
+    const digitCss = source('src/lib/components/DigitInput.svelte');
+    expect(digitCss).toMatch(/\.digit-input\s*\{[^}]*width:\s*100%/);
+    expect(digitCss).toMatch(/\.digit-input\s*\{[^}]*min-width:\s*0/);
+    // Cells: flexible, capped, height (touch target) preserved, token gap.
+    expect(digitCss).not.toMatch(/(?<![-\w])width:\s*56px/);
+    expect(digitCss).toMatch(/input\s*\{[^}]*flex:\s*1 1 0/);
+    expect(digitCss).toMatch(/input\s*\{[^}]*min-width:\s*0/);
+    expect(digitCss).toMatch(/input\s*\{[^}]*max-width:\s*56px/);
+    expect(digitCss).toMatch(/input\s*\{[^}]*height:\s*56px/);
+    expect(digitCss).toMatch(/gap:\s*var\(--space-2\)/);
+    expect(digitCss).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    // The lock's enabler: CodeEntry's .cells is no longer a flex container —
+    // .digit-input must never again sit in it as an unconstrained flex item.
+    const entryCss = source('src/lib/components/join/CodeEntry.svelte');
+    expect(entryCss).not.toMatch(/\.cells\s*\{[^}]*display:\s*flex/);
+    // Long words (title, gone-card room names) wrap instead of overflowing.
+    expect(entryCss).toMatch(/h1\s*\{[^}]*overflow-wrap:\s*anywhere/);
+    const flowCss = source('src/lib/components/join/JoinFlow.svelte');
+    expect(flowCss).toMatch(/\.gone-card h2\s*\{[^}]*overflow-wrap:\s*anywhere/);
+  });
+});
+
+describe('JoinFlow — phone full-screen forms (Concept §12, DESIGN §4.12.1 item 5)', () => {
+  /**
+   * happy-dom runs no layout engine and no media-query evaluation, so the
+   * phone (<720px) contract is verified the way the repo's established
+   * CSS-contract tests do — source reads. Growth reason: new phone
+   * breakpoint behavior (v2.6). The contract: at <720px the join card
+   * becomes the page — full width/height, no rounded floating chrome, no
+   * pixel-corner clip — and the overrides live ONLY inside the
+   * `max-width: 719px` query, so desktop (min-width: 720px) rendering is
+   * untouched. One treatment covers every surface rendered in the join
+   * card: enter-code (CodeEntry + DigitInput), import profile and
+   * return-to-event (the §10.1.1 vault screen); the route-level resume
+   * card shares it (same join screen).
+   */
+  const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
+    ? process.cwd()
+    : join(process.cwd(), 'apps', 'web');
+  function source(relativePath: string): string {
+    return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
+  }
+  /** The phone media block (it is the LAST block in each style). */
+  function phoneBlock(css: string): string {
+    const match = css.match(/@media \(max-width:\s*719px\)\s*\{([\s\S]*)<\/style>/);
+    expect(match, 'phone (max-width: 719px) block not found').toBeTruthy();
+    const block = match?.[1] ?? '';
+    expect(block, 'empty phone (max-width: 719px) block').not.toBe('');
+    return block;
+  }
+  /** Everything BEFORE the phone query — the desktop rendering contract. */
+  function baseCss(css: string): string {
+    return css.replace(/@media \(max-width:\s*719px\)[\s\S]*$/, '');
+  }
+
+  it('enter-code / import / return: the join card becomes the page at phone widths', () => {
+    const phone = phoneBlock(source('src/lib/components/join/JoinFlow.svelte'));
+    // Container drops its width cap and gutter — the card spans the viewport.
+    expect(phone).toMatch(/\.join\s*\{[^}]*max-width:\s*none/);
+    expect(phone).toMatch(/\.join\s*\{[^}]*padding:\s*0/);
+    // The card loses the floating chrome (radius + pixel-corner clip) and
+    // fills the viewport height; its --space-5 padding stays the gutter.
+    expect(phone).toMatch(/\.card\s*\{[^}]*border-radius:\s*0/);
+    expect(phone).toMatch(/\.card\s*\{[^}]*clip-path:\s*none/);
+    expect(phone).toMatch(/\.card\s*\{[^}]*flex:\s*1/);
+    // Tokens only (sweep discipline).
+    expect(phone).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    // The task-56 fix is preserved underneath: the digit row stays
+    // width-constrained, so it is in bounds at EVERY phone width.
+    const digitCss = source('src/lib/components/DigitInput.svelte');
+    expect(digitCss).toMatch(/\.digit-input\s*\{[^}]*width:\s*100%/);
+    expect(digitCss).toMatch(/\.digit-input\s*\{[^}]*min-width:\s*0/);
+  });
+
+  it('the resume card (the same join screen) carries the identical treatment', () => {
+    const phone = phoneBlock(source('src/routes/+page.svelte'));
+    expect(phone).toMatch(/\.join\s*\{[^}]*max-width:\s*none/);
+    expect(phone).toMatch(/\.join\s*\{[^}]*padding:\s*0/);
+    expect(phone).toMatch(/\.resume\s*\{[^}]*border-radius:\s*0/);
+    expect(phone).toMatch(/\.resume\s*\{[^}]*clip-path:\s*none/);
+    expect(phone).toMatch(/\.resume\s*\{[^}]*flex:\s*1/);
+    expect(phone).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  it('desktop is untouched: the overrides exist only inside the phone query', () => {
+    for (const file of [
+      'src/lib/components/join/JoinFlow.svelte',
+      'src/routes/+page.svelte'
+    ]) {
+      const css = source(file);
+      // The desktop block is intact.
+      expect(css, file).toMatch(/@media \(min-width:\s*720px\)/);
+      // Each chrome-dropping declaration appears exactly once in the file —
+      // inside the 719px query, never in the base (desktop) rules.
+      for (const decl of ['border-radius: 0', 'clip-path: none', 'max-width: none']) {
+        expect(css.split(decl).length - 1, `${file}: "${decl}"`).toBe(1);
+      }
+      const base = baseCss(css);
+      expect(base).not.toContain('border-radius: 0');
+      expect(base).not.toContain('clip-path: none');
+      expect(base).not.toContain('max-width: none');
+    }
+  });
 });

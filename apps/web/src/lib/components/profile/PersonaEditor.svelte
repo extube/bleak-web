@@ -63,8 +63,11 @@
   </div>
   <div class="field">
     <label for="persona-edit-private">{translate($locale, 'join.form.private_bio')}</label>
+    <!-- Concept §9.1.1 / DESIGN §4.10.3: the «only your agent sees this»
+         heading reverts to the body face (Inter) in a muted red, still
+         distinct from the field below it (uppercase, weight). -->
+    <p class="private-bio-heading">{translate($locale, 'profile.private_bio.caption')}</p>
     <input id="persona-edit-private" type="text" maxlength={255} bind:value={privateBio} />
-    <p class="caption">{translate($locale, 'profile.private_bio.caption')}</p>
   </div>
 
   {#if errorMessage}
@@ -117,10 +120,16 @@
   input.invalid {
     border-color: var(--color-accent);
   }
-  .caption {
+  /* Concept §10.1.3 / DESIGN §4.11.3: body face (Inter) with a muted red
+   * (danger color mixed toward transparency, never solid); no uppercase,
+   * and smaller than the content below — size contrast is the hierarchy. */
+  .private-bio-heading {
     margin: 0;
-    font-size: 14px;
-    color: var(--color-text-muted);
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: none;
+    color: color-mix(in srgb, var(--color-danger-text) 70%, transparent);
   }
   .field-error {
     margin: 0;

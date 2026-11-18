@@ -38,10 +38,10 @@ import {
   isValidInviteCode,
   parseJoinDeepLink,
   personaErrorOf,
-  readVaultPersona,
   reduce,
   resolveRoomByCode,
   vaultErrorOf,
+  verifyVaultEntry,
   type PersonaDraft
 } from '#lib/join';
 import type { VaultEntry } from '#lib/stores/tokenVault';
@@ -167,7 +167,7 @@ describe('personaErrorOf (§3.1 + §2.9)', () => {
   });
 });
 
-describe('vaultErrorOf (dead-entry state, §3.1)', () => {
+describe('vaultErrorOf (dead-entry state, §3.1 + §4.11.1 return flow)', () => {
   it('maps 404/403 to the dead-entry state with the server text', () => {
     expect(vaultErrorOf(new ApiError(404, '/api/room/r/user/0xold', 'not found'))).toEqual({
       kind: 'dead',
@@ -179,10 +179,10 @@ describe('vaultErrorOf (dead-entry state, §3.1)', () => {
     });
   });
 
-  it('maps a 401 to the auth kind — the §2.8 global gate owns it (the vault entry stays)', () => {
+  it('maps a 401 to the dead-entry state too — the row shows the dead-note and the flow does not enter (the §2.8 global gate has fired underneath)', () => {
     expect(vaultErrorOf(new ApiError(401, '/api/room/r/user/0xold', 'bad token'))).toEqual({
-      kind: 'auth',
-      text: null
+      kind: 'dead',
+      text: 'bad token'
     });
   });
 
@@ -222,7 +222,7 @@ describe('deep-link parsing (§3.1 AC 19)', () => {
   });
 });
 
-describe('step machine transitions (vault-driven import)', () => {
+describe('step machine transitions (return-to-event vault screen)', () => {
   it('enters the room preview when the code resolves', () => {
     const next = reduce(initialJoinState, { type: 'resolved', room, members: [user('0xa', 'A')] });
     expect(next.step).toBe('room');
@@ -230,40 +230,25 @@ describe('step machine transitions (vault-driven import)', () => {
     expect(next.members).toHaveLength(1);
   });
 
-  it('choose-create opens the persona form with no prefill', () => {
+  it('choose-create opens the persona form', () => {
     const atRoom = reduce(initialJoinState, { type: 'resolved', room, members: [] });
     const next = reduce(atRoom, { type: 'choose-create' });
     expect(next.step).toBe('persona');
-    expect(next.prefill).toBeNull();
-    expect(next.importing).toBe(false);
   });
 
-  it('choose-import opens the vault step (no server room picker)', () => {
-    const atRoom = reduce(initialJoinState, { type: 'resolved', room, members: [] });
-    const next = reduce(atRoom, { type: 'choose-import' });
+  it('choose-return opens the vault step from the code entry (no server room picker)', () => {
+    const next = reduce(initialJoinState, { type: 'choose-return' });
     expect(next.step).toBe('vault');
-    expect(next.prefill).toBeNull();
+    expect(next.room).toBeNull();
   });
 
-  it('picking a vault persona prefills the form with the copy notice', () => {
-    const atRoom = reduce(initialJoinState, { type: 'resolved', room, members: [] });
-    const atVault = reduce(atRoom, { type: 'choose-import' });
-    const next = reduce(atVault, {
-      type: 'vault-picked',
-      user: { ...user('0xold', 'Старая персона'), private_bio: 'секрет' }
-    });
-    expect(next.step).toBe('persona');
-    expect(next.prefill).toEqual({ name: 'Старая персона', publicBio: '', privateBio: 'секрет' });
-    expect(next.importing).toBe(true);
-  });
-
-  it('back navigation walks the vault path down to the room preview', () => {
+  it('back navigation: vault (return screen) → code entry, persona → room preview, room → code entry', () => {
     const atRoom = reduce(initialJoinState, { type: 'resolved', room, members: [] });
     expect(reduce(atRoom, { type: 'back' }).step).toBe('code');
-    const atVault = reduce(atRoom, { type: 'choose-import' });
-    expect(reduce(atVault, { type: 'back' }).step).toBe('room');
-    const atPersona = reduce(atVault, { type: 'vault-picked', user: user('0x', 'X') });
-    expect(reduce(atPersona, { type: 'back' }).step).toBe('vault');
+    const atPersona = reduce(atRoom, { type: 'choose-create' });
+    expect(reduce(atPersona, { type: 'back' }).step).toBe('room');
+    const atVault = reduce(initialJoinState, { type: 'choose-return' });
+    expect(reduce(atVault, { type: 'back' }).step).toBe('code');
   });
 
   it('change-code resets to a clean code entry', () => {
@@ -304,11 +289,11 @@ describe('services against the mocked clients (v2)', () => {
     });
   });
 
-  it('readVaultPersona fetches the old persona with ITS STORED token (vault import override)', async () => {
+  it('verifyVaultEntry validates the stored token with ITS OWN credential (the return-flow explicit-token read)', async () => {
     mockedApi.getRoomUser.mockResolvedValue(user('0xold', 'Старая персона'));
     const entry = vaultEntry();
 
-    await readVaultPersona(entry);
+    await verifyVaultEntry(entry);
 
     expect(mockedApi.getRoomUser).toHaveBeenCalledTimes(1);
     expect(mockedApi.getRoomUser).toHaveBeenCalledWith('0xoldroom', '0xold', {

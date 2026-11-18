@@ -1,0 +1,3 @@
+2026-11-18T12:45:16Z [worker] task 51 started: chat list neutral restyle
+2026-11-18T12:49:01Z [worker] implemented tz4-22: ChatCard neutral surface (Deepa bg + ink pairing removed), hue moved to status marks (deepa-N tokens), active loading glyph spins (chat-status-spin, reduced-motion via base.css), preview line untouched; tests updated (neutral/hue-mapping/animation/no-danger); gates: targeted 3 files 44 pass, full make test 548 pass, make lint clean, make build 0 errors
+2026-11-18T12:49:14Z [worker] handover: task 51 ready-for-merge, session closed done; commit e73978a on feature/3e0bf758-tz4-22-chat-list-neutral-restyle

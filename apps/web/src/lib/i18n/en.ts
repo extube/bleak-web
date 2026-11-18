@@ -10,7 +10,6 @@ export const en = {
   'nav.people': 'People',
   'nav.chats': 'Chats',
   'nav.profile': 'Profile',
-  'nav.host': 'Host',
   'nav.aria': 'Main navigation',
 
   /* --- join (DESIGN §3.1, §4.7) --- */
@@ -25,9 +24,7 @@ export const en = {
   'join.scan.open': 'Or scan a QR code',
   'join.room.language': 'Agent language: {language}',
   'join.room.members': 'Members: {n}',
-  'join.create_persona': 'Create persona',
-  'join.import': 'Import from a previous event',
-  'join.import.notice': 'The persona will be copied into this event',
+  'join.create_persona': 'Create profile',
   'join.change_code': 'Change code',
   'join.form.name': 'Name',
   'join.form.public_bio': 'What others see',
@@ -35,16 +32,17 @@ export const en = {
   'join.error.name_taken': 'That name is already taken in the room.',
   'join.error.gone': 'This event is no longer available.',
   'join.error.name_required': 'Enter your name.',
-  // v2 vault import (DESIGN rev. 3 §4.7) — these keys are redefined for the
-  // device token vault; ImportRooms/ImportUsers are replaced by TZ2-07.
-  'join.import.title': 'Import from this device',
-  'join.import.subtitle': 'Personas created on this phone.',
-  'join.import.pick_persona': 'Choose a persona',
-  'join.import.empty': 'No saved personas on this device yet.',
+  // Return-to-event screen (Concept §10.1.1, DESIGN §4.11.1 — amends §4.7):
+  // picking a saved persona enters its room with the stored token —
+  // identity restore, no re-creation.
+  'join.import.title': 'Return to event',
+  'join.import.subtitle': 'Profiles created on this phone.',
+  'join.import.return': 'Return',
+  'join.import.empty': 'No saved profiles on this device yet.',
   'join.import.saved_at': 'Saved {date}',
-  'join.import.row_aria': 'Import persona {name}',
+  'join.import.row_aria': 'Return to profile {name}',
   'join.import.dead':
-    'This persona no longer exists on the server. The entry stays listed, but it cannot be imported.',
+    'This profile no longer exists on the server. The entry stays listed, but you cannot return to it.',
   'join.error.invite': 'The invite code is invalid or expired.',
   'join.resume.title': 'Continue to {room}',
   'join.resume.another': 'Join another event',
@@ -67,7 +65,7 @@ export const en = {
   'scan.invalid_qr': 'This is not a bleak-web QR code.',
   'scan.code_used': 'Code already used — ask them to refresh their badge QR.',
   'scan.own_qr': "That's your own QR — show it to someone else.",
-  'scan.foreign_persona': 'This persona is from another event.',
+  'scan.foreign_persona': 'This profile is from another event.',
   'scan.confirm.title': 'Send mutual handshakes and start the agents?',
   'scan.confirm.cta': 'Trade handshakes',
   'scan.confirm.cancel': 'Cancel',
@@ -79,7 +77,7 @@ export const en = {
   'room.title': 'Around me',
   'room.subtitle': 'Attendees near you in this room.',
   'room.around': '{n} around you',
-  'room.scan.open': 'Scan a persona QR',
+  'room.scan.open': 'Scan a profile QR',
   'room.empty': 'Nobody here yet. Ask the host for the invite code — or share yours.',
   'room.members_more': '+{n} more',
   'room.node.chat': '{name} — your agents are already talking',
@@ -123,14 +121,18 @@ export const en = {
   'chats.subtitle': 'Where your agents talk',
   'chats.empty': "No dialogs yet. A mutual handshake starts the agents' conversation.",
   'chats.find_people': 'Find people',
-  'chats.card.aria': 'Dialog with {name} · {phase} · {scenario}',
+  // §4.11.5–7 (Concept §10.1.5–7): the theme words left the list item; the
+  // accessible name now carries the dialog's STATUS (the right-side icon).
+  'chats.card.aria': 'Dialog with {name} · {status}',
+  'chats.status.active': 'active',
+  'chats.status.finished': 'finished',
   'chat.warming_up': 'The agents are warming up…',
-  'chat.kickoff': 'Restart the dialog',
+  // §8.1.9: kickoff left the attendee dialog view; the confirm copy stays
+  // (host drill-down kickoff uses it — MemberDrillDown).
   'chat.kickoff.confirm_title': 'Start the conversation over?',
   'chat.kickoff.confirm_body':
     'The dialog history will be cleared and the agents will start over. The sender of the earliest handshake speaks first.',
   'chat.kickoff.confirm_run': 'Restart',
-  'chat.kickoff.speaker': '{name} speaks first',
   'chat.contact_stub': 'Share contact — coming later',
   'chat.not_found': 'Dialog not found — it may have been deleted.',
   'chat.back_to_list': 'Back to dialogs',
@@ -140,7 +142,7 @@ export const en = {
 
   /* --- profile (DESIGN §3.6, §4.7) --- */
   'profile.title': 'Profile',
-  'profile.subtitle': 'Your persona-agent in this room.',
+  'profile.subtitle': 'Your profile in this room.',
   'profile.language.meta': 'Agent language: {language}',
   'profile.greeting.caption': "Opens each of your agent's new dialogs",
   'profile.greeting.rule':
@@ -149,38 +151,42 @@ export const en = {
     'Remove the question marks — the greeting must not contain questions.',
   'profile.greeting.label': 'Greeting',
   'profile.greeting.counter': '{n}/255',
-  'profile.greeting.edit': 'Edit greeting',
+  'profile.greeting.edit': 'Greeting',
   'profile.greeting.regenerate': 'Regenerate',
-  'profile.persona.edit': 'Edit persona',
+  'profile.persona.edit': 'Profile',
   'profile.badge.about': 'About',
   'profile.badge.for_agent': 'For your agent',
   'profile.private_bio.caption': 'only your agent sees this',
   'profile.interests.title': 'Interests',
-  'profile.interests.edit': 'Edit interests',
+  'profile.interests.edit': 'Interests',
   'profile.interests.add': 'Add interests',
   'profile.interests.done': 'Done',
   'profile.interests.note': 'Interests are visible on your profile only.',
   'profile.interests.empty': 'No interests yet',
-  'profile.stats.handshakes_label': 'Handshakes',
-  'profile.stats.dialogs_label': 'Dialogs',
+  // §8.1.5: exactly three stats — Sent (ex "Handshakes"), Added you,
+  // Chatting (ex "Dialogs").
+  'profile.stats.handshakes_label': 'Sent',
+  'profile.stats.dialogs_label': 'Chatting',
   'profile.stats.added_label': 'Added you',
-  'profile.stats.handshakes': 'Handshakes {n}',
-  'profile.stats.dialogs': 'Dialogs {n}',
+  'profile.stats.handshakes': 'Sent {n}',
+  'profile.stats.dialogs': 'Chatting {n}',
   'profile.qr.caption': 'Show this to trade handshakes',
   'profile.qr.alt': 'Personal QR code',
   'profile.qr.onetime': 'The QR is one-time — it refreshes itself after a handshake.',
   'profile.qr.refreshed': 'QR refreshed',
   'profile.qr.aria': 'Your one-time handshake QR',
   'profile.saved': 'Saved',
+  'profile.settings.title': 'My profile',
+  'profile.settings.persona': 'My profile',
   'profile.leave': 'Leave the room',
   'profile.leave.confirm_body':
-    'Your persona will be removed from the room along with its handshakes and dialogs.',
-  'profile.not_found': 'Persona not found',
+    'You will leave the event. Your token stays on this device — you can return any time via Return to event.',
+  'profile.not_found': 'Profile not found',
   'profile.exit': 'Leave',
   'profile.rotate.row': 'Regenerate access token',
   'profile.rotate.title': 'Regenerate the access token?',
   'profile.rotate.body':
-    'The current credential will stop working: other devices holding it will lose access to this persona.',
+    'The current credential will stop working: other devices holding it will lose access to this profile.',
   'profile.rotate.cta': 'Regenerate',
   'profile.rotate.done': 'Credential updated',
 
@@ -245,7 +251,7 @@ export const en = {
 
   /* --- global 401 gate (DESIGN rev. 3 §2.8, §4.7) --- */
   'auth.401.notice':
-    'This persona has no valid access credential — join again with the event code.',
+    'This profile has no valid access credential — join again with the event code.',
 
   /* --- common (DESIGN §2.1, §4.7) --- */
   'common.loading': 'Loading…',

@@ -9,9 +9,17 @@
    * v2 (Concept §6.2 / ARCHITECTURE §10.6): persona creation generates the
    * client-side token and sends `invite_code` + the raw token in the body
    * (no auth header); identity + the device token vault are written ONLY
-   * after a 2xx; import is vault-driven (`bleak.tokenVault` — never
-   * `GET /api/room`); the §2.9 invite-code rejection is a first-class
-   * inline state.
+   * after a 2xx; the §2.9 invite-code rejection is a first-class inline
+   * state.
+   *
+   * v2.4 (Concept §10.1.1, DESIGN §4.11.1 — amends §6.2 import semantics):
+   * the vault screen is RETURN TO EVENT — reachable from Step 1 when the
+   * device vault is non-empty (the path back after "join another event").
+   * Picking a saved persona validates its stored token (one credentialed
+   * read) and enters THAT room: identity restore via saveIdentity → the
+   * same post-join `/room` path a normal join takes. No re-creation, no
+   * persona POST. A dead/stale entry (404/401/403) shows the dead-note on
+   * the row and does not enter (a 401 also trips the global §2.8 gate).
    */
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -24,10 +32,10 @@
     initialJoinState,
     isValidInviteCode,
     personaErrorOf,
-    readVaultPersona,
     reduce,
     resolveRoomByCode,
     vaultErrorOf,
+    verifyVaultEntry,
     type JoinState,
     type PersonaDraft,
     type PersonaError
@@ -138,38 +146,49 @@
     flow = reduce(flow, { type: 'choose-create' });
   }
 
-  function chooseImport(): void {
-    personaError = null;
+  // --- The return screen (Step 1 entry point, Concept §10.1.1) --------------
+
+  /** The Step-1 "return to event" entry: shown only when the device vault
+   * holds at least one saved persona (the path BACK after "join another
+   * event"). Read once at mount — the vault is append-only and every write
+   * is followed by navigation away from `/`. */
+  const canReturn: boolean = listVaultEntries().length > 0;
+
+  function chooseReturn(): void {
     vaultDead = null;
     // The vault is read from localStorage fresh every visit (entries are
     // appended by creation and never removed — append-only).
     vaultEntries = listVaultEntries();
-    flow = reduce(flow, { type: 'choose-import' });
+    flow = reduce(flow, { type: 'choose-return' });
   }
 
-  // --- Step 3b: vault import (one credentialed read per selection, §10.6) ---
+  // --- Return flow: one credentialed validation read per selection ----------
 
   async function pickVaultEntry(entry: VaultEntry): Promise<void> {
     if (vaultLoading) return;
     vaultLoading = true;
     vaultDead = null;
     try {
-      // The old persona is read WITH ITS STORED TOKEN (full fields incl.
-      // private_bio; a stale token's 401 goes through the global §2.8 gate).
-      const user = await readVaultPersona(entry);
-      flow = reduce(flow, { type: 'vault-picked', user });
+      // The stored token is validated with the documented explicit-token
+      // read (§10.6); a stale token's 401 goes through the global §2.8 gate.
+      await verifyVaultEntry(entry);
+      // Identity restore — NO re-creation (Concept §10.1.1): the vault
+      // entry IS the credential; the same post-join path a normal join
+      // takes. The vault entry itself is untouched (already stored).
+      saveIdentity({
+        roomAddress: entry.roomAddress,
+        userAddress: entry.userAddress,
+        token: entry.token
+      });
+      void goto(resolve('/room'));
     } catch (err) {
       const mapped = vaultErrorOf(err);
-      if (mapped.kind === 'auth') {
-        // Global gate (§2.8): identity cleared + notice card on `/` — the
-        // vault entry itself is untouched (append-only). Nothing to render.
-        return;
-      }
       if (mapped.kind === 'network') {
         banner = { kind: 'network', text: null };
         return;
       }
-      // Dead persona: honest error on the row; the entry stays listed.
+      // Dead/stale entry (404/401/403): the existing dead-note treatment on
+      // the row — the entry stays listed (append-only) and we do NOT enter.
       vaultDead = { address: entry.userAddress, text: mapped.text };
     } finally {
       vaultLoading = false;
@@ -259,18 +278,17 @@
           {shakeKey}
           onsubmit={(code) => void submitCode(code)}
           onscan={() => (scannerOpen = true)}
+          onreturn={canReturn ? chooseReturn : undefined}
         />
       {:else if flow.step === 'room' && flow.room}
         <RoomPreview
           room={flow.room}
           memberCount={flow.members.length}
           oncreate={chooseCreate}
-          onimport={chooseImport}
           onchange={backToStep1}
         />
       {:else if flow.step === 'persona'}
         <PersonaForm
-          prefill={flow.prefill}
           error={personaError}
           pending={creating}
           onsubmit={(draft) => void submitPersona(draft)}
@@ -283,7 +301,6 @@
           dead={vaultDead}
           onpick={(entry) => void pickVaultEntry(entry)}
           onback={() => (flow = reduce(flow, { type: 'back' }))}
-          oncreate={chooseCreate}
         />
       {/if}
     </section>
@@ -325,6 +342,8 @@
   }
   .gone-card h2 {
     font-size: 28px;
+    /* Room names are user data — a long unbroken word must not overflow. */
+    overflow-wrap: anywhere;
   }
   .vh {
     position: absolute;
@@ -338,6 +357,24 @@
     .join {
       justify-content: center;
       max-width: 480px;
+    }
+  }
+  /* v2.6 (Concept §12, DESIGN §4.12.1 item 5): phone (<720px) full-screen
+   * forms — the card becomes the page: full width/height, no rounded
+   * floating chrome (the pixel-corner clip is dropped too). One treatment
+   * covers every surface rendered in this card — enter-code, import
+   * profile and return-to-event (§10.1.1 vault screen); the card's own
+   * --space-5 padding is the content gutter. Desktop (min-width: 720px)
+   * is unchanged — these overrides live only inside the 719px query. */
+  @media (max-width: 719px) {
+    .join {
+      max-width: none;
+      padding: 0;
+    }
+    .card {
+      border-radius: 0;
+      clip-path: none;
+      flex: 1;
     }
   }
 </style>

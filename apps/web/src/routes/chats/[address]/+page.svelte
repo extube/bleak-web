@@ -10,8 +10,11 @@
    * One Poller (route file only, §2.2): listChatMessages at 2 s (backoff 6 s),
    * stop() on teardown, refresh() on mount and visibility regain; getChat +
    * listRoomUsers on mount and when a poll reveals an unknown speaker
-   * (participant drift). Kickoff (the only dialog action) goes through the
-   * ConfirmDialog kit component with the exact §3.5 copy.
+   * (participant drift). v2.2 polish (Concept §8.1.8/9/10): the kickoff
+   * button + confirm left the dialog view entirely (host drill-down keeps
+   * its own), message times are absolute hh:mm, a locale date label sits
+   * atop the transcript, and the theme chips gave way to the counterpart's
+   * public bio in the header.
    */
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
@@ -26,19 +29,19 @@
   import {
     backTarget,
     bubbleAriaLabel,
+    chatDateLabel,
     isMyMessage,
     isNearBottom,
     mergeMessages,
+    messageTime,
     speakerName
   } from '#lib/chats/view';
   import { locale, translate } from '#lib/i18n/locale';
-  import { relativeTime } from '#lib/people/view';
   import { counterpartAddress } from '#lib/room/relationships';
   import MessageBubble from '#lib/components/chats/MessageBubble.svelte';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import Chip from '#lib/components/Chip.svelte';
-  import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
   import ContactStub from '#lib/components/ContactStub.svelte';
   import ErrorBanner from '#lib/components/ErrorBanner.svelte';
   import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
@@ -55,19 +58,12 @@
   let messages = $state<readonly Message[]>([]);
   let loading = $state(true);
   let notFound = $state(false);
-  let nowMs = $state(Date.now());
   let banner = $state<null | { kind: 'network' | 'api'; message: string | null }>(null);
 
   // --- transcript scroll state (§3.5) --------------------------------------
   let scrollEl: HTMLElement | null = $state(null);
   /** Near the bottom ⇒ auto-scroll on new messages; else the chip shows. */
   let stick = $state(true);
-
-  // --- kickoff state --------------------------------------------------------
-  let confirmOpen = $state(false);
-  let kickingOff = $state(false);
-  /** Speaker of the last kickoff (shown until the first message arrives). */
-  let kickoffSpeaker = $state<string | null>(null);
   /** aria-live announcement for newly polled messages. */
   let announcedName = $state<string | null>(null);
 
@@ -80,6 +76,16 @@
   );
   const headerName = $derived(
     counterpart?.name ?? counterpartAddr ?? address
+  );
+  /**
+   * The interlocutor's public bio replaces the theme chips in the header
+   * (Concept §8.1.10). Unresolved counterpart or empty bio → nothing extra
+   * renders (no placeholder dash).
+   */
+  const publicBio = $derived(
+    counterpart !== null && counterpart.public_bio.trim() !== ''
+      ? counterpart.public_bio.trim()
+      : null
   );
 
   // --- transcript viewer fallback (ARCHITECTURE §10.3 escape hatch) --------
@@ -203,7 +209,6 @@
     loading = true;
     notFound = false;
     banner = null;
-    kickoffSpeaker = null;
     stick = true;
     (async () => {
       try {
@@ -236,7 +241,6 @@
     );
     const previous = messages;
     messages = mergeMessages(previous, incoming);
-    nowMs = Date.now();
     loading = false;
     banner = null;
     // Participant drift (§3.5: getChat when participants of a poll differ):
@@ -253,8 +257,6 @@
       const last = incoming[incoming.length - 1];
       if (last) announcedName = speakerName(last.from, users);
     }
-    // The kickoff note + warming row retire with the first message.
-    if (incoming.length > 0) kickoffSpeaker = null;
   }
 
   const poller = new Poller({
@@ -303,30 +305,6 @@
     stick = true;
   }
 
-  // --- kickoff (the only dialog action; §3.5) --------------------------------
-  // Persona Bearer normally; the room token in host-observation context
-  // (§3.5 endpoint table) — the viewer fallback decides per session.
-  async function runKickoff(): Promise<void> {
-    if (kickingOff || !address) return;
-    kickingOff = true;
-    banner = null;
-    try {
-      const result = await withViewerFallback(
-        () => api.kickoffChat(address),
-        (token) => apiRaw.kickoffChat(address, { token })
-      );
-      messages = [];
-      stick = true;
-      kickoffSpeaker = result.speaker;
-      announcedName = null;
-      await poller.refresh();
-    } catch (cause) {
-      banner = errorFrom(cause);
-    } finally {
-      kickingOff = false;
-    }
-  }
-
   // --- back control (§1.3): history back, fallback /chats --------------------
   function goBack(): void {
     if (backTarget(globalThis.history.length) === 'history') {
@@ -338,15 +316,18 @@
 
   // --- derived presentation ---------------------------------------------------
   const nameOf = $derived((addr: string): string => speakerName(addr, users));
-  const kickoffSpeakerName = $derived(
-    kickoffSpeaker ? nameOf(kickoffSpeaker) : null
-  );
   const warmingUp = $derived(!loading && !notFound && messages.length === 0);
   const showChip = $derived(!stick && messages.length > 0);
 
+  /** hh:mm message time (Concept §8.1.8) — absolute, active locale. */
   function timeOf(iso: string): string {
-    return relativeTime(iso, nowMs, $locale);
+    return messageTime(iso, $locale);
   }
+
+  /** Locale day+month date label above the first message (Concept §8.1.8). */
+  const dateLabel = $derived(
+    messages[0] ? chatDateLabel(messages[0].created_at, $locale) : null
+  );
 </script>
 
 <svelte:head>
@@ -374,11 +355,9 @@
       <div class="who">
         <PixelAvatar address={counterpartAddr ?? ''} size={32} />
         <div class="texts">
-          <h1 class="name">{headerName}</h1>
-          <div class="chips">
+          <div class="name-row">
+            <h1 class="name">{headerName}</h1>
             {#if chat}
-              <Chip variant="outline-muted">{chat.phase}</Chip>
-              <Chip variant="outline-muted">{chat.scenario}</Chip>
               <Chip variant="outline-muted">{chat.language}</Chip>
             {/if}
             {#if hostView}
@@ -387,6 +366,11 @@
               <Chip variant="outline-muted">{translate($locale, 'chat.host_view')}</Chip>
             {/if}
           </div>
+          {#if publicBio !== null}
+            <!-- Concept §8.1.10: the interlocutor's public info replaces the
+                 theme (phase/scenario) display in the header. -->
+            <p class="public-bio">{publicBio}</p>
+          {/if}
         </div>
       </div>
     </header>
@@ -427,6 +411,11 @@
               <p>{translate($locale, 'chat.warming_up')}</p>
             </div>
           {:else}
+            {#if dateLabel !== null}
+              <!-- Concept §8.1.8: the locale date label sits centered at the
+                   top of the transcript, above the first message. -->
+              <p class="date-label">{dateLabel}</p>
+            {/if}
             <ol class="transcript">
               {#each messages as message (message.tx_id)}
                 {@const mine = me !== null && isMyMessage(message, me.userAddress)}
@@ -434,7 +423,6 @@
                 <MessageBubble
                   {message}
                   {mine}
-                  myAddress={me?.userAddress ?? ''}
                   speaker={speaker}
                   time={timeOf(message.created_at)}
                   label={bubbleAriaLabel(speaker, message.content)}
@@ -453,33 +441,12 @@
     </main>
 
     <footer class="footer">
-      {#if kickoffSpeakerName && messages.length === 0}
-        <p class="kickoff-note" aria-live="polite">
-          {translate($locale, 'chat.kickoff.speaker', { name: kickoffSpeakerName })}
-        </p>
-      {/if}
-      <button
-        type="button"
-        class="kickoff"
-        disabled={kickingOff}
-        onclick={() => (confirmOpen = true)}
-      >
-        {translate($locale, 'chat.kickoff')}
-      </button>
       <ContactStub />
     </footer>
 
     <!-- NO-COMPOSER (ruling 4): the only interactive elements in this UI are
-         the back control, the kickoff button (+ its confirm dialog), the
-         scroll chip and the disabled contact stub. -->
-    <ConfirmDialog
-      bind:open={confirmOpen}
-      title={translate($locale, 'chat.kickoff.confirm_title')}
-      body={translate($locale, 'chat.kickoff.confirm_body')}
-      confirmLabel={translate($locale, 'chat.kickoff.confirm_run')}
-      cancelLabel={translate($locale, 'common.cancel')}
-      onconfirm={() => void runKickoff()}
-    />
+         the back control, the scroll chip and the disabled contact stub —
+         the kickoff button left the dialog view (Concept §8.1.9). -->
 
     <div class="vh" aria-live="polite">
       {#if announcedName}
@@ -544,6 +511,19 @@
     flex-direction: column;
     gap: 2px;
   }
+  .name-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-width: 0;
+    overflow: hidden;
+  }
+  .name-row :global(.chip) {
+    flex-shrink: 0;
+    font-size: 11px;
+    min-height: 20px;
+    padding: 1px var(--space-2);
+  }
   .name {
     font-family: var(--font-body);
     font-size: 16px;
@@ -551,20 +531,19 @@
     letter-spacing: 0.02em;
     line-height: 1.2;
     margin: 0;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .chips {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-    overflow: hidden;
-  }
-  .chips :global(.chip) {
+  .public-bio {
+    margin: 0;
     font-size: 11px;
-    min-height: 20px;
-    padding: 1px var(--space-2);
+    line-height: 1.3;
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .banner {
     position: fixed;
@@ -599,6 +578,12 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+  }
+  .date-label {
+    margin: 0 0 var(--space-3);
+    text-align: center;
+    font-size: 12px;
+    color: var(--color-text-muted);
   }
   .warming {
     flex: 1;
@@ -681,26 +666,6 @@
     max-width: 720px;
     width: 100%;
     margin: 0 auto;
-  }
-  .kickoff-note {
-    margin: 0;
-    font-size: 14px;
-    color: var(--color-accent);
-    text-align: center;
-  }
-  .kickoff {
-    min-height: var(--touch-target);
-    border-radius: var(--radius-pill);
-    background: transparent;
-    border: 1px solid var(--color-text-disabled-strong);
-    color: var(--color-text);
-    font-weight: 600;
-    font-size: 14px;
-    transition: opacity 120ms ease-out;
-  }
-  .kickoff:disabled {
-    opacity: 0.6;
-    cursor: default;
   }
   .footer > :global(.contact-stub) {
     width: 100%;

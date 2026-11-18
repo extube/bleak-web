@@ -1,0 +1,2 @@
+2026-11-18T09:17:00Z [worker] Implemented: private-bio heading revert (Inter/--font-body + color-mix muted red 70% of --color-danger-text) in ProfileBadge + PersonaEditor; interests title margin --space-3 on .row-head; tests extended in profile-page.test.ts
+2026-11-18T09:17:23Z [worker] Gates: targeted profile-page 21/21 green, full make test 542/542 green, make lint green

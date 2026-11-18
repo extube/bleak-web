@@ -1,0 +1,2 @@
+2026-11-18T08:47:57Z [worker] task 36 taken in-progress; starting verification sweep
+2026-11-18T08:51:07Z [worker] v2.2 sweep: 12/12 items PASS (S/T/R evidence recorded); spot-runs 4x green = 126 tests / 10 files; wave-CI records 511/517/525 confirmed in process log; ICU note + pre-event smoke notes written to docs/verification-v22.md

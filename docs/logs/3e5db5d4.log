@@ -1,0 +1,5 @@
+2026-11-18T10:48:25Z [worker] task 46 start: read card + Concept §10.1.8 + DESIGN §4.11.8; scope = remove /host tab from TabBar, /host route stays
+2026-11-18T10:49:01Z [worker] edits: TabBar /host tab removed; nav.host key retired from ru/en dicts; tabbar+i18n tests updated (98 keys)
+2026-11-18T10:49:42Z [worker] gates: targeted (tabbar/nav-guard/sweep/i18n) 36 pass; make test 556 pass; make lint clean; make build 0 errors (8 pre-existing warnings)
+2026-11-18T10:49:53Z [worker] handover: commit 5566c0c on feature/3e5db5d4-tz4-17-host-nav-removal; task 46 -> ready-for-merge
+2026-11-18T10:49:54Z [worker] handover log line

@@ -1,6 +1,7 @@
 <script lang="ts">
   /**
-   * Step 1 — code entry card (DESIGN §3.1): DigitInput (six 56px cells),
+   * Step 1 — code entry card (DESIGN §3.1, §4.12.1 item 6): DigitInput (six
+ * cells capped at 56px, flexible at phone widths),
    * CTA enabled at 6 digits, inline 404/400 errors with a single shake,
    * scan entry (QrScanner context *a* is mounted by the parent JoinFlow),
    * locale control in the card footer.
@@ -21,6 +22,9 @@
     shakeKey?: number;
     onsubmit?: (code: string) => void;
     onscan?: () => void;
+    /** Return-to-event entry (§4.11.1): present only when the device vault
+     * holds a saved persona — the path BACK after "join another event". */
+    onreturn?: () => void;
   }
 
   let {
@@ -29,7 +33,8 @@
     error = null,
     shakeKey = 0,
     onsubmit,
-    onscan
+    onscan,
+    onreturn
   }: Props = $props();
 
   let cellsWrap = $state<HTMLElement | null>(null);
@@ -84,6 +89,14 @@
     {translate($locale, 'join.scan.open')}
   </button>
 
+  {#if onreturn}
+    <!-- Return-to-event entry (§4.11.1): the vault screen is the path BACK. -->
+    <button type="button" class="scan" onclick={() => onreturn?.()}>
+      <PixelIcon name="key" size={16} />
+      {translate($locale, 'join.import.title')}
+    </button>
+  {/if}
+
   <div class="footer">
     <LocaleControl />
   </div>
@@ -97,6 +110,9 @@
   }
   h1 {
     font-size: 32px;
+    /* §4.12.1 item 6: long words must not push the card past its bounds
+     * at phone widths (320/360/390). */
+    overflow-wrap: anywhere;
   }
   .subtitle {
     margin: 0;
@@ -104,8 +120,13 @@
     font-size: 14px;
   }
   .cells {
-    display: flex;
-    justify-content: center;
+    /* §4.12.1 item 6: NOT a flex container anymore — as a flex row it made
+     * .digit-input an unconstrained flex item (min-width: auto) that sized
+     * to its capped 376px content and never shrank, locking the row past
+     * the card at every phone width. Centering lives inside DigitInput
+     * (justify-content on the cells row). Kept as a plain block with a
+     * defensive min-width: 0 (harmless cross-axis floor in .step). */
+    min-width: 0;
   }
   .shaking {
     animation: shake 120ms ease-out;

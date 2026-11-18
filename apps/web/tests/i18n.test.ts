@@ -38,6 +38,18 @@ describe('i18n dictionaries (RU primary, EN second)', () => {
     // Uses an existing key; params simply leave the string unchanged if absent.
     expect(translate('en', 'nav.room')).toBe('Around');
   });
+
+  it('§4.11.7 status keys exist in BOTH locales (chat-card status icon aria)', () => {
+    for (const key of ['chats.card.aria', 'chats.status.active', 'chats.status.finished'] as const) {
+      expect(en[key]).toBeTruthy();
+      expect(ru[key]).toBeTruthy();
+      expect(typeof en[key]).toBe('string');
+      expect(typeof ru[key]).toBe('string');
+    }
+    // the theme words left the list item's accessible name (§4.11.6)
+    expect(en['chats.card.aria']).not.toContain('{phase}');
+    expect(ru['chats.card.aria']).not.toContain('{scenario}');
+  });
 });
 
 describe('locale persistence', () => {
@@ -115,8 +127,8 @@ describe('locale store', () => {
  * (TZ-01 technical criterion).
  */
 const DESIGN_4_7_KEYS: string[] = [
-  // navigation
-  'nav.room', 'nav.people', 'nav.chats', 'nav.profile', 'nav.host',
+  // navigation ('nav.host' retired — Concept §10.1.8: Host left the tab bar)
+  'nav.room', 'nav.people', 'nav.chats', 'nav.profile',
   // join
   'join.title', 'join.enter', 'join.error.unknown', 'join.scan.open',
   // camera scanner
@@ -137,9 +149,10 @@ const DESIGN_4_7_KEYS: string[] = [
   'people.filter.sent', 'people.filter.added', 'people.filter.chatting',
   // chats
   'chats.empty', 'chats.find_people',
-  // chat transcript
-  'chat.warming_up', 'chat.kickoff', 'chat.kickoff.confirm_body',
-  'chat.kickoff.speaker', 'chat.contact_stub', 'chat.not_found',
+  // chat transcript — the kickoff button left the dialog view (Concept
+  // §8.1.9): 'chat.kickoff' and 'chat.kickoff.speaker' are retired; the
+  // confirm copy stays (host drill-down kickoff uses it).
+  'chat.warming_up', 'chat.kickoff.confirm_body', 'chat.contact_stub', 'chat.not_found',
   // profile
   'profile.greeting.rule', 'profile.greeting.no_questions',
   'profile.private_bio.caption', 'profile.qr.caption', 'profile.leave',
@@ -182,7 +195,7 @@ describe('DESIGN §4.7 copy table coverage', () => {
       expect((ru as Record<string, string>)[key]?.trim().length).toBeGreaterThan(0);
       expect((en as Record<string, string>)[key]?.trim().length).toBeGreaterThan(0);
     }
-    expect(DESIGN_4_7_KEYS).toHaveLength(101);
+    expect(DESIGN_4_7_KEYS).toHaveLength(98);
   });
 
   it('the retired v1 key host.token.label is gone (renamed to host.gate.label)', () => {
@@ -202,7 +215,7 @@ describe('DESIGN §4.7 copy table coverage', () => {
 
   it('spot-checks verbatim rev. 3 RU strings (v2 credentials scope)', () => {
     expect(ru['auth.401.notice']).toBe(
-      'У этой персоны нет действительного ключа доступа — присоединитесь заново по коду события.'
+      'У этого профиля нет действительного ключа доступа — присоединитесь заново по коду события.'
     );
     expect(ru['host.gate.label']).toBe('Токен создания комнаты');
     expect(ru['host.gate.note']).toBe(
@@ -218,10 +231,12 @@ describe('DESIGN §4.7 copy table coverage', () => {
       'Код уже использован — попросите обновить QR на карточке.'
     );
     expect(ru['join.error.invite']).toBe('Код приглашения недействителен или истёк.');
-    expect(ru['join.import.title']).toBe('Импортировать с этого устройства');
-    expect(ru['join.import.empty']).toBe('На этом устройстве пока нет сохранённых персон.');
+    expect(ru['join.import.title']).toBe('Вернуться на событие');
+    expect(ru['join.import.return']).toBe('Вернуться');
+    expect(ru['join.import.row_aria']).toBe('Вернуться к профилю {name}');
+    expect(ru['join.import.empty']).toBe('На этом устройстве пока нет сохранённых профилей.');
     expect(ru['join.import.dead']).toBe(
-      'Эта персона больше не существует на сервере. Запись останется в списке, но импорт невозможен.'
+      'Этот профиль больше не существует на сервере. Запись останется в списке, но вернуться в это событие нельзя.'
     );
     expect(ru['profile.qr.onetime']).toBe('QR одноразовый — после обмена он обновится сам.');
     expect(ru['profile.qr.aria']).toBe('Ваш одноразовый QR для обмена рукопожатиями');
@@ -233,15 +248,78 @@ describe('DESIGN §4.7 copy table coverage', () => {
   });
 });
 
+describe('v2.1 UI-polish round keys (DESIGN §4.8)', () => {
+  it('the settings-block heading exists in both dictionaries (Concept §7.1.6; retitled per §11.1.3)', () => {
+    expect(en['profile.settings.title']).toBe('My profile');
+    expect(ru['profile.settings.title']).toBe('Мой профиль');
+  });
+});
+
+describe('v2.5 copy sweep (Concept §11.1.3, DESIGN §4.12.3)', () => {
+  it('edit-screen titles drop the word "Edit" (values only — key names intact)', () => {
+    expect(en['profile.persona.edit']).toBe('Profile');
+    expect(ru['profile.persona.edit']).toBe('Профиль');
+    expect(en['profile.greeting.edit']).toBe('Greeting');
+    expect(ru['profile.greeting.edit']).toBe('Приветствие');
+    expect(en['profile.interests.edit']).toBe('Interests');
+    expect(ru['profile.interests.edit']).toBe('Интересы');
+  });
+
+  it('the persona section heading is retitled "My profile" / «Мой профиль» (owner change request)', () => {
+    expect(en['profile.settings.persona']).toBe('My profile');
+    expect(ru['profile.settings.persona']).toBe('Мой профиль');
+  });
+
+  it('no user-visible "persona" / "персона" remains in any dictionary value', () => {
+    // Word-boundary match: "Personal" (EN) is a different word and stays.
+    const enHits = Object.values(en).filter((v) => /\bpersonas?\b/i.test(v));
+    const ruHits = Object.values(ru).filter((v) => /персона/i.test(v));
+    expect(enHits, `EN values still say persona: ${enHits.join(' | ')}`).toEqual([]);
+    expect(ruHits, `RU values still say персона: ${ruHits.join(' | ')}`).toEqual([]);
+  });
+});
+
+describe('v2.2 UI-polish round keys (DESIGN §4.9)', () => {
+  it('kickoff button/speaker keys are retired from BOTH dictionaries; the confirm copy stays (Concept §8.1.9)', () => {
+    expect(ru).not.toHaveProperty('chat.kickoff');
+    expect(en).not.toHaveProperty('chat.kickoff');
+    expect(ru).not.toHaveProperty('chat.kickoff.speaker');
+    expect(en).not.toHaveProperty('chat.kickoff.speaker');
+    expect(ru['chat.kickoff.confirm_title']).toBeTruthy();
+    expect(en['chat.kickoff.confirm_title']).toBeTruthy();
+    expect(ru['chat.kickoff.confirm_run']).toBeTruthy();
+    expect(en['chat.kickoff.confirm_run']).toBeTruthy();
+  });
+
+  it('the private-bio caption key is present in both dictionaries (Concept §8.1.6)', () => {
+    expect(ru['profile.private_bio.caption']).toBe('видно только вашему агенту');
+    expect(en['profile.private_bio.caption']).toBe('only your agent sees this');
+  });
+});
+
+describe('v2.5 leave copy (Concept §11.1.1, DESIGN §4.12.1)', () => {
+  it('the leave confirmation copy describes the local leave — no deletion wording, both dictionaries', () => {
+    expect(ru['profile.leave.confirm_body']).toBe(
+      'Вы покинете событие. Токен останется на этом устройстве — вы сможете вернуться в любой момент через «Вернуться на событие».'
+    );
+    expect(en['profile.leave.confirm_body']).toBe(
+      'You will leave the event. Your token stays on this device — you can return any time via Return to event.'
+    );
+    // The copy no longer implies server-side deletion of the persona.
+    expect(ru['profile.leave.confirm_body']).not.toMatch(/удал/i);
+    expect(en['profile.leave.confirm_body']).not.toMatch(/remov|delet/i);
+  });
+});
+
 describe('placeholder interpolation', () => {
   it('interpolates {n} / {q} / {name} params in both languages', () => {
     expect(translate('ru', 'room.around', { n: '12' })).toBe('12 вокруг вас');
     expect(translate('en', 'room.around', { n: '12' })).toBe('12 around you');
-    expect(translate('ru', 'chat.kickoff.speaker', { name: 'Алиса' })).toBe(
-      'Первым говорит Алиса'
+    expect(translate('ru', 'chat.new_message', { name: 'Алиса' })).toBe(
+      'Новое сообщение от Алиса'
     );
-    expect(translate('en', 'chat.kickoff.speaker', { name: 'Alice' })).toBe(
-      'Alice speaks first'
+    expect(translate('en', 'chat.new_message', { name: 'Alice' })).toBe(
+      'New message from Alice'
     );
     expect(translate('ru', 'people.empty_search', { q: 'Ива' })).toBe(
       'Никого не найдено по «Ива»'

@@ -1,0 +1,3 @@
+2026-11-18T08:28:15Z [worker] tz4-04: renamed stat labels RU/EN (Sent/Added you/Chatting; Отправлено/Добавили вас/В диалогах), exactly-3 tiles always visible in ProfileBadge, icon-button radius pill->radius-md
+2026-11-18T08:28:32Z [worker] targeted tests green: profile-page/i18n/profile-domain 45 passed; added exactly-3 stats block + radius source-scan test
+2026-11-18T08:29:09Z [worker] committed 84f39c5 on feature/fda4ac0b-tz4-04-profile-avatar-stats; gates: make test 517 green, make lint green, make build green (pre-existing svelte-check warnings only)

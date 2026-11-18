@@ -1,13 +1,19 @@
 <script lang="ts">
   /**
-   * PixelAvatar (DESIGN §4.3, §4.8.1): chunky 12×12 pixel portrait composed
-   * from trait part fragments under `#lib/assets/avatars/`, selected
+   * PixelAvatar (DESIGN §4.3, §4.8.1, §4.8.2): chunky 12×12 pixel portrait
+   * composed from trait part fragments under `#lib/assets/avatars/`, selected
    * deterministically from the user address (lib/avatar/traits.ts).
    * The `own` persona's backdrop is the accent (the single non-interactive
    * accent exception — the "you are here" mark); unparseable addresses
-   * render the fixed pixel-ghost portrait. Trait palettes are the vivid
-   * code-hue family tokens (tokens.css --color-art-*, §4.8.1) — decorative
-   * color, token references only.
+   * render the fixed pixel-ghost portrait. Trait palettes are the
+   * Deepa-derived art tokens (tokens.css --color-art-*, redefined onto the
+   * Deepa palette — Concept §9.1.6, DESIGN §4.10.6) — decorative color,
+   * token references only; backdrops are dark derivatives of their Deepa
+   * hue, darker than the art drawn on top.
+   * §4.8.2 padding: the frame carries 1px of padding in the SAME color as
+   * the backdrop, so the art never touches the card/surface edge at any
+   * rendered size — the outer box stays the declared `size` (the art
+   * content shrinks by the padding, not the box).
    */
   import backdropPart from '#lib/assets/avatars/backdrop.svg?raw';
   import headPart from '#lib/assets/avatars/head.svg?raw';
@@ -42,10 +48,11 @@
 
   let { address = '', size = 44, own = false, label = '' }: Props = $props();
 
-  /* Vivid art palettes (§4.8.1) — token names resolved in tokens.css.
-   * Skins: light warm register; hairs: the four code hues + light platinum;
-   * backdrops: dark shades of the four hues (the light figure stays
-   * recognizable on every backdrop). */
+  /* Deepa-derived art palettes (§4.10.6) — token names resolved in
+   * tokens.css (color-mix/var over the Deepa hues; no raw hex here).
+   * Skins: light warm mixes of deepa-2/deepa-3 over --color-text; hairs:
+   * the five Deepa hues; backdrops: dark 30% mixes of each Deepa hue over
+   * --color-surface (darker than the skin/hair art). */
   const HAIRS: readonly string[] = [
     '--color-art-hair-1',
     '--color-art-hair-2',
@@ -80,19 +87,36 @@
   function token(index: number, list: readonly string[]): string {
     return `var(${pick(list, index)})`;
   }
+
+  /* §4.8.2: the frame padding color = the backdrop color — the same token
+   * string that fills the backdrop part below (accent for `own`, the muted
+   * ghost surface for the fallback). Token references only. */
+  const backdropColor = $derived(
+    traits
+      ? own
+        ? 'var(--color-accent)'
+        : token(traits.backdrop, BACKDROPS)
+      : 'var(--color-surface-elevated)'
+  );
 </script>
 
-<svg
-  viewBox="0 0 12 12"
-  width={size}
-  height={size}
-  shape-rendering="crispEdges"
-  role={label ? 'img' : undefined}
-  aria-label={label || undefined}
-  aria-hidden={label ? undefined : 'true'}
+<span
+  class="frame"
+  style:width="{size}px"
+  style:height="{size}px"
+  style:background={backdropColor}
 >
+  <svg
+    viewBox="0 0 12 12"
+    width={size - 2}
+    height={size - 2}
+    shape-rendering="crispEdges"
+    role={label ? 'img' : undefined}
+    aria-label={label || undefined}
+    aria-hidden={label ? undefined : 'true'}
+  >
   {#if traits}
-    <g fill={own ? 'var(--color-accent)' : token(traits.backdrop, BACKDROPS)}>
+    <g fill={backdropColor}>
       {@html backdropPart}
     </g>
     <g fill={token(traits.skin, SKINS)}>{@html headPart}</g>
@@ -116,4 +140,21 @@
     <g fill="var(--color-text-muted)">{@html ghostBody}</g>
     <g fill="var(--color-surface)">{@html ghostEyes}</g>
   {/if}
-</svg>
+  </svg>
+</span>
+
+<style>
+  /* §4.8.2 — 1px backdrop-colored padding on all four sides; the outer box
+   * stays the declared `size` (border-box), so no consumer layout shifts.
+   * The color comes in as the inline `background` (the backdrop token). */
+  .frame {
+    box-sizing: border-box;
+    display: inline-block;
+    padding: 1px;
+    overflow: hidden;
+    flex: none;
+  }
+  .frame svg {
+    display: block;
+  }
+</style>

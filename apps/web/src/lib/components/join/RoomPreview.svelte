@@ -1,8 +1,12 @@
 <script lang="ts">
   /**
    * Step 2 — room preview card (DESIGN §3.1): room name/description, the
-   * agents-language + member-count meta row, create vs import options and
-   * the "change code" exit back to Step 1.
+   * agents-language + member-count meta row, the create option and the
+   * "change code" exit back to Step 1.
+   *
+   * v2.4 (Concept §10.1.1): the device-vault screen is RETURN TO EVENT —
+   * reachable from Step 1; the old "Import from this device" copy-flow
+   * option is removed from the room preview.
    */
   import { locale, translate } from '#lib/i18n/locale';
   import type { Room } from '@bleak/api-client';
@@ -11,11 +15,10 @@
     room: Room;
     memberCount: number;
     oncreate?: () => void;
-    onimport?: () => void;
     onchange?: () => void;
   }
 
-  let { room, memberCount, oncreate, onimport, onchange }: Props = $props();
+  let { room, memberCount, oncreate, onchange }: Props = $props();
 </script>
 
 <div class="step">
@@ -31,10 +34,6 @@
 
   <button type="button" class="cta" onclick={() => oncreate?.()}>
     {translate($locale, 'join.create_persona')}
-  </button>
-  <button type="button" class="secondary" onclick={() => onimport?.()}>
-    <!-- v2 label (Concept §6.2): the picker lists device-stored personas. -->
-    {translate($locale, 'join.import.title')}
   </button>
   <button type="button" class="link" onclick={() => onchange?.()}>
     {translate($locale, 'join.change_code')}
@@ -63,17 +62,6 @@
     font-size: 14px;
     display: flex;
     gap: var(--space-2);
-  }
-  .secondary {
-    background: transparent;
-    border: 1px solid var(--color-text-disabled-strong);
-    color: var(--color-text);
-    border-radius: var(--radius-pill);
-    min-height: var(--touch-target);
-    padding: 0 var(--space-5);
-    font-size: 14px;
-    font-weight: 600;
-    transition: border-color 120ms ease-out;
   }
   .link {
     align-self: center;

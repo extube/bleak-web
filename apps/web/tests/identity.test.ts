@@ -2,7 +2,9 @@
  * the persona token under `bleak.identity` only; a persisted v1 identity
  * without a token is dropped at init (legacy personas predate credentials and
  * are unrecoverable — owner decision, §6.1); clearIdentity clears the one-time
- * mutual code with it. */
+ * mutual code with it — and never touches `bleak.tokenVault` (leave is
+ * local-only, Concept §11.1.1: the stored token survives for return-to-event,
+ * §10.1.1). */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { get } from 'svelte/store';
 import {
@@ -47,6 +49,23 @@ describe('identity — persistence round-trip', () => {
     expect(localStorage.getItem('bleak.identity')).toBeNull();
   });
 
+  it('clearIdentity never touches bleak.tokenVault — leave is local-only (Concept §11.1.1): the stored token survives for return-to-event (§10.1.1)', () => {
+    const entry = {
+      roomAddress: '0xroom',
+      userAddress: '0xme',
+      token: 'persona-token',
+      name: 'Трамвайщик',
+      savedAt: '2026-11-18T10:00:00Z'
+    };
+    localStorage.setItem('bleak.tokenVault', JSON.stringify([entry]));
+    saveIdentity({ roomAddress: '0xroom', userAddress: '0xme', token: 'persona-token' });
+    clearIdentity();
+    expect(get(identity)).toBeNull();
+    // The vault entry is untouched (append-only discipline) — leaving never
+    // removes it, so the return-to-event pick always stays available.
+    expect(JSON.parse(localStorage.getItem('bleak.tokenVault') ?? '[]')).toEqual([entry]);
+  });
+
   it('no blob or corrupted JSON restores null', () => {
     initIdentity();
     expect(get(identity)).toBeNull();
@@ -54,6 +73,36 @@ describe('identity — persistence round-trip', () => {
     localStorage.setItem('bleak.identity', '{oops');
     initIdentity();
     expect(get(identity)).toBeNull();
+  });
+});
+
+describe('identity — return-flow restore (Concept §10.1.1, DESIGN §4.11.1)', () => {
+  it('saveIdentity restores the identity from a bleak.tokenVault entry (return-to-event: identity restore, no re-creation)', () => {
+    // The vault entry shape stored at join time (bleak.tokenVault).
+    const vaultEntry = {
+      roomAddress: '0xoldroom',
+      userAddress: '0xold',
+      token: 'stored-vault-token',
+      name: 'Старая персона',
+      savedAt: '2026-11-14T10:00:00Z'
+    };
+    // The return flow feeds the entry's credential fields straight into
+    // saveIdentity — the extra vault metadata (name/savedAt) is dropped.
+    saveIdentity({
+      roomAddress: vaultEntry.roomAddress,
+      userAddress: vaultEntry.userAddress,
+      token: vaultEntry.token
+    });
+    expect(get(identity)).toEqual({
+      roomAddress: '0xoldroom',
+      userAddress: '0xold',
+      token: 'stored-vault-token'
+    });
+    expect(JSON.parse(localStorage.getItem('bleak.identity') ?? '{}')).toEqual({
+      roomAddress: '0xoldroom',
+      userAddress: '0xold',
+      token: 'stored-vault-token'
+    });
   });
 });
 

@@ -1,0 +1,16 @@
+Owner bug report (chat, 2026-11-18, relayed via concept agent — Concept.md §12):
+
+The §11.1.4 join-input fix (task 53, commit 3bfe91d, landed a7bfda9) did NOT
+hold — at phone size the join input still overflows the form.
+
+Owner decision (§12, binding):
+1. The §11.1.4 overflow is treated as NOT FIXED — a bug round on the join
+   flow verifies the input stays inside the form at 320px / 360px / 390px
+   widths with BEHAVIOR TESTS (not just a one-off style tweak).
+2. Phone screens (< 720px, the design system's existing breakpoint) render
+   the enter-code / import profile / return-to-event / profile-page forms
+   FULL-SCREEN (routed separately as the full-screen forms task; the join
+   overflow must be structurally gone at every phone width).
+
+Repro: open the join form at a phone-sized viewport — the 6-digit input
+exceeds the form/card boundaries despite the flexible-cell fix.
