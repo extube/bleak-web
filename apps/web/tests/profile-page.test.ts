@@ -6,8 +6,12 @@
  * (question rule + regenerate), interests (no network), persona 404 — plus
  * the §8.1.3 settings relocation (the leave/rotate rows moved to
  * /profile/settings; this page renders only a nav affordance). The moved
- * settings logic itself is covered by tests/profile-settings.test.ts. */
+ * settings logic itself is covered by tests/profile-settings.test.ts. The
+ * v2.2 polish (Concept §8.1.4/8.1.5 — exactly-three renamed stat tiles and
+ * the rounded avatar-change button) is covered at the bottom of the file. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
@@ -48,6 +52,10 @@ vi.mock('#lib/crypto/secrets', () => ({
 import { api } from '#lib/api/client';
 import Page from '../src/routes/profile/+page.svelte';
 import { ru } from '../src/lib/i18n/ru';
+
+const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
+  ? process.cwd()
+  : join(process.cwd(), 'apps', 'web');
 
 const ME = '0xme';
 const ROOM = '0xroom';
@@ -358,6 +366,68 @@ describe('persona 404 (AC 8)', () => {
     expect(screen.getByText(ru['profile.not_found'])).toBeTruthy();
     await screen.getByRole('button', { name: ru['profile.exit'] }).click();
     await waitFor(() => expect(get(identity)).toBeNull());
+  });
+});
+
+describe('profile stats — exactly three (Concept §8.1.5, DESIGN §4.9.5)', () => {
+  it('renders EXACTLY three stat tiles — Sent / Added you / Chatting — with the renamed RU labels', async () => {
+    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
+    mockedApi.listHandshakesOfUser.mockResolvedValue([
+      handshake(ME, '0xa'), // sent
+      handshake('0xb', ME) // received → "Added you"
+    ]);
+    mockedApi.listChatsOfUser.mockResolvedValue([chat('0xchat1', [ME, '0xa'])]);
+
+    const { container } = render(Page, { props: {} });
+    await waitFor(() => expect(mockedApi.getRoomUser).toHaveBeenCalled());
+    await tick();
+    await tick();
+
+    // Exactly three tiles — no fourth metric on /profile, none hidden away.
+    expect(container.querySelectorAll('.stats .stat-tile').length).toBe(3);
+    // The renamed labels (RU) are all present, and the old ones are gone.
+    expect(screen.getByText(ru['profile.stats.handshakes_label'])).toBeTruthy(); // «Отправлено»
+    expect(screen.getByText(ru['profile.stats.added_label'])).toBeTruthy(); // «Добавили вас»
+    expect(screen.getByText(ru['profile.stats.dialogs_label'])).toBeTruthy(); // «В диалогах»
+    expect(screen.queryByText('Хендшейки')).toBeNull();
+    expect(screen.queryByText('Диалоги')).toBeNull();
+  });
+
+  it('EN parity: the same three tiles read Sent / Added you / Chatting', async () => {
+    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
+    mockedApi.listHandshakesOfUser.mockResolvedValue([handshake(ME, '0xa')]);
+    mockedApi.listChatsOfUser.mockResolvedValue([]);
+    const { container } = render(Page, { props: {} });
+    await waitFor(() => expect(mockedApi.getRoomUser).toHaveBeenCalled());
+    await tick();
+    await tick();
+
+    const { setLocale } = await import('../src/lib/i18n/locale');
+    const { en } = await import('../src/lib/i18n/en');
+    setLocale('en');
+    await tick();
+    await tick();
+
+    expect(container.querySelectorAll('.stats .stat-tile').length).toBe(3);
+    expect(screen.getByText(en['profile.stats.handshakes_label'])).toBeTruthy(); // Sent
+    expect(screen.getByText(en['profile.stats.added_label'])).toBeTruthy(); // Added you
+    expect(screen.getByText(en['profile.stats.dialogs_label'])).toBeTruthy(); // Chatting
+    setLocale('ru');
+    await tick();
+  });
+});
+
+describe('avatar-change button radius (Concept §8.1.4, DESIGN §4.9.4)', () => {
+  it('the persona/avatar edit control on the badge is a rounded square — not a full circle', () => {
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/lib/components/profile/ProfileBadge.svelte'),
+      'utf8'
+    );
+    const block = source.match(/\.icon-button\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(block).toContain('border-radius: var(--radius-md)');
+    // The full-circle shapes are gone from the control (pill-on-square and
+    // literal 50% would both render as a circle on the 48px touch target).
+    expect(block).not.toMatch(/border-radius:\s*(?:var\(--radius-pill\)|50%)/);
   });
 });
 

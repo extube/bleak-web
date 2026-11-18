@@ -134,11 +134,11 @@
   </section>
 
   <div class="stats">
+    <!-- Concept §8.1.5: exactly three metrics, all rendered at every width —
+         Sent (ex "Handshakes"), Added you, Chatting (ex "Dialogs"). -->
     <StatTile value={handshakes} label={translate($locale, 'profile.stats.handshakes_label')} />
+    <StatTile value={addedYou} label={translate($locale, 'profile.stats.added_label')} />
     <StatTile value={dialogs} label={translate($locale, 'profile.stats.dialogs_label')} />
-    <div class="added-tile">
-      <StatTile value={addedYou} label={translate($locale, 'profile.stats.added_label')} />
-    </div>
   </div>
 
   <div class="qr-block">
@@ -193,7 +193,9 @@
     width: var(--touch-target);
     height: var(--touch-target);
     border: 1px solid var(--color-text-disabled-strong);
-    border-radius: var(--radius-pill);
+    /* Concept §8.1.4: the persona/avatar edit control is no longer a full
+       circle — a rounded square (--radius-md), consistent with the tiles. */
+    border-radius: var(--radius-md);
     background: transparent;
     color: var(--color-text-muted);
     transition:
@@ -282,11 +284,8 @@
   }
   .stats {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: var(--space-3);
-  }
-  .added-tile {
-    display: none;
   }
   .qr-block {
     display: flex;
@@ -302,13 +301,5 @@
     margin: 0;
     font-size: 14px;
     color: var(--color-accent);
-  }
-  @media (min-width: 720px) {
-    .stats {
-      grid-template-columns: repeat(3, 1fr);
-    }
-    .added-tile {
-      display: block;
-    }
   }
 </style>
