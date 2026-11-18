@@ -1,0 +1,3 @@
+2026-11-18T12:43:23Z [worker] leave local-only: removed api.deleteRoomUser from leaveRoom (+leaveError/pendingLeave), reworded confirm copy RU/EN, rewrote leave tests (local-only + round-trip), identity/join-flow/i18n tests added; targeted suite 5 files 90 tests green
+2026-11-18T12:44:03Z [worker] gates: full make test green (23+8+547 tests), make lint clean, make build 0 errors (8 pre-existing svelte warnings, none new); preparing handover commit
+2026-11-18T12:44:28Z [worker] handover: commit 159b060 on feature/51a4b35b-tz4-21-leave-local-only (code + copy + tests + session/log records); task 50 set ready-for-merge

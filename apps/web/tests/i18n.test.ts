@@ -273,6 +273,20 @@ describe('v2.2 UI-polish round keys (DESIGN §4.9)', () => {
   });
 });
 
+describe('v2.5 leave copy (Concept §11.1.1, DESIGN §4.12.1)', () => {
+  it('the leave confirmation copy describes the local leave — no deletion wording, both dictionaries', () => {
+    expect(ru['profile.leave.confirm_body']).toBe(
+      'Вы покинете событие. Токен останется на этом устройстве — вы сможете вернуться в любой момент через «Вернуться на событие».'
+    );
+    expect(en['profile.leave.confirm_body']).toBe(
+      'You will leave the event. Your token stays on this device — you can return any time via Return to event.'
+    );
+    // The copy no longer implies server-side deletion of the persona.
+    expect(ru['profile.leave.confirm_body']).not.toMatch(/удал/i);
+    expect(en['profile.leave.confirm_body']).not.toMatch(/remov|delet/i);
+  });
+});
+
 describe('placeholder interpolation', () => {
   it('interpolates {n} / {q} / {name} params in both languages', () => {
     expect(translate('ru', 'room.around', { n: '12' })).toBe('12 вокруг вас');

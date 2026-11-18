@@ -180,7 +180,7 @@ export const en = {
   'profile.settings.persona': 'Persona',
   'profile.leave': 'Leave the room',
   'profile.leave.confirm_body':
-    'Your persona will be removed from the room along with its handshakes and dialogs.',
+    'You will leave the event. Your token stays on this device — you can return any time via Return to event.',
   'profile.not_found': 'Persona not found',
   'profile.exit': 'Leave',
   'profile.rotate.row': 'Regenerate access token',

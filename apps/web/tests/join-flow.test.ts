@@ -42,7 +42,7 @@ vi.mock('#lib/api/client', () => ({
 import { goto } from '$app/navigation';
 import { InviteResolveError, resolveInviteCode } from '#lib/api/invite-resolve';
 import { api } from '#lib/api/client';
-import { identity } from '#lib/stores/identity';
+import { clearIdentity, identity, saveIdentity } from '#lib/stores/identity';
 import JoinFlow from '../src/lib/components/join/JoinFlow.svelte';
 import VaultList from '../src/lib/components/join/VaultList.svelte';
 import { ru } from '../src/lib/i18n/ru';
@@ -374,6 +374,43 @@ describe('JoinFlow — return-to-event vault screen (Concept §10.1.1, §4.11.1)
     expect(mockedApi.createRoomUser).not.toHaveBeenCalled();
     const vault = JSON.parse(localStorage.getItem('bleak.tokenVault') ?? '[]');
     expect(vault).toHaveLength(1);
+  });
+
+  it('the owner round-trip after a local leave (Concept §11.1.1 + §10.1.1): clearIdentity — the whole client-side leave — keeps the vault entry; the pick validates the stored token and enters the room', async () => {
+    // Join-time device state: the active identity + the saved vault entry.
+    seedVault([savedEntry]);
+    saveIdentity({
+      roomAddress: savedEntry.roomAddress,
+      userAddress: savedEntry.userAddress,
+      token: savedEntry.token
+    });
+    mockedApi.getRoomUser.mockResolvedValue(user('0xold', 'Старая персона'));
+    // The leave is PURELY LOCAL (§11.1.1): its entire client-side effect is
+    // clearIdentity (identity + the one-time mutual code) — no server
+    // delete call anywhere, so the vault entry (and thus the return path)
+    // stays intact.
+    clearIdentity();
+    expect(get(identity)).toBeNull();
+    expect(JSON.parse(localStorage.getItem('bleak.tokenVault') ?? '[]')).toEqual([savedEntry]);
+
+    // The return-to-event pick (the owner's exact repro: import screen →
+    // the persona STILL EXISTS on the server) → identity restore → /room.
+    await openVault();
+    await screen.getByRole('button', { name: vaultRow('Старая персона') }).click();
+    await waitFor(() => expect(mockedApi.getRoomUser).toHaveBeenCalled());
+    expect(mockedApi.getRoomUser).toHaveBeenCalledWith('0xoldroom', '0xold', {
+      token: 'stored-vault-token'
+    });
+    await tick();
+    await tick();
+    expect(get(identity)).toEqual({
+      roomAddress: '0xoldroom',
+      userAddress: '0xold',
+      token: 'stored-vault-token'
+    });
+    expect(goto).toHaveBeenCalledWith('/room');
+    // The vault entry is untouched (append-only).
+    expect(JSON.parse(localStorage.getItem('bleak.tokenVault') ?? '[]')).toEqual([savedEntry]);
   });
 
   it('the empty-vault state shows the specified copy with a way back (VaultList direct render; the Step-1 entry is gated on a non-empty vault)', async () => {

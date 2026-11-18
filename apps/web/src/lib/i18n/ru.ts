@@ -181,7 +181,7 @@ export const ru: Record<MessageKey, string> = {
   'profile.settings.persona': 'Персона',
   'profile.leave': 'Выйти из комнаты',
   'profile.leave.confirm_body':
-    'Ваша персона будет удалена из комнаты вместе с хендшейками и диалогами.',
+    'Вы покинете событие. Токен останется на этом устройстве — вы сможете вернуться в любой момент через «Вернуться на событие».',
   'profile.not_found': 'Персона не найдена',
   'profile.exit': 'Выйти',
   'profile.rotate.row': 'Сгенерировать новый ключ доступа',

@@ -21,8 +21,10 @@
    * `bleak.tokenVault` entry in place — written ONLY after a 2xx. 401 → the
    * §2.8 global gate; 403 → inline server text, identity kept.
    *
-   * Leave room clears identity AND the mutual code (`clearIdentity` does
-   * both) → `/`.
+   * Leave room is PURELY LOCAL (Concept §11.1.1, DESIGN §4.12.1): no server
+   * delete — `clearIdentity` clears the identity + the one-time mutual code;
+   * `bleak.tokenVault` keeps the entry, so return-to-event (§10.1.1) always
+   * works. → `/`.
    *
    * Sub-page chrome (DESIGN §4.9.3): the identity guard is the same shared
    * `requireIdentityOrRedirect` as every guarded route; there is NO tab
@@ -237,26 +239,21 @@
 
   // --- leave room -------------------------------------------------------------
   let leaveOpen = $state(false);
-  let pendingLeave = $state(false);
-  let leaveError = $state<string | null>(null);
 
-  async function leaveRoom(): Promise<void> {
-    const id = me;
-    if (!id || pendingLeave) return;
-    pendingLeave = true;
-    leaveError = null;
-    try {
-      await api.deleteRoomUser(id.roomAddress, id.userAddress);
-      // clearIdentity also clears the one-time mutual code (§10.4).
-      clearIdentity();
-      leaveOpen = false;
-      void goto(resolve('/'));
-    } catch (cause) {
-      // Identity kept — the persona still exists in the room.
-      leaveError = serverText(cause) ?? translate(get(locale), 'common.error');
-    } finally {
-      pendingLeave = false;
-    }
+  /**
+   * Leave is PURELY LOCAL (Concept §11.1.1, DESIGN §4.12.1): the attendee
+   * exit NEVER deletes the persona on the server — no hard or soft delete.
+   * `clearIdentity` clears the active identity + the one-time mutual code
+   * (§10.4); the persona token stays in `bleak.tokenVault` (clearIdentity
+   * never touches the vault), so return-to-event (§10.1.1) always works.
+   * The backend DELETE persona endpoint stays for explicit deletion
+   * elsewhere (host drill-down).
+   */
+  function leaveRoom(): void {
+    if (!me) return;
+    clearIdentity();
+    leaveOpen = false;
+    void goto(resolve('/'));
   }
 
   // --- back control (§1.3): history back, fallback /profile --------------------
@@ -344,9 +341,6 @@
         <button type="button" class="leave" onclick={() => (leaveOpen = true)}>
           {translate($locale, 'profile.leave')}
         </button>
-        {#if leaveError}
-          <p class="field-error" role="alert" aria-live="polite">{leaveError}</p>
-        {/if}
       </section>
     {:else if view === 'persona'}
       {#if user}

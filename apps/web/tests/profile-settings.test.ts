@@ -3,10 +3,12 @@
  * onto this sub-page — a pure logic move, so the moved suites assert the
  * same behaviors against the new route: heading + rows render (RU + EN),
  * token rotation (identity + vault written only after 2xx; 403 keeps them),
- * leave room (confirmation question first; clears identity + mutual code;
- * failure keeps identity), outline-style leave button (red font + red
- * border, no filled background), back navigation, and no tab bar
- * (sub-page pattern).
+ * leave room (purely local per Concept §11.1.1 / DESIGN §4.12.1: the
+ * confirmation question first; clears identity + mutual code; NO server
+ * delete anywhere in the exit path; the vault entry survives and the
+ * return-to-event pick validates the stored token), outline-style leave
+ * button (red font + red border, no filled background), back navigation,
+ * and no tab bar (sub-page pattern).
  *
  * ALL persona editing lives here now (Concept §10.1.4): the persona section
  * hosts the PersonaEditor (name/public/private bio), GreetingEditor and
@@ -20,9 +22,10 @@ import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
 import { ApiError, type User } from '@bleak/api-client';
-import { identity } from '../src/lib/stores/identity';
+import { identity, saveIdentity } from '../src/lib/stores/identity';
 import { mutualCode } from '../src/lib/stores/mutualCode';
 import { tokenVault } from '../src/lib/stores/tokenVault';
+import { verifyVaultEntry } from '../src/lib/join';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/paths', () => ({
@@ -347,24 +350,43 @@ describe('token rotation (AC 15, moved from /profile)', () => {
   });
 });
 
-describe('leave room (AC 7, moved from /profile)', () => {
-  it('asks the confirmation question BEFORE any DELETE', async () => {
+describe('leave room (AC 7, moved from /profile; Concept §11.1.1 local-only exit)', () => {
+  function seedVault(): void {
+    localStorage.setItem(
+      'bleak.tokenVault',
+      JSON.stringify([
+        {
+          roomAddress: ROOM,
+          userAddress: ME,
+          token: TOKEN,
+          name: 'Трамвайщик',
+          savedAt: '2026-11-18T10:00:00Z'
+        }
+      ])
+    );
+  }
+
+  it('asks the confirmation question BEFORE leaving — local-leave copy, no server delete', async () => {
     await renderPage();
     await screen.getByRole('button', { name: ru['profile.leave'] }).click();
     await tick();
-    // The question is asked before any DELETE — the dialog shows the body.
+    // The question is asked before any action — the dialog shows the
+    // local-leave copy (no longer implying server-side deletion, §4.12.1).
     expect(screen.getByText(ru['profile.leave.confirm_body'])).toBeTruthy();
     expect(mockedApi.deleteRoomUser).not.toHaveBeenCalled();
   });
 
-  it('confirms, DELETEs, clears identity AND the one-time mutual code, and navigates to /', async () => {
+  it('confirms, clears identity + the one-time mutual code, and navigates to / — purely local, NO server delete (Concept §11.1.1)', async () => {
     localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
     mutualCode.set({ userAddress: ME, code: 'LIVE' });
     await renderPage();
     await screen.getByRole('button', { name: ru['profile.leave'] }).click();
     await tick();
     await screen.getAllByRole('button', { name: ru['profile.leave'] }).pop()!.click();
-    await waitFor(() => expect(mockedApi.deleteRoomUser).toHaveBeenCalledWith(ROOM, ME));
+    // NO delete anywhere in the attendee exit path (hard or soft) — the
+    // persona stays on the server; the backend DELETE endpoint is only for
+    // explicit deletion elsewhere (host drill-down).
+    expect(mockedApi.deleteRoomUser).not.toHaveBeenCalled();
     await waitFor(() => expect(get(identity)).toBeNull());
     await waitFor(() => expect(localStorage.getItem('bleak.mutualCode')).toBeNull());
     expect(get(mutualCode)).toBeNull();
@@ -372,15 +394,26 @@ describe('leave room (AC 7, moved from /profile)', () => {
     await waitFor(() => expect(goto).toHaveBeenCalledWith('/'));
   });
 
-  it('keeps the identity and shows the server text on failure', async () => {
-    mockedApi.deleteRoomUser.mockRejectedValue(
-      new ApiError(409, '/api/room/0xroom/user/0xme', 'income must exceed outcome')
-    );
+  it('owner round-trip (§11.1.1 + §10.1.1): the vault entry survives the leave; the return-to-event pick validates the stored token and restores the identity', async () => {
+    seedVault();
     await renderPage();
     await screen.getByRole('button', { name: ru['profile.leave'] }).click();
     await tick();
     await screen.getAllByRole('button', { name: ru['profile.leave'] }).pop()!.click();
-    await waitFor(() => expect(screen.getByText(/income must exceed outcome/)).toBeTruthy());
+    await waitFor(() => expect(get(identity)).toBeNull());
+    // clearIdentity does NOT touch the vault — the entry is untouched.
+    const stored = JSON.parse(localStorage.getItem('bleak.tokenVault') ?? '[]');
+    expect(stored).toHaveLength(1);
+    expect(stored[0]).toMatchObject({ roomAddress: ROOM, userAddress: ME, token: TOKEN });
+    // The return-to-event pick: verifyVaultEntry succeeds because the
+    // persona was never deleted — the Bearer token equals the stored one.
+    mockedApi.getRoomUser.mockResolvedValue(userFixture());
+    const returned = await verifyVaultEntry(stored[0]);
+    expect(returned.address).toBe(ME);
+    expect(mockedApi.getRoomUser).toHaveBeenCalledWith(ROOM, ME, { token: TOKEN });
+    // Identity restore from the entry fields (the JoinFlow enter path;
+    // navigation to /room is covered by tests/join-flow.test.ts).
+    saveIdentity({ roomAddress: ROOM, userAddress: ME, token: TOKEN });
     expect(get(identity)).toEqual({ roomAddress: ROOM, userAddress: ME, token: TOKEN });
   });
 });

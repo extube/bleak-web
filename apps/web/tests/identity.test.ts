@@ -2,7 +2,9 @@
  * the persona token under `bleak.identity` only; a persisted v1 identity
  * without a token is dropped at init (legacy personas predate credentials and
  * are unrecoverable — owner decision, §6.1); clearIdentity clears the one-time
- * mutual code with it. */
+ * mutual code with it — and never touches `bleak.tokenVault` (leave is
+ * local-only, Concept §11.1.1: the stored token survives for return-to-event,
+ * §10.1.1). */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { get } from 'svelte/store';
 import {
@@ -45,6 +47,23 @@ describe('identity — persistence round-trip', () => {
     clearIdentity();
     expect(get(identity)).toBeNull();
     expect(localStorage.getItem('bleak.identity')).toBeNull();
+  });
+
+  it('clearIdentity never touches bleak.tokenVault — leave is local-only (Concept §11.1.1): the stored token survives for return-to-event (§10.1.1)', () => {
+    const entry = {
+      roomAddress: '0xroom',
+      userAddress: '0xme',
+      token: 'persona-token',
+      name: 'Трамвайщик',
+      savedAt: '2026-11-18T10:00:00Z'
+    };
+    localStorage.setItem('bleak.tokenVault', JSON.stringify([entry]));
+    saveIdentity({ roomAddress: '0xroom', userAddress: '0xme', token: 'persona-token' });
+    clearIdentity();
+    expect(get(identity)).toBeNull();
+    // The vault entry is untouched (append-only discipline) — leaving never
+    // removes it, so the return-to-event pick always stays available.
+    expect(JSON.parse(localStorage.getItem('bleak.tokenVault') ?? '[]')).toEqual([entry]);
   });
 
   it('no blob or corrupted JSON restores null', () => {
