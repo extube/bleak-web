@@ -1,7 +1,12 @@
 # bleak-web — Concept
 
 Status: v1 **APPROVED & DELIVERED** (owner ran it, 2026-11-15). §6 v2 scope
-(ownership & credentials) drafted 2026-11-15 — **pending owner approval**.
+(ownership & credentials) **approved & delivered** (2026-11-16). §7 v2.1 UI
+polish round — **delivered** (2026-11-17/18, tasks 22–29 closed, CI green).
+§8 v2.2 UI polish round #2 (12 owner change requests) — **APPROVED
+2026-11-18**, build loop authorized (process agent, autonomous merge mode).
+§9 v2.3 addendum (6 refinements incl. Deepa palette) — **APPROVED
+2026-11-18**, folded into the running §8 loop.
 
 ---
 
@@ -307,6 +312,296 @@ superseded text stays in §1c as history; this section wins.
 
 ---
 
+## 7. v2.1 UI polish round — owner change requests — ✅ APPROVED (2026-11-17)
+
+Seven owner change requests (given verbatim in chat, 2026-11-17) recorded as
+binding product decisions for a post-v2 polish round. All are frontend-only;
+no backend TODO items. The process agent opens these as tasks
+(`tz3-*` naming suggested) and runs the build loop.
+
+### 7.1 Decisions (owner requests, verbatim intent)
+
+1. **Remove the "bleak-web" title** from the input-code (join) form **and**
+   from the `localhost:4000/` main page. Acceptance: the string
+   "bleak-web" appears **zero** times as a visible title in the UI (both
+   occurrences removed; page identity comes from the room/flow content, not
+   an app-name title).
+2. **Brighter color coding for chat items and personage icons.** Chat items
+   (message bubbles) get **different colors per participant/side — yellow,
+   orange, blue, violet** — while all text on them stays clearly readable
+   (AA contrast on the dark theme). Personage/avatar art also gets the
+   brighter treatment. This amends §4's "accent discipline" (yellow-only):
+   the palette gains these four functional accent colors for chat/avatar
+   color-coding; the charcoal base stays.
+3. **Avatar padding:** the generated user icon gets **1 pixel of padding in
+   the same color as the background** behind it (prevents the art touching
+   card/surface edges).
+4. **Remove the "clear chat" button** from the attendee chat UI (owner
+   decision: attendees never clear chats; host drill-down clear is
+   unaffected by this request).
+5. **Room radar fixes:** (a) other users' icons show **no name labels** —
+   only the "you" chip keeps its name; (b) the **minimal distance between
+   the "you" chip and the nearest user icon is increased**; (c) verify on
+   phone-size screens too; (d) user icons **rotate together with the
+   rings** (they ride the rings as the radar spins, not counter-rotating
+   static labels); (e) icons must **never overlap each other** — every user
+   keeps its own hit area.
+6. **Profile settings block:** move into a settings area of the user
+   profile: **token regeneration**, **UI language switching**, and an
+   **exit-room option rendered in red** — with a **confirmation question
+   before exiting**.
+7. **Import persona:** remove the room-address display on the import
+   persona screen (it overlays/overflows the card contour).
+
+### 7.2 Task plan (concept level; the process opens tasks with full ACs)
+
+| # | Suggested slug | Scope | Key ACs |
+| --- | --- | --- | --- |
+| P1 | `bleak-title-removal` | Join/code form + main page | zero visible "bleak-web" titles; layout stays balanced |
+| P2 | `bright-chat-avatar-colors` | Design tokens + chat bubbles + avatar art | 4 new accent colors defined as tokens with AA-contrast text pairs; chat items color-coded; brighter personage icons; RU/EN untouched |
+| P3 | `avatar-bg-padding` | Avatar generator | 1px background-colored padding around generated icon |
+| P4 | `remove-clear-chat` | Attendee chat view | clear-chat control gone; kickoff semantics untouched |
+| P5 | `radar-labels-rotation` | Room radar | no name labels on others; larger min radius from center; icons rotate with rings; no overlap (distinct hit areas); verified at phone widths |
+| P6 | `profile-settings-block` | Profile/settings | settings block with token regeneration, language switch, red exit-room + confirmation dialog |
+| P7 | `import-address-removal` | Import persona screen | room address no longer displayed |
+| P8 | `verify-v21` | Verification sweep | all P1–P7 ACs checked; RU/EN parity; lint/test/build green |
+
+Order note: P2 defines tokens first (P3/P5 consume them); P8 last.
+The process may parallelize independent tasks per its TZ-style planning.
+
+### 7.3 Owner directive — autonomous merge mode for this round (2026-11-17)
+
+The owner chose **autonomous merge mode for this round** in chat
+(2026-11-17): `NOT_MAINTAIN_APPROVAL` is **treated as true for this round**
+(even though the env var is unset) — the process **merges immediately** when
+a worker hands over (`ready-for-merge`), no per-feature user gate; CI still
+gates closure (red CI = bug + reopen per AGENTS.md). Standing default
+remains per-feature approval unless the owner directs devops to set
+`NOT_MAINTAIN_APPROVAL=true` permanently.
+
+---
+
+## 8. v2.2 UI polish round #2 — owner change requests — ✅ APPROVED (2026-11-18)
+
+Twelve owner change requests (given verbatim in chat, 2026-11-18, after the
+owner ran the v2.1 build) — binding decisions for a second polish round.
+All frontend-only. Items 1/2/11/12 refine the v2.1 radar output; item 3
+relocates the v2.1 settings block.
+
+### 8.1 Decisions
+
+1. **Radar upright rotation:** objects on the room/around radar maintain
+   **vertical (upright) positioning while rotating** — icons travel with the
+   rings but never spin on their own axis (amends §7.1.5d "rotate with the
+   rings": they ride the rings, orientation stays upright).
+2. **Per-ring speeds:** each ring (with its items) rotates at a **different
+   speed** — owner's example: 1st ring faster, 2nd ring a bit slower, 3rd
+   ring very fast (as stated; distinct speeds per ring are the requirement).
+3. **Settings route:** move the settings block out of the profile page into
+   a **new `/profile/settings` route**. The leave-room button renders as
+   **red font + red border only** (no filled/red background).
+4. **Avatar change button:** the circle button on the user change (avatar
+   edit) field becomes **less round** — reduced border radius (rounded
+   shape, not a full circle).
+5. **Profile stats — exactly 3 metrics:** **Sent** (renamed from
+   "Handshakes"), **Added you**, **Chatting**. Any other metric removed.
+6. **"Only your agent see this" heading** must have a **style distinct**
+   from the private ("for your agent") content below it.
+7. **Chat colors:** every item in the **chats list page gets a bright
+   background** (per §7.1.2 color coding). In the dialog: **interlocutor's
+   messages keep the bright background**; **own messages keep the previous,
+   muted color**.
+8. **Dialog timestamps:** message time shows as **hh:mm**; a **date label
+   (e.g. "8 September") sits centered at the top** of the chat.
+9. **Remove the "Restart the dialog" button** from the dialog view.
+10. **Remove the theme (phase/scenario) display from the dialog**; instead
+    show the **interlocutor's public info** there.
+11. **Radar "added you" indicator:** remove the yellow circle around such
+    users' icons; instead show a **small yellow dot in the icon's top-right
+    corner**.
+12. **Ring-level transitions:** user icons move between ring levels with a
+    **smoother (slick) transition**.
+
+### 8.2 Task plan (concept level; the process opens tasks with full ACs)
+
+| # | Suggested slug | Scope | Items |
+| --- | --- | --- | --- |
+| T1 | `radar-motion-upright-speeds` | Room radar | 1, 2, 12 |
+| T2 | `radar-added-you-dot` | Room radar | 11 |
+| T3 | `profile-settings-route` | `/profile/settings` | 3 |
+| T4 | `profile-avatar-stats` | Profile page | 4, 5 |
+| T5 | `dialog-layout-polish` | Dialog view | 6, 8, 9, 10 |
+| T6 | `chats-bright-list` | Chats list + dialog colors | 7 |
+| T7 | `verify-v22` | Verification sweep | all |
+
+T1/T2 share the radar component — sequence or coordinate (process decides).
+T5/T6 both touch dialog colors — coordinate likewise. T7 last, full
+three-gate CI per wave per TZ §8.8.
+
+### 8.3 Owner directive — autonomous merge mode continues for this round
+
+Autonomous merge mode (per §7.3) **continues for the v2.2 round**: merges
+into `dev` need no per-feature owner gate; CI gates closure. The owner may
+revert to per-feature approval at any time by saying so (or make it standing
+via devops: `NOT_MAINTAIN_APPROVAL=true`).
+
+### 8.4 Ops note (not a product decision)
+
+The owner earlier requested a live demo run (both servers, one English room,
+6 seeded users, saved tokens, invite code, mutual-handshake enablement) and
+then paused it ("don't run the server — see my next message"). The request
+remains **on hold** until the owner re-issues it.
+
+---
+
+## 9. v2.3 addendum — six refinements to the in-flight v2.2 round — ✅ APPROVED (2026-11-18)
+
+Six owner change requests (chat, 2026-11-18, while the v2.2 build loop is
+running). Binding; the process folds them into the running loop — amending
+pending task cards, and for any task already past its worker phase routing
+the delta through the normal merge/CI flow.
+
+### 9.1 Decisions
+
+1. **"Only your agent sees this" heading:** keep its position/order in the
+   layout; revert to the **previous typeface** (the one used before the
+   v2.2 restyle); color it **red with some opacity** (muted red, not
+   solid).
+2. **Settings entry point:** the profile page gets a **settings button in
+   its top-right corner** (leading to `/profile/settings` per §8.1.3).
+3. **Radar geometry:** the ring diameter must equal
+   **max(screen-width, screen-height)** — the radar spans the larger
+   viewport dimension.
+4. **Interests spacing:** add a **margin between the "Interests" title and
+   the interests items**.
+5. **Chats list items — truly bright, no opacity:** full-opacity bright
+   backgrounds. The color-coding palette is replaced by the owner-provided
+   **"Deepa" palette**:
+   `#00B57F` (Deepa-1, green), `#E8E000` (Deepa-2, yellow),
+   `#FF5000` (Deepa-3, orange), `#9B0CFF` (Deepa-4, violet),
+   `#0DECFF` (Deepa-5, cyan). This palette supersedes §7.1.2's four-hue set
+   for chat color-coding (list items **and** interlocutor message bubbles
+   per §8.1.7); own messages stay muted (§8.1.7); text contrast on these
+   backgrounds must stay readable (AA).
+6. **Avatar generation palette:** generated personage icons use the **same
+   Deepa palette**; the icon's **background must be darker than the
+   personage's image**. The 1px background-colored padding (§7.1.3) stays.
+
+### 9.2 Routing note
+
+T1 (radar, running) absorbs item 3; T3 (settings route) absorbs item 2; T5
+absorbs item 1 and item 4; T6 absorbs item 5; the avatar work (v2.1 P2/P3
+territory) absorbs item 6. The process amends cards (`criteria`), keeps RU/EN
+parity and CI gates, and reports per its standing method.
+
+---
+
+## 10. v2.4 addendum — eight refinements — ✅ APPROVED (2026-11-18)
+
+Eight owner change requests (chat, 2026-11-18, during the v2.3 delta wave).
+Binding; the process folds them into the loop — amending not-yet-started
+delta tasks, opening new tasks for new scope, and routing anything already
+past its worker phase as follow-ups.
+
+### 10.1 Decisions
+
+1. **Import screen redefined — "return to event" (amends §6.2 import
+   semantics).** Problem (owner): after choosing **"Join Another Event"**
+   from the join confirmation (e.g. "Continue to Dev Chat EN"), the user
+   can no longer re-enter the previous event. Right model (owner):
+   "Join another event" creates a persona in the new event; to **return to
+   a previous or any other active event**, the **import screen** lists the
+   user's saved personas, and selecting one **automatically enters that
+   room using the token saved in storage** (identity restore — no
+   re-creation), with the persona **marked as "Return / Вернуться"**.
+   Interpretation recorded: the copy-persona-into-the-new-room flow is
+   superseded by this return flow (flagged to the owner for confirmation —
+   see the concept agent's report).
+2. **Radar spacing:** the gap between the center user and the nearest ring
+   becomes **smaller** (amends v2.1's enlarged center gap) — while the
+   no-overlap rule stays.
+3. **"Only your agent sees this" heading:** **small size** (smaller than
+   the content below), **no uppercase** (sentence case), **keep red**
+   (refines §9.1.1 — same previous typeface, red with opacity).
+4. **No profile edit button:** remove the user-info change button from the
+   profile page — **all persona changes live in `/profile/settings`**.
+5. **Chat item color tied to user id:** each chat's color is **derived
+   deterministically from the interlocutor's user id** (hash → one of the
+   Deepa palette colors), consistent across visits (refines §9.1.5).
+6. **Chat item content:** remove the dialog-theme text; show the **last
+   message preview** — rendered with **opacity**, truncated with **"…"**
+   when it overflows the block — plus the **time of the last message**.
+   *Implementation decision (owner, 2026-11-18): the client fetches each
+   chat's transcript and takes the last message — chats are capped (~26
+   messages), so this is not heavy. No backend extension needed for the
+   preview. The active/finished status icon (item 7) derives from whatever
+   lifecycle signal the transcript/chat data provides; if none exists, the
+   item defaults to the active state and the gap is recorded in the backend
+   TODO ledger.*
+7. **Chat item status icon:** remove the right-side time; instead show an
+   **icon with the chat's status**: **active → loading icon**, **finished →
+   red reminder-style mark**.
+8. **Host out of the footer menu:** remove the Host entry from the bottom
+   navigation. The `/host` route stays; the user path to open the host
+   menu **will be designed later** (not part of this round).
+
+### 10.2 Routing note
+
+Pending v2.3 delta tasks are amended before spawn where possible: task 39
+absorbs §10.1.3; task 40 (chats Deepa) absorbs §10.1.5–7. New scope:
+§10.1.1 import-return flow, §10.1.4 profile-edit removal, §10.1.8 host-nav
+removal. Radar spacing (§10.1.2) routes as a follow-up on the radar flow if
+task 37 has already passed it. Verification: extend the final sweep to
+cover §10.
+
+---
+
+## 11. v2.5 addendum — four refinements — ✅ APPROVED (2026-11-18)
+
+Four owner change requests (chat, 2026-11-18). Binding; folded into the
+running loop by the process.
+
+### 11.1 Decisions
+
+1. **Leaving a room never deletes the persona (bug fix).** Owner flow:
+   pressed "Leave the event" → tried to return via the import screen →
+   error "This persona no longer exists on the server … not found: sql: no
+   rows in result set" — the exit flow was deleting the persona on the
+   backend. Rule: **when leaving a room, the client must not delete the
+   user on the server — no hard or soft delete.** Leaving is purely local:
+   clear the active identity, keep the persona token in the vault
+   (`bleak.tokenVault`), so the user **can always return** to the room
+   (per §10.1.1). The backend `DELETE persona` endpoint remains for
+   explicit deletion elsewhere (e.g. host drill-down) but is never called
+   by the attendee exit flow.
+2. **Chat list — no background colors.** Remove all background color from
+   chat list items (neutral surface, like the rest of the app); use colors
+   **like the /people page** (the color-coding lives on the item's
+   avatar/personage, Deepa palette per §9.1.5). **Message bubbles in the
+   chat keep their colors.** On the chat list item, the right-side
+   status **marks are rendered as reminders in the color of that chat's
+   messages** (the interlocutor's Deepa color, §10.1.5), and the
+   **loading icon is animated (rotating)**.
+3. **Copy sweep — drop "Edit", rename "persona" → "profile".** Remove the
+   word **"Edit"** from the titles ("Edit persona / edit greeting / edit
+   interests" → "Persona/Greeting/Interests" style titles). Rename
+   **"persona" → "profile"** (EN) and **"персона" → "профиль"** (RU)
+   throughout the UI. The settings-block title "Persona" becomes
+   **"My profile"** (RU «Мой профиль»).
+4. **Join form layout bug:** the **6-digit code input overflows the form
+   boundaries** — fix the layout so the input stays inside the card.
+
+### 11.2 Routing note
+
+Item 1 amends the exit-room flow (v2.1 §7.1.6 confirmation stays; the
+actual leave becomes local-only) — verify the join/identity machines and
+tests reflect "leave ≠ delete". Items 2–3 are i18n/copy + component tweaks
+(RU/EN parity tests must be updated with the rename). Item 4 is a layout
+fix on the join form. The process sequences these as tasks per its standing
+method; verification sweep extended to §11.
+
+---
+
 ## Approval
 
 - [x] Topics 1–5 decided (all ✅ approved above)
@@ -323,3 +618,9 @@ superseded text stays in §1c as history; this section wins.
 - [x] Architect TZ pass v2 (81037a13) — **TZ.md Part II** delivered & merged (2026-11-15): 13 tasks (TZ2-01…TZ2-13), 118/118 ACs mapped, 5-wave plan, DoD v2.
 - [x] Owner approved **TZ v2** — **2026-11-15** → **v2 build loop authorized** (process agent; default per-feature merge-approval mode, `NOT_MAINTAIN_APPROVAL` unset).
 - [x] Build loop v2 → **done** (2026-11-16): 21/21 tasks closed, final wave-CI green (522 tests), `docs/verification-v2.md` records 118/118 ACs; §8.6 DoD checklist fully met. Post-loop: bleak-node WP-6 reconciliation (hash `90b95f75`), `tz2-07a` pre-authorized behind flag 6.9a, pre-event device-smoke checklist in the verification doc.
+- [x] Owner approved **§7 v2.1 UI polish round** (7 change requests, verbatim chat 2026-11-17) + autonomous merge mode for the round → **build loop for §7 authorized** (process agent).
+- [x] Build loop v2.1 → **done** (2026-11-18): tasks 22–29 closed, CI green; owner ran the build and filed 12 follow-up issues.
+- [x] Owner approved **§8 v2.2 UI polish round #2** (12 change requests, verbatim chat 2026-11-18; autonomous merge mode continues) → **build loop for §8 authorized** (process agent).
+- [x] Owner approved **§9 v2.3 addendum** (6 refinements to in-flight §8, incl. the Deepa palette, chat 2026-11-18) → folded into the running §8 loop by the process agent.
+- [x] Owner approved **§10 v2.4 addendum** (8 refinements incl. import="return to event" redefinition, chat 2026-11-18) → folded into the running loop by the process agent.
+- [x] Owner approved **§11 v2.5 addendum** (4 refinements: leave≠delete fix, chat-list restyle, copy sweep, join-form layout, chat 2026-11-18) → folded into the running loop by the process agent.
