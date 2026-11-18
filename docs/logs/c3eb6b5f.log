@@ -1,0 +1,3 @@
+2026-11-18T12:59:36Z [worker] task 54 in progress: v2.5 verification sweep on dev tip a7bfda9 (4 §11 merges landed: 51a4b35b leave-local-only, 3e0bf758 chat-list-neutral, 0953c84a copy-sweep, 5c1c6036 join-input)
+2026-11-18T13:01:49Z [worker] v2.5 sweep: 4/4 PASS recorded in docs/verification-v25.md; spot-run 6 suites 92 tests green; doc written, proceeding to handover commit
+2026-11-18T13:01:59Z [worker] task 54 ready-for-merge: commit 9d0ffcb on feature/c3eb6b5f-tz4-25-verify-v25 (doc + session/log records only)
