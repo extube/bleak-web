@@ -21,7 +21,7 @@ bleak-node contract (`/mount/bleak-node`, not edited).
 | Check | Result | Source |
 | --- | --- | --- |
 | Full `make test` re-run by this sweep | **not run** (the process runs the delta-wave CI after this landing) | this session |
-| DELTA-WAVE CI: [pending — process fills] | | |
+| DELTA-WAVE CI (2026-11-18T11:11Z, process, dev tip `bfafef3` post-sweep-landing) | **GREEN** — `make lint` clean · `make test` 575 passed (23 api-client + 8 helper + 544 web, 43 files) · `make build` 0 svelte-check errors (8 pre-existing warnings) | process gate run; recorded via `task.py ci` |
 | Landing CI records for the v2.4 delta wave (tasks 43–48, one CI run per landing) | **all landed 2026-11-18** — 43 `a061969` (10:27:46Z); 44 `fe245e1` (10:38:16Z); 45 `9743fef` (10:47:26Z); 46 `4b682cc` (10:50:16Z); 47 `d197e59` (10:56:03Z); 48 `6f6cea0` (11:05:25Z) | dev log |
 | Targeted spot-runs (10 card-anchored suites, first-hand) | **green — 186 tests / 11 files** (chats-page + last-message + chats-view = 46; profile-page + profile-settings + join-machine + join-flow + identity + tabbar + radar-placement + avatar = 140) | `npm run test -w @bleak/web -- <files>` ×2, all passing (§3) |
 | Owning tasks of the 8 items | **43, 44, 45, 46, 47, 48 — all `merged`** (CI-gated closure follows the delta-wave CI) | `task.py list` at sweep time |
