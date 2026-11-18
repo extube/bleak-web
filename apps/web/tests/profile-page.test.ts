@@ -9,7 +9,9 @@
  * settings logic itself is covered by tests/profile-settings.test.ts. The
  * v2.2 polish (Concept §8.1.4/8.1.5 — exactly-three renamed stat tiles and
  * the rounded avatar-change button) is covered at the bottom of the file,
- * plus the §9.1.2 settings corner button (DESIGN §4.10.2). */
+ * plus the §9.1.2 settings corner button (DESIGN §4.10.2), and the v2.3
+ * amendments (Concept §9.1.1/§9.1.4 — private-bio heading revert + interests
+ * title margin, DESIGN §4.10.3/4.10.4). */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
@@ -432,26 +434,60 @@ describe('avatar-change button radius (Concept §8.1.4, DESIGN §4.9.4)', () => 
   });
 });
 
-describe('private-bio heading (Concept §8.1.6, DESIGN §4.9.6)', () => {
-  it('the «only your agent sees this» heading is styled DISTINCTLY from the private content below it', async () => {
+describe('private-bio heading (Concept §9.1.1, DESIGN §4.10.3)', () => {
+  it('the «only your agent sees this» heading reverts to the body face with a MUTED red, still distinct from the content below', async () => {
     await renderPage();
     const heading = document.querySelector('.private-bio-heading');
     expect(heading?.textContent).toBe(ru['profile.private_bio.caption']);
-    // Distinct hierarchy: pixel font like the section titles, uppercase,
-    // muted — vs the 14px Inter bio text below it.
+    // The v2.3 amendment: body face (Inter — NOT the Handjet pixel font),
+    // and a muted red derived from the danger token via color-mix (never
+    // solid); the uppercase treatment keeps the heading hierarchy.
     const source = readFileSync(
       join(WEB_ROOT, 'src/lib/components/profile/ProfileBadge.svelte'),
       'utf8'
     );
     const block = source.match(/\.private-bio-heading\s*\{[\s\S]*?\}/)?.[0] ?? '';
-    expect(block).toContain('font-family: var(--font-pixel)');
+    expect(block).toContain('font-family: var(--font-body)');
+    expect(block).not.toContain('var(--font-pixel)');
+    expect(block).toContain('color-mix(in srgb, var(--color-danger-text) 70%, transparent)');
+    expect(block).not.toContain('var(--color-text-muted)');
+    expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b/); // tokens only, no raw hex
     expect(block).toContain('text-transform: uppercase');
-    expect(block).toContain('var(--color-text-muted)');
     // The heading sits ABOVE the private content in the badge block.
     const bioBlock = source.match(/for_agent[\s\S]*?bio-text/)?.[0] ?? '';
     expect(bioBlock.indexOf('private-bio-heading')).toBeLessThan(
       bioBlock.indexOf('bio-text')
     );
+  });
+
+  it('the persona editor caption carries the same reverted treatment (body face + muted red)', () => {
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/lib/components/profile/PersonaEditor.svelte'),
+      'utf8'
+    );
+    const block = source.match(/\.private-bio-heading\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(block).toContain('font-family: var(--font-body)');
+    expect(block).not.toContain('var(--font-pixel)');
+    expect(block).toContain('color-mix(in srgb, var(--color-danger-text) 70%, transparent)');
+    expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+});
+
+describe('interests title margin (Concept §9.1.4, DESIGN §4.10.4)', () => {
+  it('a clear vertical gap sits between the «Interests» title row and the interest chips — tokens only', async () => {
+    await renderPage();
+    // The title row is present on the badge, directly followed by the chips.
+    expect(document.querySelector('.row-head .bio-label')?.textContent)
+      .toBe(ru['profile.interests.title']);
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/lib/components/profile/ProfileBadge.svelte'),
+      'utf8'
+    );
+    const block = source.match(/\.row-head\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    // The chosen spacing-scale step (--space-3 = 12px) is applied below the
+    // title row, before the chips / empty-state content.
+    expect(block).toContain('margin-bottom: var(--space-3)');
+    expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b/); // tokens only, no raw hex
   });
 });
 

@@ -63,8 +63,9 @@
   </div>
   <div class="field">
     <label for="persona-edit-private">{translate($locale, 'join.form.private_bio')}</label>
-    <!-- Concept §8.1.6: the «only your agent sees this» heading is styled
-         DISTINCTLY from the private content (pixel font, uppercase, muted). -->
+    <!-- Concept §9.1.1 / DESIGN §4.10.3: the «only your agent sees this»
+         heading reverts to the body face (Inter) in a muted red, still
+         distinct from the field below it (uppercase, weight). -->
     <p class="private-bio-heading">{translate($locale, 'profile.private_bio.caption')}</p>
     <input id="persona-edit-private" type="text" maxlength={255} bind:value={privateBio} />
   </div>
@@ -119,14 +120,17 @@
   input.invalid {
     border-color: var(--color-accent);
   }
+  /* Concept §9.1.1 / DESIGN §4.10.3: typeface reverted to the body face
+   * (Inter) with a muted red — the danger color mixed toward transparency,
+   * never solid; uppercase + weight keep the heading treatment. */
   .private-bio-heading {
     margin: 0;
-    font-family: var(--font-pixel);
+    font-family: var(--font-body);
     font-size: 14px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--color-text-muted);
+    color: color-mix(in srgb, var(--color-danger-text) 70%, transparent);
   }
   .field-error {
     margin: 0;

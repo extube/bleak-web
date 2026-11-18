@@ -99,9 +99,10 @@
     </div>
     <div class="bio">
       <h3 class="bio-label">{translate($locale, 'profile.badge.for_agent')}</h3>
-      <!-- Concept §8.1.6: the «only your agent sees this» heading is styled
-           DISTINCTLY from the private content below it (pixel font, uppercase
-           letter case, muted). -->
+      <!-- Concept §9.1.1 / DESIGN §4.10.3: the «only your agent sees this»
+           heading keeps its position above the private content but reads in
+           the body face (Inter) in a MUTED red, still distinct from the
+           content below it (uppercase, weight). -->
       <p class="private-bio-heading">{translate($locale, 'profile.private_bio.caption')}</p>
       <p class="bio-text">{user.private_bio === '' ? '—' : user.private_bio}</p>
     </div>
@@ -253,23 +254,28 @@
     overflow-wrap: anywhere;
     white-space: pre-wrap;
   }
-  /* Concept §8.1.6 / DESIGN §4.9.6: the private-bio heading is visually
-   * distinct from the private content below it — Handjet pixel font like
-   * the section titles, uppercase, muted (vs the 14px Inter bio text). */
+  /* Concept §9.1.1 / DESIGN §4.10.3: the private-bio heading keeps the
+   * v2.2 position (caption above the private content) but the typeface
+   * reverts to the body face (Inter) and the color becomes a MUTED red —
+   * the danger color mixed toward transparency, never solid. Size/weight
+   * + uppercase keep it a heading, distinct from the bio text below. */
   .private-bio-heading {
     margin: 0 0 var(--space-1);
-    font-family: var(--font-pixel);
+    font-family: var(--font-body);
     font-size: 14px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--color-text-muted);
+    color: color-mix(in srgb, var(--color-danger-text) 70%, transparent);
   }
+  /* Concept §9.1.4 / DESIGN §4.10.4: a clear vertical gap between the
+   * «Interests» title row and the interest chips below it (--space-3). */
   .row-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3);
+    margin-bottom: var(--space-3);
   }
   .empty-interests {
     margin: 0 0 var(--space-2);
