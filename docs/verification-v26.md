@@ -23,7 +23,7 @@ diff (read-only git).
 | Check | Result | Source |
 | --- | --- | --- |
 | Full `make test` re-run by this sweep | **not run** (the process runs the delta-wave CI after this landing) | this session |
-| DELTA-WAVE CI | **[pending — process fills]** | placeholder |
+| DELTA-WAVE CI | **GREEN** (2026-11-18T13:47Z, process, dev tip `b464d8d` post-sweep-landing): `make lint` clean · `make test` 591 passed (23 api-client + 8 helper + 560 web, 43 files) · `make build` 0 svelte-check errors (8 pre-existing warnings) | process gate run; recorded via `task.py ci` |
 | Landing commits of the §12 delta wave | **both landed 2026-11-18** — 56 join-input-overflow re-fix `607241c` (13:36:04Z); 57 phone-fullscreen-forms `698a48b` (13:43:43Z) | dev log |
 | Targeted spot-runs (4 card-anchored suites, first-hand) | **green — 54 tests / 4 files** (join-flow + digit-input + code-input + profile-page) | `npm run test -w @bleak/web -- <files>` (§3), all passing |
 | Owning tasks of the 2 items | **56, 57 — both landed into `dev`** (dev tip `698a48b` at sweep time) | `task.py list` / dev log |
@@ -172,4 +172,4 @@ The automated suites pin the logic; these need a real phone:
 
 ---
 
-DELTA-WAVE CI: [pending — process fills]
+DELTA-WAVE CI: GREEN — 2026-11-18T13:47Z, dev b464d8d, lint clean / 591 tests / build 0 errors
