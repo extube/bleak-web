@@ -443,3 +443,57 @@ describe('settings corner button (Concept §9.1.2, DESIGN §4.10.2)', () => {
     expect(header).toContain('justify-content: space-between');
   });
 });
+
+describe('phone full-screen form (Concept §12, DESIGN §4.12.1 item 5)', () => {
+  /**
+   * v2.6: at phone widths (<720px) the /profile badge card becomes the
+   * page — full width/height, no rounded floating chrome, no pixel-corner
+   * clip. happy-dom evaluates no media queries, so the contract is the
+   * repo's established source-read pattern. Growth reason: new phone
+   * breakpoint behavior. The overrides live ONLY inside the
+   * `max-width: 719px` query — desktop (min-width: 720px) is untouched.
+   */
+  const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
+    ? process.cwd()
+    : join(process.cwd(), 'apps', 'web');
+
+  it('the badge card becomes the page at phone widths — full-bleed, no floating chrome', () => {
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/routes/profile/+page.svelte'),
+      'utf8'
+    );
+    const match = source.match(/@media \(max-width:\s*719px\)\s*\{([\s\S]*)<\/style>/);
+    expect(match, 'phone (max-width: 719px) block not found').toBeTruthy();
+    const phone = match?.[1] ?? '';
+    // The container drops its side padding; the bottom tab-bar clearance
+    // stays (functional, not chrome) and the header keeps its own gutter.
+    expect(phone).toMatch(
+      /\.profile-page\s*\{[^}]*padding:\s*0 0 calc\(var\(--bottom-tabbar-height\)/
+    );
+    expect(phone).toMatch(/\.header\s*\{[^}]*padding:\s*var\(--space-5\)/);
+    // The badge card loses the floating chrome and fills the viewport
+    // height; its --space-5 padding stays the content gutter.
+    expect(phone).toMatch(/\.badge\s*\{[^}]*border-radius:\s*0/);
+    expect(phone).toMatch(/\.badge\s*\{[^}]*clip-path:\s*none/);
+    expect(phone).toMatch(/\.badge\s*\{[^}]*flex:\s*1/);
+    // Tokens only (sweep discipline).
+    expect(phone).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  it('desktop is untouched: the overrides exist only inside the phone query', () => {
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/routes/profile/+page.svelte'),
+      'utf8'
+    );
+    // The desktop block is intact.
+    expect(source).toMatch(/@media \(min-width:\s*720px\)/);
+    // Each chrome-dropping declaration appears exactly once — inside the
+    // 719px query, never in the base (desktop) rules.
+    for (const decl of ['border-radius: 0', 'clip-path: none']) {
+      expect(source.split(decl).length - 1).toBe(1);
+    }
+    const base = source.replace(/@media \(max-width:\s*719px\)[\s\S]*$/, '');
+    expect(base).not.toContain('border-radius: 0');
+    expect(base).not.toContain('clip-path: none');
+  });
+});

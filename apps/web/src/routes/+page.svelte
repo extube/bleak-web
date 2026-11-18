@@ -189,4 +189,20 @@
       justify-content: center;
     }
   }
+  /* v2.6 (Concept §12, DESIGN §4.12.1 item 5): phone (<720px) full-screen
+   * forms — the join container drops its own gutter and the resume card
+   * becomes the page (same treatment as the JoinFlow card below it). The
+   * card's --space-5 padding is the content gutter. Desktop (min-width:
+   * 720px) is unchanged. */
+  @media (max-width: 719px) {
+    .join {
+      max-width: none;
+      padding: 0;
+    }
+    .resume {
+      border-radius: 0;
+      clip-path: none;
+      flex: 1;
+    }
+  }
 </style>

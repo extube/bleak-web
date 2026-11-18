@@ -363,4 +363,23 @@
       align-self: center;
     }
   }
+  /* v2.6 (Concept §12, DESIGN §4.12.1 item 5): phone (<720px) full-screen
+   * form — the badge card becomes the page: full width/height, no rounded
+   * floating chrome. The container drops its side padding; the header
+   * keeps its own gutter (spacing scale), the bottom tab-bar clearance
+   * stays (functional, not chrome), and the card's --space-5 padding is
+   * the content gutter. Desktop (min-width: 720px) is unchanged. */
+  @media (max-width: 719px) {
+    .profile-page {
+      padding: 0 0 calc(var(--bottom-tabbar-height) + var(--space-5));
+    }
+    .header {
+      padding: var(--space-5) var(--space-5) 0;
+    }
+    .badge {
+      border-radius: 0;
+      clip-path: none;
+      flex: 1;
+    }
+  }
 </style>

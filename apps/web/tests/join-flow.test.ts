@@ -550,3 +550,86 @@ describe('JoinFlow — digit-row layout inside the card at 320/360/390 (Concept 
     expect(flowCss).toMatch(/\.gone-card h2\s*\{[^}]*overflow-wrap:\s*anywhere/);
   });
 });
+
+describe('JoinFlow — phone full-screen forms (Concept §12, DESIGN §4.12.1 item 5)', () => {
+  /**
+   * happy-dom runs no layout engine and no media-query evaluation, so the
+   * phone (<720px) contract is verified the way the repo's established
+   * CSS-contract tests do — source reads. Growth reason: new phone
+   * breakpoint behavior (v2.6). The contract: at <720px the join card
+   * becomes the page — full width/height, no rounded floating chrome, no
+   * pixel-corner clip — and the overrides live ONLY inside the
+   * `max-width: 719px` query, so desktop (min-width: 720px) rendering is
+   * untouched. One treatment covers every surface rendered in the join
+   * card: enter-code (CodeEntry + DigitInput), import profile and
+   * return-to-event (the §10.1.1 vault screen); the route-level resume
+   * card shares it (same join screen).
+   */
+  const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
+    ? process.cwd()
+    : join(process.cwd(), 'apps', 'web');
+  function source(relativePath: string): string {
+    return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
+  }
+  /** The phone media block (it is the LAST block in each style). */
+  function phoneBlock(css: string): string {
+    const match = css.match(/@media \(max-width:\s*719px\)\s*\{([\s\S]*)<\/style>/);
+    expect(match, 'phone (max-width: 719px) block not found').toBeTruthy();
+    const block = match?.[1] ?? '';
+    expect(block, 'empty phone (max-width: 719px) block').not.toBe('');
+    return block;
+  }
+  /** Everything BEFORE the phone query — the desktop rendering contract. */
+  function baseCss(css: string): string {
+    return css.replace(/@media \(max-width:\s*719px\)[\s\S]*$/, '');
+  }
+
+  it('enter-code / import / return: the join card becomes the page at phone widths', () => {
+    const phone = phoneBlock(source('src/lib/components/join/JoinFlow.svelte'));
+    // Container drops its width cap and gutter — the card spans the viewport.
+    expect(phone).toMatch(/\.join\s*\{[^}]*max-width:\s*none/);
+    expect(phone).toMatch(/\.join\s*\{[^}]*padding:\s*0/);
+    // The card loses the floating chrome (radius + pixel-corner clip) and
+    // fills the viewport height; its --space-5 padding stays the gutter.
+    expect(phone).toMatch(/\.card\s*\{[^}]*border-radius:\s*0/);
+    expect(phone).toMatch(/\.card\s*\{[^}]*clip-path:\s*none/);
+    expect(phone).toMatch(/\.card\s*\{[^}]*flex:\s*1/);
+    // Tokens only (sweep discipline).
+    expect(phone).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    // The task-56 fix is preserved underneath: the digit row stays
+    // width-constrained, so it is in bounds at EVERY phone width.
+    const digitCss = source('src/lib/components/DigitInput.svelte');
+    expect(digitCss).toMatch(/\.digit-input\s*\{[^}]*width:\s*100%/);
+    expect(digitCss).toMatch(/\.digit-input\s*\{[^}]*min-width:\s*0/);
+  });
+
+  it('the resume card (the same join screen) carries the identical treatment', () => {
+    const phone = phoneBlock(source('src/routes/+page.svelte'));
+    expect(phone).toMatch(/\.join\s*\{[^}]*max-width:\s*none/);
+    expect(phone).toMatch(/\.join\s*\{[^}]*padding:\s*0/);
+    expect(phone).toMatch(/\.resume\s*\{[^}]*border-radius:\s*0/);
+    expect(phone).toMatch(/\.resume\s*\{[^}]*clip-path:\s*none/);
+    expect(phone).toMatch(/\.resume\s*\{[^}]*flex:\s*1/);
+    expect(phone).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  it('desktop is untouched: the overrides exist only inside the phone query', () => {
+    for (const file of [
+      'src/lib/components/join/JoinFlow.svelte',
+      'src/routes/+page.svelte'
+    ]) {
+      const css = source(file);
+      // The desktop block is intact.
+      expect(css, file).toMatch(/@media \(min-width:\s*720px\)/);
+      // Each chrome-dropping declaration appears exactly once in the file —
+      // inside the 719px query, never in the base (desktop) rules.
+      for (const decl of ['border-radius: 0', 'clip-path: none', 'max-width: none']) {
+        expect(css.split(decl).length - 1, `${file}: "${decl}"`).toBe(1);
+      }
+      const base = baseCss(css);
+      expect(base).not.toContain('border-radius: 0');
+      expect(base).not.toContain('clip-path: none');
+      expect(base).not.toContain('max-width: none');
+    }
+  });
+});

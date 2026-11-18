@@ -359,4 +359,22 @@
       max-width: 480px;
     }
   }
+  /* v2.6 (Concept §12, DESIGN §4.12.1 item 5): phone (<720px) full-screen
+   * forms — the card becomes the page: full width/height, no rounded
+   * floating chrome (the pixel-corner clip is dropped too). One treatment
+   * covers every surface rendered in this card — enter-code, import
+   * profile and return-to-event (§10.1.1 vault screen); the card's own
+   * --space-5 padding is the content gutter. Desktop (min-width: 720px)
+   * is unchanged — these overrides live only inside the 719px query. */
+  @media (max-width: 719px) {
+    .join {
+      max-width: none;
+      padding: 0;
+    }
+    .card {
+      border-radius: 0;
+      clip-path: none;
+      flex: 1;
+    }
+  }
 </style>
