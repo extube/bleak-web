@@ -1,6 +1,8 @@
 <script lang="ts">
   /**
-   * DigitInput (DESIGN §3.1 spec): six single-character cells, 56px,
+   * DigitInput (DESIGN §3.1 spec, §4.12.4 layout): six single-character
+   * cells sized up to 56px (flexible — they shrink to the card's content
+   * box at narrow viewports, height fixed at the 56px touch target),
    * numeric inputmode, auto-advance, backspace-retreat, paste-fill,
    * invalid characters rejected silently. The bindable `value` is always a
    * prefix-filled digit string (length ≤ 6); `oncomplete` fires when all
@@ -141,8 +143,16 @@
     gap: var(--space-2);
     justify-content: center;
   }
+  /* §4.12.4 overflow fix (Concept §11.1.4): the cells shrink to the card's
+   * content box instead of forcing a fixed 376px row (6×56px + 5×8px gaps,
+   * which overflowed any viewport under ~472px). Flexible sizing: cells
+   * grow up to the 56px design size and shrink equally below it
+   * (min-width: 0 lets flex shrink below the content width); the height —
+   * the touch-target dimension — is preserved at 56px (≥ --touch-target). */
   input {
-    width: 56px;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 56px;
     height: 56px;
     text-align: center;
     font-family: var(--font-body);

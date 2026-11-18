@@ -1,0 +1,2 @@
+2026-11-18T12:56:18Z [worker] task 53 started (tz4-24 join input overflow)
+2026-11-18T12:58:28Z [worker] layout fix: flexible digit cells (flex 1 1 0, min-width 0, max-width 56px), fixed row 376px removed; regression test added to join-flow.test.ts; targeted+full test 553 green, lint green, build green

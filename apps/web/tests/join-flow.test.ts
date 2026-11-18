@@ -8,6 +8,8 @@
  * dead/stale entry handling, the copy flow REMOVED), the empty-vault state,
  * and the scanner mount (QrScanner public API). */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
@@ -437,4 +439,57 @@ describe('JoinFlow — scanner mount (context *a*, QrScanner public API)', () =>
     expect(cells().map((c) => c.value).join('')).toBe('123456');
   });
 
+});
+
+describe('JoinFlow — digit-row layout inside the card (Concept §11.1.4, DESIGN §4.12.4)', () => {
+  /**
+   * happy-dom runs no layout engine (component CSS is not applied — the
+   * same limitation the radar orbit tests document), so the narrow-width
+   * overflow regression check pins the CSS contract against the component
+   * sources, plus the numeric diagnosis: the old FIXED row (6×56px cells
+   * + 5×var(--space-2) gaps = 376px) could not fit the card's content box
+   * (viewport − 2×--space-5 join padding − 2×--space-5 card padding =
+   * 224px at the narrowest supported 320px viewport), overflowing any
+   * viewport under 376 + 96 = 472px.
+   */
+  const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
+    ? process.cwd()
+    : join(process.cwd(), 'apps', 'web');
+  function source(relativePath: string): string {
+    return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
+  }
+  function token(name: string): number {
+    const match = readFileSync(join(WEB_ROOT, 'src/lib/styles/tokens.css'), 'utf8').match(
+      new RegExp(`--${name}:\\s*(\\d+)px`)
+    );
+    if (!match?.[1]) throw new Error(`token --${name} (px) not found in tokens.css`);
+    return Number(match[1]);
+  }
+
+  it('diagnosis: the fixed 376px row exceeded the 224px content box at ~320px', () => {
+    const gap = token('space-2');
+    const padding = token('space-5');
+    const fixedRow = 6 * 56 + 5 * gap; // the pre-fix cell width ×6 + gaps
+    expect(fixedRow).toBe(376);
+    const content320 = 320 - 2 * padding - 2 * padding;
+    expect(content320).toBe(224);
+    expect(fixedRow).toBeGreaterThan(content320);
+  });
+
+  it('the digit row stays inside the card at ~320px and does not regress larger widths', () => {
+    const css = source('src/lib/components/DigitInput.svelte');
+    // No fixed cell width — nothing can force the row past the content box
+    // (max-/min-width on the flexible sizing are fine; lookbehind skips them).
+    expect(css).not.toMatch(/(?<![-\w])width:\s*56px/);
+    // Flexible cells: equal flex-grow/shrink, no minimum content width.
+    expect(css).toMatch(/input\s*\{[^}]*flex:\s*1 1 0/);
+    expect(css).toMatch(/input\s*\{[^}]*min-width:\s*0/);
+    // …capped at the 56px design size, so wide viewports are unchanged.
+    expect(css).toMatch(/input\s*\{[^}]*max-width:\s*56px/);
+    // Touch-target height preserved (56px ≥ --touch-target 48px).
+    expect(css).toMatch(/input\s*\{[^}]*height:\s*56px/);
+    // Gap and paddings stay on the spacing tokens (token discipline).
+    expect(css).toMatch(/gap:\s*var\(--space-2\)/);
+    expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
 });
