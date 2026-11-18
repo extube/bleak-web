@@ -423,7 +423,6 @@
                 <MessageBubble
                   {message}
                   {mine}
-                  myAddress={me?.userAddress ?? ''}
                   speaker={speaker}
                   time={timeOf(message.created_at)}
                   label={bubbleAriaLabel(speaker, message.content)}

@@ -1,0 +1,5 @@
+2026-11-18T08:40:58Z [worker] task 35 tz4-06-chats-bright-list: started, status in-progress
+2026-11-18T08:44:42Z [worker] implemented bright chat-card hue bg (ChatCard) + muted mine bubbles (MessageBubble), removed myAddress prop; extended 3 test suites
+2026-11-18T08:45:52Z [worker] make test green: 494+23+8 passed (494 web incl. extended suites); sweep hex fix in ChatCard comment
+2026-11-18T08:45:58Z [worker] make lint green (eslint clean)
+2026-11-18T08:46:26Z [worker] handover: commit 2392bb3 on feature/96f1040d-tz4-06-chats-bright-list; gates green (test/lint/build); status ready-for-merge

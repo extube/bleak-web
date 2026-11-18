@@ -9,6 +9,7 @@ import { tick } from 'svelte';
 import { get } from 'svelte/store';
 import { NetworkError, type Chat, type User } from '@bleak/api-client';
 import { chatsUnseen } from '../src/lib/stores/chatsSeen';
+import { codeHue } from '../src/lib/avatar/traits';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/paths', () => ({
@@ -132,6 +133,15 @@ describe('/chats — cards (§3.4 AC 1–4)', () => {
     const link = screen.getByRole('link', { name: /Диалог с Борис/ });
     expect(link.textContent).toContain('Борис');
     expect(screen.getByText('+2')).toBeTruthy();
+  });
+
+  it('every card wears the bright §4.9.7 color coding: the counterpart hue as its background class', async () => {
+    await renderPage();
+    const link = screen.getByRole('link', { name: /Диалог с Алиса/ });
+    // the counterpart's code hue tint (--color-bubble-<hue>) is applied via
+    // a code-<hue> class on the card — the same pairing the dialog bubbles
+    // use (--color-text on the tint is AA ≥4.5:1, bubble-contrast.test.ts).
+    expect(link.classList.contains(`code-${codeHue('0xa')}`)).toBe(true);
   });
 });
 

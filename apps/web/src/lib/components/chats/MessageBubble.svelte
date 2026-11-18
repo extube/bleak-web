@@ -1,15 +1,18 @@
 <script lang="ts">
   /**
-   * MessageBubble (DESIGN §3.5, §4.8.1): one transcript entry. mine (my
-   * persona is a speaker when agents quote it) right-aligned; theirs left.
-   * Both take the code hue of the address that speaks — fnv1a(address) % 4
-   * (lib/avatar/traits.ts) → `--color-bubble-<hue>` token background; the
-   * bubble text stays --color-text (AA ≥4.5:1 on every tint, verified in
-   * tests/bubble-contrast.test.ts). Both .pixel-corners, 14px Inter,
-   * max-width 80%. Speaker name (11px muted) + relative time under each
-   * bubble. The accessible <li> name is «{speaker}: {first 60 chars}»
-   * (route computes it via lib/chats/view.bubbleAriaLabel). Plain text
-   * only — pre-wrap.
+   * MessageBubble (DESIGN §3.5, §4.8.1 as amended by §4.9.7 / Concept
+   * §8.1.7): one transcript entry. mine (my persona is a speaker when
+   * agents quote it) right-aligned; theirs left. Only THEIR bubbles carry
+   * the speaker's code hue — fnv1a(address) % 4 (lib/avatar/traits.ts) →
+   * `--color-bubble-<hue>` token background; the bubble text stays
+   * --color-text (AA ≥4.5:1 on every tint, verified in
+   * tests/bubble-contrast.test.ts). OWN bubbles reverted to the muted
+   * neutral surface tint (--color-surface-elevated — --color-text on it is
+   * AA ≥4.5:1, also verified numerically); mine never take MY code hue.
+   * Both .pixel-corners, 14px Inter, max-width 80%. Speaker name (11px
+   * muted) + absolute time under each bubble. The accessible <li> name is
+   * «{speaker}: {first 60 chars}» (route computes it via
+   * lib/chats/view.bubbleAriaLabel). Plain text only — pre-wrap.
    */
   import type { Message } from '@bleak/api-client';
   import { codeHue } from '#lib/avatar/traits';
@@ -18,23 +21,23 @@
     message: Message;
     /** `message.from === identity.userAddress` (mine → right). */
     mine: boolean;
-    /** My persona address — 'mine' bubbles take MY code hue (§4.8.1). */
-    myAddress: string;
     /** Resolved speaker name (raw address fallback). */
     speaker: string;
-    /** Relative time of `created_at`. */
+    /** Absolute time of `created_at`. */
     time: string;
     /** Accessible name: «{speaker}: {first 60 chars}». */
     label: string;
   }
 
-  let { message, mine, myAddress, speaker, time, label }: Props = $props();
+  let { message, mine, speaker, time, label }: Props = $props();
 
-  const hue = $derived(codeHue(mine ? myAddress : message.from));
+  // §4.9.7: the code hue applies to theirs only; mine stays muted — no
+  // `code-*` class is emitted for own bubbles at all.
+  const hueClass = $derived(mine ? '' : `code-${codeHue(message.from)}`);
 </script>
 
 <li class="row" class:mine aria-label={label}>
-  <div class="bubble pixel-corners code-{hue}" class:mine class:theirs={!mine}>
+  <div class="bubble pixel-corners {hueClass}" class:mine class:theirs={!mine}>
     <p class="content">{message.content}</p>
   </div>
   <p class="meta">
@@ -63,15 +66,17 @@
     padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-md);
   }
+  /* Muted own bubbles (§4.9.7): the pre-tz3-02 neutral surface tint —
+   * NOT a code hue. --color-text on it measures ≈12.3:1 (AA ≥4.5). */
   .bubble.mine {
     background: var(--color-surface-elevated);
   }
   .bubble.theirs {
     background: var(--color-surface);
   }
-  /* Code-hue tint override (§4.8.1): every bubble carries its speaker's
-   * hue; text stays --color-text above. Declared after mine/theirs so the
-   * hue wins. */
+  /* Code-hue tint override (§4.8.1 → §4.9.7): only the INTERLOCUTOR'S
+   * bubbles carry their speaker's hue; text stays --color-text above.
+   * Declared after mine/theirs so the hue wins. */
   .bubble.code-yellow {
     background: var(--color-bubble-yellow);
   }

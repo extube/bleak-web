@@ -172,10 +172,13 @@ describe('transcript rendering + live updates (§3.5 AC 1–4, 9, 12)', () => {
     expect(screen.getByText('Работаю с глиной')).toBeTruthy();
     expect(screen.queryByText('networking')).toBeNull();
     expect(screen.queryByText('ai-future')).toBeNull();
-    // §4.8.1 color coding: each bubble carries its speaker's code hue.
+    // §4.8.1 color coding as amended by §4.9.7: THEIR bubbles carry the
+    // speaker's code hue; OWN bubbles are muted — no code-* class at all.
     const bubbles = document.querySelectorAll('.bubble');
     expect(bubbles[0]?.classList.contains(`code-${codeHue('0xa')}`)).toBe(true);
-    expect(bubbles[1]?.classList.contains(`code-${codeHue(ME)}`)).toBe(true);
+    expect(bubbles[1]?.classList.contains('mine')).toBe(true);
+    expect(bubbles[1]?.classList.contains(`code-${codeHue(ME)}`)).toBe(false);
+    expect(bubbles[1]?.className).not.toMatch(/code-(yellow|orange|blue|violet)/);
     expect(bubbles[2]?.classList.contains(`code-${codeHue('0xa')}`)).toBe(true);
   });
 
@@ -280,6 +283,23 @@ describe('v2.2 dialog polish (Concept §8.1.8/9/10, DESIGN §4.9.8/9/10)', () =>
     await tick();
     const bio = document.querySelector('.public-bio');
     expect(bio?.textContent).toBe('Глинодел');
+  });
+});
+
+describe('v2.2 chat colors (Concept §8.1.7, DESIGN §4.9.7)', () => {
+  it('their bubbles keep the bright code-hue background; own bubbles are muted (no code hue)', async () => {
+    withMessages(
+      message('tx1', '0xa', 'Привет, я твой новый контакт.', 60),
+      message('tx2', ME, 'Привет! Чем занимаешься?', 30)
+    );
+    await renderPage();
+    const bubbles = document.querySelectorAll('.bubble');
+    // theirs: the speaker's hue (unchanged tz3-02 behavior)
+    expect(bubbles[0]?.classList.contains(`code-${codeHue('0xa')}`)).toBe(true);
+    // mine: the muted neutral surface — never MY code hue
+    expect(bubbles[1]?.classList.contains('mine')).toBe(true);
+    expect(bubbles[1]?.classList.contains(`code-${codeHue(ME)}`)).toBe(false);
+    expect(bubbles[1]?.className).not.toMatch(/code-(yellow|orange|blue|violet)/);
   });
 });
 

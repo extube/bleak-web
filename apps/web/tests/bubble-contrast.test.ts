@@ -6,7 +6,9 @@
  * The tokens.css file is parsed directly so the check follows the palette
  * source of truth: each `--color-bubble-<hue>` must stay the documented
  * `color-mix(in srgb, <hue> 18%, var(--color-surface))` and keep
- * `--color-text` (#f0f0f0) at ≥4.5:1 on the mixed background. Avatar-art
+ * `--color-text` (#f0f0f0) at ≥4.5:1 on the mixed background. The v2.2
+ * amendment (§4.9.7 / Concept §8.1.7) additionally pairs the muted
+ * own-bubble surface (--color-surface-elevated) with --color-text. Avatar-art
  * tokens are decorative (no text on them) and are only pinned to exist.
  */
 import { readFileSync } from 'node:fs';
@@ -103,6 +105,17 @@ describe('AA contrast: --color-text on every bubble tint (§4.8.1, ≥4.5:1)', (
     const { hueHex, percent, surfaceHex } = bubbleMix(hue);
     const tint = mix(hueHex, surfaceHex, percent);
     const ratio = contrast('#f0f0f0', `#${tint.map((c) => c.toString(16).padStart(2, '0')).join('')}`);
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('AA contrast: the muted own-bubble pair (§4.9.7 — mine bubbles are NOT hue-tinted)', () => {
+  it('--color-surface-elevated stays the neutral muted surface (--color-text on it ≈12.35:1)', () => {
+    // Own bubbles reverted to the pre-tz3-02 muted neutral (Concept §8.1.7):
+    // the background is --color-surface-elevated, text stays --color-text.
+    const elevated = tokenHex('color-surface-elevated');
+    expect(elevated).toBe('#292c2d');
+    const ratio = contrast('#f0f0f0', elevated);
     expect(ratio).toBeGreaterThanOrEqual(4.5);
   });
 });
