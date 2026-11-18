@@ -3,8 +3,9 @@
  * deterministic layout math for the /room radar — ring by relationship
  * state, angle and radius jitter derived from the user address hash, then
  * a collision-avoided layout pass that guarantees distinct hit areas (no
- * node overlap), a generous exclusion zone around the static "you" chip
- * and on-canvas placement down to phone widths. Same data ⇒ same layout
+ * node overlap), an exclusion zone around the static "you" chip (reduced
+ * in v2.4 — Concept §10.1.2, DESIGN §4.11.2) and on-canvas placement down
+ * to phone widths. Same data ⇒ same layout
  * across polls (AC 2); no DOM access here
  * (unit tests: tests/radar-placement.test.ts).
  *
@@ -63,13 +64,19 @@ export const NODE_HIT_DIAMETER_PX = 52;
 export const MIN_NODE_DIST_PX = NODE_HIT_DIAMETER_PX + 8; // 60
 
 /**
- * Minimum distance between the stage center and any node center
- * (§4.8.3b — increased "you"-chip distance): the chip block (64px avatar +
- * name + count line; worst case 152×134px → half-diagonal ≈ 101px) plus
- * the node hit radius (26px), rounded up. The old inner ring (0.28) sat
- * ~45px from the center on a 320px stage — inside the chip.
+ * Minimum distance between the stage center and any node center (§4.8.3b,
+ * REDUCED in v2.4 — owner request, Concept §10.1.2, DESIGN §4.11.2): the
+ * chip's worst visible-content offset from the stage center — the truncated
+ * name line end (name capped at 120px → half 60px, sitting ≈10px off the
+ * line's centerline from the chip anchor) ≈ 61px — plus the node hit
+ * radius (26px), rounded up. The v2.1 value (128) instead cleared the chip
+ * block's empty corners (bounding half-diagonal ≈ 101px + 26px); at 88px a
+ * node hit disk still clears every opaque chip element (the 64px avatar
+ * circle and the name line) and only the dithered corner padding of the
+ * chip background can be grazed. The no-overlap rule between nodes
+ * (MIN_NODE_DIST_PX) is untouched.
  */
-export const MIN_CENTER_GAP_PX = 128;
+export const MIN_CENTER_GAP_PX = 88;
 
 /** On-canvas margin: node hit radius (26px) + 2px breathing room. */
 export const EDGE_MARGIN_PX = 28;

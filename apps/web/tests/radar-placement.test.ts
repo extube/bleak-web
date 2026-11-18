@@ -2,8 +2,9 @@
  * Radar placement unit tests (TZ-05 + §4.8.3 amendment): determinism (AC 2),
  * exactly-one-ring ring mapping, jitter bounds, pixel conversion, the >14
  * cap with the LOWEST NUMERIC HASH VALUES ascending rule (TZ §7.3, AC 10)
- * and the collision-avoided layout: increased "you"-chip distance, no node
- * overlap, on-canvas placement at parametrized phone stage sizes.
+ * and the collision-avoided layout: v2.4 reduced "you"-chip distance (the
+ * v2.1 enlarged gap, amended per Concept §10.1.2 / DESIGN §4.11.2), no
+ * node overlap, on-canvas placement at parametrized phone stage sizes.
  */
 import { describe, expect, it } from 'vitest';
 import { fnv1a } from '../src/lib/avatar/traits';
@@ -219,7 +220,8 @@ function assertInvariants(
   const cx = stageWidth / 2;
   const cy = stageHeight / 2;
   for (const point of points) {
-    // §4.8.3b: increased minimum distance from the "you" chip (center).
+    // §4.8.3b as reduced in v2.4 (Concept §10.1.2, DESIGN §4.11.2):
+    // minimum distance from the "you" chip (center).
     const gap = Math.hypot(point.x - cx, point.y - cy);
     expect(gap).toBeGreaterThanOrEqual(MIN_CENTER_GAP_PX - 1e-9);
     // §4.8.3e: the node hit disk stays fully on-canvas.
@@ -289,6 +291,19 @@ describe('layoutRadarNodes — collision-avoided layout (§4.8.3b/d/e)', () => {
     assertInvariants(points, 320, 480);
   });
 
+  it('v2.4: a node clamped to the inner exclusion edge sits at the reduced 88px gap (§10.1.2)', () => {
+    // 0xedge-4: angle 245°, jitter −6% → base = 0.56 × 160 × 0.94 ≈ 84.2px
+    // on the 320×320 stage — below the exclusion edge, so the layout clamps
+    // it to MIN_CENTER_GAP_PX. Under the v2.1 value (128) the same node sat
+    // 40px farther out; the collision probing now lets it use the smaller
+    // edge while every no-overlap invariant still holds.
+    const [point] = layoutRadarNodes([{ address: '0xedge-4', state: 'chat' }], 320, 320);
+    if (!point) throw new Error('missing layout point');
+    expect(point.radiusPx).toBe(MIN_CENTER_GAP_PX);
+    expect(Math.hypot(point.x - 160, point.y - 160)).toBeCloseTo(MIN_CENTER_GAP_PX, 6);
+    assertInvariants([point], 320, 320);
+  });
+
   it('ring mapping is preserved through the layout pass', () => {
     const points = layoutRadarNodes(entries(8, mixedStates), 390, 844);
     for (const point of points) {
@@ -334,9 +349,13 @@ describe('layoutRadarNodes — collision-avoided layout (§4.8.3b/d/e)', () => {
 
   it('the cap constants stay intact (§4.8.3 does not change the >14 rule)', () => {
     expect(MAX_RADAR_NODES).toBe(14);
-    // The increased "you"-chip distance: chip block half-diagonal (~101px)
-    // + node hit radius (26px), rounded up.
-    expect(MIN_CENTER_GAP_PX).toBeGreaterThanOrEqual(127);
+    // v2.4 reduced "you"-chip distance (Concept §10.1.2, DESIGN §4.11.2):
+    // chip's worst visible-content offset from the stage center (truncated
+    // name line end ≈ 61px: half of the 120px name cap + ≈10px line
+    // half-height) + node hit radius (26px), rounded up — smaller than the
+    // v2.1 corner-clearance value (128). The no-overlap rule stays.
+    expect(MIN_CENTER_GAP_PX).toBe(88);
+    expect(MIN_CENTER_GAP_PX).toBeLessThan(128);
     expect(MIN_NODE_DIST_PX).toBeGreaterThanOrEqual(60);
   });
 });
