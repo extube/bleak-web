@@ -122,7 +122,11 @@ export const ru: Record<MessageKey, string> = {
   'chats.subtitle': 'Здесь общаются ваши агенты',
   'chats.empty': 'Диалогов пока нет. Взаимный хендшейк запускает разговор агентов.',
   'chats.find_people': 'Найти людей',
-  'chats.card.aria': 'Диалог с {name} · {phase} · {scenario}',
+  // §4.11.5–7 (Concept §10.1.5–7): тема ушла из элемента списка; в
+  // доступном имени — статус диалога (иконка справа).
+  'chats.card.aria': 'Диалог с {name} · {status}',
+  'chats.status.active': 'активен',
+  'chats.status.finished': 'завершён',
   'chat.warming_up': 'Агенты готовятся…',
   // §8.1.9: kickoff left the attendee dialog view; the confirm copy stays
   // (host drill-down kickoff uses it — MemberDrillDown).

@@ -38,6 +38,18 @@ describe('i18n dictionaries (RU primary, EN second)', () => {
     // Uses an existing key; params simply leave the string unchanged if absent.
     expect(translate('en', 'nav.room')).toBe('Around');
   });
+
+  it('§4.11.7 status keys exist in BOTH locales (chat-card status icon aria)', () => {
+    for (const key of ['chats.card.aria', 'chats.status.active', 'chats.status.finished'] as const) {
+      expect(en[key]).toBeTruthy();
+      expect(ru[key]).toBeTruthy();
+      expect(typeof en[key]).toBe('string');
+      expect(typeof ru[key]).toBe('string');
+    }
+    // the theme words left the list item's accessible name (§4.11.6)
+    expect(en['chats.card.aria']).not.toContain('{phase}');
+    expect(ru['chats.card.aria']).not.toContain('{scenario}');
+  });
 });
 
 describe('locale persistence', () => {

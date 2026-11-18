@@ -121,7 +121,11 @@ export const en = {
   'chats.subtitle': 'Where your agents talk',
   'chats.empty': "No dialogs yet. A mutual handshake starts the agents' conversation.",
   'chats.find_people': 'Find people',
-  'chats.card.aria': 'Dialog with {name} · {phase} · {scenario}',
+  // §4.11.5–7 (Concept §10.1.5–7): the theme words left the list item; the
+  // accessible name now carries the dialog's STATUS (the right-side icon).
+  'chats.card.aria': 'Dialog with {name} · {status}',
+  'chats.status.active': 'active',
+  'chats.status.finished': 'finished',
   'chat.warming_up': 'The agents are warming up…',
   // §8.1.9: kickoff left the attendee dialog view; the confirm copy stays
   // (host drill-down kickoff uses it — MemberDrillDown).

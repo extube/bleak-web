@@ -18,7 +18,9 @@ export type IconName =
   | 'refresh'
   | 'scan'
   | 'face'
-  | 'badge';
+  | 'badge'
+  | 'status-active'
+  | 'status-finished';
 
 /** Tab glyphs (§1.2) reference the same set. */
 export const TAB_ICONS = {
@@ -156,5 +158,18 @@ export const ICON_RECTS: Record<IconName, readonly Rect[]> = {
     [5, 5, 3, 3],
     [9, 5, 4, 2],
     [9, 8, 4, 2]
+  ],
+  // Chat status (Concept §10.1.7): ACTIVE → a loading-style glyph — three
+  // dots, the in-progress/typing rhythm (ink pairing via currentColor).
+  'status-active': [
+    [3, 7, 2, 2],
+    [7, 7, 2, 2],
+    [11, 7, 2, 2]
+  ],
+  // FINISHED → a reminder-style mark: the bold «!» exclamation; the card
+  // colors it with the danger token.
+  'status-finished': [
+    [7, 2, 2, 8],
+    [7, 11, 2, 2]
   ]
 };

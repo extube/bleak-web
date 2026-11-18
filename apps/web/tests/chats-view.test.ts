@@ -11,6 +11,7 @@ import {
   backTarget,
   bubbleAriaLabel,
   chatDateLabel,
+  chatStatus,
   describeChat,
   isMyMessage,
   isNearBottom,
@@ -177,6 +178,21 @@ describe('backTarget (§1.3: history back → fallback /chats)', () => {
 
   it('no meaningful history → /chats', () => {
     expect(backTarget(1)).toBe('list');
+  });
+});
+
+describe('chatStatus (Concept §10.1.7, DESIGN §4.11.7 — RECORDED GAP)', () => {
+  it('derives ACTIVE for every real payload shape: bleak-node exposes no lifecycle signal', () => {
+    // The payloads are inspected against the real contract: ChatResponse
+    // carries only the free agent-work `phase` («networking»/«debate»),
+    // `phase_started_at`, `scenario` and timestamps; Message has no status;
+    // kickoff/history-clear leaves the chat in place. Until the backend
+    // grows a lifecycle field (backend TODO ledger), every chat is ACTIVE.
+    const started = chat('0xchat1', [ME, '0xa'], '2026-01-01T00:00:00Z');
+    expect(chatStatus(started)).toBe('active');
+    // an unknown/odd phase string is a theme, not a lifecycle state
+    expect(chatStatus({ ...started, phase: 'debate' })).toBe('active');
+    expect(chatStatus({ ...started, phase: '' })).toBe('active');
   });
 });
 

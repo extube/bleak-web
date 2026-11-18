@@ -1,56 +1,83 @@
 <script lang="ts">
   /**
-   * ChatCard (DESIGN §3.4 as amended by §4.9.7 / Concept §8.1.7): one
+   * ChatCard (DESIGN §3.4 as amended by §4.11.5–7 / Concept §10.1.5–7): one
    * stacked dialog card. Presentational — the route owns the polled data
    * and passes the chat, the resolved counterpart user and the «+N» extra
-   * count in as data. No message preview in v1 (§5 performance rationale:
-   * one extra request per chat per poll is too heavy on venue Wi-Fi).
-   * Cards are <a>-wrapped list items with full accessible names:
-   * «Диалог с {name} · {phase} · {scenario}». Per Concept §9.1.5 /
-   * DESIGN §4.10.5 (supersedes §4.9.7) every card gets the bright Deepa
-   * color coding: the counterpart's hue as the FULL-OPACITY card
-   * background (`--color-deepa-<n>` via codeHue(counterpartAddress));
-   * text on the card pairs with the hue's ink token
-   * (`--color-deepa-ink-<n>` — AA ≥4.5:1, tests/bubble-contrast.test.ts):
-   * name, time, «+N» extra and the outline-muted chips all switch to the
-   * ink pairing (chip borders stay muted-on-hue via the ink). A missing
-   * counterpart address (degenerate 0-participant case) keeps the neutral
-   * surface.
+   * count in as data.
+   *
+   * v2.4 list item (§4.11.5–7): the dialog-theme chips (phase/scenario) are
+   * REMOVED. Under the name the card shows the LAST-MESSAGE PREVIEW — the
+   * last message of the counterpart dialog (the route fetches each listed
+   * chat's transcript per the owner's 2026-11-18 frontend-only decision and
+   * feeds it in via `lastMessage`), rendered muted (with opacity) against
+   * the card text and truncated with a single-line CSS ellipsis («…» via
+   * `text-overflow: ellipsis`) when it overflows — plus the TIME OF THE
+   * LAST MESSAGE (absolute hh:mm, §4.9.8 form). Until the transcript is
+   * fetched the card shows without a preview (no placeholder spinner).
+   * The right side now carries the STATUS ICON (§4.11.7): ACTIVE → a
+   * loading-style glyph; FINISHED → the red reminder mark on the danger
+   * token. With no backend lifecycle signal every chat derives 'active'
+   * (see `chatStatus` — the gap is recorded there); `status` exists as a
+   * presentation-level override so the finished state slots in without
+   * structural change once the signal exists. The accessible name drops
+   * the removed theme words and carries the status instead.
+   *
+   * Per Concept §9.1.5 / DESIGN §4.11.5 every card keeps the bright Deepa
+   * color coding derived deterministically from the INTERLOCUTOR'S user
+   * id: the counterpart's hue as the FULL-OPACITY card background
+   * (`--color-deepa-<n>` via codeHue(counterpartAddress) — the
+   * `fnv1a(address) % 5` contract, pinned by tests); text on the card
+   * pairs with the hue's ink token (`--color-deepa-ink-<n>` — AA ≥4.5:1,
+   * tests/bubble-contrast.test.ts). A missing counterpart address
+   * (degenerate 0-participant case) keeps the neutral surface.
    */
   import { resolve } from '$app/paths';
   import type { Chat, User } from '@bleak/api-client';
   import { locale, translate } from '#lib/i18n/locale';
-  import { relativeTime } from '#lib/people/view';
+  import { messageTime, chatStatus, type ChatStatus } from '#lib/chats/view';
+  import type { LastMessageEntry } from '#lib/stores/lastMessage';
   import { codeHue } from '#lib/avatar/traits';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
-  import Chip from '#lib/components/Chip.svelte';
+  import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
 
   interface Props {
     chat: Chat;
     /** Resolved counterpart record (null → raw address shown). */
     counterpart: User | null;
-    /** Counterpart address (avatar seed). */
+    /** Counterpart address (avatar seed + §4.11.5 hue derivation). */
     counterpartAddress: string | null;
     /** Participants beyond me + the first counterpart («+N»). */
     extra?: number;
-    /** Poll clock — relative time refreshes with each tick (AC 3). */
-    now?: number;
+    /** Cached last message of the dialog (null → no preview row yet). */
+    lastMessage?: LastMessageEntry | null;
+    /** Status override (presentation-level; default: derived from chat). */
+    status?: ChatStatus;
   }
 
-  let { chat, counterpart, counterpartAddress, extra = 0, now = Date.now() }: Props = $props();
+  let {
+    chat,
+    counterpart,
+    counterpartAddress,
+    extra = 0,
+    lastMessage = null,
+    status
+  }: Props = $props();
 
   const name = $derived(counterpart?.name ?? counterpartAddress ?? chat.address);
-  const time = $derived(relativeTime(chat.created_at, now, $locale));
-  // §4.10.5: the card wears the counterpart's Deepa hue; a missing
-  // counterpart address (degenerate 0-participant case) keeps the neutral
-  // surface. The hue string IS the class name (deepa-1…deepa-5).
+  const state = $derived(status ?? chatStatus(chat));
+  // §4.11.6: the last message's time (absolute hh:mm) lives in the preview
+  // line — the right-side relative card time is retired with it.
+  const time = $derived(lastMessage ? messageTime(lastMessage.created_at, $locale) : '');
+  // §4.10.5/§4.11.5: the card wears the counterpart's Deepa hue derived
+  // from the interlocutor's user id; a missing counterpart address
+  // (degenerate 0-participant case) keeps the neutral surface. The hue
+  // string IS the class name (deepa-1…deepa-5).
   const hueClass = $derived(counterpartAddress === null ? '' : codeHue(counterpartAddress));
+  const statusLabel = $derived(
+    translate($locale, state === 'finished' ? 'chats.status.finished' : 'chats.status.active')
+  );
   const aria = $derived(
-    translate($locale, 'chats.card.aria', {
-      name,
-      phase: chat.phase,
-      scenario: chat.scenario
-    })
+    translate($locale, 'chats.card.aria', { name, status: statusLabel })
   );
 </script>
 
@@ -63,16 +90,26 @@
     <PixelAvatar address={counterpartAddress ?? ''} size={56} label={name} />
     <div class="main">
       <p class="name">{name}</p>
-      <div class="chips">
-        <Chip variant="outline-muted">{chat.phase}</Chip>
-        <Chip variant="outline-muted">{chat.scenario}</Chip>
-        {#if extra > 0}
-          <span class="extra">+{extra}</span>
-        {/if}
-      </div>
+      {#if lastMessage}
+        <p class="preview-line">
+          <span class="time" aria-hidden="true">{time}</span>
+          <!-- §4.11.6: muted preview, single-line CSS ellipsis truncation -->
+          <span class="preview" title={lastMessage.content}>{lastMessage.content}</span>
+        </p>
+      {/if}
+      {#if extra > 0}
+        <span class="extra">+{extra}</span>
+      {/if}
     </div>
-    <!-- time is decoration: title fallback, hidden from AT (§3.3 pattern) -->
-    <span class="time" title={time} aria-hidden="true">{time}</span>
+    <!-- status icon is decoration: the accessible name carries the status
+         (§4.11.7; the aria-hidden pattern matches the retired time) -->
+    <span
+      class="status {state}"
+      aria-hidden="true"
+      title={statusLabel}
+    >
+      <PixelIcon name={state === 'finished' ? 'status-finished' : 'status-active'} size={16} />
+    </span>
   </a>
 </li>
 
@@ -93,7 +130,7 @@
   .chat-card:active {
     opacity: 0.8;
   }
-  /* Bright Deepa color coding (§4.10.5): the counterpart's hue as the
+  /* Bright Deepa color coding (§4.11.5): the counterpart's hue as the
    * FULL-OPACITY card background, with the hue's ink token as the text
    * color (name inherits it). Declared after the base so the hue wins. */
   .chat-card.deepa-1 {
@@ -116,44 +153,6 @@
     background: var(--color-deepa-5);
     color: var(--color-deepa-ink-5);
   }
-  /* AA on the full-opacity hue: secondary card text (time, «+N») pairs
-   * with the ink token too — no muted gray on a bright hue. */
-  .chat-card.deepa-1 .extra,
-  .chat-card.deepa-1 .time,
-  .chat-card.deepa-2 .extra,
-  .chat-card.deepa-2 .time,
-  .chat-card.deepa-3 .extra,
-  .chat-card.deepa-3 .time,
-  .chat-card.deepa-4 .extra,
-  .chat-card.deepa-4 .time,
-  .chat-card.deepa-5 .extra,
-  .chat-card.deepa-5 .time {
-    color: inherit;
-  }
-  /* Chips stay legible on the hue: text AND border pair with the ink
-   * token (muted-on-hue via the ink — WCAG 1.4.11 non-text ≥3:1). */
-  .chat-card.deepa-1 :global(.chip.outline-muted),
-  .chat-card.deepa-2 :global(.chip.outline-muted),
-  .chat-card.deepa-3 :global(.chip.outline-muted),
-  .chat-card.deepa-4 :global(.chip.outline-muted),
-  .chat-card.deepa-5 :global(.chip.outline-muted) {
-    color: inherit;
-  }
-  .chat-card.deepa-1 :global(.chip.outline-muted) {
-    border-color: var(--color-deepa-ink-1);
-  }
-  .chat-card.deepa-2 :global(.chip.outline-muted) {
-    border-color: var(--color-deepa-ink-2);
-  }
-  .chat-card.deepa-3 :global(.chip.outline-muted) {
-    border-color: var(--color-deepa-ink-3);
-  }
-  .chat-card.deepa-4 :global(.chip.outline-muted) {
-    border-color: var(--color-deepa-ink-4);
-  }
-  .chat-card.deepa-5 :global(.chip.outline-muted) {
-    border-color: var(--color-deepa-ink-5);
-  }
   .main {
     flex: 1;
     min-width: 0;
@@ -169,28 +168,42 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .chips {
+  /* §4.11.6: the preview line — muted (opacity against the card text) and
+   * truncated with a single-line ellipsis when it overflows the block. */
+  .preview-line {
+    margin: 0;
     display: flex;
-    align-items: center;
-    flex-wrap: wrap;
+    align-items: baseline;
     gap: var(--space-2);
     min-width: 0;
+    font-size: 14px;
+    opacity: 0.75;
   }
-  .chips :global(.chip) {
-    max-width: 160px;
-  }
-  .chips :global(.chip-body) {
-    max-width: 150px;
+  .preview-line .preview {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .extra {
     font-size: 14px;
     color: var(--color-text-muted);
   }
-  .time {
+  .chat-card.deepa-1 .extra,
+  .chat-card.deepa-2 .extra,
+  .chat-card.deepa-3 .extra,
+  .chat-card.deepa-4 .extra,
+  .chat-card.deepa-5 .extra {
+    color: inherit;
+  }
+  /* §4.11.7: the status icon replaces the right-side time. The finished
+   * reminder mark takes the danger token; the active loading glyph keeps
+   * the card's ink pairing (currentColor). */
+  .status {
     flex-shrink: 0;
-    font-size: 14px;
-    color: var(--color-text-muted);
+    display: inline-flex;
+  }
+  .status.finished {
+    color: var(--color-danger);
   }
 </style>

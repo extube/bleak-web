@@ -124,6 +124,33 @@ export function chatDateLabel(iso: string, locale: 'ru' | 'en'): string {
   }).format(new Date(timestampAt(iso)));
 }
 
+// ---------------------------------------------------------------------------
+// Chat status (Concept §10.1.7, DESIGN §4.11.7)
+// ---------------------------------------------------------------------------
+
+/** Chat lifecycle state behind the list-card status icon. */
+export type ChatStatus = 'active' | 'finished';
+
+/**
+ * Chat status derivation (Concept §10.1.7): ACTIVE → loading-style icon,
+ * FINISHED → red reminder-style mark.
+ *
+ * RECORDED GAP (routes to the backend TODO ledger via the concept agent):
+ * bleak-node exposes NO chat lifecycle signal. `server.ChatResponse` /
+ * `model.Chat` carry only the free agent-work `phase` string («networking»,
+ * «debate» — a conversation theme for the agent worker, NOT a lifecycle
+ * state; see bleak-node `internal/db/chat.go` `SetChatPhase`), the
+ * `phase_started_at` stamp, `scenario` and timestamps; `model.Message` has
+ * no status either, and kickoff/history-clear leaves the chat itself in
+ * place. With no reliable finished signal every chat defaults to 'active'
+ * (the loading icon) until the backend grows one (e.g. a `finished_at` /
+ * `state` field) — the signature already takes the full Chat so the switch
+ * stays local to this function.
+ */
+export function chatStatus(_chat: Chat): ChatStatus {
+  return 'active';
+}
+
 /**
  * Bottom-stickiness (§3.5 transcript): within `thresholdPx` of the bottom ⇒
  * the view auto-scrolls on new messages; scrolled up ⇒ the floating
