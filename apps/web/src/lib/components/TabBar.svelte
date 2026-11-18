@@ -13,14 +13,13 @@
   import { chatsUnseen } from '#lib/stores/chatsSeen';
   import { TAB_ICONS, type IconName } from '#lib/components/icons/registry';
 
-  type TabRoute = '/room' | '/people' | '/chats' | '/profile' | '/host';
+  type TabRoute = '/room' | '/people' | '/chats' | '/profile';
 
   const tabs = $derived([
     { route: '/room', label: translate($locale, 'nav.room'), icon: TAB_ICONS['/room'], active: page.url.pathname.startsWith('/room') },
     { route: '/people', label: translate($locale, 'nav.people'), icon: TAB_ICONS['/people'], active: page.url.pathname.startsWith('/people') },
     { route: '/chats', label: translate($locale, 'nav.chats'), icon: TAB_ICONS['/chats'], active: page.url.pathname.startsWith('/chats') },
-    { route: '/profile', label: translate($locale, 'nav.profile'), icon: TAB_ICONS['/profile'], active: page.url.pathname.startsWith('/profile') },
-    { route: '/host', label: translate($locale, 'nav.host'), icon: TAB_ICONS['/host'], active: page.url.pathname.startsWith('/host') }
+    { route: '/profile', label: translate($locale, 'nav.profile'), icon: TAB_ICONS['/profile'], active: page.url.pathname.startsWith('/profile') }
   ] satisfies Array<{ route: TabRoute; label: string; icon: IconName; active: boolean }>);
 
   const navLabel = $derived(translate($locale, 'nav.aria'));

@@ -11,7 +11,6 @@ export const ru: Record<MessageKey, string> = {
   'nav.people': 'Люди',
   'nav.chats': 'Диалоги',
   'nav.profile': 'Профиль',
-  'nav.host': 'Хост',
   'nav.aria': 'Основная навигация',
 
   /* --- join --- */

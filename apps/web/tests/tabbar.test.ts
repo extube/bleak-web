@@ -11,11 +11,11 @@ afterEach(() => {
 });
 
 describe('TabBar', () => {
-  it('renders the five tabs with the localized aria-label', () => {
+  it('renders the four tabs with the localized aria-label', () => {
     render(TabBar, { props: {} });
     const nav = screen.getByRole('navigation', { name: ru['nav.aria'] });
     expect(nav).toBeTruthy();
-    for (const key of ['nav.room', 'nav.people', 'nav.chats', 'nav.profile', 'nav.host'] as const) {
+    for (const key of ['nav.room', 'nav.people', 'nav.chats', 'nav.profile'] as const) {
       expect(screen.getByText(ru[key])).toBeTruthy();
     }
   });
@@ -42,6 +42,6 @@ describe('TabBar', () => {
   it('resolves tab hrefs to literal routes', () => {
     render(TabBar, { props: {} });
     const hrefs = screen.getAllByRole('link').map((a) => a.getAttribute('href'));
-    expect(hrefs).toEqual(['/room', '/people', '/chats', '/profile', '/host']);
+    expect(hrefs).toEqual(['/room', '/people', '/chats', '/profile']);
   });
 });

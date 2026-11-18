@@ -10,7 +10,6 @@ export const en = {
   'nav.people': 'People',
   'nav.chats': 'Chats',
   'nav.profile': 'Profile',
-  'nav.host': 'Host',
   'nav.aria': 'Main navigation',
 
   /* --- join (DESIGN §3.1, §4.7) --- */

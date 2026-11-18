@@ -115,8 +115,8 @@ describe('locale store', () => {
  * (TZ-01 technical criterion).
  */
 const DESIGN_4_7_KEYS: string[] = [
-  // navigation
-  'nav.room', 'nav.people', 'nav.chats', 'nav.profile', 'nav.host',
+  // navigation ('nav.host' retired — Concept §10.1.8: Host left the tab bar)
+  'nav.room', 'nav.people', 'nav.chats', 'nav.profile',
   // join
   'join.title', 'join.enter', 'join.error.unknown', 'join.scan.open',
   // camera scanner
@@ -183,7 +183,7 @@ describe('DESIGN §4.7 copy table coverage', () => {
       expect((ru as Record<string, string>)[key]?.trim().length).toBeGreaterThan(0);
       expect((en as Record<string, string>)[key]?.trim().length).toBeGreaterThan(0);
     }
-    expect(DESIGN_4_7_KEYS).toHaveLength(99);
+    expect(DESIGN_4_7_KEYS).toHaveLength(98);
   });
 
   it('the retired v1 key host.token.label is gone (renamed to host.gate.label)', () => {
