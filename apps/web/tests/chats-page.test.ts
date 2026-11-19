@@ -3,14 +3,14 @@
  * me), the v2.4 item content — theme chips REMOVED, last-message preview
  * (fetched per chat from the listChatMessages endpoint into the
  * lastMessages cache, muted + single-line ellipsis truncation) + the last
- * message's time — the ACTIVE loading status icon by default (no backend
- * lifecycle signal; the finished state is exercised on the card
- * directly), «+N», empty state CTA → /people, skeletons, in-place poll
- * updates (removed chats disappear), the §4.12.2 restyle (neutral LIST
- * surface — the Deepa hue moved from the card to the status mark in the
- * chat's message color; the avatar carries the coding like /people),
- * chatsSeen write-through on visit, error banner with dimmed last-known
- * list, poller teardown. */
+ * message's time — the status icon derived from the AUTHORITATIVE Chat.done
+ * (CONCEPT §13 R2 / DESIGN §4.13.2: done → finished reminder mark, else the
+ * animated ACTIVE loading glyph), «+N», empty state CTA → /people,
+ * skeletons, in-place poll updates (removed chats disappear), the §4.12.2
+ * restyle (neutral LIST surface — the Deepa hue moved from the card to the
+ * status mark in the chat's message color; the avatar carries the coding
+ * like /people), chatsSeen write-through on visit, error banner with
+ * dimmed last-known list, poller teardown. */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
@@ -245,6 +245,48 @@ describe('/chats — cards (§3.4 as amended by §4.11.5–7, §4.12.2)', () => 
     expect(status?.querySelector('svg')).toBeTruthy();
   });
 
+  it('status icon per Chat.done (§4.13.2): done → the FINISHED reminder mark, no override passed', async () => {
+    // The AUTHORITATIVE signal flows straight from the polled payload —
+    // the route passes no presentation override.
+    fixture.chats = [{ ...chat('0xchat1', [ME, '0xa'], 5), done: true }];
+    await renderPage();
+    const link = screen.getByRole('link', {
+      name: ru['chats.card.aria']
+        .replace('{name}', 'Алиса')
+        .replace('{status}', ru['chats.status.finished'])
+    });
+    const status = link.querySelector('.status');
+    expect(status?.classList.contains('finished')).toBe(true);
+    expect(status?.classList.contains('active')).toBe(false);
+    expect(status?.querySelector('svg')).toBeTruthy();
+    // the §4.12.2 treatment is kept: the mark wears the interlocutor's hue
+    expect(status?.classList.contains(codeHue('0xa'))).toBe(true);
+  });
+
+  it('status icon per Chat.done (§4.13.2): done missing/false → ACTIVE, and the state follows a poll', async () => {
+    await renderPage();
+    const active = screen.getByRole('link', { name: /Диалог с Алиса/ }).querySelector('.status');
+    expect(active?.classList.contains('active')).toBe(true);
+    // kickoff reset semantics server-side: done flips true → the mark swaps
+    fixture.chats = [{ ...chat('0xchat1', [ME, '0xa'], 4), done: true }];
+    await waitFor(
+      () =>
+        expect(
+          screen.getByRole('link', { name: /Диалог с Алиса/ }).querySelector('.status.finished')
+        ).toBeTruthy(),
+      { timeout: 6000 }
+    );
+    // …and back (a kickoff reset the false field server-side)
+    fixture.chats = [{ ...chat('0xchat1', [ME, '0xa'], 4), done: false }];
+    await waitFor(
+      () =>
+        expect(
+          screen.getByRole('link', { name: /Диалог с Алиса/ }).querySelector('.status.active')
+        ).toBeTruthy(),
+      { timeout: 6000 }
+    );
+  }, 20_000);
+
   it('counterpart derived from participants minus me; a ≠2 chat shows first counterpart + «+N» (AC 2)', async () => {
     fixture.users.push(person('0xb', 'Борис', 8), person('0xc', 'Вера', 6));
     fixture.chats = [chat('0xchat3', ['0xb', ME, '0xa', '0xc'], 2)];
@@ -389,6 +431,41 @@ describe('/chats — badge + poller (§1.2, §2.2)', () => {
 describe('ChatCard — status icon per state (§4.11.7; the card directly, the route derives)', () => {
   const cardChat = chat('0xchat1', [ME, '0xa'], 5);
   const entry = { owner: ME, content: 'привет', from: '0xa', created_at: minutesAgo(2) };
+
+  it('Chat.done drives the state without an override (§4.13.2): done → FINISHED, missing/false → ACTIVE', async () => {
+    render(ChatCard, {
+      props: {
+        chat: { ...cardChat, done: true },
+        counterpart: person('0xa', 'Алиса', 10),
+        counterpartAddress: '0xa',
+        lastMessage: entry
+      }
+    });
+    expect(document.querySelector('.status.finished')).toBeTruthy();
+    cleanup();
+
+    render(ChatCard, {
+      props: {
+        chat: { ...cardChat, done: false },
+        counterpart: person('0xa', 'Алиса', 10),
+        counterpartAddress: '0xa',
+        lastMessage: entry
+      }
+    });
+    expect(document.querySelector('.status.active')).toBeTruthy();
+    cleanup();
+
+    // missing done (fixture-compat optionality) means NOT finished
+    render(ChatCard, {
+      props: {
+        chat: cardChat,
+        counterpart: person('0xa', 'Алиса', 10),
+        counterpartAddress: '0xa',
+        lastMessage: entry
+      }
+    });
+    expect(document.querySelector('.status.active')).toBeTruthy();
+  });
 
   it('ACTIVE → the loading-style glyph in the chat\'s hue, animated; status wording in the accessible name (§4.12.2)', async () => {
     render(ChatCard, {

@@ -14,7 +14,10 @@
    * button + confirm left the dialog view entirely (host drill-down keeps
    * its own), message times are absolute hh:mm, a locale date label sits
    * atop the transcript, and the theme chips gave way to the counterpart's
-   * public bio in the header.
+   * public bio in the header. §4.13.2 (CONCEPT §13 R2): the dialog reflects
+   * the AUTHORITATIVE Chat.done — a subtle finished indicator beside the
+   * header name (the attendee dialog displays only; kickoff resets done
+   * server-side via the host drill-down).
    */
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
@@ -30,6 +33,7 @@
     backTarget,
     bubbleAriaLabel,
     chatDateLabel,
+    chatStatus,
     isMyMessage,
     isNearBottom,
     mergeMessages,
@@ -87,6 +91,14 @@
       ? counterpart.public_bio.trim()
       : null
   );
+  /**
+   * Dialog UI state (CONCEPT §13 R2 / DESIGN §4.13.2): the dialog reflects
+   * the AUTHORITATIVE Chat.done signal — finished → the status chip near
+   * the header (reuses the list's status wording; minimal treatment). The
+   * attendee dialog has NO kickoff (removed in v2.2): kickoff resets done
+   * SERVER-side via the host drill-down only — the attendee side displays.
+   */
+  const dialogStatus = $derived(chat === null ? null : chatStatus(chat));
 
   // --- transcript viewer fallback (ARCHITECTURE §10.3 escape hatch) --------
   //
@@ -365,6 +377,17 @@
                    (ARCHITECTURE §10.3 escape hatch, §3.5). -->
               <Chip variant="outline-muted">{translate($locale, 'chat.host_view')}</Chip>
             {/if}
+            {#if dialogStatus === 'finished'}
+              <!-- §4.13.2 dialog finished state: the status icon/wording
+                   reused near the header (the list card's status wording). -->
+              <span
+                class="finished-indicator"
+                title={translate($locale, 'chats.status.finished')}
+              >
+                <PixelIcon name="status-finished" size={12} />
+                {translate($locale, 'chats.status.finished')}
+              </span>
+            {/if}
           </div>
           {#if publicBio !== null}
             <!-- Concept §8.1.10: the interlocutor's public info replaces the
@@ -544,6 +567,17 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  /* §4.13.2: the dialog finished indicator — the status glyph + wording
+   * beside the name row; muted so it stays a subtle state mark (the
+   * interactive accent discipline is untouched: it is not a control). */
+  .finished-indicator {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: 11px;
+    color: var(--color-text-muted);
   }
   .banner {
     position: fixed;

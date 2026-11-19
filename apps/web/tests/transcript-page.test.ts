@@ -286,6 +286,33 @@ describe('v2.2 dialog polish (Concept §8.1.8/9/10, DESIGN §4.9.8/9/10)', () =>
   });
 });
 
+describe('dialog finished state (CONCEPT §13 R2, DESIGN §4.13.2 — Chat.done is authoritative)', () => {
+  it('done → the subtle finished indicator beside the header name', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    await renderPage();
+    const indicator = document.querySelector('.finished-indicator');
+    expect(indicator).toBeTruthy();
+    // reuses the list's status wording (existing keys — RU/EN parity kept)
+    expect(indicator?.textContent).toContain(ru['chats.status.finished']);
+    expect(indicator?.querySelector('svg')).toBeTruthy();
+    // and it must not appear for an ACTIVE dialog (see next test)
+  });
+
+  it('done missing/false → NO finished indicator (the default dialog state)', async () => {
+    withMessages(message('tx1', '0xa', 'Привет.', 60));
+    await renderPage(); // fixture.chat = baseChat() carries no done field
+    expect(document.querySelector('.finished-indicator')).toBeNull();
+
+    cleanup();
+    fixture.chat = { ...baseChat(), done: false };
+    render(Page, { props: {} });
+    await screen.findByText('Привет.', undefined, { timeout: 4000 });
+    await tick();
+    expect(document.querySelector('.finished-indicator')).toBeNull();
+  });
+});
+
 describe('v2.3 chat colors (Concept §9.1.5, DESIGN §4.10.5 — Deepa palette)', () => {
   it('their bubbles keep the full-opacity Deepa hue background; own bubbles are muted (no Deepa hue)', async () => {
     withMessages(

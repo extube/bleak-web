@@ -14,12 +14,13 @@
    * `text-overflow: ellipsis`) when it overflows — plus the TIME OF THE
    * LAST MESSAGE (absolute hh:mm, §4.9.8 form). Until the transcript is
    * fetched the card shows without a preview (no placeholder spinner).
-   * The right side carries the STATUS ICON (§4.11.7): ACTIVE → a
-   * loading-style glyph; FINISHED → the reminder mark. With no backend
-   * lifecycle signal every chat derives 'active' (see `chatStatus` — the
-   * gap is recorded there); `status` exists as a presentation-level
-   * override so the finished state slots in without structural change once
-   * the signal exists. The accessible name drops the removed theme words
+   * The right side carries the STATUS ICON (§4.11.7, driven by the
+   * AUTHORITATIVE Chat.done signal — CONCEPT §13 R2 / DESIGN §4.13.2):
+   * ACTIVE → the animated loading-style glyph; FINISHED → the reminder
+   * mark. `chatStatus(chat)` derives the state from `chat.done`
+   * (missing/undefined → active); the `status` prop stays as a
+   * presentation-level override for direct-card tests. The accessible
+   * name drops the removed theme words
    * and carries the status instead.
    *
    * §4.12.2 / Concept §11.1.2 (owner change request, 2026-11-18) — the LIST

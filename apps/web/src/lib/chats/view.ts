@@ -1,5 +1,6 @@
 /**
- * Chats view logic (TZ-07, DESIGN §3.4/§3.5) — pure and unit-tested.
+ * Chats view logic (TZ-07, DESIGN §3.4/§3.5; chat status per CONCEPT §13 R2
+ * / DESIGN §4.13.2) — pure and unit-tested.
  * Chat-card derivation (counterpart + «+N»), stable ordering and poll
  * diffing, transcript alignment + speaker resolution, accessible bubble
  * names, bottom-stickiness for auto-scroll, and the back-target rule (§1.3).
@@ -125,30 +126,35 @@ export function chatDateLabel(iso: string, locale: 'ru' | 'en'): string {
 }
 
 // ---------------------------------------------------------------------------
-// Chat status (Concept §10.1.7, DESIGN §4.11.7)
+// Chat status (CONCEPT §13 R2 / DESIGN §4.13.2, replacing the §10.1.7 gap)
 // ---------------------------------------------------------------------------
 
 /** Chat lifecycle state behind the list-card status icon. */
 export type ChatStatus = 'active' | 'finished';
 
 /**
- * Chat status derivation (Concept §10.1.7): ACTIVE → loading-style icon,
- * FINISHED → red reminder-style mark.
+ * The AUTHORITATIVE finished signal (CONCEPT §13 R2, DESIGN §4.13.2):
+ * `Chat.done` — the farewell turn stamps it server-side, a kickoff resets
+ * it to false. The former §10.1.7 default-active fallback is retired.
  *
- * RECORDED GAP (routes to the backend TODO ledger via the concept agent):
- * bleak-node exposes NO chat lifecycle signal. `server.ChatResponse` /
- * `model.Chat` carry only the free agent-work `phase` string («networking»,
- * «debate» — a conversation theme for the agent worker, NOT a lifecycle
- * state; see bleak-node `internal/db/chat.go` `SetChatPhase`), the
- * `phase_started_at` stamp, `scenario` and timestamps; `model.Message` has
- * no status either, and kickoff/history-clear leaves the chat itself in
- * place. With no reliable finished signal every chat defaults to 'active'
- * (the loading icon) until the backend grows one (e.g. a `finished_at` /
- * `state` field) — the signature already takes the full Chat so the switch
- * stays local to this function.
+ * A missing / undefined `done` means NOT finished (the client type keeps
+ * `done?: boolean` only so existing fixtures stay source-compatible;
+ * `model.Chat` always serializes the field). Pure and deterministic: the
+ * sole input is the Chat itself — tz5-04 gates the contact-share slide
+ * control on this selector, tz5-05 keys the list ordering off `chatStatus`.
  */
-export function chatStatus(_chat: Chat): ChatStatus {
-  return 'active';
+export function isChatDone(chat: Chat): boolean {
+  return chat.done === true;
+}
+
+/**
+ * Chat status derivation (DESIGN §4.13.2): done === true → 'finished' (the
+ * reminder-style mark, v2.4/v2.5 status-mark design), anything else →
+ * 'active' (the animated loading glyph). A missing `done` (old fixtures /
+ * clients that have not parsed the field) is NOT finished.
+ */
+export function chatStatus(chat: Chat): ChatStatus {
+  return isChatDone(chat) ? 'finished' : 'active';
 }
 
 /**
