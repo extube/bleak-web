@@ -32,6 +32,17 @@ export function donutScoreDash(score: number, radius: number = DONUT_RADIUS): st
   return `${(c * clamped) / 100} ${c}`;
 }
 
+/**
+ * The DONUT's score number renders as a CEIL integer (DESIGN §4.14.4 sheet
+ * polish): a fractional score (e.g. 66.4) displays as 67 — both in the SVG
+ * text and in the aria wording that embeds the number. The ARC math itself
+ * keeps the raw score (donutScoreDash — untouched); only the displayed
+ * number rounds up.
+ */
+export function summaryScoreDisplay(score: number): number {
+  return Math.ceil(score);
+}
+
 /** Score strictly above 80 → the fireworks + brightness celebration. */
 export function isCelebration(score: number): boolean {
   return score > 80;

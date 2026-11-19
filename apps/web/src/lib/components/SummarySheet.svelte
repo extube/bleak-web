@@ -28,7 +28,7 @@
   import type { Summary, User } from '@bleak/api-client';
   import { locale, translate } from '#lib/i18n/locale';
   import { codeHue } from '#lib/avatar/traits';
-  import { DONUT_RADIUS, donutScoreDash, summaryCelebrates } from '#lib/chats/summary';
+  import { DONUT_RADIUS, donutScoreDash, summaryCelebrates, summaryScoreDisplay } from '#lib/chats/summary';
   import ShareContactSlide from './ShareContactSlide.svelte';
   import PixelAvatar from './PixelAvatar.svelte';
   import PixelIcon from './icons/PixelIcon.svelte';
@@ -79,8 +79,13 @@
   const title = $derived(translate($locale, 'chat.summary.title'));
   const checklistHeading = $derived(translate($locale, 'chat.summary.checklist'));
   const loadingText = $derived(translate($locale, 'chat.summary.loading'));
+  const scoreText = $derived(summary === null ? '' : String(summaryScoreDisplay(summary.score)));
   const scoreAria = $derived(
-    summary === null ? '' : translate($locale, 'chat.summary.score.aria', { score: String(summary.score) })
+    summary === null
+      ? ''
+      : translate($locale, 'chat.summary.score.aria', {
+          score: String(summaryScoreDisplay(summary.score))
+        })
   );
   const closeLabel = $derived(translate($locale, 'common.close'));
   const networkErrorText = $derived(translate($locale, 'common.error.network'));
@@ -193,7 +198,7 @@
             r={DONUT_RADIUS}
             style:stroke-dasharray={donutScoreDash(summary.score)}
           />
-          <text class="score" x="60" y="60">{summary.score}</text>
+          <text class="score" x="60" y="60">{scoreText}</text>
         </svg>
       </div>
 
@@ -206,9 +211,14 @@
         <ul>
           {#each summary.checkpoints as checkpoint (checkpoint.key)}
             <li class="checkpoint" class:closed={checkpoint.closed}>
-              {#if checkpoint.closed}
-                <span class="glyph"><PixelIcon name="check" size={12} /></span>
-              {/if}
+              <!-- §4.14.4 sheet polish: a SQUARE checkbox per checkpoint —
+                   the closed ones carry the green check glyph inside, the
+                   open ones keep the empty square. -->
+              <span class="box" aria-hidden="true">
+                {#if checkpoint.closed}
+                  <span class="check"><PixelIcon name="check" size={12} /></span>
+                {/if}
+              </span>
               <span class="label">{checkpoint.label}</span>
             </li>
           {/each}
@@ -242,11 +252,19 @@
   }
   /* ROUND corners (§4.13.5): the owner change vs HandshakeSheet's pixel
    * steps — the bottom sheet keeps the slide-up, scrim and close pattern. */
+  /* WIDTH (§4.14.4): the sheet's horizontal extent MATCHES the dialog
+   * content box — the transcript column in routes/chats/[address] sits
+   * inside the page's `--space-4` scroll insets (phone) and is capped at
+   * 640px centered from 720px up (that page's `.column` media query), so
+   * the sheet mirrors exactly that mapping: the sheet's left/right edges
+   * align with the messages' left/right borders at every viewport. */
   .sheet {
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
+    width: calc(100% - 2 * var(--space-4));
+    margin-inline: auto;
     z-index: 31;
     background: var(--color-surface);
     border-radius: var(--radius-lg);
@@ -374,8 +392,24 @@
     gap: var(--space-2);
     font-size: 14px;
   }
-  .checkpoint .glyph {
+  /* §4.14.4 sheet polish: SQUARE checkboxes — a bordered square box per
+   * checkpoint; closed items carry the check glyph inside (GREEN — the
+   * --color-check-green token), open items keep the empty square. */
+  .checkpoint .box {
     display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    border: 1.5px solid currentColor;
+  }
+  /* the GREEN check sign (§4.14.4) — the wrapper owns the color so the
+   * PixelIcon glyph inherits it (currentColor fill; cross-component
+   * selectors are out of Svelte's scope, so the color sits on OUR span). */
+  .checkpoint .check {
+    display: inline-flex;
+    color: var(--color-check-green);
   }
   /* Open criteria render muted (no glyph) — the §4.13.5 closed/open states. */
   .checkpoint:not(.closed) {
@@ -480,6 +514,15 @@
     }
     to {
       opacity: 1;
+    }
+  }
+  /* Desktop cap (§4.14.4): the transcript column is capped at 640px
+   * centered from 720px up (routes/chats/[address] `.column` media query)
+   * — the sheet mirrors that same breakpoint/value. The width contract
+   * test pins the two files in lockstep (tests/summary-sheet.test.ts). */
+  @media (min-width: 720px) {
+    .sheet {
+      max-width: 640px;
     }
   }
 </style>

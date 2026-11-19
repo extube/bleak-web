@@ -6,6 +6,8 @@
  * the sharing/gesture logic is covered by the ShareContactSlide control's
  * own suite. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import SummarySheet from '../src/lib/components/SummarySheet.svelte';
 import {
@@ -13,7 +15,8 @@ import {
   donutCircumference,
   donutScoreDash,
   isCelebration,
-  summaryCelebrates
+  summaryCelebrates,
+  summaryScoreDisplay
 } from '../src/lib/chats/summary';
 import { codeHue } from '../src/lib/avatar/traits';
 import type { Summary, User } from '@bleak/api-client';
@@ -23,6 +26,17 @@ import { en } from '../src/lib/i18n/en';
 afterEach(() => {
   cleanup();
 });
+
+// Source-level CSS assertions (§4.14.4 width contract) read the component
+// files — jsdom resolves no component CSS (same pattern as chats-page).
+const WEB_ROOT = process.cwd().endsWith(sep + 'apps' + sep + 'web')
+  ? process.cwd()
+  : join(process.cwd(), 'apps', 'web');
+const SHEET_SOURCE = readFileSync(join(WEB_ROOT, 'src/lib/components/SummarySheet.svelte'), 'utf8');
+const TRANSCRIPT_SOURCE = readFileSync(
+  join(WEB_ROOT, 'src/routes/chats/[address]/+page.svelte'),
+  'utf8'
+);
 
 const ALICE: User = {
   address: '0xalice',
@@ -106,6 +120,17 @@ describe('celebration threshold (strictly above 80)', () => {
   });
 });
 
+describe('score display (§4.14.4: ceil integer)', () => {
+  it('a fractional score rounds UP (66.4 → 67); integers pass through', () => {
+    expect(summaryScoreDisplay(66.4)).toBe(67);
+    expect(summaryScoreDisplay(0.5)).toBe(1);
+    expect(summaryScoreDisplay(80.01)).toBe(81);
+    expect(summaryScoreDisplay(66)).toBe(66);
+    expect(summaryScoreDisplay(100)).toBe(100);
+    expect(summaryScoreDisplay(0)).toBe(0);
+  });
+});
+
 describe('SummarySheet rendering', () => {
   it('closed → nothing renders', () => {
     renderSheet({ open: false });
@@ -125,6 +150,21 @@ describe('SummarySheet rendering', () => {
     );
   });
 
+  it('§4.14.4: a fractional score displays as the CEIL integer (66.4 → 67), the arc keeps the raw score', () => {
+    renderSheet({ summary: summaryFixture(66.4) });
+    const dialog = screen.getByRole('dialog');
+    // the displayed NUMBER is the ceil integer…
+    expect(dialog.querySelector('.donut .score')?.textContent).toBe('67');
+    // …and the aria wording embeds the same ceiled number
+    expect(dialog.querySelector('.donut')?.getAttribute('aria-label')).toBe(
+      ru['chat.summary.score.aria'].replace('{score}', '67')
+    );
+    // the ARC math stays on the raw score (donut arc math untouched)
+    expect(dialog.querySelector('.donut .arc')?.getAttribute('style')).toContain(
+      donutScoreDash(66.4)
+    );
+  });
+
   it('checkpoints render closed (check glyph) / open (muted, no glyph), labels verbatim', () => {
     renderSheet();
     const items = document.querySelectorAll('.checkpoint');
@@ -135,6 +175,40 @@ describe('SummarySheet rendering', () => {
     expect(items[2]?.classList.contains('closed')).toBe(false);
     expect(items[2]?.querySelector('svg')).toBeNull();
     expect(items[2]?.textContent).toContain('Project details were discussed');
+  });
+
+  it('§4.14.4: every checkpoint carries a SQUARE checkbox — green check inside when closed, empty square when open', () => {
+    renderSheet();
+    const items = document.querySelectorAll('.checkpoint');
+    expect(items).toHaveLength(5);
+    // every item renders its square box, closed or open
+    const boxes = [...items].map((item) => item.querySelector('.box'));
+    expect(boxes.every((box) => box !== null)).toBe(true);
+    // closed: the check glyph lives INSIDE the square box
+    expect(boxes[0]?.querySelector('svg')).toBeTruthy();
+    // open: the square stays EMPTY (no glyph)
+    expect(boxes[2]?.querySelector('svg')).toBeNull();
+    expect(boxes[2]?.textContent).toBe('');
+  });
+
+  it('§4.14.4 checkbox CSS contract: bordered square, green check via the token, no raw hex', () => {
+    // jsdom resolves no component CSS — the box geometry contract is pinned
+    // at the source level (same pattern as the §4.14.4 width contract).
+    const boxBlock = SHEET_SOURCE.match(/\.checkpoint \.box\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(boxBlock).toContain('border:');
+    // SQUARE: width === height (no pill rounding, no aspect distortion)
+    const width = boxBlock.match(/width:\s*([\d.]+px)/)?.[1];
+    const height = boxBlock.match(/height:\s*([\d.]+px)/)?.[1];
+    expect(width).toBeTruthy();
+    expect(height).toBe(width);
+    // the green check sign comes from the token, never raw hex (§2.4)
+    expect(SHEET_SOURCE).toContain('.checkpoint .check');
+    const checkBlock = SHEET_SOURCE.match(/\.checkpoint \.check\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(checkBlock).toContain('var(--color-check-green)');
+    expect(SHEET_SOURCE).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    // the token exists in tokens.css (sourced from the approved Deepa green)
+    const tokensCss = readFileSync(join(WEB_ROOT, 'src/lib/styles/tokens.css'), 'utf8');
+    expect(tokensCss).toMatch(/--color-check-green:\s*var\(--color-deepa-1\)/);
   });
 
   it('the Summary description renders as a muted paragraph', () => {
@@ -246,5 +320,44 @@ describe('SummarySheet rendering', () => {
     expect(screen.getByText('Both introduced themselves')).toBeTruthy();
     // restore the default locale for the rest of the suite
     setLocale('ru');
+  });
+});
+
+describe('§4.14.4 width contract: the sheet matches the dialog content box', () => {
+  // The transcript column in routes/chats/[address] defines the dialog
+  // content geometry: `.scroll` insets it by `--space-4` on each side
+  // (phone), and from the 720px breakpoint up `.column` caps at 640px
+  // centered. The sheet mirrors that exact mapping — its left/right edges
+  // align with the messages' borders at every viewport. Both files are
+  // read here so the two stay in lockstep (drift fails the test).
+  function sheetBlock(): string {
+    return SHEET_SOURCE.match(/\.sheet\s*\{[\s\S]*?\}/)?.[0] ?? '';
+  }
+  function sheetMediaBlock(): string {
+    return SHEET_SOURCE.match(/@media \(min-width:[^)]*\)\s*\{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+  }
+
+  it('phone: the sheet insets itself by the transcript column’s scroll insets', () => {
+    // the transcript's horizontal inset token (the `.scroll` padding)
+    const scrollBlock = TRANSCRIPT_SOURCE.match(/\.scroll\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    const inset = scrollBlock.match(/padding:\s*(var\(--space-\d+)\)\s+\1/)?.[1];
+    expect(inset).toBeTruthy(); // uniform horizontal inset, e.g. --space-4
+    // the sheet's width subtracts exactly two of that inset
+    expect(sheetBlock()).toContain(`width: calc(100% - 2 * ${inset})`);
+    // centered (the fixed sheet spans left/right 0 with auto inline margins)
+    expect(sheetBlock()).toContain('margin-inline: auto');
+  });
+
+  it('desktop: the sheet caps at the transcript column’s max-width, at the same breakpoint', () => {
+    // the transcript column cap + breakpoint
+    const media = TRANSCRIPT_SOURCE.match(/@media \(min-width:\s*(\d+)px\)[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    const breakpoint = media.match(/min-width:\s*(\d+)px/)?.[1];
+    const columnCap = media.match(/\.column\s*\{[\s\S]*?max-width:\s*(\d+)px/)?.[1];
+    expect(breakpoint).toBeTruthy();
+    expect(columnCap).toBeTruthy();
+    // the sheet's media query mirrors the same breakpoint AND cap
+    const sheetMedia = sheetMediaBlock();
+    expect(sheetMedia).toContain(`min-width: ${breakpoint}px`);
+    expect(sheetMedia).toContain(`max-width: ${columnCap}px`);
   });
 });
