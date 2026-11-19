@@ -127,7 +127,9 @@ describe('locale store', () => {
  * (TZ-01 technical criterion).
  */
 const DESIGN_4_7_KEYS: string[] = [
-  // navigation ('nav.host' retired — Concept §10.1.8: Host left the tab bar)
+  // navigation ('nav.host' retired — Concept §10.1.8: Host left the tab bar;
+  // 'nav.contacts' + the dot-aria clauses added by §4.14.2, asserted in the
+  // dedicated describe below)
   'nav.room', 'nav.people', 'nav.chats', 'nav.profile',
   // join
   'join.title', 'join.enter', 'join.error.unknown', 'join.scan.open',
@@ -256,7 +258,7 @@ describe('v2.1 UI-polish round keys (DESIGN §4.8)', () => {
 });
 
 describe('§4.13.3 contact-share keys (Concept §13.1.3, DESIGN §4.13.3)', () => {
-  it('the slide, contact-card field and received-list copy exist in BOTH dictionaries (RU/EN parity)', () => {
+  it('the slide and contact-card field copy exist in BOTH dictionaries (RU/EN parity)', () => {
     for (const key of [
       'chat.contact_share.label',
       'chat.contact_share.shared',
@@ -265,9 +267,7 @@ describe('§4.13.3 contact-share keys (Concept §13.1.3, DESIGN §4.13.3)', () =
       'chat.contact_share.error',
       'profile.contact.edit',
       'profile.contact.label',
-      'profile.contact.note',
-      'profile.shared.title',
-      'profile.shared.empty'
+      'profile.contact.note'
     ] as const) {
       expect(en[key]?.trim().length).toBeGreaterThan(0);
       expect(ru[key]?.trim().length).toBeGreaterThan(0);
@@ -279,6 +279,40 @@ describe('§4.13.3 contact-share keys (Concept §13.1.3, DESIGN §4.13.3)', () =
     expect(en['chat.contact_share.locked']).toBe('Available once the dialog is finished');
     expect(ru['profile.contact.note']).toContain('telegram');
     expect(en['profile.contact.note']).toContain('telegram');
+  });
+});
+
+describe('§4.14.2 contacts footer page keys (Concept §14.1.2)', () => {
+  it('the tab label, dot aria, page title/subtitle and empty state exist in BOTH dictionaries', () => {
+    for (const key of [
+      'nav.contacts',
+      'nav.contacts.dot_aria',
+      'nav.chats.dot_aria',
+      'contacts.title',
+      'contacts.subtitle',
+      'contacts.empty'
+    ] as const) {
+      expect(en[key]?.trim().length).toBeGreaterThan(0);
+      expect(ru[key]?.trim().length).toBeGreaterThan(0);
+    }
+    // verbatim spot-checks
+    expect(ru['nav.contacts']).toBe('Контакты');
+    expect(en['nav.contacts']).toBe('Contacts');
+    expect(ru['nav.contacts.dot_aria']).toBe('есть новые контакты');
+    expect(en['nav.contacts.dot_aria']).toBe('new contacts');
+    expect(ru['nav.chats.dot_aria']).toBe('есть новые диалоги');
+    expect(en['nav.chats.dot_aria']).toBe('new chats');
+    expect(ru['contacts.title']).toBe('Контакты');
+    expect(en['contacts.title']).toBe('Contacts');
+    expect(ru['contacts.empty']).toBe('Пока никто не поделился с вами контактом.');
+    expect(en['contacts.empty']).toBe('Nobody has shared a contact with you yet.');
+  });
+
+  it('the superseded §4.13.3 settings-list keys are retired from BOTH dictionaries', () => {
+    expect(en).not.toHaveProperty('profile.shared.title');
+    expect(ru).not.toHaveProperty('profile.shared.title');
+    expect(en).not.toHaveProperty('profile.shared.empty');
+    expect(ru).not.toHaveProperty('profile.shared.empty');
   });
 });
 

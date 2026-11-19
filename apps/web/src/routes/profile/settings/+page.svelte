@@ -13,9 +13,10 @@
    * endpoints + the local mirror) and the LOCAL contact-card field
    * (ContactCardEditor, DESIGN §4.13.3: `bleak.contactCard`, no backend
    * field) — the same inline-swap pattern (one editor at a time),
-   * returning to the settings rows after save/cancel. §4.13.3 also adds
-   * the minimal "Shared with you" list (recipient-only
-   * listContactsSharedWith read, newest first).
+   * returning to the settings rows after save/cancel. §4.13.3's minimal
+   * "Shared with you" list lived here once — DESIGN §4.14.2 supersedes it
+   * with the /contacts footer tab (the PRIMARY surface), so the list was
+   * REMOVED to avoid a duplicate surface.
    *
    * Token rotation (§3.6 settings): confirm dialog (other-device lockout
    * copy) → generate the new secret → `rotateUserToken` (Bearer = current,
@@ -36,14 +37,13 @@
   import { get } from 'svelte/store';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { ApiError, NetworkError, type Contact, type User } from '@bleak/api-client';
+  import { ApiError, NetworkError, type User } from '@bleak/api-client';
   import { identity, initIdentity, clearIdentity, saveIdentity } from '#lib/stores/identity';
   import { updateVaultEntryToken } from '#lib/stores/tokenVault';
   import { requireIdentityOrRedirect } from '#lib/nav/guard';
   import { api } from '#lib/api/client';
   import { generateTokenSecret } from '#lib/crypto/secrets';
   import { backTarget } from '#lib/chats/view';
-  import { relativeTime } from '#lib/people/view';
   import {
     loadContactCard,
     saveContactCard
@@ -230,52 +230,6 @@
     flashSaved();
   }
 
-  // --- received contacts (DESIGN §4.13.3 item 4 — the minimal view) -----------
-  //
-  // "Shared with you": a compact list fed by listContactsSharedWith(me) —
-  // the RECIPIENT-only read (the attendee's own persona Bearer, auto-
-  // injected), newest first per the endpoint. Names resolve against the
-  // room roster when the counterpart is known; the address is the
-  // fallback. Mount-time fetch only (no poller on this sub-page, §2.2).
-  let received = $state<readonly Contact[]>([]);
-  let roster = $state<readonly User[]>([]);
-  let receivedLoading = $state(true);
-  let receivedError = $state<{ kind: 'network' | 'api'; text: string | null } | null>(null);
-
-  async function loadReceived(): Promise<void> {
-    const id = get(identity);
-    if (!id) return;
-    receivedLoading = true;
-    receivedError = null;
-    try {
-      const [contacts, users] = await Promise.all([
-        api.listContactsSharedWith(id.userAddress),
-        api.listRoomUsers(id.roomAddress).catch(() => [] as User[])
-      ]);
-      received = contacts;
-      roster = users;
-    } catch (cause) {
-      receivedError = bannerOf(cause);
-    } finally {
-      receivedLoading = false;
-    }
-  }
-
-  $effect(() => {
-    if (!guarded) return;
-    void loadReceived();
-  });
-
-  /** The counterpart's name when the roster knows it, else the address. */
-  function nameOf(address: string): string {
-    return roster.find((user) => user.address === address)?.name ?? address;
-  }
-
-  /** Relative «2 мин» / "2 min" time (the people-view helper, §3.3). */
-  function ago(iso: string): string {
-    return relativeTime(iso, Date.now(), $locale);
-  }
-
   // --- token rotation (v2, §3.6 settings) --------------------------------------
   let rotateOpen = $state(false);
   let pendingRotate = $state(false);
@@ -391,34 +345,8 @@
         </button>
       </section>
 
-      <!-- Received contacts (DESIGN §4.13.3 item 4): the minimal
-           "Shared with you" list — recipient-only read, newest first,
-           name resolution against the room roster. -->
-      <section class="shared pixel-corners" aria-label={translate($locale, 'profile.shared.title')}>
-        <h2 class="section-title">{translate($locale, 'profile.shared.title')}</h2>
-        {#if receivedError}
-          <ErrorBanner
-            kind={receivedError.kind}
-            message={receivedError.text}
-            onretry={() => void loadReceived()}
-          />
-        {:else if receivedLoading}
-          <p class="shared-empty">{translate($locale, 'common.loading')}</p>
-        {:else if received.length === 0}
-          <p class="shared-empty">{translate($locale, 'profile.shared.empty')}</p>
-        {:else}
-          <ul class="shared-list" aria-label={translate($locale, 'profile.shared.title')}>
-            {#each received as row (row.from + row.created_at)}
-              <li class="shared-row">
-                <span class="shared-name">{nameOf(row.from)}</span>
-                <span class="shared-content">{row.content}</span>
-                <span class="shared-time">{ago(row.created_at)}</span>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </section>
-
+      <!-- Received contacts (DESIGN §4.14.2): the §4.13.3 minimal list was
+           REMOVED — the /contacts footer tab is the PRIMARY surface. -->
       <section class="settings pixel-corners" aria-label={translate($locale, 'profile.settings.title')}>
         <div class="setting">
           <span class="setting-label">{translate($locale, 'common.locale')}</span>
@@ -532,8 +460,7 @@
     transition: color 120ms ease-out;
   }
   .settings,
-  .persona,
-  .shared {
+  .persona {
     background: var(--color-surface);
     border-radius: var(--radius-lg);
     padding: var(--space-5);
@@ -634,48 +561,11 @@
   @media (min-width: 720px) {
     /* Settings card max-width 560px centered (§3.6 responsive). */
     .settings,
-    .persona,
-    .shared {
+    .persona {
       max-width: 560px;
       width: 100%;
       align-self: center;
     }
   }
-  .shared-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
-  .shared-row {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: var(--space-2) 0;
-    border-top: 1px solid var(--color-text-disabled-strong);
-  }
-  .shared-row:first-child {
-    border-top: none;
-  }
-  .shared-name {
-    font-size: 14px;
-    font-weight: 600;
-    overflow-wrap: anywhere;
-  }
-  .shared-content {
-    font-size: 14px;
-    color: var(--color-text);
-    overflow-wrap: anywhere;
-  }
-  .shared-time {
-    font-size: 12px;
-    color: var(--color-text-muted);
-  }
-  .shared-empty {
-    margin: 0;
-    font-size: 14px;
-    color: var(--color-text-muted);
-  }
+
 </style>

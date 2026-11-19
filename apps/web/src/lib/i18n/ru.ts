@@ -6,10 +6,13 @@ import type { MessageKey } from './en';
  * keys must match en.ts exactly (parity is CI-enforced).
  */
 export const ru: Record<MessageKey, string> = {
-  /* --- shell / navigation --- */
+  /* --- shell / navigation (DESIGN §1.2, §4.7, §4.14.2) --- */
   'nav.room': 'Рядом',
   'nav.people': 'Люди',
+  'nav.contacts': 'Контакты',
+  'nav.contacts.dot_aria': 'есть новые контакты',
   'nav.chats': 'Диалоги',
+  'nav.chats.dot_aria': 'есть новые диалоги',
   'nav.profile': 'Профиль',
   'nav.aria': 'Основная навигация',
 
@@ -153,8 +156,12 @@ export const ru: Record<MessageKey, string> = {
   'profile.contact.label': 'Ваша контактная карточка',
   'profile.contact.note':
     'Например: telegram: @handle. Видят только те, кому вы её передадите.',
-  'profile.shared.title': 'Поделились с вами',
-  'profile.shared.empty': 'Пока никто не поделился с вами контактом.',
+  // §4.14.2 contacts footer page (Concept §14.1.2): вкладка «Контакты» —
+  // основная поверхность «поделились с вами»; минимальный список в
+  // настройках (§4.13.3) заменён ею (ключи retired вместе со списком).
+  'contacts.title': 'Контакты',
+  'contacts.subtitle': 'Контактами с вами поделились',
+  'contacts.empty': 'Пока никто не поделился с вами контактом.',
   'chat.not_found': 'Диалог не найден — возможно, он был удалён.',
   'chat.back_to_list': 'К списку диалогов',
   'chat.scroll_bottom': 'К последним сообщениям',

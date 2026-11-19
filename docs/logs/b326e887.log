@@ -1,0 +1,3 @@
+2026-11-19T18:07:46Z [worker] resume: shell granted, card read, starting tz6-02
+2026-11-19T18:16:27Z [worker] tz6-02 implemented: contactsSeen store, contact-card glyph, 5-tab TabBar with both badge dots + dot aria, /contacts route (4s poller, guard, mark-on-visit), layout mount-time dot evaluation, settings list removed; targeted suites + full make test (690) + lint green
+2026-11-19T18:17:04Z [worker] handover: commit eb8c74b on feature/b326e887-tz6-02-contacts-footer-page; gates green (targeted suites, full test 690, lint, build); status ready-for-merge

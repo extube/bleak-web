@@ -5,10 +5,13 @@
  * (parity is CI-enforced, see tests/i18n.test.ts).
  */
 export const en = {
-  /* --- shell / navigation (DESIGN §1.2, §4.7) --- */
+  /* --- shell / navigation (DESIGN §1.2, §4.7, §4.14.2) --- */
   'nav.room': 'Around',
   'nav.people': 'People',
+  'nav.contacts': 'Contacts',
+  'nav.contacts.dot_aria': 'new contacts',
   'nav.chats': 'Chats',
+  'nav.chats.dot_aria': 'new chats',
   'nav.profile': 'Profile',
   'nav.aria': 'Main navigation',
 
@@ -152,8 +155,12 @@ export const en = {
   'profile.contact.label': 'Your contact card',
   'profile.contact.note':
     'For example: telegram: @handle. Only people you share it with see it.',
-  'profile.shared.title': 'Shared with you',
-  'profile.shared.empty': 'Nobody has shared a contact with you yet.',
+  // §4.14.2 contacts footer page (Concept §14.1.2): the /contacts tab is the
+  // PRIMARY "shared with you" surface — the §4.13.3 settings-side list is
+  // superseded (its keys retired with the list).
+  'contacts.title': 'Contacts',
+  'contacts.subtitle': 'Contacts shared with you',
+  'contacts.empty': 'Nobody has shared a contact with you yet.',
   'chat.not_found': 'Dialog not found — it may have been deleted.',
   'chat.back_to_list': 'Back to dialogs',
   'chat.scroll_bottom': 'Jump to latest',

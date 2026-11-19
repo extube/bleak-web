@@ -22,12 +22,14 @@ export type IconName =
   | 'status-active'
   | 'status-finished'
   | 'check'
-  | 'arrow-right';
+  | 'arrow-right'
+  | 'contact-card';
 
 /** Tab glyphs (§1.2) reference the same set. */
 export const TAB_ICONS = {
   '/room': 'radar-dot',
   '/people': 'face',
+  '/contacts': 'contact-card',
   '/chats': 'dialog-lines',
   '/profile': 'badge',
   '/host': 'star'
@@ -193,5 +195,17 @@ export const ICON_RECTS: Record<IconName, readonly Rect[]> = {
     [8, 3, 2, 2],
     [8, 11, 2, 2],
     [2, 7, 8, 2]
+  ],
+  // Contacts tab (DESIGN §4.14.2): a contact card with an arrow dropping
+  // INTO it — the "shared with you" direction (the recipient's view).
+  'contact-card': [
+    [7, 1, 2, 2],
+    [5, 3, 2, 2],
+    [9, 3, 2, 2],
+    [5, 5, 6, 2],
+    [2, 7, 12, 2],
+    [2, 9, 2, 4],
+    [12, 9, 2, 4],
+    [2, 13, 12, 2]
   ]
 };

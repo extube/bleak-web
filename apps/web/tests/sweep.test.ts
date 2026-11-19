@@ -50,6 +50,7 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
     expect(pollingRoutes).toEqual([
       'src/routes/chats/+page.svelte',
       'src/routes/chats/[address]/+page.svelte',
+      'src/routes/contacts/+page.svelte',
       'src/routes/host/+page.svelte',
       'src/routes/people/+page.svelte',
       'src/routes/profile/+page.svelte',
@@ -63,12 +64,15 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
     expect(source, `${file} must not poll`).not.toMatch(/new\s+Poller\b/);
   });
 
-  it('poll cadences match the §2.2 table (4s room/people/chats/profile, 2s transcript, 5s host)', () => {
+  it('poll cadences match the §2.2 table (4s room/people/chats/contacts/profile, 2s transcript, 5s host)', () => {
     const expected: Record<string, string> = {
       'src/routes/room/+page.svelte': '4000',
       'src/routes/people/+page.svelte': '4000',
       'src/routes/chats/+page.svelte': '4000',
       'src/routes/chats/[address]/+page.svelte': '2000',
+      // §4.14.2 row: /contacts polls the recipient-only listContactsSharedWith
+      // (+ the roster for name resolution) at 4 s.
+      'src/routes/contacts/+page.svelte': '4000',
       'src/routes/host/+page.svelte': '5000',
       // rev. 3 §2.2 row: /profile polls the token-gated getRoomUser at 4 s
       // for the badge live-QR liveness flag (TZ2-07 Part A).
