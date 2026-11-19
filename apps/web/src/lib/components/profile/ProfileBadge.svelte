@@ -1,11 +1,12 @@
 <script lang="ts">
   /**
-   * ProfileBadge (DESIGN rev. 3 §3.6): the persona badge card — avatar (accent
-   * backdrop, own persona), name, read-only agent language, greeting block,
-   * bio rows, mock-interest chips, stat tiles and the LIVE personal QR
-   * (`u` + one-time `m` from the mutualCode store; badge skeleton until a
-   * code exists — never a broken payload). Purely presentational: data comes
-   * from the route.
+   * ProfileBadge (DESIGN rev. 3 §3.6, §4.13.1): the persona badge card —
+   * avatar (accent backdrop, own persona), name, read-only agent language,
+   * greeting block, bio rows, interest chips (emoji + title from the
+   * client-side mirror, re-localized through the catalog), stat tiles and
+   * the LIVE personal QR (`u` + one-time `m` from the mutualCode store;
+   * badge skeleton until a code exists — never a broken payload). Purely
+   * presentational: data comes from the route.
    *
    * Concept §10.1.4 / DESIGN §4.11.4: the badge is READ-ONLY display — the
    * persona-edit affordances (the badge-header edit button, the greeting and
@@ -13,7 +14,7 @@
    * lives in /profile/settings.
    */
   import type { User } from '@bleak/api-client';
-  import type { Interest } from '#lib/stores/interests';
+  import type { InterestChip } from '#lib/stores/interests';
   import { locale, translate } from '#lib/i18n/locale';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
   import Chip from '#lib/components/Chip.svelte';
@@ -24,7 +25,7 @@
 
   interface Props {
     user: User;
-    interests: Interest[];
+    interests: InterestChip[];
     handshakes: number;
     dialogs: number;
     addedYou: number;
@@ -96,9 +97,9 @@
       <p class="caption empty-interests">{translate($locale, 'profile.interests.empty')}</p>
     {:else}
       <ul class="chips">
-        {#each interests as interest (interest.id)}
+        {#each interests as interest (interest.key)}
           <li>
-            <Chip variant="outline-muted"><span aria-hidden="true">{interest.emoji}</span> {interest.label}</Chip>
+            <Chip variant="outline-muted"><span aria-hidden="true">{interest.emoji}</span> {interest.title}</Chip>
           </li>
         {/each}
       </ul>

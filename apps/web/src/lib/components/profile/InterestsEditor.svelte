@@ -1,19 +1,30 @@
 <script lang="ts">
   /**
-   * InterestsEditor (DESIGN §3.6): the mock interests editor — a preset
-   * catalog of `Interest {id, label, emoji}` entries (RU/EN label pairs
-   * shipped with the app), add/remove chips, done button. The selection is
-   * client-side ONLY (`localStorage bleak.interests`, stores/interests.ts)
-   * and NEVER issues a network request (architecture §8.1).
+   * InterestsEditor (DESIGN §4.13.1 item 2): the interests PICKER in
+   * /profile/settings — the curated client catalog rendered as group
+   * sections of emoji chips. Toggling ON upserts through the REAL
+   * `addUserInterests` endpoint (that persona's Bearer, 1..50 rows) and
+   * mirrors the 201 FULL list; toggling OFF calls `deleteUserInterests`
+   * (idempotent delete by key) and mirrors the 200 REMAINING list. There
+   * is no interests GET — the local mirror store (stores/interests.ts)
+   * is the read source the badge renders from.
+   *
+   * The 1..50 rows / 1..64 title caps are enforced client-side by the
+   * tz5-01 client (`ValidationError` pre-flight); at 50 rows the
+   * unselected chips disable (the cap never needs a request to learn).
    */
+  import { get } from 'svelte/store';
+  import { identity } from '#lib/stores/identity';
+  import { api } from '#lib/api/client';
   import { locale, translate } from '#lib/i18n/locale';
   import {
     INTEREST_CATALOG,
-    loadInterestIds,
-    selectedInterests,
-    toggleInterestId
-  } from '#lib/stores/interests';
-  import type { Interest } from '#lib/stores/interests';
+    INTEREST_GROUPS,
+    groupTitle,
+    interestTitle,
+    type InterestCatalogEntry
+  } from '#lib/interests/catalog';
+  import { MAX_INTERESTS, loadInterests, saveInterests } from '#lib/stores/interests';
 
   interface Props {
     ondone?: () => void;
@@ -21,18 +32,51 @@
 
   let { ondone }: Props = $props();
 
-  // Local working selection; each toggle persists immediately through the
-  // store module (pure localStorage — no network).
-  let ids = $state<string[]>(loadInterestIds());
+  const me = $derived($identity);
 
-  // The whole catalog rendered as `Interest {id, label, emoji}` chips for
-  // the current locale (labels follow the UI locale).
-  const chips = $derived<Interest[]>(
-    selectedInterests(INTEREST_CATALOG.map((entry) => entry.id), $locale)
-  );
+  // Working selection: numeric keys mirrored for the current persona
+  // (hydrated from the local mirror when the identity is present).
+  let selectedKeys = $state<number[]>([]);
+  let pendingKeys = $state<number[]>([]);
+  let error = $state<string | null>(null);
 
-  function toggle(id: string): void {
-    ids = toggleInterestId(ids, id);
+  $effect(() => {
+    const id = me;
+    if (!id) return;
+    selectedKeys = loadInterests(id.roomAddress, id.userAddress).map((row) => row.key);
+  });
+
+  const selectedSet = $derived(new Set(selectedKeys));
+  const atCap = $derived(selectedKeys.length >= MAX_INTERESTS);
+
+  function isPending(key: number): boolean {
+    return pendingKeys.includes(key);
+  }
+
+  async function toggle(entry: InterestCatalogEntry): Promise<void> {
+    const id = me;
+    if (!id || isPending(entry.key)) return;
+    const selected = selectedSet.has(entry.key);
+    error = null;
+    pendingKeys = [...pendingKeys, entry.key];
+    try {
+      if (selected) {
+        // Delete is idempotent (unknown keys ignored): the 200 REMAINING
+        // list is the mirror truth.
+        const remaining = await api.deleteUserInterests(id.roomAddress, id.userAddress, [entry.key]);
+        selectedKeys = saveInterests(id.roomAddress, id.userAddress, remaining).map((r) => r.key);
+      } else {
+        const title = interestTitle(entry, get(locale));
+        const list = await api.addUserInterests(id.roomAddress, id.userAddress, [
+          { title, group: entry.group, key: entry.key }
+        ]);
+        selectedKeys = saveInterests(id.roomAddress, id.userAddress, list).map((r) => r.key);
+      }
+    } catch {
+      error = translate(get(locale), 'profile.interests.error');
+    } finally {
+      pendingKeys = pendingKeys.filter((key) => key !== entry.key);
+    }
   }
 </script>
 
@@ -40,23 +84,31 @@
   <h2>{translate($locale, 'profile.interests.edit')}</h2>
   <p class="caption">{translate($locale, 'profile.interests.note')}</p>
 
-  <ul class="chips" aria-label={translate($locale, 'profile.interests.edit')}>
-    {#each chips as chip (chip.id)}
-      {@const selected = ids.includes(chip.id)}
-      <li>
-        <button
-          type="button"
-          class="toggle-chip"
-          class:selected
-          aria-pressed={selected}
-          onclick={() => toggle(chip.id)}
-        >
-          <span aria-hidden="true">{chip.emoji}</span>
-          {chip.label}
-        </button>
-      </li>
-    {/each}
-  </ul>
+  {#each INTEREST_GROUPS as group (group.group)}
+    <h3 class="group-title">{groupTitle(group.group, $locale)}</h3>
+    <ul class="chips" aria-label={groupTitle(group.group, $locale)}>
+      {#each INTEREST_CATALOG.filter((entry) => entry.group === group.group) as entry (entry.key)}
+        {@const selected = selectedSet.has(entry.key)}
+        <li>
+          <button
+            type="button"
+            class="toggle-chip"
+            class:selected
+            disabled={!selected && atCap}
+            aria-pressed={selected}
+            onclick={() => toggle(entry)}
+          >
+            <span aria-hidden="true">{entry.emoji}</span>
+            {interestTitle(entry, $locale)}
+          </button>
+        </li>
+      {/each}
+    </ul>
+  {/each}
+
+  {#if error}
+    <p class="field-error" role="alert" aria-live="polite">{error}</p>
+  {/if}
 
   <div class="actions">
     <button type="button" class="cta" onclick={() => ondone?.()}>
@@ -81,6 +133,13 @@
   .caption {
     margin: 0;
     font-size: 14px;
+    color: var(--color-text-muted);
+  }
+  .group-title {
+    margin: var(--space-2) 0 0;
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 600;
     color: var(--color-text-muted);
   }
   .chips {
@@ -111,6 +170,15 @@
     border-color: var(--color-accent);
     background: var(--color-accent);
     color: var(--color-accent-ink);
+  }
+  .toggle-chip:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .field-error {
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-danger-text);
   }
   .actions {
     display: flex;

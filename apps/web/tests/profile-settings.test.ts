@@ -11,10 +11,10 @@
  * and no tab bar (sub-page pattern).
  *
  * ALL persona editing lives here now (Concept §10.1.4): the persona section
- * hosts the PersonaEditor (name/public/private bio), GreetingEditor and
- * InterestsEditor moved wholesale from /profile — the same handler logic,
- * asserted with the same behaviors the old /profile suites pinned (editor
- * suites moved from tests/profile-page.test.ts). */
+ * hosts the PersonaEditor (name/public/private bio), GreetingEditor and the
+ * interests picker (DESIGN §4.13.1: real addUserInterests/deleteUserInterests
+ * + the local mirror store).
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
@@ -40,7 +40,9 @@ vi.mock('#lib/api/client', () => ({
     putUserGreeting: vi.fn(),
     regenerateGreeting: vi.fn(),
     deleteRoomUser: vi.fn(),
-    rotateUserToken: vi.fn()
+    rotateUserToken: vi.fn(),
+    addUserInterests: vi.fn(),
+    deleteUserInterests: vi.fn()
   }
 }));
 
@@ -282,25 +284,132 @@ describe('greeting editor (AC 3, 4, moved from /profile)', () => {
   });
 });
 
-describe('interests editor (AC 5, moved from /profile)', () => {
-  it('toggling chips persists locally and NEVER issues a network request; Done returns to the rows', async () => {
+describe('interests picker (DESIGN §4.13.1 — real endpoints + local mirror)', () => {
+  const FULL_AFTER_ADD = [
+    { title: 'Велосипед', group: 2, key: 13, user_address: ME },
+    { title: 'Кофе', group: 0, key: 1, user_address: ME }
+  ];
+
+  it('toggling a chip ON upserts via addUserInterests and mirrors the 201 FULL list; Done returns to the rows', async () => {
+    mockedApi.addUserInterests.mockResolvedValue(FULL_AFTER_ADD);
     await renderPage();
     await screen.getByRole('button', { name: ru['profile.interests.edit'] }).click();
     await tick();
 
-    const callsBefore = mockedApi.getRoomUser.mock.calls.length;
     const chip = screen.getByRole('button', { name: /Велосипед/ });
     await chip.click();
-    await tick();
 
-    expect(JSON.parse(localStorage.getItem('bleak.interests') ?? '[]')).toEqual(['cycling']);
-    // no api call was made by editing interests
-    expect(mockedApi.getRoomUser.mock.calls.length).toBe(callsBefore);
+    await waitFor(() =>
+      expect(mockedApi.addUserInterests).toHaveBeenCalledWith(ROOM, ME, [
+        { title: 'Велосипед', group: 2, key: 13 }
+      ])
+    );
+    expect(mockedApi.deleteUserInterests).not.toHaveBeenCalled();
+    // The 201 FULL list is mirrored per room+user (`bleak.interests`).
+    expect(JSON.parse(localStorage.getItem('bleak.interests') ?? '{}')).toMatchObject({
+      '0xroom|0xme': FULL_AFTER_ADD
+    });
+    // The chip stays selected from the mirrored list.
+    await waitFor(() => expect(chip.getAttribute('aria-pressed')).toBe('true'));
 
     // Done returns to the settings rows.
     await screen.getByRole('button', { name: ru['profile.interests.done'] }).click();
     await tick();
     expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
+  });
+
+  it('toggling a mirrored chip OFF deletes via deleteUserInterests and mirrors the 200 REMAINING list', async () => {
+    localStorage.setItem(
+      'bleak.interests',
+      JSON.stringify({ '0xroom|0xme': FULL_AFTER_ADD })
+    );
+    const remaining = [{ title: 'Кофе', group: 0, key: 1, user_address: ME }];
+    mockedApi.deleteUserInterests.mockResolvedValue(remaining);
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.interests.edit'] }).click();
+    await tick();
+
+    const chip = screen.getByRole('button', { name: /Велосипед/ });
+    expect(chip.getAttribute('aria-pressed')).toBe('true'); // pre-selected from the mirror
+    await chip.click();
+
+    await waitFor(() =>
+      expect(mockedApi.deleteUserInterests).toHaveBeenCalledWith(ROOM, ME, [13])
+    );
+    expect(mockedApi.addUserInterests).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(
+        JSON.parse(localStorage.getItem('bleak.interests') ?? '{}')['0xroom|0xme']
+      ).toEqual(remaining)
+    );
+    await waitFor(() => expect(chip.getAttribute('aria-pressed')).toBe('false'));
+  });
+
+  it('the mirror takes whatever the server answers — even a REMAINING list that differs locally', async () => {
+    localStorage.setItem(
+      'bleak.interests',
+      JSON.stringify({ '0xroom|0xme': [FULL_AFTER_ADD[0]] }) // only Велосипед mirrored
+    );
+    // The delete is idempotent server-side (unknown keys ignored); here the
+    // remaining list carries a DIFFERENT row — the mirror adopts it as-is.
+    mockedApi.deleteUserInterests.mockResolvedValue([FULL_AFTER_ADD[1]!]);
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.interests.edit'] }).click();
+    await tick();
+
+    const chip = screen.getByRole('button', { name: /Велосипед/ });
+    expect(chip.getAttribute('aria-pressed')).toBe('true');
+    await chip.click();
+    await waitFor(() =>
+      expect(mockedApi.deleteUserInterests).toHaveBeenCalledWith(ROOM, ME, [13])
+    );
+    await waitFor(() =>
+      expect(
+        JSON.parse(localStorage.getItem('bleak.interests') ?? '{}')['0xroom|0xme']
+      ).toEqual([FULL_AFTER_ADD[1]])
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Кофе/ }).getAttribute('aria-pressed')).toBe('true')
+    );
+  });
+
+  it('a failed write shows the inline error copy and keeps the mirror untouched', async () => {
+    mockedApi.addUserInterests.mockRejectedValue(new ApiError(400, '/x', 'interests bad'));
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.interests.edit'] }).click();
+    await tick();
+
+    await screen.getByRole('button', { name: /Велосипед/ }).click();
+    await waitFor(() => expect(screen.getByText(ru['profile.interests.error'])).toBeTruthy());
+    expect(localStorage.getItem('bleak.interests')).toBeNull();
+    await waitFor(() =>
+      expect(
+        (screen.getByRole('button', { name: /Велосипед/ }) as HTMLButtonElement).disabled
+      ).toBe(false)
+    );
+  });
+
+  it('at the 50-row mirror cap the unselected chips disable (client-side 1..50 rows, no request needed)', async () => {
+    // 50 mirrored rows with keys 2..51: Чай (key 2) is mirrored/selected,
+    // Кофе (key 1) is not — at the cap the unselected chip must disable.
+    const full = Array.from({ length: 50 }, (_, i) => ({
+      title: `Ряд ${i + 2}`,
+      group: i % 5,
+      key: i + 2,
+      user_address: ME
+    }));
+    localStorage.setItem('bleak.interests', JSON.stringify({ '0xroom|0xme': full }));
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.interests.edit'] }).click();
+    await tick();
+
+    // A mirrored chip (Чай, key 2) stays enabled; an unselected one (Кофе)
+    // is disabled at the cap — and clicking nothing means no add call.
+    const selected = screen.getByRole('button', { name: /Чай/ }) as HTMLButtonElement;
+    expect(selected.disabled).toBe(false);
+    const unselected = screen.getByRole('button', { name: /Кофе/ }) as HTMLButtonElement;
+    expect(unselected.disabled).toBe(true);
+    expect(mockedApi.addUserInterests).not.toHaveBeenCalled();
   });
 });
 

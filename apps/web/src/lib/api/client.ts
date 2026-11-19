@@ -41,6 +41,8 @@ import type {
   CredentialOptions,
   Greeting,
   Handshake,
+  Interest,
+  InterestInput,
   Invite,
   InviteMintRequest,
   KickoffResponse,
@@ -70,7 +72,8 @@ export const apiRaw = new BleakClient({ baseUrl: API_BASE, fetch: lateFetch });
  * Methods whose calls auto-carry the persona Bearer (`identity.token`) on
  * the attendee `api` context. Mirrors ARCHITECTURE §10.2:
  * persona mutations, gated reads, handshake sends, the mutual call,
- * rotations and (attendee-context) chat reads/clear/kickoff.
+ * rotations and (attendee-context) chat reads/clear/kickoff, plus the v3
+ * interests upsert/delete (DESIGN §4.13.1 — the persona's own rows).
  * `getRoomUser` is the documented context-dependent case: the Bearer is
  * attached only for the attendee's OWN address (the gated read returning
  * `private_bio` / `mutual_code_live`); reads of other personas stay public
@@ -92,7 +95,10 @@ export const PERSONA_TOKEN_METHODS = [
   'getChat',
   'listChatMessages',
   'kickoffChat',
-  'clearChatHistory'
+  'clearChatHistory',
+  // v3 interests (DESIGN §4.13.1): the persona's own rows
+  'addUserInterests',
+  'deleteUserInterests'
 ] as const;
 
 /**
@@ -317,6 +323,30 @@ export const api = {
   rotateUserToken(room: string, address: string, newRawToken: string): Promise<void> {
     return personaGate(() =>
       apiRaw.rotateUserToken(room, address, personaCredential() ?? '', newRawToken)
+    );
+  },
+
+  // Interests (DESIGN §4.13.1): bulk upsert (→ 201 FULL list) and delete by
+  // keys (→ 200 REMAINING, idempotent) — the persona's own Bearer, and the
+  // only writes feeding the local mirror (the API has no interests GET).
+  addUserInterests(
+    room: string,
+    address: string,
+    interests: InterestInput[],
+    options?: CredentialOptions
+  ): Promise<Interest[]> {
+    return personaGate(() =>
+      apiRaw.addUserInterests(room, address, interests, credential(personaCredential, options))
+    );
+  },
+  deleteUserInterests(
+    room: string,
+    address: string,
+    keys: number[],
+    options?: CredentialOptions
+  ): Promise<Interest[]> {
+    return personaGate(() =>
+      apiRaw.deleteUserInterests(room, address, keys, credential(personaCredential, options))
     );
   }
 };

@@ -129,8 +129,18 @@ async function renderPage(): Promise<void> {
 }
 
 describe('badge card (AC 1, 9, 11)', () => {
-  it('renders name, greeting, bios, language meta, interests and stats; a live stored code re-renders WITHOUT a registration call', async () => {
-    localStorage.setItem('bleak.interests', JSON.stringify(['coffee', 'books']));
+  it('renders name, greeting, bios, language meta, interest chips from the mirror, and stats; a live stored code re-renders WITHOUT a registration call', async () => {
+    // The interests mirror (DESIGN §4.13.1): scoped rows under the shared
+    // `bleak.interests` key — titles as stored at add time.
+    localStorage.setItem(
+      'bleak.interests',
+      JSON.stringify({
+        '0xroom|0xme': [
+          { title: 'Кофе', group: 0, key: 1, user_address: ME },
+          { title: 'Книги', group: 1, key: 10, user_address: ME }
+        ]
+      })
+    );
     localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
     mockedApi.listHandshakesOfUser.mockResolvedValue([
       handshake(ME, '0xa'),
@@ -143,12 +153,49 @@ describe('badge card (AC 1, 9, 11)', () => {
     expect(screen.getByText('Трамвайщик')).toBeTruthy();
     expect(screen.getByText('Привет! Я про трамваи.')).toBeTruthy();
     expect(screen.getByText('Поттер из Питера')).toBeTruthy();
-    expect(screen.getByText('Кофе')).toBeTruthy();
+    // Badge chips read the mirror and re-localize through the catalog
+    // (RU locale: keys 1 and 10 → «Кофе» / «Книги», with their emojis).
+    expect(screen.getByText(/Кофе/)).toBeTruthy();
+    expect(screen.getByText(/Книги/)).toBeTruthy();
     expect(screen.getByText(ru['profile.stats.handshakes_label'])).toBeTruthy();
     // the stored code is LIVE → no registration call (fresh registration is
     // covered by the next block)
     expect(mockedApi.registerMutualCode).not.toHaveBeenCalled();
     expect(screen.getByRole('img', { name: ru['profile.qr.aria'] })).toBeTruthy();
+  });
+
+  it('unknown mirror keys fall back to the stored title (no fake emoji)', async () => {
+    localStorage.setItem(
+      'bleak.interests',
+      JSON.stringify({
+        '0xroom|0xme': [{ title: 'Парусный спорт', group: 4, key: 999, user_address: ME }]
+      })
+    );
+    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
+    await renderPage();
+    expect(screen.getByText(/Парусный спорт/)).toBeTruthy();
+  });
+
+  it('chips follow the locale via the catalog (EN: Coffee / Books)', async () => {
+    localStorage.setItem(
+      'bleak.interests',
+      JSON.stringify({
+        '0xroom|0xme': [
+          { title: 'Кофе', group: 0, key: 1, user_address: ME },
+          { title: 'Книги', group: 1, key: 10, user_address: ME }
+        ]
+      })
+    );
+    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
+    await renderPage();
+    const { setLocale } = await import('../src/lib/i18n/locale');
+    setLocale('en');
+    await tick();
+    await tick();
+    expect(screen.getByText(/Coffee/)).toBeTruthy();
+    expect(screen.getByText(/Books/)).toBeTruthy();
+    setLocale('ru');
+    await tick();
   });
 });
 
@@ -216,7 +263,7 @@ describe('live badge QR (AC 14)', () => {
 
 describe('read-only display (Concept §10.1.4, DESIGN §4.11.4)', () => {
   it('NO persona edit affordances remain on /profile — no edit buttons, editors live in /profile/settings', async () => {
-    localStorage.setItem('bleak.interests', JSON.stringify([]));
+    localStorage.setItem('bleak.interests', JSON.stringify({}));
     await renderPage();
     // The badge-header persona edit button and the greeting/interests edit
     // controls are GONE from the profile page.

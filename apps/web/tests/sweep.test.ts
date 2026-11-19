@@ -112,31 +112,33 @@ describe('sweep: no-composer invariant (Concept §1c ruling 4 — permanent)', (
   });
 });
 
-describe('sweep: mock-shape adherence (ARCHITECTURE §8.1)', () => {
-  it('selectedInterests renders EXACTLY the {id, label, emoji} shape — no extra keys', async () => {
-    const { INTEREST_CATALOG, selectedInterests, toInterest } = await import('#lib/stores/interests');
-    if (!INTEREST_CATALOG[0] || !INTEREST_CATALOG[1]) throw new Error('catalog must have entries');
-    const [first, second] = [INTEREST_CATALOG[0], INTEREST_CATALOG[1]] as const;
-    const flat = toInterest(first, 'ru');
-    expect(Object.keys(flat).sort()).toEqual(['emoji', 'id', 'label']);
-    const list = selectedInterests([first.id, second.id], 'en');
-    for (const interest of list) {
-      expect(Object.keys(interest).sort()).toEqual(['emoji', 'id', 'label']);
-      expect(typeof interest.id).toBe('string');
-      expect(typeof interest.label).toBe('string');
-      expect(typeof interest.emoji).toBe('string');
+describe('sweep: interests v3 shape adherence (DESIGN §4.13.1 — the §1 mock retired)', () => {
+  it('displayInterests renders EXACTLY the {key, title, emoji} chip shape — no extra keys', async () => {
+    const { displayInterests } = await import('#lib/stores/interests');
+    const rows = [
+      { title: 'Кофе', group: 0, key: 1, user_address: '0xme' },
+      { title: 'Музыка', group: 1, key: 6, user_address: '0xme' }
+    ];
+    const chips = displayInterests(rows, 'en');
+    expect(chips).toHaveLength(2);
+    for (const chip of chips) {
+      expect(Object.keys(chip).sort()).toEqual(['emoji', 'key', 'title']);
+      expect(typeof chip.key).toBe('number');
+      expect(typeof chip.title).toBe('string');
+      expect(typeof chip.emoji).toBe('string');
     }
   });
 
-  it('every catalog entry carries id + emoji + RU/EN labels (backend adapter target)', async () => {
-    const { INTEREST_CATALOG } = await import('#lib/stores/interests');
+  it('every catalog entry carries group + key + emoji + titleKey (numeric API pair)', async () => {
+    const { INTEREST_CATALOG, INTEREST_GROUPS } = await import('#lib/interests/catalog');
+    expect(INTEREST_GROUPS.length).toBeGreaterThanOrEqual(4);
     expect(INTEREST_CATALOG.length).toBeGreaterThanOrEqual(8);
     for (const entry of INTEREST_CATALOG) {
-      expect(Object.keys(entry).sort()).toEqual(['emoji', 'id', 'labels']);
-      expect(typeof entry.id).toBe('string');
+      expect(Object.keys(entry).sort()).toEqual(['emoji', 'group', 'key', 'titleKey']);
+      expect(typeof entry.group).toBe('number');
+      expect(typeof entry.key).toBe('number');
       expect(entry.emoji.length).toBeGreaterThan(0);
-      expect(entry.labels.ru.trim().length).toBeGreaterThan(0);
-      expect(entry.labels.en.trim().length).toBeGreaterThan(0);
+      expect(entry.titleKey.startsWith('interests.')).toBe(true);
     }
   });
 });

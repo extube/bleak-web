@@ -9,10 +9,10 @@
    *
    * Concept §10.1.4 / DESIGN §4.11.4: ALL persona editing lives here — the
    * PersonaEditor (name/public/private bio), the GreetingEditor and the
-   * InterestsEditor moved wholesale from /profile with their logic intact
-   * (same handlers/stores; the profile page itself is read-only display
-   * now). The persona section swaps to one editor at a time (the same
-   * inline-swap pattern the profile page used) and returns to the settings
+   * PersonaEditor (name/public/private bio), the GreetingEditor and the
+   * interests picker (InterestsEditor, DESIGN §4.13.1: real upsert/delete
+   * endpoints + the local mirror) moved wholesale from /profile — the same
+   * inline-swap pattern (one editor at a time), returning to the settings
    * rows after save/cancel.
    *
    * Token rotation (§3.6 settings): confirm dialog (other-device lockout

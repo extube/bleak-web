@@ -26,7 +26,8 @@
    * left /profile; ALL persona editing (name/bios, greeting, interests)
    * lives on /profile/settings.
    *
-   * Interests are the client-side mock (architecture §8.1 — no network).
+   * Interests are the local mirror of the real interest endpoints
+   * (DESIGN §4.13.1 — the API has no interests GET).
    */
   import { get } from 'svelte/store';
   import { goto } from '$app/navigation';
@@ -39,8 +40,8 @@
   import { Poller } from '#lib/polling/poller';
   import { locale, translate } from '#lib/i18n/locale';
   import {
-    loadInterestIds,
-    selectedInterests
+    displayInterests,
+    loadInterests
   } from '#lib/stores/interests';
   import { decideBadgeAction, registerFreshMutualCode } from '#lib/components/profile/liveQr';
   import ProfileBadge from '#lib/components/profile/ProfileBadge.svelte';
@@ -73,12 +74,13 @@
     return entry.userAddress === id.userAddress ? entry.code : null;
   });
 
-  // Interests re-derive on locale change (the mock store is read from
-  // localStorage — cheap, client-side only).
-  let interestsEpoch = $state(0);
+  // Interests re-derive on locale change (DESIGN §4.13.1: the badge reads
+  // the per-device mirror — cheap, client-side only; titles re-localize
+  // through the catalog).
   const interests = $derived.by(() => {
-    void interestsEpoch; // dependency: re-read after interest edits
-    return selectedInterests(loadInterestIds(), $locale);
+    const id = me;
+    if (!id) return [];
+    return displayInterests(loadInterests(id.roomAddress, id.userAddress), $locale);
   });
 
   // --- error mapping (§2.1) ------------------------------------------------

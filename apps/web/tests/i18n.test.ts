@@ -256,6 +256,35 @@ describe('v2.1 UI-polish round keys (DESIGN §4.8)', () => {
 });
 
 describe('v2.5 copy sweep (Concept §11.1.3, DESIGN §4.12.3)', () => {
+  it('the interests picker copy is RU/EN paired (DESIGN §4.13.1)', () => {
+    for (const key of [
+      'profile.interests.title',
+      'profile.interests.edit',
+      'profile.interests.note',
+      'profile.interests.error',
+      'profile.interests.empty',
+      'profile.interests.done'
+    ] as const) {
+      expect(en[key]?.trim().length).toBeGreaterThan(0);
+      expect(ru[key]?.trim().length).toBeGreaterThan(0);
+    }
+    expect(ru['profile.interests.error']).toBe('Не удалось сохранить интересы — попробуйте ещё раз.');
+    expect(en['profile.interests.note']).toContain('50');
+    expect(ru['profile.interests.note']).toContain('50');
+  });
+
+  it('the §4.13.1 catalog title keys resolve in both dictionaries (all 25 keys + 5 groups)', async () => {
+    const { INTEREST_CATALOG, INTEREST_GROUPS } = await import('../src/lib/interests/catalog');
+    for (const entry of INTEREST_CATALOG) {
+      expect(en[entry.titleKey]?.trim().length).toBeGreaterThan(0);
+      expect(ru[entry.titleKey]?.trim().length).toBeGreaterThan(0);
+    }
+    for (const group of INTEREST_GROUPS) {
+      expect(en[group.titleKey]?.trim().length).toBeGreaterThan(0);
+      expect(ru[group.titleKey]?.trim().length).toBeGreaterThan(0);
+    }
+  });
+
   it('edit-screen titles drop the word "Edit" (values only — key names intact)', () => {
     expect(en['profile.persona.edit']).toBe('Profile');
     expect(ru['profile.persona.edit']).toBe('Профиль');

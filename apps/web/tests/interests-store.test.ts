@@ -1,104 +1,124 @@
-/** Interests mock store (TZ-08, ARCHITECTURE §8.1, DESIGN §3.6 AC 5):
- * persist/restore roundtrip, toggle, corrupt-storage tolerance, the exact
- * `Interest {id, label, emoji}` shape per locale, and the no-network rule. */
+/** Interests MIRROR store (DESIGN §4.13.1 item 3): write-through from the
+ * real endpoint responses (201 FULL list / 200 REMAINING list), per
+ * room+user persistence under `bleak.interests`, corrupt-storage
+ * tolerance, the 1..50 cap, and display re-localization through the
+ * catalog (stored-title fallback for unknown keys). The API has no
+ * interests GET — reads are purely local (documented limitation). */
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Interest } from '@bleak/api-client';
 import {
-  INTEREST_CATALOG,
+  MAX_INTERESTS,
   clearInterests,
-  loadInterestIds,
-  saveInterestIds,
-  selectedInterests,
-  toInterest,
-  toggleInterestId
+  displayInterests,
+  interestCount,
+  loadInterests,
+  saveInterests
 } from '../src/lib/stores/interests';
+
+const ROOM = '0xroom';
+const ME = '0xme';
+const OTHER = '0xother';
+
+function row(key: number, title: string, group = 0, user = ME): Interest {
+  return { title, group, key, user_address: user };
+}
 
 afterEach(() => {
   localStorage.clear();
   vi.restoreAllMocks();
 });
 
-describe('interests store — persist/restore', () => {
-  it('saves ids and restores them in insertion order', () => {
-    expect(saveInterestIds(['tech', 'music', 'coffee'])).toEqual(['tech', 'music', 'coffee']);
-    expect(loadInterestIds()).toEqual(['tech', 'music', 'coffee']);
-    expect(JSON.parse(localStorage.getItem('bleak.interests') ?? '[]')).toEqual([
-      'tech',
-      'music',
-      'coffee'
-    ]);
-  });
-
-  it('dedupes the selection', () => {
-    expect(saveInterestIds(['music', 'music', 'tech', 'music'])).toEqual(['music', 'tech']);
-  });
-
-  it('tolerates corrupt JSON and non-array values', () => {
-    localStorage.setItem('bleak.interests', '{oops');
-    expect(loadInterestIds()).toEqual([]);
-    localStorage.setItem('bleak.interests', JSON.stringify({ not: 'an array' }));
-    expect(loadInterestIds()).toEqual([]);
-  });
-
-  it('toggle adds then removes, persisting each step', () => {
-    toggleInterestId(loadInterestIds(), 'travel');
-    expect(loadInterestIds()).toEqual(['travel']);
-    toggleInterestId(loadInterestIds(), 'travel');
-    expect(loadInterestIds()).toEqual([]);
-  });
-
-  it('clearInterests empties the store', () => {
-    saveInterestIds(['art']);
-    clearInterests();
-    expect(loadInterestIds()).toEqual([]);
-  });
-});
-
-describe('interest shape (architecture §8.1 adapter target)', () => {
-  it('every catalog entry has an id, an emoji and RU/EN labels', () => {
-    for (const entry of INTEREST_CATALOG) {
-      expect(entry.id.length).toBeGreaterThan(0);
-      expect(entry.emoji.length).toBeGreaterThan(0);
-      expect(entry.labels.ru.length).toBeGreaterThan(0);
-      expect(entry.labels.en.length).toBeGreaterThan(0);
-    }
-  });
-
-  it('selectedInterests renders exactly {id, label, emoji} per locale', () => {
-    const ids = ['coffee', 'hiking'];
-    expect(selectedInterests(ids, 'ru')).toEqual([
-      { id: 'coffee', label: INTEREST_CATALOG[0]!.labels.ru, emoji: INTEREST_CATALOG[0]!.emoji },
-      { id: 'hiking', label: INTEREST_CATALOG[9]!.labels.ru, emoji: INTEREST_CATALOG[9]!.emoji }
-    ]);
-    expect(selectedInterests(ids, 'en').map((i) => i.label)).toEqual([
-      INTEREST_CATALOG[0]!.labels.en,
-      INTEREST_CATALOG[9]!.labels.en
-    ]);
-  });
-
-  it('toInterest falls back to the RU label for unknown locales', () => {
-    const entry = INTEREST_CATALOG[0]!;
-    expect(toInterest(entry, 'ru')).toEqual({
-      id: entry.id,
-      label: entry.labels.ru,
-      emoji: entry.emoji
+describe('mirror persistence (per room + user)', () => {
+  it('saves and restores the 201 FULL list in order', () => {
+    const list = [row(1, 'Кофе', 0), row(13, 'Велосипед', 2), row(21, 'Путешествия', 4)];
+    expect(saveInterests(ROOM, ME, list)).toEqual(list);
+    expect(loadInterests(ROOM, ME)).toEqual(list);
+    expect(JSON.parse(localStorage.getItem('bleak.interests') ?? '{}')).toMatchObject({
+      '0xroom|0xme': list
     });
   });
 
-  it('unknown stored ids are skipped when rendering', () => {
-    saveInterestIds(['ghost-id', 'music']);
-    const rendered = selectedInterests(loadInterestIds(), 'ru');
-    expect(rendered.map((i) => i.id)).toEqual(['music']);
+  it('scopes the mirror per room+user — other personas are untouched', () => {
+    saveInterests(ROOM, ME, [row(1, 'Кофе')]);
+    saveInterests(ROOM, OTHER, [row(6, 'Музыка', 1)]);
+    expect(loadInterests(ROOM, ME).map((r) => r.key)).toEqual([1]);
+    expect(loadInterests(ROOM, OTHER).map((r) => r.key)).toEqual([6]);
+    expect(loadInterests('0xother-room', ME)).toEqual([]);
+  });
+
+  it('clearInterests empties only the matching scope', () => {
+    saveInterests(ROOM, ME, [row(1, 'Кофе')]);
+    saveInterests(ROOM, OTHER, [row(6, 'Музыка', 1)]);
+    clearInterests(ROOM, ME);
+    expect(loadInterests(ROOM, ME)).toEqual([]);
+    expect(loadInterests(ROOM, OTHER).length).toBe(1);
+  });
+
+  it('interestCount reports the mirrored row count', () => {
+    expect(interestCount(ROOM, ME)).toBe(0);
+    saveInterests(ROOM, ME, [row(1, 'Кофе'), row(2, 'Чай')]);
+    expect(interestCount(ROOM, ME)).toBe(2);
   });
 });
 
-describe('no network rule (AC 5)', () => {
-  it('never issues a fetch while reading/writing interests', async () => {
+describe('write-through normalization (201 FULL / 200 REMAINING responses)', () => {
+  it('dedupes by key — the upsert semantics of the server mirrored locally', () => {
+    const saved = saveInterests(ROOM, ME, [row(1, 'Кофе'), row(1, 'Кофе, другой'), row(2, 'Чай')]);
+    expect(saved.map((r) => r.key)).toEqual([1, 2]);
+    // first occurrence wins (the server upsert would replace — either is
+    // consistent; the mirror never duplicates a key)
+    expect(saved[0]?.title).toBe('Кофе');
+  });
+
+  it('clamps to the 1..50 cap', () => {
+    const list: Interest[] = Array.from({ length: 60 }, (_, i) => row(i + 1, `Ряд ${i + 1}`, i % 5));
+    const saved = saveInterests(ROOM, ME, list);
+    expect(saved).toHaveLength(MAX_INTERESTS);
+    expect(interestCount(ROOM, ME)).toBe(50);
+  });
+
+  it('tolerates corrupt JSON and non-object values', () => {
+    localStorage.setItem('bleak.interests', '{oops');
+    expect(loadInterests(ROOM, ME)).toEqual([]);
+    localStorage.setItem('bleak.interests', JSON.stringify({ nope: 'not rows' }));
+    expect(loadInterests(ROOM, ME)).toEqual([]);
+    localStorage.setItem('bleak.interests', JSON.stringify([1, 2, 3]));
+    expect(loadInterests(ROOM, ME)).toEqual([]);
+  });
+
+  it('drops malformed rows from a saved list (shape guard)', () => {
+    const bad = { title: 'x', group: 'not-a-number', key: 1, user_address: ME };
+    const saved = saveInterests(ROOM, ME, [bad as unknown as Interest, row(2, 'Чай')]);
+    expect(saved.map((r) => r.key)).toEqual([2]);
+  });
+});
+
+describe('display re-localization through the catalog', () => {
+  it('renders exactly {key, title, emoji} chips for the current locale', () => {
+    saveInterests(ROOM, ME, [row(1, 'Кофе', 0), row(13, 'Велосипед', 2)]);
+    const chips = displayInterests(loadInterests(ROOM, ME), 'en');
+    expect(chips).toEqual([
+      { key: 1, title: 'Coffee', emoji: '☕' },
+      { key: 13, title: 'Cycling', emoji: '🚲' }
+    ]);
+    const ru = displayInterests(loadInterests(ROOM, ME), 'ru');
+    expect(ru.map((c) => c.title)).toEqual(['Кофе', 'Велосипед']);
+  });
+
+  it('unknown keys fall back to the stored title with no emoji', () => {
+    const chips = displayInterests([row(999, 'Парусный спорт', 4)], 'ru');
+    expect(chips).toEqual([{ key: 999, title: 'Парусный спорт', emoji: '' }]);
+  });
+});
+
+describe('no-GET rule (documented limitation — reads are local)', () => {
+  it('reading/writing the mirror never issues a fetch', async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal('fetch', fetchSpy);
-    saveInterestIds(['games']);
-    toggleInterestId(loadInterestIds(), 'games');
-    loadInterestIds();
-    selectedInterests(loadInterestIds(), 'ru');
+    saveInterests(ROOM, ME, [row(1, 'Кофе')]);
+    loadInterests(ROOM, ME);
+    displayInterests(loadInterests(ROOM, ME), 'ru');
+    interestCount(ROOM, ME);
     await Promise.resolve();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
