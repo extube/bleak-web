@@ -1,36 +1,49 @@
 <script lang="ts">
   /**
-   * ShareContactSlide (DESIGN §4.13.3 item 3 / Concept §13.1.3): the
-   * reusable swipe-right slide control for sharing a contact card.
+   * ShareContactSlide v2 (DESIGN §4.15.A / Concept §15.1): the owner's
+   * iOS-style "Slide to Answer" control for sharing a contact card.
    *
-   * Rendered in the dialog footer (routes/chats/[address], gated on the
-   * tz5-03 `isChatDone` selector) and REUSABLE inside the tz5-05 summary
-   * sheet — all copy and state come in as clean props; the component never
-   * calls the API itself. `oncomplete` fires ONCE per completed gesture
-   * (the parent owns the request + the shared/disabled states afterwards).
+   * Rendered in the dialog footer (routes/chats/[address]) and REUSABLE
+   * inside the tz5-05 summary sheet — all copy and state come in as clean
+   * props; the component never calls the API itself. `oncomplete` fires
+   * ONCE per completed gesture (the parent owns the request + the
+   * shared/disabled states afterwards).
    *
-   * States (parent-driven):
-   * - `shared`    → done glyph + `sharedLabel`, non-interactive (server
-   *                 truth is the 409 "already shared"; a 201 lands here too);
-   * - `disabled`  → the thumb is inert, `disabledHint` is shown in the
-   *                 track (dialog not finished, or no contact card yet);
+   * States (parent-driven, machine unchanged from §4.13.3):
+   * - `shared`    → the thumb locks right, `sharedLabel` in the track,
+   *                 non-interactive (server truth is the 409 "already
+   *                 shared"; a 201 lands here too);
+   * - `disabled`  → the thumb is inert at rest, `disabledHint` centered
+   *                 (no glass shimmer motion);
    * - `pending`   → the request is in flight; the thumb is inert so a
    *                 second gesture cannot double-fire;
-   * - otherwise   → the armed slide: drag the thumb right (or click /
-   *                 keyboard-activate the thumb — the accessible path) to
-   *                 complete.
+   * - otherwise   → the armed slide: drag the thumb right to complete —
+   *                 release ≥ 85% of the drag range snaps to the end,
+   *                 release below springs back; click / Enter / Space on
+   *                 the thumb activates DIRECTLY (the accessible path is
+   *                 the documented equivalent of the gesture, §4.15.A —
+   *                 NOT subject to the 85% rule).
    *
-   * §4.14.1 polish (Concept §14.1.1): the armed track carries an animated
-   * red-white candy-cane stripe band; the shared-state transition plays a
-   * CSS-only confetti from the top of the slide. Both are decoration only —
-   * the mechanics, props and states above are untouched.
+   * v2 look (§4.15.A): dark translucent glass pill track with a shimmering
+   * centered hint that fades out with drag progress; a crisp white thumb
+   * carrying the green `phone` glyph (base variant); and the candy-cane
+   * trail — a clip-layer fill bar from the track's inner edge to the
+   * thumb's near edge (width = 4px + dx) with a continuous 45° stripe
+   * marquee looping seamlessly at 24px ÷ sin45° ≈ 33.941px. The v3.1
+   * confetti flake system is reused unchanged (gesture made here + shared
+   * landed → 201 AND 409 celebrate; a re-mount replays nothing).
+   *
+   * Variant API (§4.15.A): `variant: 'base' | 'sheet'` maps to a scope
+   * class that swaps the component's INTERNAL custom properties — parents
+   * may not pass raw colors. The locked sheet palette values land with the
+   * sheet task (§4.15.C-E); the prop and the scope plumbing ship here.
    */
   import PixelIcon from './icons/PixelIcon.svelte';
 
   interface Props {
     /** Armed-state hint shown in the track (e.g. "Swipe right to share"). */
     label: string;
-    /** Shared-state copy (done glyph + this text). */
+    /** Shared-state copy (sharedLabel, thumb locked right). */
     sharedLabel: string;
     /** Disabled-state hint (replaces `label` in the track). */
     disabledHint: string;
@@ -40,7 +53,9 @@
     pending?: boolean;
     /** Already shared — the terminal, non-interactive state. */
     shared?: boolean;
-    /** Fired ONCE when the gesture completes (drag to the end or activation). */
+    /** Component scope: base (footer/glass) or sheet (§4.15.C palette). */
+    variant?: 'base' | 'sheet';
+    /** Fired ONCE when the gesture completes (≥85% release, mid-gesture end, or activation). */
     oncomplete?: () => void;
   }
 
@@ -51,6 +66,7 @@
     disabled = false,
     pending = false,
     shared = false,
+    variant = 'base',
     oncomplete
   }: Props = $props();
 
@@ -60,6 +76,8 @@
   let gripping = $state(false);
   /** The live gesture consumed the pointer (suppresses the click fallback). */
   let dragged = $state(false);
+  /** Release animation: spring-back overrides the default completion snap. */
+  let release = $state<'spring' | null>(null);
   /** Pointer-down clientX — the drag delta reference. */
   let startX = 0;
 
@@ -70,14 +88,25 @@
   );
 
   /**
-   * Confetti (Concept §14.1.1 / DESIGN §4.14.1 item 1): plays when a
-   * completion gesture made HERE is followed by the parent landing the
-   * shared state — the choice stated on the task card. The gesture flag is
-   * set in `complete()`; the confetti renders only once BOTH the gesture
-   * and `shared` are true, so 201 AND 409 celebrate (both land `shared`)
+   * Drag progress 0..1 (dx / maxDx) — drives the hint fade-out
+   * (inline `opacity = 1 − progress`, gone before the thumb reaches the
+   * end, §4.15.A). A 0px track (tests/SSR) keeps progress at 0.
+   */
+  const progress = $derived.by(() => {
+    const offset = dx; // read unconditionally — dx must always be tracked
+    const max = maxDx();
+    return max > 0 ? Math.min(offset / max, 1) : 0;
+  });
+
+  /**
+   * Confetti (Concept §14.1.1 / DESIGN §4.14.1 → reused unchanged per
+   * §4.15.A): plays when a completion gesture made HERE is followed by
+   * the parent landing the shared state. The gesture flag is set in
+   * `complete()`; the confetti renders only once BOTH the gesture and
+   * `shared` are true, so 201 AND 409 celebrate (both land `shared`)
    * while a failed request (never lands `shared`) does not — and an
-   * already-shared chat re-mounting with `shared` true from the start (the
-   * parent hydrating the local mark) replays nothing.
+   * already-shared chat re-mounting with `shared` true from the start
+   * (the parent hydrating the local mark) replays nothing.
    */
   let celebrated = $state(false);
 
@@ -96,18 +125,26 @@
   let trackEl: HTMLElement | null = $state(null);
   let thumbEl: HTMLElement | null = $state(null);
 
+  /** Drag range: inner track width − thumb width (§4.15.A geometry). */
   function maxDx(): number {
     const track = trackEl?.clientWidth ?? 0;
     const thumb = thumbEl?.clientWidth ?? 0;
     return Math.max(track - thumb, 0);
   }
 
+  /**
+   * Completion (§4.15.A): the thumb animates to the end (default 160ms
+   * ease-out snap) and `oncomplete` fires immediately — the parent starts
+   * the request and lands `shared` (201 or 409) when it answers. Any
+   * release path and the direct activation converge here.
+   */
   function complete(): void {
     if (inert) return;
-    celebrated = true; // a gesture completed here — §4.14.1 confetti arms
+    celebrated = true; // a gesture completed here — the confetti arms
+    dx = maxDx();
+    release = null; // the default snap transition, not the spring
     oncomplete?.();
     gripping = false;
-    dx = 0;
   }
 
   function onPointerDown(event: PointerEvent): void {
@@ -115,6 +152,7 @@
     (event.currentTarget as HTMLElement | null)?.setPointerCapture?.(event.pointerId);
     gripping = true;
     dragged = false;
+    release = null;
     startX = event.clientX;
     dx = 0;
   }
@@ -123,21 +161,34 @@
     if (inert || !gripping) return;
     dx = Math.max(event.clientX - startX, 0);
     if (dx > 2) dragged = true;
+    // Dragging all the way to the end mid-gesture still completes at once.
     if (dx >= maxDx()) complete();
   }
 
+  /**
+   * Release rule (§4.15.A — supersedes the shipped always-snap): at/past
+   * 85% of the drag range → snap to the end and complete; below → spring
+   * back smoothly (240ms light-overshoot bezier on thumb + trail).
+   */
   function onPointerUp(): void {
-    if (inert) return;
+    if (inert || !gripping) return;
     gripping = false;
-    // Spring back unless the gesture completed (complete() already reset dx).
-    if (dx < maxDx()) dx = 0;
+    const max = maxDx();
+    if (max > 0 && dx >= 0.85 * max) {
+      complete();
+    } else {
+      release = 'spring';
+      dx = 0;
+    }
   }
 
   /**
    * The accessible activation path: click / Enter / Space on the thumb
-   * completes the gesture without a pointer drag (screen readers, keyboards,
-   * and tests). A pointer drag ending on the thumb also emits click — the
-   * `dragged` flag suppresses the double fire.
+   * completes the gesture without a pointer drag (screen readers,
+   * keyboards, and tests). It is the documented equivalent of the gesture
+   * and is NOT subject to the 85% release rule (§4.15.A). A pointer drag
+   * ending on the thumb also emits click — the `dragged` flag suppresses
+   * the double fire.
    */
   function onClick(): void {
     if (dragged) {
@@ -148,16 +199,37 @@
   }
 </script>
 
-<div class="slide" class:shared class:disabled class:pending class:armed={!inert} aria-disabled={inert}>
+<div
+  class="slide"
+  class:variant-base={variant === 'base'}
+  class:variant-sheet={variant === 'sheet'}
+  class:shared
+  class:disabled
+  class:pending
+  class:armed={!inert}
+  aria-disabled={inert}
+>
   <div class="track" bind:this={trackEl}>
     {#if armed}
-      <span class="candy" aria-hidden="true"></span>
+      <!-- §4.15.A candy trail: clip layer bound to the drag (width = the
+           4px internal padding + dx = the thumb's near edge), marquee
+           stripe layer inside. Armed only — shared/disabled stay plain. -->
+      <span
+        class="candy"
+        class:gripping
+        class:spring={release === 'spring'}
+        aria-hidden="true"
+        style:width="{4 + dx}px"
+      >
+        <span class="candy-stripes"></span>
+      </span>
     {/if}
-    <span class="hint">{trackText}</span>
+    <span class="hint" style:opacity={`${armed ? 1 - progress : 1}`}>{trackText}</span>
     <button
       type="button"
       class="thumb"
       class:gripping
+      class:spring={release === 'spring'}
       bind:this={thumbEl}
       style:transform="translateX({dx}px)"
       disabled={inert}
@@ -170,8 +242,10 @@
     >
       {#if shared}
         <PixelIcon name="check" size={16} />
-      {:else}
+      {:else if variant === 'sheet'}
         <PixelIcon name="arrow-right" size={16} />
+      {:else}
+        <PixelIcon name="phone" size={16} />
       {/if}
     </button>
   </div>
@@ -194,83 +268,143 @@
 
 <style>
   .slide {
-    /* anchors the confetti layer's "from the top of the container" origin */
+    /* §4.15.A variant scope — the component colors ONLY through these
+     * internal tokens; the `.variant-sheet` scope swaps them (locked sheet
+     * palette lands with the sheet task, §4.15.C-E). Parents may not pass
+     * raw colors. Base defaults per §4.15.A. */
+    --slide-height: 76px;
+    --slide-pad: 4px; /* the 4px internal padding (thumb = height − 8px) */
+    --slide-track-bg: color-mix(in srgb, var(--color-bg) 45%, transparent);
+    --slide-track-border: color-mix(in srgb, var(--color-text) 18%, transparent);
+    --slide-thumb: var(--color-text); /* the crisp white circle */
+    --slide-thumb-ink: var(--color-check-green); /* the green phone glyph */
+    --slide-stripe-a: var(--color-danger-text); /* candy red */
+    --slide-stripe-b: var(--color-text); /* candy white */
+    --slide-stripe-c: var(--color-text); /* sheet's third stripe (§4.15.C) */
+    --slide-hint-ink: var(--color-text-muted);
+    --slide-hint-font: 500 14px var(--font-body);
+
+    /* anchors the confetti layer's "from the top of the container" origin;
+     * the pill is centered in its slot at the §4.15.A ~3.8:1 ratio */
     position: relative;
     width: 100%;
+    display: flex;
+    justify-content: center;
   }
   .track {
     position: relative;
-    display: flex;
-    align-items: center;
-    min-height: var(--touch-target);
-    padding: var(--space-1);
-    background: var(--color-surface);
-    border: 1px solid var(--color-text-disabled-strong);
+    width: min(100%, 288px); /* 3.8:1 at the 76px height (§4.15.A) */
+    height: var(--slide-height);
+    padding: var(--slide-pad);
+    background: var(--slide-track-bg);
+    border: 1px solid var(--slide-track-border);
     border-radius: var(--radius-pill);
     overflow: hidden;
+    /* dark translucent glassmorphism (§4.15.A) */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
   .hint {
-    position: relative; /* the hint pill sits above the candy stripes */
+    position: relative; /* the hint sits above the candy stripes */
     flex: 1;
     text-align: center;
-    font-size: 14px;
-    color: var(--color-text-muted);
-    padding: 0 calc(var(--touch-target) + var(--space-2)) 0 var(--space-2);
-    /* readability scrim (§4.14.1): the pill keeps the hint legible over the
-     * animated stripes; the candy band stays visible around it (ring +
-     * the trail the thumb reveals as it slides). */
-    background: color-mix(in srgb, var(--color-surface) 80%, transparent);
-    border-radius: var(--radius-pill);
+    font: var(--slide-hint-font);
+    color: var(--slide-hint-ink);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  /* Candy-cane stripes (Concept §14.1.1 / DESIGN §4.14.1 item 1): an
-   * animated red-white diagonal band across the track, armed state only.
-   * The 45° stripes repeat every 20px along the gradient axis, so shifting
-   * the layer horizontally by 20px/sin(45°) ≈ 28.284px loops the pattern
-   * seamlessly. Transform-only motion (§4.6); the base.css reduced-motion
-   * catch-all collapses it to a static band. */
+  /* Shimmer sheen (§4.15.A): a gradient stripe sweeping across the hint
+   * text, transform-only keyframes (§4.6), armed state only — the
+   * disabled/shared hints keep a still, plain track. */
+  .armed .hint::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -45%;
+    width: 45%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--slide-hint-ink) 45%, transparent),
+      transparent
+    );
+    animation: hint-sheen 2.4s linear infinite;
+  }
+  @keyframes hint-sheen {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(322%);
+    }
+  }
+  /* Candy-cane trail (Concept §15.1 / DESIGN §4.15.A): the clip layer's
+   * width is bound to the drag (4px + dx = the thumb's near edge); the
+   * inner stripe layer runs the continuous marquee so the pattern scrolls
+   * even while the clip edge moves. WIDER + brighter than the §4.14.1
+   * band: full-opacity 12px stripes. The stripe period along the gradient
+   * axis is 24px, so a horizontal shift of 24px ÷ sin45° ≈ 33.941px tiles
+   * the pattern exactly — the seamless loop. Transform-only motion
+   * (§4.6); the base.css reduced-motion catch-all collapses it. */
   .candy {
     position: absolute;
     top: 0;
     bottom: 0;
     left: 0;
-    width: calc(100% + 32px);
+    overflow: hidden;
+    /* release animations mirror the thumb: default = the 160ms completion
+     * snap; `.spring` = the 240ms overshoot; dragging tracks live (none) */
+    transition: width 160ms ease-out;
+  }
+  .candy.gripping {
+    transition: none;
+  }
+  .candy.spring {
+    transition: width 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .candy-stripes {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    /* cover the whole track plus one loop shift so the marquee never gaps */
+    width: calc(100% + 48px);
     background: repeating-linear-gradient(
       45deg,
-      var(--color-danger-text) 0 10px,
-      var(--color-text) 10px 20px
+      var(--slide-stripe-a) 0 12px,
+      var(--slide-stripe-b) 12px 24px
     );
-    opacity: 0.5;
-    animation: candy-move 1.2s linear infinite;
+    animation: candy-move 1.1s linear infinite;
   }
   @keyframes candy-move {
     from {
       transform: translateX(0);
     }
     to {
-      transform: translateX(-28.284px);
+      transform: translateX(-33.941px);
     }
   }
   .thumb {
     position: absolute;
-    left: var(--space-1);
-    top: 50%;
-    translate: 0 -50%;
-    width: calc(var(--touch-target) - var(--space-2));
-    height: calc(var(--touch-target) - var(--space-2));
-    flex-shrink: 0;
+    left: var(--slide-pad);
+    top: var(--slide-pad);
+    /* the invariant: thumb = trackHeight − 8px (§4.15.A) */
+    width: calc(var(--slide-height) - 8px);
+    height: calc(var(--slide-height) - 8px);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: var(--color-accent);
-    color: var(--color-accent-ink);
+    flex-shrink: 0;
+    background: var(--slide-thumb);
+    color: var(--slide-thumb-ink);
     border: none;
     border-radius: var(--radius-pill);
     cursor: grab;
     touch-action: none;
-    transition: transform 120ms ease-out;
+    /* default release = the completion snap to the end (§4.15.A) */
+    transition: transform 160ms ease-out;
   }
   .thumb:active {
     cursor: grabbing;
@@ -278,10 +412,15 @@
   .thumb.gripping {
     transition: none;
   }
+  .thumb.spring {
+    /* spring-back below the 85% snap point (§4.15.A): light overshoot */
+    transition: transform 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
   .thumb:disabled {
     cursor: default;
     opacity: 0.5;
   }
+  /* shared: the thumb locks right, plain track, terminal look (§4.15.A) */
   .shared .track {
     border-color: var(--color-accent);
   }
@@ -289,6 +428,8 @@
     color: var(--color-text);
   }
   .shared .thumb {
+    left: auto;
+    right: var(--slide-pad);
     opacity: 1;
   }
   .disabled .thumb {
@@ -297,12 +438,13 @@
   .pending .thumb {
     opacity: 0.6;
   }
-  /* Confetti (Concept §14.1.1 / DESIGN §4.14.1 item 1): CSS-only particles
-   * falling FROM THE TOP of the slide, rendered only when a completion
-   * gesture made here is followed by the shared state. 12 deterministic
-   * flakes in the Deepa family, transform/opacity keyframes only (§4.6);
-   * the base.css reduced-motion catch-all collapses the animation to its
-   * instant, invisible end state. */
+  /* Confetti (Concept §14.1.1 / DESIGN §4.14.1 → §4.15.A reuses it
+   * unchanged): CSS-only particles falling FROM THE TOP of the slide,
+   * rendered only when a completion gesture made here is followed by the
+   * shared state. 12 deterministic flakes in the Deepa family,
+   * transform/opacity keyframes only (§4.6); the base.css reduced-motion
+   * catch-all collapses the animation to its instant, invisible end
+   * state. */
   .confetti {
     position: absolute;
     inset: 0;

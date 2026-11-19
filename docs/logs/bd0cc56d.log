@@ -1,0 +1,4 @@
+2026-11-19T19:44:18Z [worker] task 73 in-progress; starting SlideToShare v2 rebuild
+2026-11-19T19:52:30Z [worker] rebuilt ShareContactSlide to DESIGN 4.15.A (glass pill, marquee candy trail, 85% snap/spring-back, variant API) + phone glyph in registry; rewrote kit slide tests to v2 contracts
+2026-11-19T19:59:14Z [worker] targeted gates green: kit.test.ts 32/32, transcript-page + summary-sheet 53/53 (fixed conditional derived tracking bug in progress)
+2026-11-19T20:00:36Z [worker] gates: make test 710 passed (49 files), make lint clean, make build green (svelte-check 0 errors; pre-existing warnings untouched); commit d8d20c9; handing over ready-for-merge

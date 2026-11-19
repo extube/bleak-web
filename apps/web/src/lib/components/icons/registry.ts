@@ -23,6 +23,7 @@ export type IconName =
   | 'status-finished'
   | 'check'
   | 'arrow-right'
+  | 'phone'
   | 'contact-card';
 
 /** Tab glyphs (§1.2) reference the same set. */
@@ -195,6 +196,19 @@ export const ICON_RECTS: Record<IconName, readonly Rect[]> = {
     [8, 3, 2, 2],
     [8, 11, 2, 2],
     [2, 7, 8, 2]
+  ],
+  // PHONE handset (DESIGN §4.15.A): the Slide-to-Share v2 thumb glyph — a
+  // 45° diagonal receiver, chunky earpiece top-left / mouthpiece
+  // bottom-right, drawn with currentColor (the slide colors it with the
+  // check-green token).
+  phone: [
+    [2, 2, 4, 2],
+    [2, 4, 2, 2],
+    [4, 4, 2, 2],
+    [6, 6, 2, 2],
+    [8, 8, 2, 2],
+    [10, 10, 2, 2],
+    [10, 12, 4, 2]
   ],
   // Contacts tab (DESIGN §4.14.2): a contact card with an arrow dropping
   // INTO it — the "shared with you" direction (the recipient's view).
