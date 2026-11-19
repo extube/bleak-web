@@ -344,6 +344,37 @@ describe('§4.13.5 summary-sheet keys (Concept §13.1.5, DESIGN §4.13.5)', () =
   });
 });
 
+describe('§4.15.E arcade-sheet keys (Concept §15.3, DESIGN §4.15.C/E)', () => {
+  it('the tier labels, the sheet-variant slide copy and the completion text exist in BOTH dictionaries (RU/EN parity)', () => {
+    for (const key of [
+      'chat.summary.me',
+      'chat.summary.tier.great',
+      'chat.summary.tier.good',
+      'chat.summary.tier.low',
+      'chat.contact_share.sheet_label',
+      'chat.contact_share.shared_done'
+    ] as const) {
+      expect(en[key]?.trim().length).toBeGreaterThan(0);
+      expect(ru[key]?.trim().length).toBeGreaterThan(0);
+    }
+    // verbatim spot-checks (§4.15.E table, owner copy)
+    expect(ru['chat.summary.tier.great']).toBe('Отличное совпадение');
+    expect(en['chat.summary.tier.great']).toBe('Great match');
+    expect(ru['chat.summary.tier.good']).toBe('Хороший разговор');
+    expect(en['chat.summary.tier.good']).toBe('Good chat');
+    expect(ru['chat.summary.tier.low']).toBe('Разные вибрации');
+    expect(en['chat.summary.tier.low']).toBe('Different vibes');
+    expect(ru['chat.contact_share.sheet_label']).toBe('Смахните, чтобы поделиться');
+    expect(en['chat.contact_share.sheet_label']).toBe('Slide to share contact');
+    // the completion text swaps in on a gesture-made share (§4.15.C-8);
+    // the 409 "already shared" label keeps its own copy
+    expect(ru['chat.contact_share.shared_done']).toBe('Контакт отправлен!');
+    expect(en['chat.contact_share.shared_done']).toBe('Contact shared!');
+    expect(ru['chat.contact_share.shared']).toBe('Контакт уже передан');
+    expect(en['chat.contact_share.shared']).toBe('Contact already shared');
+  });
+});
+
 describe('v2.5 copy sweep (Concept §11.1.3, DESIGN §4.12.3)', () => {
   it('the interests picker copy is RU/EN paired (DESIGN §4.13.1)', () => {
     for (const key of [

@@ -24,7 +24,8 @@ export type IconName =
   | 'check'
   | 'arrow-right'
   | 'phone'
-  | 'contact-card';
+  | 'contact-card'
+  | 'heart';
 
 /** Tab glyphs (§1.2) reference the same set. */
 export const TAB_ICONS = {
@@ -221,5 +222,15 @@ export const ICON_RECTS: Record<IconName, readonly Rect[]> = {
     [2, 9, 2, 4],
     [12, 9, 2, 4],
     [2, 13, 12, 2]
+  ],
+  // HEART (DESIGN §4.15.C-6b / §4.15.G): the GREAT-tier sparkle popper —
+  // a chunky 8-bit heart (two lobes, tapering body, point), drawn with
+  // currentColor (the sheet's poppers color it yellow/orange/white).
+  heart: [
+    [2, 3, 4, 3],
+    [10, 3, 4, 3],
+    [4, 6, 8, 2],
+    [5, 8, 6, 2],
+    [7, 10, 2, 3]
   ]
 };

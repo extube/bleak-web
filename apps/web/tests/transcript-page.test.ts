@@ -50,7 +50,7 @@ import { api, apiRaw } from '#lib/api/client';
 import { saveHostRoom, clearHostRoom } from '#lib/stores/hostSession';
 import { identity } from '#lib/stores/identity';
 import { codeHue } from '../src/lib/avatar/traits';
-import { donutScoreDash } from '../src/lib/chats/summary';
+import { ringScoreOffset } from '../src/lib/chats/summary';
 import Page from '../src/routes/chats/[address]/+page.svelte';
 import { ru } from '../src/lib/i18n/ru';
 import { en } from '../src/lib/i18n/en';
@@ -365,7 +365,7 @@ describe('summary sheet (CONCEPT §13.1.5, DESIGN §4.13.5 — hard-match on fin
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
-  it('the sheet renders the donut arc from the Summary score and the checklist closed/open verbatim', async () => {
+  it('the sheet renders the score ring from the Summary score and the checklist closed/open verbatim', async () => {
     withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
     fixture.chat = { ...baseChat(), done: true };
     mockedApi.hardMatch.mockResolvedValue({ summary: summaryFixture(66), created: true });
@@ -374,11 +374,15 @@ describe('summary sheet (CONCEPT §13.1.5, DESIGN §4.13.5 — hard-match on fin
 
     const dialog = document.querySelector('[role="dialog"]');
     expect(dialog?.textContent).toContain('Алиса'); // the interlocutor's name
-    // donut: the SVG arc's dasharray is the score's fraction of C
-    const arc = dialog?.querySelector('.donut .arc');
+    // ring (§4.15.C-5): the arc's dashoffset target is c × (1 − score/100)
+    const arc = dialog?.querySelector('.ring .arc');
     expect(arc).toBeTruthy();
-    expect(arc?.getAttribute('style')).toContain(donutScoreDash(66));
-    expect(dialog?.querySelector('.donut .score')?.textContent).toBe('66');
+    const match = arc?.getAttribute('style')?.match(/--ring-target:\s*([\d.]+)/);
+    expect(Number(match?.[1])).toBeCloseTo(ringScoreOffset(66), 6);
+    // the tally lands exactly on the ceil integer (§4.14.4, rAF count-up)
+    await waitFor(() =>
+      expect(dialog?.querySelector('.ring .score')?.textContent).toBe('66')
+    );
     // description as a muted paragraph + server-provided labels verbatim
     expect(dialog?.textContent).toContain('You discussed ceramics');
     expect(dialog?.textContent).toContain('Both introduced themselves');
@@ -409,7 +413,7 @@ describe('summary sheet (CONCEPT §13.1.5, DESIGN §4.13.5 — hard-match on fin
     expect(mockedApi.hardMatch).toHaveBeenCalledTimes(1);
   });
 
-  it('score > 80 adds the celebration class (fireworks + brightness pulse); <= 80 does not', async () => {
+  it('§4.15.C-6 (the 80/50 re-cut): score >= 80 adds the celebration class; < 80 does not', async () => {
     withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
     fixture.chat = { ...baseChat(), done: true };
     mockedApi.hardMatch.mockResolvedValue({ summary: summaryFixture(90), created: true });
@@ -420,7 +424,14 @@ describe('summary sheet (CONCEPT §13.1.5, DESIGN §4.13.5 — hard-match on fin
     expect(sheet?.querySelectorAll('.spark').length).toBeGreaterThan(0);
 
     cleanup();
+    // GREAT is inclusive of 80 (owner revision, 2026-11-20)
     mockedApi.hardMatch.mockResolvedValue({ summary: summaryFixture(80), created: true });
+    render(Page, { props: {} });
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+    expect(document.querySelector('[role="dialog"]')?.classList.contains('celebrate')).toBe(true);
+
+    cleanup();
+    mockedApi.hardMatch.mockResolvedValue({ summary: summaryFixture(79), created: true });
     render(Page, { props: {} });
     await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
     expect(document.querySelector('[role="dialog"]')?.classList.contains('celebrate')).toBe(false);
@@ -436,7 +447,8 @@ describe('summary sheet (CONCEPT §13.1.5, DESIGN §4.13.5 — hard-match on fin
     const dialog = document.querySelector('[role="dialog"]');
     const sheetSlide = dialog?.querySelector('.slide');
     expect(sheetSlide).toBeTruthy();
-    expect(sheetSlide?.textContent).toContain(ru['chat.contact_share.label']);
+    // the SHEET-variant hint is the sheet's own copy (§4.15.C-8/§4.15.E)
+    expect(sheetSlide?.textContent).toContain(ru['chat.contact_share.sheet_label']);
     // completing the EMBEDDED slide fires the same share (to = counterpart)
     mockedApi.shareContact.mockResolvedValue({
       content: 'telegram: @me',
@@ -456,7 +468,7 @@ describe('summary sheet (CONCEPT §13.1.5, DESIGN §4.13.5 — hard-match on fin
     mockedApi.hardMatch.mockRejectedValue(new NetworkError('/api/hard-match', new Error('offline')));
     await renderPage();
     await screen.findByText(ru['common.error.network'], undefined, { timeout: 4000 });
-    expect(document.querySelector('.donut')).toBeNull();
+    expect(document.querySelector('.ring')).toBeNull();
     // retry affordance re-issues the call; the transcript stays intact
     mockedApi.hardMatch.mockResolvedValue({ summary: summaryFixture(66), created: true });
     await screen.getByRole('button', { name: ru['common.retry'] }).click();

@@ -146,6 +146,11 @@ export const en = {
   // control + the local contact-card field + the received list.
   'chat.contact_share.label': 'Swipe right to share your contact',
   'chat.contact_share.shared': 'Contact already shared',
+  // §4.15.C-8/§4.15.E (Concept §15.3): the SHEET-variant slide's copy —
+  // "Slide to share contact" + the completion text; the 409 "already
+  // shared" label above stays unchanged (reused unchanged).
+  'chat.contact_share.sheet_label': 'Slide to share contact',
+  'chat.contact_share.shared_done': 'Contact shared!',
   'chat.contact_share.locked': 'Available once the dialog is finished',
   'chat.contact_share.no_card': 'Add your contact card in profile settings',
   'chat.contact_share.error': 'Could not share the contact — try again.',
@@ -156,6 +161,13 @@ export const en = {
   'chat.summary.checklist': 'Networking checklist',
   'chat.summary.score.aria': 'Match: {score} out of 100',
   'chat.summary.loading': 'Summarizing the dialog…',
+  // §4.15.C-5/C-6 (Concept §15.3): the caption under the "me" avatar frame
+  // and the match-tier labels (80/50 thresholds per the owner revision,
+  // 2026-11-20).
+  'chat.summary.me': 'You',
+  'chat.summary.tier.great': 'Great match',
+  'chat.summary.tier.good': 'Good chat',
+  'chat.summary.tier.low': 'Different vibes',
   'profile.contact.edit': 'Contact card',
   'profile.contact.label': 'Your contact card',
   'profile.contact.note':

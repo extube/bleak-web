@@ -146,6 +146,11 @@ export const ru: Record<MessageKey, string> = {
   // control + the local contact-card field + the received list.
   'chat.contact_share.label': 'Свайп вправо — поделиться контактом',
   'chat.contact_share.shared': 'Контакт уже передан',
+  // §4.15.C-8/§4.15.E (Concept §15.3): the SHEET-variant slide's copy —
+  // «Смахните, чтобы поделиться» + текст после завершения жеста; метка 409
+  // «уже передано» остаётся выше без изменений (reused unchanged).
+  'chat.contact_share.sheet_label': 'Смахните, чтобы поделиться',
+  'chat.contact_share.shared_done': 'Контакт отправлен!',
   'chat.contact_share.locked': 'Станет доступно, когда диалог завершится',
   'chat.contact_share.no_card': 'Добавьте контактную карточку в настройках профиля',
   'chat.contact_share.error': 'Не удалось передать контакт — попробуйте ещё раз.',
@@ -156,6 +161,12 @@ export const ru: Record<MessageKey, string> = {
   'chat.summary.checklist': 'Сетевой чек-лист',
   'chat.summary.score.aria': 'Совпадение: {score} из 100',
   'chat.summary.loading': 'Считаем итог диалога…',
+  // §4.15.C-5/C-6 (Concept §15.3): подпись под своей рамкой аватара и метки
+  // уровней совпадения (пороги 80/50 по решению владельца, 2026-11-20).
+  'chat.summary.me': 'Вы',
+  'chat.summary.tier.great': 'Отличное совпадение',
+  'chat.summary.tier.good': 'Хороший разговор',
+  'chat.summary.tier.low': 'Разные вибрации',
   'profile.contact.edit': 'Контактная карточка',
   'profile.contact.label': 'Ваша контактная карточка',
   'profile.contact.note':
