@@ -62,11 +62,20 @@ const defaultClients: JoinClients = {
   generateToken: () => generateTokenSecret()
 };
 
-/** A persona form value (Step 3a fields). */
+/**
+ * A persona form value (Step 3a fields). `contact` (DESIGN §4.14.3,
+ * Concept §14.1.3) is CLIENT-LOCAL data: the backend user model has no
+ * contact field, so createPersona never sends it — the caller persists it
+ * to the contactCard store after the 2xx.
+ */
 export interface PersonaDraft {
   name: string;
   publicBio: string;
   privateBio: string;
+  /** Optional: only the creation form (PersonaForm) collects it — the
+   * edit flow (PersonaEditor + ContactCardEditor) does not duplicate the
+   * editor, so an edit-save never carries contact data. */
+  contact?: string;
 }
 
 /**
@@ -101,6 +110,8 @@ export async function createPersona(
 ): Promise<{ user: User; token: string }> {
   const name = draft.name.trim();
   const token = clients.generateToken();
+  // NOTE: draft.contact is deliberately NOT sent — local-only contact card
+  // (§4.14.3); the caller writes it to the contactCard store after the 2xx.
   const user = await clients.createRoomUser(roomAddress, {
     name,
     ...(draft.publicBio.trim() !== '' ? { public_bio: draft.publicBio.trim() } : {}),

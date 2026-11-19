@@ -33,6 +33,10 @@ export const ru: Record<MessageKey, string> = {
   'join.form.name': 'Имя',
   'join.form.public_bio': 'Кто вы — увидят другие',
   'join.form.private_bio': 'Только для вашего агента',
+  // §4.14.3 поле контакта в форме создания (Concept §14.1.3): только
+  // локально, отправится лишь при жесте «поделиться».
+  'join.form.contact': 'Ваш контакт',
+  'join.form.contact_hint': 'Хранится только на этом устройстве. Отправится, когда вы поделитесь.',
   'join.error.name_taken': 'Такое имя в комнате уже занято.',
   'join.error.gone': 'Событие больше не доступно.',
   'join.error.name_required': 'Введите имя.',

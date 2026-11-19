@@ -25,6 +25,7 @@
   import { resolve } from '$app/paths';
   import { locale, translate } from '#lib/i18n/locale';
   import { saveIdentity } from '#lib/stores/identity';
+  import { saveContactCard } from '#lib/stores/contactCard';
   import { appendVaultEntry, listVaultEntries, type VaultEntry } from '#lib/stores/tokenVault';
   import {
     codeErrorOf,
@@ -208,6 +209,11 @@
       const { user, token } = await createPersona(room.address, flow.code, draft);
       // Identity + vault entry written ONLY after the 2xx (§10.6).
       saveIdentity({ roomAddress: room.address, userAddress: user.address, token });
+      // §4.14.3 (Concept §14.1.3): the contact field is client-LOCAL —
+      // persisted to the contactCard store (room|user scope) only after
+      // the 2xx; a failed creation persists nothing. The store clamps to
+      // the 255 cap again; never sent to the backend.
+      saveContactCard(room.address, user.address, draft.contact ?? '');
       appendVaultEntry({
         roomAddress: room.address,
         userAddress: user.address,

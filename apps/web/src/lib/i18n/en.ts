@@ -32,6 +32,11 @@ export const en = {
   'join.form.name': 'Name',
   'join.form.public_bio': 'What others see',
   'join.form.private_bio': 'For your agent only',
+  // §4.14.3 creation-form contact input (Concept §14.1.3): local-only
+  // contact card — stored on the device after creation, shared only on
+  // the share slide (never sent at creation).
+  'join.form.contact': 'Your contact',
+  'join.form.contact_hint': 'Stored on this device only. Shared when you slide to share.',
   'join.error.name_taken': 'That name is already taken in the room.',
   'join.error.gone': 'This event is no longer available.',
   'join.error.name_required': 'Enter your name.',

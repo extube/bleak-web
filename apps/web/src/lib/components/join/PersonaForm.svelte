@@ -3,8 +3,16 @@
    * Step 3a — persona form (DESIGN §3.1): name (required, ≤64),
    * public/private bios, client-side empty-name prevention (AC 7) and
    * server-error surfacing (400/409).
+   *
+   * §4.14.3 item 3 (Concept §14.1.3): a CONTACT field — client-LOCAL data
+   * (the backend user model has no contact field). The value rides the
+   * draft only; JoinFlow persists it to the contactCard store
+   * (`bleak.contactCard`, room|user scope) AFTER the persona 2xx — nothing
+   * is sent to the backend at creation. Cap + counter mirror
+   * ContactCardEditor (255, the server MaxContactContentLen).
    */
   import { locale, translate } from '#lib/i18n/locale';
+  import { MAX_CONTACT_CARD } from '#lib/stores/contactCard';
   import type { PersonaDraft, PersonaError } from '#lib/join';
 
   interface Props {
@@ -21,7 +29,14 @@
   let name = $state('');
   let publicBio = $state('');
   let privateBio = $state('');
+  // §4.14.3: fresh persona → empty prefill; local-only draft value until
+  // JoinFlow persists it post-creation.
+  let contact = $state('');
   let localError = $state<'join.error.name_required' | null>(null);
+
+  const contactCounter = $derived(
+    translate($locale, 'profile.greeting.counter', { n: String(contact.length) })
+  );
 
   const errorMessage = $derived.by(() => {
     if (localError) return translate($locale, localError);
@@ -47,7 +62,7 @@
   function submit(event: SubmitEvent): void {
     event.preventDefault();
     localError = null;
-    const draft = { name, publicBio, privateBio };
+    const draft = { name, publicBio, privateBio, contact: contact.trim() };
     // Client-side prevention of an empty name (AC 6).
     if (draft.name.trim() === '') {
       localError = 'join.error.name_required';
@@ -76,6 +91,13 @@
   <div class="field">
     <label for="persona-private">{translate($locale, 'join.form.private_bio')}</label>
     <input id="persona-private" type="text" maxlength={255} bind:value={privateBio} />
+  </div>
+  <div class="field">
+    <label for="persona-contact">{translate($locale, 'join.form.contact')}</label>
+    <!-- maxlength is the client-side cap; the store clamps again on save -->
+    <input id="persona-contact" type="text" maxlength={MAX_CONTACT_CARD} bind:value={contact} />
+    <span class="hint">{translate($locale, 'join.form.contact_hint')}</span>
+    <span class="counter">{contactCounter}</span>
   </div>
 
   {#if errorMessage}
@@ -128,6 +150,16 @@
     margin: 0;
     color: var(--color-accent);
     font-size: 14px;
+  }
+  .hint {
+    color: var(--color-text-muted);
+    font-size: 12px;
+  }
+  .counter {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    align-self: flex-end;
+    margin-top: calc(var(--space-1) * -1);
   }
   .actions {
     display: flex;

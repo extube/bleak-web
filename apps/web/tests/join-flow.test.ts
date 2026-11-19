@@ -257,6 +257,69 @@ describe('JoinFlow — persona creation (v2, token in the body)', () => {
     await screen.findByText(ru['join.error.name_taken']);
     expect((screen.getByLabelText(ru['join.form.name']) as HTMLInputElement).value).toBe('Дубль');
   });
+
+  // §4.14.3 (Concept §14.1.3): the contact field — client-LOCAL data,
+  // persisted to bleak.contactCard AFTER the persona 2xx, never sent.
+  it('renders the contact field empty with the hint and the 255 cap counter (§4.14.3)', async () => {
+    await openForm();
+    const contactInput = screen.getByLabelText(ru['join.form.contact']) as HTMLInputElement;
+    expect(contactInput).toBeTruthy();
+    expect(contactInput.value).toBe('');
+    expect(contactInput.getAttribute('maxlength')).toBe('255');
+    expect(screen.getByText(ru['join.form.contact_hint'])).toBeTruthy();
+    expect(screen.getByText(ru['profile.greeting.counter'].replace('{n}', '0'))).toBeTruthy();
+    // Nothing contact-bearing typed yet → the store is untouched.
+    expect(localStorage.getItem('bleak.contactCard')).toBeNull();
+  });
+
+  it('success persists the trimmed contact ONLY to bleak.contactCard — the API body carries no contact (§4.14.3)', async () => {
+    mockedApi.createRoomUser.mockResolvedValue(user('0xme', 'Я'));
+    await openForm();
+
+    const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
+    fireEvent.input(nameInput, { target: { value: 'Я' } });
+    const contactInput = screen.getByLabelText(ru['join.form.contact']) as HTMLInputElement;
+    fireEvent.input(contactInput, { target: { value: '  telegram: @me  ' } });
+    await tick();
+    // The counter tracks the raw input length.
+    expect(screen.getByText(ru['profile.greeting.counter'].replace('{n}', '17'))).toBeTruthy();
+
+    await submitViaCta();
+    await waitFor(() => expect(mockedApi.createRoomUser).toHaveBeenCalled());
+    // NOTHING contact-bearing over the wire: the exact v2 body stays
+    // name + bios + invite_code + token.
+    const body = mockedApi.createRoomUser.mock.calls[0]?.[1] as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(body).not.toHaveProperty('contact');
+    expect(JSON.stringify(body)).not.toContain('telegram');
+
+    // Flush the continuation (identity + contactCard + vault + goto).
+    await tick();
+    await tick();
+    const card = JSON.parse(localStorage.getItem('bleak.contactCard') ?? '{}') as Record<
+      string,
+      string
+    >;
+    expect(card[`${room.address}|0xme`]).toBe('telegram: @me');
+  });
+
+  it('failed creation (§2.9 invite rejection) persists NO contact card (§4.14.3)', async () => {
+    mockedApi.createRoomUser.mockRejectedValue(
+      new ApiError(401, '/api/room/r/user', 'invite code invalid or expired')
+    );
+    await openForm();
+    const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
+    fireEvent.input(nameInput, { target: { value: 'Я' } });
+    const contactInput = screen.getByLabelText(ru['join.form.contact']) as HTMLInputElement;
+    fireEvent.input(contactInput, { target: { value: 'telegram: @me' } });
+    await submitViaCta();
+    await screen.findByText(ru['join.error.invite']);
+    expect(localStorage.getItem('bleak.contactCard')).toBeNull();
+    // The draft value rides the form state for a retry.
+    expect(contactInput.value).toBe('telegram: @me');
+  });
 });
 
 describe('JoinFlow — return-to-event vault screen (Concept §10.1.1, §4.11.1)', () => {
