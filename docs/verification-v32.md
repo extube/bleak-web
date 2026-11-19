@@ -27,7 +27,7 @@ share-placement-cutover `c94219e` (task 76).
 | Check | Result | Source |
 | --- | --- | --- |
 | Full `make test` re-run by this sweep | **not run** (the process runs the delta-wave CI after this landing) | this session |
-| DELTA-WAVE CI | [pending — process fills] | — |
+| DELTA-WAVE CI | **GREEN** (2026-11-19T20:42Z, process, dev tip `158f77c` post-sweep-landing): `make lint` clean · `make test` 801 passed (49 api-client + 8 helper + 744 web, 48 files) · `make build` 0 svelte-check errors (9 pre-existing warnings) | process gate run; recorded via `task.py ci` |
 | Targeted spot-runs (6 card-anchored suites, first-hand) | **green — 168 tests / 6 files** (kit + summary-sheet + transcript-page + i18n + sweep + tabbar) | `npm run test -w @bleak/web -- <files>` (§4), all passing |
 | Owning tasks of the §15 items | tz7-01…tz7-04 all landed into `dev` (dev tip `c94219e` at sweep time) | dev log |
 
@@ -188,4 +188,4 @@ return-to-event round-trip.
 
 ---
 
-DELTA-WAVE CI: [pending — process fills]
+DELTA-WAVE CI: GREEN — 2026-11-19T20:42Z, dev 158f77c, lint clean / 801 tests / build 0 errors
