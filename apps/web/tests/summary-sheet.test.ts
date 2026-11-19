@@ -1,12 +1,13 @@
-/** SummarySheet component tests (CONCEPT §13.1.5, DESIGN §4.13.5 — new
- * surface, named growth reason): the donut arc math (pure lib/chats/summary),
- * the checklist closed/open states, the > 80 fireworks threshold, the
- * embedded ShareContactSlide (tz5-04 reuse) and the Deepa hue background
- * pairing. The hosting-page trigger behaviors live in transcript-page tests;
- * the sharing/gesture logic is covered by the ShareContactSlide control's
- * own suite. */
+/** SummarySheet component tests (CONCEPT §15.3, DESIGN §4.15.C — v3.2
+ * arcade-sheet core, tz7-02): the arcade scope tokens (locked palette, NOT
+ * remapped to app tokens), the spring-bounce entrance + section cascade,
+ * the Press Start 2P pixel stack, the pixel top bar (label + X close),
+ * the 24px top corners, plus the kept-working donut/checklist/slide
+ * contracts. The hosting-page trigger behaviors live in transcript-page
+ * tests; the sharing/gesture logic is covered by the ShareContactSlide
+ * control's own suite. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import SummarySheet from '../src/lib/components/SummarySheet.svelte';
@@ -18,7 +19,6 @@ import {
   summaryCelebrates,
   summaryScoreDisplay
 } from '../src/lib/chats/summary';
-import { codeHue } from '../src/lib/avatar/traits';
 import type { Summary, User } from '@bleak/api-client';
 import { ru } from '../src/lib/i18n/ru';
 import { en } from '../src/lib/i18n/en';
@@ -191,7 +191,7 @@ describe('SummarySheet rendering', () => {
     expect(boxes[2]?.textContent).toBe('');
   });
 
-  it('§4.14.4 checkbox CSS contract: bordered square, green check via the token, no raw hex', () => {
+  it('§4.14.4 checkbox CSS contract: bordered square, green check via the token, no raw hex outside the scope block', () => {
     // jsdom resolves no component CSS — the box geometry contract is pinned
     // at the source level (same pattern as the §4.14.4 width contract).
     const boxBlock = SHEET_SOURCE.match(/\.checkpoint \.box\s*\{[\s\S]*?\}/)?.[0] ?? '';
@@ -201,14 +201,21 @@ describe('SummarySheet rendering', () => {
     const height = boxBlock.match(/height:\s*([\d.]+px)/)?.[1];
     expect(width).toBeTruthy();
     expect(height).toBe(width);
-    // the green check sign comes from the token, never raw hex (§2.4)
+    // the green check sign resolves through the sheet scope: --sheet-green
+    // IS the approved --color-check-green token (§4.15.C-1 — no new hex)
     expect(SHEET_SOURCE).toContain('.checkpoint .check');
     const checkBlock = SHEET_SOURCE.match(/\.checkpoint \.check\s*\{[\s\S]*?\}/)?.[0] ?? '';
-    expect(checkBlock).toContain('var(--color-check-green)');
-    expect(SHEET_SOURCE).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(checkBlock).toContain('var(--sheet-green)');
     // the token exists in tokens.css (sourced from the approved Deepa green)
     const tokensCss = readFileSync(join(WEB_ROOT, 'src/lib/styles/tokens.css'), 'utf8');
     expect(tokensCss).toMatch(/--color-check-green:\s*var\(--color-deepa-1\)/);
+    // RAW HEX lives only in the .arcade-sheet scope block (the owner-locked
+    // palette, §4.15.C-1) — everything outside consumes the --sheet-* vars.
+    // Comments are prose (they may cite the hexes) — they are stripped.
+    const scopeBlock = SHEET_SOURCE.match(/\.arcade-sheet\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(scopeBlock).toBeTruthy();
+    const outside = SHEET_SOURCE.replace(scopeBlock, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(outside).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 
   it('the Summary description renders as a muted paragraph', () => {
@@ -249,11 +256,17 @@ describe('SummarySheet rendering', () => {
     expect(calm?.querySelector('.fireworks')).toBeNull();
   });
 
-  it('the sheet background pairs the interlocutor Deepa hue with its ink token class', () => {
+  it('§4.15.C-1: the sheet background is the owner-locked purple via the arcade-sheet scope — no Deepa-hue classes remain', () => {
     renderSheet({ summary: summaryFixture(50) });
     const dialog = document.querySelector('[role="dialog"]');
-    expect(dialog?.classList.contains(codeHue(ALICE.address))).toBe(true);
-    expect(dialog?.className).toMatch(/deepa-[1-5]/);
+    expect(dialog?.classList.contains('arcade-sheet')).toBe(true);
+    // the §13.1.5 Deepa-hue background pairing is superseded (§15.4): no
+    // deepa-N class lands on the sheet anymore
+    expect(dialog?.className).not.toMatch(/deepa-[1-5]/);
+    // the background renders through the locked scope token
+    const sheetBlock = SHEET_SOURCE.match(/\.sheet\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(sheetBlock).toContain('background: var(--sheet-bg)');
+    expect(sheetBlock).toContain('color: var(--sheet-ink)');
   });
 
   it('the tz5-04 ShareContactSlide is embedded inside the dialog (same props)', () => {
@@ -320,6 +333,149 @@ describe('SummarySheet rendering', () => {
     expect(screen.getByText('Both introduced themselves')).toBeTruthy();
     // restore the default locale for the rest of the suite
     setLocale('ru');
+  });
+});
+
+describe('§4.15.C arcade-sheet core (tz7-02): scope, entrance, typography, top bar', () => {
+  it('the scope block carries the LOCKED palette — raw values, not app-token remaps', () => {
+    // §4.15.C-1: the locked hexes live verbatim in the .arcade-sheet block
+    // (owner-locked #8A12FF purple — NOT remapped to the app palette)
+    const scopeBlock = SHEET_SOURCE.match(/\.arcade-sheet\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(scopeBlock).toContain('--sheet-bg: #8a12ff');
+    expect(scopeBlock).toContain('--sheet-charcoal: #18181b');
+    expect(scopeBlock).toContain('--sheet-yellow: #facc15');
+    expect(scopeBlock).toContain('--sheet-white: #ffffff');
+    expect(scopeBlock).toContain('--sheet-orange: #ff8a00');
+    // green reuses the approved Deepa green token (no new hex); ink is white
+    expect(scopeBlock).toContain('--sheet-green: var(--color-check-green)');
+    expect(scopeBlock).toContain('--sheet-ink: var(--sheet-white)');
+  });
+
+  it('no --sheet-* token is consumed outside the sheet component (scope containment)', () => {
+    // the app :root tokens are unchanged by the sheet: the --sheet-* family
+    // is consumed (var(--sheet-*)) only inside SummarySheet's scope
+    const srcDir = join(WEB_ROOT, 'src');
+    const consumers: string[] = [];
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+        } else if (/\.(svelte|ts|css)$/.test(entry.name)) {
+          if (readFileSync(full, 'utf8').includes('var(--sheet-')) consumers.push(full);
+        }
+      }
+    };
+    walk(srcDir);
+    expect(consumers).toEqual([join(srcDir, 'lib', 'components', 'SummarySheet.svelte')]);
+  });
+
+  it('§4.15.C-2 entrance: the spring-bounce arcade-rise supersedes the linear slide-up; the scrim keeps its 200ms fade', () => {
+    const sheetBlock = SHEET_SOURCE.match(/\.sheet\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(sheetBlock).toContain(
+      'animation: arcade-rise 460ms cubic-bezier(0.22, 1, 0.36, 1)'
+    );
+    const rise = SHEET_SOURCE.match(/@keyframes arcade-rise\s*\{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    // the three-overshoot bounce per the design keyframes
+    expect(rise).toContain('0%');
+    expect(rise).toContain('translateY(100%)');
+    expect(rise).toContain('62%');
+    expect(rise).toContain('translateY(-12px)');
+    expect(rise).toContain('82%');
+    expect(rise).toContain('translateY(4px)');
+    expect(rise).toContain('translateY(0)');
+    // the superseded linear slide-up is gone; the scrim fade stays
+    expect(SHEET_SOURCE).not.toContain('@keyframes slide-up');
+    const scrimBlock = SHEET_SOURCE.match(/\.scrim\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(scrimBlock).toContain('animation: fade-in 200ms ease-out');
+  });
+
+  it('§4.15.C-2 cascade: sections stagger in at 120ms + i×50ms with a fade-and-slide-up', () => {
+    const cascadeBlock = SHEET_SOURCE.match(/\.cascade\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(cascadeBlock).toContain('animation: cascade-in 240ms ease-out both');
+    expect(cascadeBlock).toContain('animation-delay: calc(120ms + var(--cascade-i, 0) * 50ms)');
+    const cascadeIn = SHEET_SOURCE.match(/@keyframes cascade-in\s*\{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    expect(cascadeIn).toContain('translateY(10px)');
+    expect(cascadeIn).toContain('translateY(0)');
+    // every rendered section carries the cascade class with its index
+    renderSheet();
+    const dialog = screen.getByRole('dialog');
+    const cascades = [...dialog.querySelectorAll('.cascade')];
+    const indices = cascades.map((el) =>
+      Number((el as HTMLElement).style.getPropertyValue('--cascade-i'))
+    );
+    // top bar → identity → score stage → description → checklist → slide
+    expect(indices).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+
+  it('§4.15.C-3 typography: the pixel stack is Press Start 2P with the Handjet fallback, loaded via Fontsource subsets', () => {
+    const scopeBlock = SHEET_SOURCE.match(/\.arcade-sheet\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(scopeBlock).toContain(
+      "--sheet-font-pixel: 'Press Start 2P', 'Handjet Variable', 'Handjet', monospace"
+    );
+    // the Fontsource import lives in +layout.svelte (the existing mechanism)
+    // with the latin + cyrillic(+ext) subset CSS files — RU/EN parity
+    const layout = readFileSync(join(WEB_ROOT, 'src/routes/+layout.svelte'), 'utf8');
+    expect(layout).toContain("@fontsource/press-start-2p/latin.css'");
+    expect(layout).toContain("@fontsource/press-start-2p/cyrillic.css'");
+    expect(layout).toContain("@fontsource/press-start-2p/cyrillic-ext.css'");
+    // the authorized new dependency (owner-mandated authentic 8-bit face;
+    // Cyrillic subset verified upstream) is recorded in package.json
+    const pkg = JSON.parse(readFileSync(join(WEB_ROOT, 'package.json'), 'utf8'));
+    expect(pkg.dependencies['@fontsource/press-start-2p']).toBeTruthy();
+    // pixel consumers: top-bar label, checklist header, score numeral —
+    // body/checklist text stays Inter (--font-body)
+    expect(SHEET_SOURCE.match(/\.sheet-label\s*\{[\s\S]*?\}/)?.[0]).toContain(
+      'font-family: var(--sheet-font-pixel)'
+    );
+    expect(SHEET_SOURCE.match(/\.checklist h3\s*\{[\s\S]*?\}/)?.[0]).toContain(
+      'font-family: var(--sheet-font-pixel)'
+    );
+    const scoreBlock = SHEET_SOURCE.match(/\.donut \.score\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(scoreBlock).toContain('font-family: var(--sheet-font-pixel)');
+    expect(scoreBlock).toContain('font-size: 28px');
+    expect(SHEET_SOURCE.match(/\.identity h2\s*\{[\s\S]*?\}/)?.[0]).toContain(
+      'font-family: var(--font-body)'
+    );
+  });
+
+  it('§4.15.C-4 top bar: the i18n pixel MEETING SUMMARY label left + the pixel X close with scale(0.88) press and a 48px target', () => {
+    renderSheet();
+    const dialog = screen.getByRole('dialog');
+    const bar = dialog.querySelector('.top-bar');
+    expect(bar).toBeTruthy();
+    // the label renders the i18n'd title uppercase in the pixel face
+    expect(bar?.querySelector('.sheet-label')?.textContent).toBe(ru['chat.summary.title']);
+    // the X close: 48px (--touch-target), yellow glyph, pixel scale-down
+    // press over 90ms, yellow :focus-visible ring
+    const closeBlock = SHEET_SOURCE.match(/\.close\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(closeBlock).toContain('width: var(--touch-target)');
+    expect(closeBlock).toContain('height: var(--touch-target)');
+    expect(closeBlock).toContain('color: var(--sheet-yellow)');
+    expect(SHEET_SOURCE).toMatch(/\.close:active\s*\{[\s\S]*?transform: scale\(0\.88\)/);
+    expect(SHEET_SOURCE).toMatch(
+      /\.close:focus-visible\s*\{[\s\S]*?outline: 2px solid var\(--sheet-yellow\)/
+    );
+    // the press still dismisses (behavior unchanged)
+    // (the close behavior itself is covered by the rendering tests above)
+  });
+
+  it('§4.15.C-2 container: 24px top corners (radius-lg top-only), square elsewhere', () => {
+    const sheetBlock = SHEET_SOURCE.match(/\.sheet\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(sheetBlock).toContain('border-radius: var(--radius-lg) var(--radius-lg) 0 0');
+    // --radius-lg is the 24px token (tokens.css)
+    const tokensCss = readFileSync(join(WEB_ROOT, 'src/lib/styles/tokens.css'), 'utf8');
+    expect(tokensCss).toMatch(/--radius-lg:\s*24px/);
+  });
+
+  it('§4.15.C-6b container restyle: the celebrate sparks read the sheet scope (yellow/orange/white), the wash reads --sheet-white', () => {
+    const sparkBlock = SHEET_SOURCE.match(/\.spark\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(sparkBlock).toContain('background: var(--sheet-yellow)');
+    expect(SHEET_SOURCE).toContain('--sheet-orange');
+    const wash = SHEET_SOURCE.match(/\.celebrate::after\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(wash).toContain('background: var(--sheet-white)');
+    const pulse = SHEET_SOURCE.match(/@keyframes brightness-pulse\s*\{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    expect(pulse).toContain('opacity: 0.22');
   });
 });
 

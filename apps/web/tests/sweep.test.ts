@@ -165,11 +165,33 @@ describe('sweep: QR module placement (DESIGN §3.8 AC 14, §3.6 AC 13)', () => {
 });
 
 describe('sweep: token discipline (DESIGN §2.4 — no hardcoded hex in components)', () => {
-  it('no .svelte file contains a raw color literal', () => {
+  /* §4.15.C-1 exception (2026-11-20 owner ruling, arcade sheet): the sheet's
+   * palette is OWNER-LOCKED and sheet-scoped — its raw hexes live ONLY in
+   * SummarySheet's `.arcade-sheet` scope block. That one block supersedes the
+   * blanket ban (the design pins the values verbatim, e.g. #8A12FF); every
+   * other file, and every line outside the scope block, still obeys §2.4. */
+  const SHEET_SCOPE_FILE = 'src/lib/components/SummarySheet.svelte';
+  const withoutScopeBlock = (file: string, src: string): string =>
+    rel(file) === SHEET_SCOPE_FILE ? src.replace(/\.arcade-sheet\s*\{[\s\S]*?\}/, '') : src;
+
+  it('no .svelte file contains a raw color literal (sole exception: the owner-locked .arcade-sheet scope block, §4.15.C-1)', () => {
     const offenders = SVELTE_FILES
-      .filter((f) => /#[0-9a-fA-F]{3,8}\b/.test(readFileSync(f, 'utf8')))
+      .filter(
+        (f) =>
+          /#[0-9a-fA-F]{3,8}\b/.test(withoutScopeBlock(f, readFileSync(f, 'utf8')))
+      )
       .map(rel);
     expect(offenders, `hardcoded hex in: ${offenders.join(', ')}`).toEqual([]);
+  });
+
+  it('the exception is not vacuous: the .arcade-sheet block carries the LOCKED hexes verbatim', () => {
+    const src = readFileSync(join(WEB_ROOT, SHEET_SCOPE_FILE), 'utf8');
+    const scopeBlock = src.match(/\.arcade-sheet\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(scopeBlock).toContain('--sheet-bg: #8a12ff');
+    expect(scopeBlock).toContain('--sheet-charcoal: #18181b');
+    expect(scopeBlock).toContain('--sheet-yellow: #facc15');
+    expect(scopeBlock).toContain('--sheet-white: #ffffff');
+    expect(scopeBlock).toContain('--sheet-orange: #ff8a00');
   });
 
   it('the only light-surface exception (--color-qr-frame) is declared in tokens.css', () => {

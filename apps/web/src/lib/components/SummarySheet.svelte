@@ -1,33 +1,43 @@
 <script lang="ts">
   /**
-   * SummarySheet (CONCEPT §13.1.5, DESIGN §4.13.5 item 5): the finished-chat
-   * bottom sheet — the once-only hard-match result presented as a modal over
-   * the transcript. Mirrors the HandshakeSheet dialog pattern (scrim, Escape
-   * + focus + tab-trap, X close top-right) with ROUND corners instead of the
-   * pixel steps, and the sheet's BACKGROUND is the interlocutor's Deepa hue
-   * (`codeHue` — the message-bubble pairing: text on a hue uses the hue's
-   * `--color-deepa-ink-<n>` token, AA ≥4.5 verified numerically).
+   * SummarySheet (CONCEPT §15.3, DESIGN §4.15.C — v3.2 arcade-sheet core):
+   * the finished-chat bottom sheet — the once-only hard-match result
+   * presented as a modal over the transcript. Mirrors the HandshakeSheet
+   * dialog pattern (scrim, Escape + focus + tab-trap, X close top-right).
+   *
+   * Arcade core (§4.15.C-1..C-4; tz7-02 — the centerpiece/tier/checklist
+   * redesign is the NEXT task): a `.arcade-sheet` scope block carries the
+   * LOCKED sheet palette (the owner-locked electric-purple background —
+   * NOT remapped to app tokens; it supersedes the §13.1.5 Deepa-hue
+   * background, recorded in §15.4) plus the pixel stack ('Press Start 2P'
+   * with Handjet fallback — the Fontsource import lives in
+   * routes/+layout.svelte with latin + cyrillic(+ext) subsets, RU/EN
+   * parity). The entrance replaces
+   * the 200ms linear slide-up with the retro spring-bounce `arcade-rise`
+   * and the sections cascade in (~50ms stagger). Top bar: the pixel
+   * MEETING SUMMARY label (chat.summary.title) + the pixel X close
+   * (scale(0.88) press, 48px target). Top corners 24px; dark scrim stays.
    *
    * Pure presentational — the hosting page (routes/chats/[address]) owns the
    * hardMatch call, the share-contact request and the error/retry state; all
    * copy and state come in as clean props, the embedded ShareContactSlide is
    * the REUSED tz5-04 control (same props, forwarded verbatim — never forked).
    *
-   * Inside:
+   * Inside (kept working, restyled only where the container demands):
    * - a round SVG donut (stroke-dasharray over the circumference —
    *   lib/chats/summary.ts) showing the 0..100 score;
    * - the networking checklist: the Summary.checkpoints render closed (check
    *   glyph) / open (muted); the server-provided English labels display
    *   verbatim (no i18n for labels — the heading IS i18n'd RU/EN);
-   * - `Summary.description` as a muted paragraph when present;
+   * - `Summary.description` as a paragraph when present;
    * - score > 80 → the `celebrate` class: CSS-only spark particles +
    *   an opacity "brightness pulse" overlay (transform/opacity only, §4.6;
-   *   the base.css reduced-motion catch-all disables both).
+   *   the base.css reduced-motion catch-all disables both) — recolored to
+   *   the sheet scope (§4.15.C-6b).
    */
   import { tick } from 'svelte';
   import type { Summary, User } from '@bleak/api-client';
   import { locale, translate } from '#lib/i18n/locale';
-  import { codeHue } from '#lib/avatar/traits';
   import { DONUT_RADIUS, donutScoreDash, summaryCelebrates, summaryScoreDisplay } from '#lib/chats/summary';
   import ShareContactSlide from './ShareContactSlide.svelte';
   import PixelAvatar from './PixelAvatar.svelte';
@@ -35,7 +45,7 @@
 
   interface Props {
     open?: boolean;
-    /** The interlocutor: the sheet's name, avatar and hue background. */
+    /** The interlocutor: the sheet's name and avatar. */
     user: User | null;
     /** The hard-match Summary (null while loading / failed). */
     summary?: Summary | null;
@@ -91,8 +101,6 @@
   const networkErrorText = $derived(translate($locale, 'common.error.network'));
   const apiErrorTitle = $derived(translate($locale, 'common.error.api'));
 
-  /** The interlocutor's message hue class (the sheet's background pairing). */
-  const hue = $derived(user === null ? '' : codeHue(user.address));
   /** Fireworks + brightness pulse — strictly above 80 (lib/chats/summary). */
   const celebrate = $derived(summaryCelebrates(summary));
 
@@ -135,7 +143,7 @@
 {#if open && user}
   <div class="scrim" aria-hidden="true"></div>
   <div
-    class="sheet {hue}"
+    class="sheet arcade-sheet"
     class:celebrate
     role="dialog"
     aria-modal="true"
@@ -155,35 +163,38 @@
         <i class="spark s6"></i>
       </div>
     {/if}
-    <button type="button" class="close" aria-label={closeLabel} onclick={close}>
-      <PixelIcon name="close" size={16} />
-    </button>
 
-    <div class="identity">
+    <!-- §4.15.C-4 top bar: the pixel MEETING SUMMARY label left, the pixel
+         X close right (scale-down press, 48px target). -->
+    <header class="top-bar cascade" style:--cascade-i="0">
+      <p class="sheet-label">{title}</p>
+      <button type="button" class="close" aria-label={closeLabel} onclick={close}>
+        <PixelIcon name="close" size={16} />
+      </button>
+    </header>
+
+    <div class="identity cascade" style:--cascade-i="1">
       <PixelAvatar address={user.address} size={56} label={user.name} />
-      <div class="texts">
-        <p class="kicker">{title}</p>
-        <h2>{user.name}</h2>
-      </div>
+      <h2>{user.name}</h2>
     </div>
 
     {#if loading}
       <!-- hardMatch pending: a quiet loading row, no fake data. -->
-      <p class="loading" role="status">{loadingText}</p>
+      <p class="loading cascade" style:--cascade-i="2" role="status">{loadingText}</p>
     {:else if error}
       <!-- Inline failure + retry affordance; the sheet stays open. -->
-      <p class="error" role="alert" aria-live="polite">
+      <p class="error cascade" style:--cascade-i="2" role="alert" aria-live="polite">
         {#if error === 'network'}
           {networkErrorText}
         {:else}
           {apiErrorTitle}{errorMessage ? ` — ${errorMessage}` : ''}
         {/if}
       </p>
-      <button type="button" class="cta" onclick={() => onretry?.()}>
+      <button type="button" class="cta cascade" style:--cascade-i="3" onclick={() => onretry?.()}>
         {translate($locale, 'common.retry')}
       </button>
     {:else if summary}
-      <div class="score-row">
+      <div class="score-row cascade" style:--cascade-i="2">
         <svg
           class="donut"
           viewBox="0 0 120 120"
@@ -203,10 +214,10 @@
       </div>
 
       {#if summary.description}
-        <p class="description">{summary.description}</p>
+        <p class="description cascade" style:--cascade-i="3">{summary.description}</p>
       {/if}
 
-      <section class="checklist" aria-label={checklistHeading}>
+      <section class="checklist cascade" style:--cascade-i="4" aria-label={checklistHeading}>
         <h3>{checklistHeading}</h3>
         <ul>
           {#each summary.checkpoints as checkpoint (checkpoint.key)}
@@ -226,8 +237,9 @@
       </section>
 
       <!-- §4.13.5: the share-contact slide INSIDE the sheet — the same
-           tz5-04 control with the same props, sharing to this counterpart. -->
-      <div class="share">
+           tz5-04 control with the same props, sharing to this counterpart.
+           (The variant="sheet" embed is the NEXT task's cutover, §4.15.C-8.) -->
+      <div class="share cascade" style:--cascade-i="5">
         <ShareContactSlide
           label={slideLabel}
           sharedLabel={slideSharedLabel}
@@ -250,8 +262,6 @@
     z-index: 30;
     animation: fade-in 200ms ease-out;
   }
-  /* ROUND corners (§4.13.5): the owner change vs HandshakeSheet's pixel
-   * steps — the bottom sheet keeps the slide-up, scrim and close pattern. */
   /* WIDTH (§4.14.4): the sheet's horizontal extent MATCHES the dialog
    * content box — the transcript column in routes/chats/[address] sits
    * inside the page's `--space-4` scroll insets (phone) and is capped at
@@ -266,41 +276,93 @@
     width: calc(100% - 2 * var(--space-4));
     margin-inline: auto;
     z-index: 31;
-    background: var(--color-surface);
-    border-radius: var(--radius-lg);
+    background: var(--sheet-bg);
+    color: var(--sheet-ink);
+    /* §4.15.C-2: 24px TOP corners only (bottom edge meets the viewport). */
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     padding: var(--space-5) var(--space-5) calc(var(--bottom-tabbar-height) + var(--space-4));
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
-    animation: slide-up 200ms ease-out;
+    animation: arcade-rise 460ms cubic-bezier(0.22, 1, 0.36, 1);
     overflow: hidden;
   }
-  /* The interlocutor's Deepa hue IS the background; text pairs with the
-   * hue's ink token (the §4.10.5 message-bubble pairing — readable AA). */
-  .sheet.deepa-1 {
-    background: var(--color-deepa-1);
-    color: var(--color-deepa-ink-1);
+  /* §4.15.C-1 PALETTE SCOPE — the sheet does NOT remap app tokens: the
+   * locked sheet colors live here and are consumed ONLY inside the sheet
+   * (--sheet-*). --sheet-bg is OWNER-LOCKED (Concept §15.3; the
+   * app palette itself is unchanged) and supersedes the §13.1.5
+   * Deepa-hue background (recorded, Concept §15.4) — the .deepa-N hue
+   * classes are removed from the sheet. --sheet-green reuses the approved
+   * Deepa green (--color-check-green — no new hex). */
+  .arcade-sheet {
+    --sheet-bg: #8a12ff;
+    --sheet-charcoal: #18181b;
+    --sheet-yellow: #facc15;
+    --sheet-white: #ffffff;
+    --sheet-orange: #ff8a00;
+    --sheet-green: var(--color-check-green);
+    --sheet-ink: var(--sheet-white);
+    /* §4.15.C-3 typography: Press Start 2P for BOTH locales (it ships
+     * Cyrillic upstream; Handjet second = the Cyrillic pixel fallback,
+     * never a serif). Loaded via Fontsource in routes/+layout.svelte. */
+    --sheet-font-pixel: 'Press Start 2P', 'Handjet Variable', 'Handjet', monospace;
   }
-  .sheet.deepa-2 {
-    background: var(--color-deepa-2);
-    color: var(--color-deepa-ink-2);
+  /* §4.15.C-2 ENTRANCE — the 200ms linear slide-up is superseded by the
+   * retro-arcade SPRING BOUNCE rise (transform-only; the scrim keeps its
+   * 200ms fade). */
+  @keyframes arcade-rise {
+    0% {
+      transform: translateY(100%);
+    }
+    62% {
+      transform: translateY(-12px);
+    }
+    82% {
+      transform: translateY(4px);
+    }
+    100% {
+      transform: translateY(0);
+    }
   }
-  .sheet.deepa-3 {
-    background: var(--color-deepa-3);
-    color: var(--color-deepa-ink-3);
+  /* §4.15.C-2 CASCADE — the sheet's sections stagger in ~50ms apart
+   * (delay 120ms + i×50ms), each a fade-and-slide-up 240ms ease-out.
+   * Sections carry --cascade-i (top bar → identity → score stage →
+   * description → checklist → slide). */
+  .cascade {
+    animation: cascade-in 240ms ease-out both;
+    animation-delay: calc(120ms + var(--cascade-i, 0) * 50ms);
   }
-  .sheet.deepa-4 {
-    background: var(--color-deepa-4);
-    color: var(--color-deepa-ink-4);
+  @keyframes cascade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
-  .sheet.deepa-5 {
-    background: var(--color-deepa-5);
-    color: var(--color-deepa-ink-5);
+  /* --- §4.15.C-4 top bar -------------------------------------------------- */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
   }
+  /* The pixel MEETING SUMMARY label — i18n'd (chat.summary.title),
+   * uppercase, pixel face 10px (PS2P runs large), white ink. */
+  .sheet-label {
+    margin: 0;
+    font-family: var(--sheet-font-pixel);
+    font-size: 10px;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    color: var(--sheet-white);
+  }
+  /* The pixel X close: 48px hit target, yellow glyph, press state =
+   * pixel scale-DOWN over 90ms (no opacity fade), yellow focus ring. */
   .close {
-    position: absolute;
-    top: var(--space-3);
-    right: var(--space-3);
+    flex-shrink: 0;
     width: var(--touch-target);
     height: var(--touch-target);
     display: inline-flex;
@@ -308,28 +370,26 @@
     justify-content: center;
     background: transparent;
     border: none;
-    color: inherit;
-    border-radius: var(--radius-pill);
-    transition: opacity 120ms ease-out;
+    color: var(--sheet-yellow);
+    transition: transform 90ms ease-out;
   }
-  .close:hover {
-    opacity: 0.7;
+  .close:active {
+    transform: scale(0.88);
+  }
+  .close:focus-visible {
+    outline: 2px solid var(--sheet-yellow);
+    outline-offset: 2px;
   }
   .identity {
     display: flex;
     align-items: center;
     gap: var(--space-4);
   }
-  .texts .kicker {
-    margin: 0 0 2px;
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    opacity: 0.8;
-  }
-  .texts h2 {
+  .identity h2 {
+    font-family: var(--font-body);
     font-size: 24px;
     margin: 0;
+    color: var(--sheet-white);
   }
   /* --- donut (§4.13.5): stroke-dasharray over the circumference --------- */
   .score-row {
@@ -342,7 +402,7 @@
   }
   .donut circle {
     fill: none;
-    stroke: currentColor;
+    stroke: var(--sheet-white);
     stroke-width: 10;
   }
   .donut .track {
@@ -355,28 +415,32 @@
     transform-origin: 60px 60px;
     transition: stroke-dasharray 400ms ease-out;
   }
+  /* §4.15.C-5/C-3: the score numeral renders in the pixel stack 28px. */
   .donut .score {
     stroke: none;
-    fill: currentColor;
-    font-family: var(--font-body);
-    font-size: 30px;
-    font-weight: 600;
+    fill: var(--sheet-white);
+    font-family: var(--sheet-font-pixel);
+    font-size: 28px;
+    letter-spacing: 0;
     text-anchor: middle;
     dominant-baseline: central;
   }
+  /* §4.15.C-7: crisp white sans body copy on purple. */
   .description {
     margin: 0;
+    color: var(--sheet-ink);
     font-size: 14px;
     line-height: 1.45;
-    opacity: 0.85;
   }
   /* --- networking checklist --------------------------------------------- */
+  /* §4.15.C-7: the pixel NETWORKING CHECKLIST header. */
   .checklist h3 {
     margin: 0 0 var(--space-2);
-    font-size: 12px;
-    letter-spacing: 0.08em;
+    font-family: var(--sheet-font-pixel);
+    font-size: 10px;
+    letter-spacing: 0;
     text-transform: uppercase;
-    opacity: 0.8;
+    color: var(--sheet-white);
   }
   .checklist ul {
     list-style: none;
@@ -394,7 +458,8 @@
   }
   /* §4.14.4 sheet polish: SQUARE checkboxes — a bordered square box per
    * checkpoint; closed items carry the check glyph inside (GREEN — the
-   * --color-check-green token), open items keep the empty square. */
+   * --color-check-green token via --sheet-green), open items keep the
+   * empty square. */
   .checkpoint .box {
     display: inline-flex;
     align-items: center;
@@ -402,14 +467,14 @@
     width: 16px;
     height: 16px;
     flex-shrink: 0;
-    border: 1.5px solid currentColor;
+    border: 1.5px solid var(--sheet-white);
   }
   /* the GREEN check sign (§4.14.4) — the wrapper owns the color so the
-   * PixelIcon glyph inherits it (currentColor fill; cross-component
-   * selectors are out of Svelte's scope, so the color sits on OUR span). */
+    * PixelIcon glyph inherits it (currentColor fill; cross-component
+    * selectors are out of Svelte's scope, so the color sits on OUR span). */
   .checkpoint .check {
     display: inline-flex;
-    color: var(--color-check-green);
+    color: var(--sheet-green);
   }
   /* Open criteria render muted (no glyph) — the §4.13.5 closed/open states. */
   .checkpoint:not(.closed) {
@@ -420,14 +485,15 @@
   }
   .loading {
     margin: 0;
+    color: var(--sheet-ink);
     font-size: 14px;
-    opacity: 0.8;
   }
   .error {
     margin: 0;
+    color: var(--sheet-ink);
     font-size: 14px;
   }
-  /* The retry affordance stays readable on the hue: the ink pairing. */
+  /* The retry affordance stays readable on the locked purple: white ink. */
   .cta {
     display: inline-flex;
     align-items: center;
@@ -438,8 +504,8 @@
     font-size: 16px;
     text-align: center;
     background: transparent;
-    border: 1px solid currentColor;
-    color: inherit;
+    border: 1px solid var(--sheet-white);
+    color: var(--sheet-ink);
     transition: opacity 120ms ease-out;
   }
   .cta:disabled {
@@ -447,7 +513,9 @@
   }
   /* --- celebration (score > 80): sparks + brightness pulse --------------- */
   /* Transform/opacity only (§4.6); prefers-reduced-motion kills both via
-   * the base.css catch-all. */
+    * the base.css catch-all. §4.15.C-6b: the sparks recolor to the sheet
+    * scope (yellow/orange/white) and the wash reads --sheet-white at its
+    * existing 0.22 peak. */
   .fireworks {
     position: absolute;
     inset: 0;
@@ -457,9 +525,17 @@
     position: absolute;
     width: 6px;
     height: 6px;
-    background: currentColor;
+    background: var(--sheet-yellow);
     opacity: 0;
     animation: spark-fly 900ms ease-out 80ms 2;
+  }
+  .spark.s2,
+  .spark.s5 {
+    background: var(--sheet-orange);
+  }
+  .spark.s3,
+  .spark.s6 {
+    background: var(--sheet-white);
   }
   .spark.s1 { left: 12%; bottom: 30%; --sx: 18px; --sy: -70px; }
   .spark.s2 { left: 30%; bottom: 55%; --sx: -14px; --sy: -58px; animation-delay: 220ms; }
@@ -481,13 +557,13 @@
     }
   }
   /* The "brightness" pulse: an opacity-only wash over the sheet (filter
-   * animations are out per §4.6 — the wash reads identically). */
+    * animations are out per §4.6 — the wash reads identically). */
   .celebrate::after {
     content: '';
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: var(--color-surface);
+    background: var(--sheet-white);
     opacity: 0;
     animation: brightness-pulse 900ms ease-out 100ms 2;
   }
@@ -498,14 +574,6 @@
     }
     50% {
       opacity: 0.22;
-    }
-  }
-  @keyframes slide-up {
-    from {
-      transform: translateY(100%);
-    }
-    to {
-      transform: translateY(0);
     }
   }
   @keyframes fade-in {

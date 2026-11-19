@@ -1,6 +1,15 @@
 <script lang="ts">
   import '@fontsource-variable/handjet';
   import '@fontsource-variable/inter';
+  // DESIGN §4.15.C-3: the arcade sheet's authentic 8-bit face (owner-
+  // mandated) — Press Start 2P ships Cyrillic upstream (ofl/pressstart2p
+  // METADATA.pb lists the cyrillic + cyrillic-ext subsets), so ONE face
+  // serves both locales with true RU/EN glyph parity. Only the used
+  // subsets' bytes load (unicode-range); zero runtime JS; consumed only
+  // inside the sheet scope (--sheet-font-pixel).
+  import '@fontsource/press-start-2p/latin.css';
+  import '@fontsource/press-start-2p/cyrillic.css';
+  import '@fontsource/press-start-2p/cyrillic-ext.css';
   import '#lib/styles/base.css';
   import { onMount } from 'svelte';
   import { get } from 'svelte/store';
