@@ -282,6 +282,29 @@ describe('§4.13.3 contact-share keys (Concept §13.1.3, DESIGN §4.13.3)', () =
   });
 });
 
+describe('§4.13.5 summary-sheet keys (Concept §13.1.5, DESIGN §4.13.5)', () => {
+  it('the sheet heading, checklist heading, donut aria and loading copy exist in BOTH dictionaries (RU/EN parity)', () => {
+    for (const key of [
+      'chat.summary.title',
+      'chat.summary.checklist',
+      'chat.summary.score.aria',
+      'chat.summary.loading'
+    ] as const) {
+      expect(en[key]?.trim().length).toBeGreaterThan(0);
+      expect(ru[key]?.trim().length).toBeGreaterThan(0);
+    }
+    // verbatim spot-checks; the {score} placeholder interpolates
+    expect(ru['chat.summary.title']).toBe('Итоги встречи');
+    expect(en['chat.summary.title']).toBe('Meeting summary');
+    expect(translate('ru', 'chat.summary.score.aria', { score: '87' })).toBe(
+      'Совпадение: 87 из 100'
+    );
+    expect(translate('en', 'chat.summary.score.aria', { score: '87' })).toBe(
+      'Match: 87 out of 100'
+    );
+  });
+});
+
 describe('v2.5 copy sweep (Concept §11.1.3, DESIGN §4.12.3)', () => {
   it('the interests picker copy is RU/EN paired (DESIGN §4.13.1)', () => {
     for (const key of [

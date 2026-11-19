@@ -12,7 +12,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
-import { ApiError, NetworkError, type Chat, type Message, type User } from '@bleak/api-client';
+import { ApiError, NetworkError, type Chat, type Message, type Summary, type User } from '@bleak/api-client';
 
 const { mockPage } = vi.hoisted(() => ({
   mockPage: {
@@ -38,7 +38,8 @@ vi.mock('#lib/api/client', () => ({
     getChat: vi.fn(),
     listChatMessages: vi.fn(),
     listRoomUsers: vi.fn(),
-    shareContact: vi.fn()
+    shareContact: vi.fn(),
+    hardMatch: vi.fn()
   },
   apiRaw: apiRawMock,
   HOST_RESET_KEY: 'bleak.hostReset'
@@ -49,6 +50,7 @@ import { api, apiRaw } from '#lib/api/client';
 import { saveHostRoom, clearHostRoom } from '#lib/stores/hostSession';
 import { identity } from '#lib/stores/identity';
 import { codeHue } from '../src/lib/avatar/traits';
+import { donutScoreDash } from '../src/lib/chats/summary';
 import Page from '../src/routes/chats/[address]/+page.svelte';
 import { ru } from '../src/lib/i18n/ru';
 import { en } from '../src/lib/i18n/en';
@@ -111,6 +113,26 @@ function message(txId: string, from: string, content: string, seconds: number): 
   };
 }
 
+/** A hard-match Summary fixture (§4.13.5): 5 checkpoints, given score. */
+function summaryFixture(score: number): Summary {
+  return {
+    chat: CHAT,
+    checkpoints: [
+      { key: 'introductions', label: 'Both introduced themselves', closed: true },
+      { key: 'goals', label: 'Goals were exchanged', closed: true },
+      { key: 'details', label: 'Project details were discussed', closed: false },
+      { key: 'next_step', label: 'A next step was agreed', closed: false },
+      { key: 'contact', label: 'Contact details were exchanged', closed: false }
+    ],
+    created_at: secondsAgo(30),
+    description: 'You discussed ceramics and agreed to exchange contacts.',
+    room: ROOM,
+    score,
+    user_a: ME,
+    user_b: '0xa'
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockPage.params = { address: CHAT };
@@ -129,6 +151,7 @@ beforeEach(() => {
   mockedApi.listChatMessages.mockImplementation(async () => structuredClone(fixture.messages));
   mockedApiRaw.getChat.mockImplementation(async () => structuredClone(fixture.chat ?? baseChat()));
   mockedApiRaw.listChatMessages.mockImplementation(async () => structuredClone(fixture.messages));
+  mockedApi.hardMatch.mockResolvedValue({ summary: summaryFixture(66), created: true });
 });
 
 afterEach(() => {
@@ -316,6 +339,130 @@ describe('dialog finished state (CONCEPT §13 R2, DESIGN §4.13.2 — Chat.done 
   });
 });
 
+describe('summary sheet (CONCEPT §13.1.5, DESIGN §4.13.5 — hard-match on finished open)', () => {
+  it('opening a FINISHED chat fires the once-only hardMatch(room, me, counterpart) and opens the sheet; a poll tick never re-fires it', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    await renderPage();
+
+    expect(mockedApi.hardMatch).toHaveBeenCalledTimes(1);
+    expect(mockedApi.hardMatch).toHaveBeenCalledWith(ROOM, ME, '0xa');
+    expect(document.querySelector('[role="dialog"]')).toBeTruthy();
+
+    // one more poll tick (a new message arrives) — still exactly one call
+    withMessages(
+      message('tx1', '0xa', 'Прощальный ответ агентов.', 60),
+      message('tx2', ME, 'Спасибо!', 5)
+    );
+    await screen.findByText('Спасибо!', undefined, { timeout: 4000 });
+    expect(mockedApi.hardMatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('an ACTIVE chat never triggers the hard match nor opens the sheet', async () => {
+    withMessages(message('tx1', '0xa', 'Привет.', 60));
+    await renderPage(); // baseChat() carries no done field
+    expect(mockedApi.hardMatch).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('the sheet renders the donut arc from the Summary score and the checklist closed/open verbatim', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    mockedApi.hardMatch.mockResolvedValue({ summary: summaryFixture(66), created: true });
+    await renderPage();
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain('Алиса'); // the interlocutor's name
+    // donut: the SVG arc's dasharray is the score's fraction of C
+    const arc = dialog?.querySelector('.donut .arc');
+    expect(arc).toBeTruthy();
+    expect(arc?.getAttribute('style')).toContain(donutScoreDash(66));
+    expect(dialog?.querySelector('.donut .score')?.textContent).toBe('66');
+    // description as a muted paragraph + server-provided labels verbatim
+    expect(dialog?.textContent).toContain('You discussed ceramics');
+    expect(dialog?.textContent).toContain('Both introduced themselves');
+    const items = dialog?.querySelectorAll('.checkpoint');
+    expect(items).toHaveLength(5);
+    // closed → the check glyph; open → muted, no glyph
+    expect(items?.[0]?.classList.contains('closed')).toBe(true);
+    expect(items?.[0]?.querySelector('svg')).toBeTruthy();
+    expect(items?.[2]?.classList.contains('closed')).toBe(false);
+    expect(items?.[2]?.querySelector('svg')).toBeNull();
+    // the interlocutor's Deepa hue IS the sheet background (codeHue pairing)
+    expect(dialog?.classList.contains(codeHue('0xa'))).toBe(true);
+  });
+
+  it('X close dismisses the sheet and the dialog renders normally afterwards', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    await renderPage();
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+
+    await (document.querySelector('[role="dialog"] .close') as HTMLButtonElement).click();
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
+    // the transcript + the footer slide are untouched underneath
+    expect(screen.getByText('Прощальный ответ агентов.')).toBeTruthy();
+    expect(document.querySelector('.slide')).toBeTruthy();
+    expect(mockedApi.hardMatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('score > 80 adds the celebration class (fireworks + brightness pulse); <= 80 does not', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    mockedApi.hardMatch.mockResolvedValue({ summary: summaryFixture(90), created: true });
+    await renderPage();
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+    const sheet = document.querySelector('[role="dialog"]');
+    expect(sheet?.classList.contains('celebrate')).toBe(true);
+    expect(sheet?.querySelectorAll('.spark').length).toBeGreaterThan(0);
+
+    cleanup();
+    mockedApi.hardMatch.mockResolvedValue({ summary: summaryFixture(80), created: true });
+    render(Page, { props: {} });
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+    expect(document.querySelector('[role="dialog"]')?.classList.contains('celebrate')).toBe(false);
+  });
+
+  it('the share-contact slide is embedded in the sheet sharing to the counterpart', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    localStorage.setItem('bleak.contactCard', JSON.stringify({ '0xroom|0xme': 'telegram: @me' }));
+    await renderPage();
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+
+    const dialog = document.querySelector('[role="dialog"]');
+    const sheetSlide = dialog?.querySelector('.slide');
+    expect(sheetSlide).toBeTruthy();
+    expect(sheetSlide?.textContent).toContain(ru['chat.contact_share.label']);
+    // completing the EMBEDDED slide fires the same share (to = counterpart)
+    mockedApi.shareContact.mockResolvedValue({
+      content: 'telegram: @me',
+      created_at: new Date().toISOString(),
+      from: ME,
+      to: '0xa'
+    });
+    await (sheetSlide?.querySelector('.thumb') as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(mockedApi.shareContact).toHaveBeenCalledWith('0xa', 'telegram: @me', ME)
+    );
+  });
+
+  it('a hardMatch failure surfaces inline with retry and never crashes the transcript', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    mockedApi.hardMatch.mockRejectedValue(new NetworkError('/api/hard-match', new Error('offline')));
+    await renderPage();
+    await screen.findByText(ru['common.error.network'], undefined, { timeout: 4000 });
+    expect(document.querySelector('.donut')).toBeNull();
+    // retry affordance re-issues the call; the transcript stays intact
+    mockedApi.hardMatch.mockResolvedValue({ summary: summaryFixture(66), created: true });
+    await screen.getByRole('button', { name: ru['common.retry'] }).click();
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+    expect(screen.getByText('Прощальный ответ агентов.')).toBeTruthy();
+  });
+});
+
 describe('v2.3 chat colors (Concept §9.1.5, DESIGN §4.10.5 — Deepa palette)', () => {
   it('their bubbles keep the full-opacity Deepa hue background; own bubbles are muted (no Deepa hue)', async () => {
     withMessages(
@@ -465,7 +612,7 @@ describe('states: 404, contact share (§3.5 AC 7, 8; §4.13.3)', () => {
 });
 
 describe('NO-COMPOSER (owner ruling 4, permanent — §3.5 AC 13)', () => {
-  it('the transcript UI contains no input/textarea/send control; the only buttons are the back control and the share thumb', async () => {
+  it('the transcript UI contains no input/textarea/send control; outside the §4.13.5 sheet the only buttons are the back control and the share thumb', async () => {
     withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
     fixture.chat = { ...baseChat(), done: true };
     await renderPage();
@@ -475,7 +622,13 @@ describe('NO-COMPOSER (owner ruling 4, permanent — §3.5 AC 13)', () => {
     // no composer of any kind, in any state (the contact slide is NOT one)
     expect(root?.querySelector('input, textarea, [contenteditable="true"]')).toBeNull();
     expect(root?.querySelector('form')).toBeNull();
-    const buttons = Array.from(root?.querySelectorAll('button') ?? []);
+    // The summary sheet is a dialog overlay, not a composer — its own
+    // controls (X close, its embedded slide thumb) sit INSIDE it and are
+    // excluded from the page-level count.
+    const dialog = document.querySelector('[role="dialog"]');
+    const buttons = Array.from(root?.querySelectorAll('button') ?? []).filter(
+      (button) => !(dialog && dialog.contains(button))
+    );
     const thumb = document.querySelector('.thumb');
     const labels = buttons.map(
       (button) =>

@@ -125,7 +125,10 @@ describe('injection maps (ARCHITECTURE §10.2 policy table, web-layer form)', ()
         'listContactsSharedWith',
         // v3 match score (DESIGN §4.13.4): the caller grades AS itself —
         // the persona passes ITSELF as first_user_address
-        'matchV2'
+        'matchV2',
+        // v3 hard match (DESIGN §4.13.5): the once-per-pair summary — the
+        // persona passes ITSELF as first_user_address
+        'hardMatch'
       ].sort()
     );
   });
@@ -179,6 +182,9 @@ describe('credential attachment (behavioral)', () => {
     // v3 match score (DESIGN §4.13.4): the pair graded AS the attendee
     // (itself as first_user_address) carries the persona token.
     await api.matchV2('0xroom', '0xme', '0xb');
+    // v3 hard match (DESIGN §4.13.5): the once-per-pair summary call also
+    // carries the persona token (caller = first = me).
+    await api.hardMatch('0xroom', '0xme', '0xb');
 
     for (const call of calls) {
       expect(authOf(call), `${call.url}`).toBe('Bearer p-tok');

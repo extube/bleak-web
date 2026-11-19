@@ -142,6 +142,13 @@ export const ru: Record<MessageKey, string> = {
   'chat.contact_share.locked': 'Станет доступно, когда диалог завершится',
   'chat.contact_share.no_card': 'Добавьте контактную карточку в настройках профиля',
   'chat.contact_share.error': 'Не удалось передать контакт — попробуйте ещё раз.',
+  // §4.13.5 summary sheet (Concept §13.1.5): метки чек-листа приходят с
+  // сервера на английском и показываются как есть — локализуются только
+  // заголовки и доступные имена.
+  'chat.summary.title': 'Итоги встречи',
+  'chat.summary.checklist': 'Сетевой чек-лист',
+  'chat.summary.score.aria': 'Совпадение: {score} из 100',
+  'chat.summary.loading': 'Считаем итог диалога…',
   'profile.contact.edit': 'Контактная карточка',
   'profile.contact.label': 'Ваша контактная карточка',
   'profile.contact.note':

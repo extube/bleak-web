@@ -45,3 +45,4 @@
 2026-11-19T16:50:29Z [process] task 60 landed (f035091) interests R1 (5x5 catalog, real-API picker, write-through mirror, badge chips, mock retired; 638 tests locally); task 61 opened (worker 353fcf8e) chat-done R2
 2026-11-19T16:56:39Z [process] task 61 landed (5159735) chat-done R2 (chatStatus from Chat.done, isChatDone exported as the tz5-04 gate, dialog finished indicator; 646 tests locally); task 62 opened (worker 23b0876d) contact-share R3
 2026-11-19T17:15:04Z [process] task 62 landed (7cf0273) contact-share R3 (ShareContactSlide reusable component, contactCard/contactShared stores, 409 shared state, received list in settings, ContactStub retired; 672 tests locally); task 63 opened (worker 94bb3a86) chats-sort-scores R4
+2026-11-19T17:27:15Z [process] task 63 landed (892b600) chats-sort-scores R4 (orderByMatchScore, matchScores cache, unfinished opacity+spinner; 693 tests locally); task 64 opened (worker 97ddd53e) summary-sheet R5

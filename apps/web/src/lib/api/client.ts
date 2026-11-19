@@ -42,6 +42,7 @@ import type {
   CredentialOptions,
   Greeting,
   Handshake,
+  HardMatchResult,
   Interest,
   InterestInput,
   Invite,
@@ -108,7 +109,11 @@ export const PERSONA_TOKEN_METHODS = [
   'listContactsSharedWith',
   // v3 match score (DESIGN §4.13.4): the caller grades AS itself — the
   // persona passes ITSELF as first_user_address, its own Bearer auto-injected.
-  'matchV2'
+  'matchV2',
+  // v3 hard match (DESIGN §4.13.5): the once-per-pair chat summarization —
+  // the caller passes ITSELF as first_user_address, its own Bearer
+  // auto-injected (the pair is order-agnostic server-side).
+  'hardMatch'
 ] as const;
 
 /**
@@ -387,6 +392,15 @@ export const api = {
   // only, fetched from the matchScores session cache's refresh cadence).
   matchV2(room: string, first: string, second: string): Promise<MatchResult> {
     return personaGate(() => apiRaw.matchV2(room, first, second, credential(personaCredential)));
+  },
+
+  // Hard match (DESIGN §4.13.5): POST /api/hard-match — the once-per-pair
+  // chat summarization. The attendee passes ITSELF as `first_user_address`
+  // (its own Bearer, auto-injected); the pair is order-agnostic server-side
+  // and a repeat request returns the STORED Summary (200/201 both carry the
+  // body) — the sheet re-shows the record without re-summarizing.
+  hardMatch(room: string, first: string, second: string): Promise<HardMatchResult> {
+    return personaGate(() => apiRaw.hardMatch(room, first, second, credential(personaCredential)));
   }
 };
 

@@ -17,13 +17,18 @@
    * public bio in the header. §4.13.2 (CONCEPT §13 R2): the dialog reflects
    * the AUTHORITATIVE Chat.done — a subtle finished indicator beside the
    * header name (the attendee dialog displays only; kickoff resets done
-   * server-side via the host drill-down).
+   * server-side via the host drill-down). §4.13.5 (CONCEPT §13.1.5): opening
+   * a FINISHED chat triggers the ONCE-ONLY hardMatch — the server stores one
+   * Summary per pair, so a repeat opening returns the stored record (200/201
+   * both carry the body) and the sheet re-shows it without re-summarizing;
+   * closing the sheet returns the dialog to its normal rendering. The call
+   * happens on open, never per poll.
    */
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { get } from 'svelte/store';
-  import { ApiError, NetworkError, ValidationError, type Chat, type Message, type User } from '@bleak/api-client';
+  import { ApiError, NetworkError, ValidationError, type Chat, type Message, type Summary, type User } from '@bleak/api-client';
   import { identity, initIdentity } from '#lib/stores/identity';
   import { requireIdentityOrRedirect } from '#lib/nav/guard';
   import { api, apiRaw, HOST_RESET_KEY } from '#lib/api/client';
@@ -49,6 +54,7 @@
     markPairShared
   } from '#lib/stores/contactCard';
   import ShareContactSlide from '#lib/components/ShareContactSlide.svelte';
+  import SummarySheet from '#lib/components/SummarySheet.svelte';
   import MessageBubble from '#lib/components/chats/MessageBubble.svelte';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
@@ -410,6 +416,62 @@
       sharing = false;
     }
   }
+
+  // --- finished-chat summary sheet (DESIGN §4.13.5, Concept §13.1.5) --------
+  //
+  // Opening a FINISHED chat triggers the ONCE-ONLY hardMatch: the caller
+  // passes ITSELF as `first` (me) with the counterpart as `second` — the
+  // pair is order-agnostic server-side and stored once per pair (201
+  // created / 200 stored, both carry the Summary). The call fires on open
+  // (when the authoritative `done` lands), NEVER per poll; the
+  // `summaryRequested` flag is reset per chat address so a repeat open
+  // re-shows the stored record (the server answers 200 without
+  // re-summarizing). Failure surfaces inline in the sheet with a retry
+  // affordance — a 401 is the §2.8 global gate and renders no sheet error.
+  let summary = $state<Summary | null>(null);
+  let summaryOpen = $state(false);
+  let summaryLoading = $state(false);
+  let summaryError = $state<'network' | 'api' | null>(null);
+  let summaryErrorMessage = $state<string | null>(null);
+  let summaryRequested = $state(false);
+
+  async function requestSummary(): Promise<void> {
+    const id = me;
+    if (!id || !counterpartAddr || summaryLoading) return;
+    summaryLoading = true;
+    summaryError = null;
+    summaryErrorMessage = null;
+    try {
+      const result = await api.hardMatch(id.roomAddress, id.userAddress, counterpartAddr);
+      summary = result.summary;
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) return; // global gate
+      summaryError = cause instanceof NetworkError ? 'network' : 'api';
+      summaryErrorMessage = cause instanceof ApiError ? cause.message : null;
+    } finally {
+      summaryLoading = false;
+    }
+  }
+
+  // Per-chat reset (the mount effect below owns it) + the once-per-open
+  // trigger: fires when the chat is (or becomes) finished while open.
+  $effect(() => {
+    const addr = address;
+    if (!addr) return;
+    summary = null;
+    summaryOpen = false;
+    summaryLoading = false;
+    summaryError = null;
+    summaryErrorMessage = null;
+    summaryRequested = false;
+  });
+
+  $effect(() => {
+    if (!done || !me || !counterpartAddr || summaryRequested) return;
+    summaryRequested = true;
+    summaryOpen = true; // the sheet opens itself over the transcript
+    void requestSummary();
+  });
 </script>
 
 <svelte:head>
@@ -550,6 +612,27 @@
         <p class="share-error" role="alert" aria-live="polite">{shareError}</p>
       {/if}
     </footer>
+
+    <!-- §4.13.5 summary sheet: the overlay over the transcript; closing it
+         (X / Escape / scrim-less close) returns the dialog to its normal
+         rendering. The embedded slide shares to the same counterpart — the
+         same request + shared state as the footer's control. -->
+    <SummarySheet
+      bind:open={summaryOpen}
+      user={counterpart}
+      summary={summary}
+      loading={summaryLoading}
+      error={summaryError}
+      errorMessage={summaryErrorMessage}
+      slideLabel={translate($locale, 'chat.contact_share.label')}
+      slideSharedLabel={translate($locale, 'chat.contact_share.shared')}
+      slideDisabledHint={translate($locale, 'chat.contact_share.no_card')}
+      slideDisabled={!hasCard}
+      slidePending={sharing}
+      slideShared={cardShared}
+      onshare={() => void shareCard()}
+      onretry={() => void requestSummary()}
+    />
 
     <!-- NO-COMPOSER (ruling 4): no input/textarea/send control anywhere —
          the interactive elements are the back control, the scroll chip and

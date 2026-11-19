@@ -141,6 +141,13 @@ export const en = {
   'chat.contact_share.locked': 'Available once the dialog is finished',
   'chat.contact_share.no_card': 'Add your contact card in profile settings',
   'chat.contact_share.error': 'Could not share the contact — try again.',
+  // §4.13.5 summary sheet (Concept §13.1.5): the finished-chat sheet heading,
+  // its checklist heading and the donut's accessible name. The checkpoint
+  // LABELS are server-provided English — displayed verbatim, never i18n'd.
+  'chat.summary.title': 'Meeting summary',
+  'chat.summary.checklist': 'Networking checklist',
+  'chat.summary.score.aria': 'Match: {score} out of 100',
+  'chat.summary.loading': 'Summarizing the dialog…',
   'profile.contact.edit': 'Contact card',
   'profile.contact.label': 'Your contact card',
   'profile.contact.note':
