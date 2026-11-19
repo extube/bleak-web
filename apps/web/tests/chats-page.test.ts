@@ -3,14 +3,17 @@
  * me), the v2.4 item content — theme chips REMOVED, last-message preview
  * (fetched per chat from the listChatMessages endpoint into the
  * lastMessages cache, muted + single-line ellipsis truncation) + the last
- * message's time — the status icon derived from the AUTHORITATIVE Chat.done
- * (CONCEPT §13 R2 / DESIGN §4.13.2: done → finished reminder mark, else the
- * animated ACTIVE loading glyph), «+N», empty state CTA → /people,
+ * message's time — the v3.4 COLOR DOT (DESIGN §4.15.2.2: the §4.11.7
+ * status marks and the §10.1.7-era rotated-dots loading indicator are
+ * REMOVED; one state-agnostic dot in the interlocutor's Deepa hue
+ * replaces them; the §4.13.4 circular loader stays), derived from the
+ * AUTHORITATIVE Chat.done (CONCEPT §13 R2 / DESIGN §4.13.2), «+N»,
+ * empty state CTA → /people,
  * skeletons, in-place poll updates (removed chats disappear), the §4.12.2
- * restyle (neutral LIST surface — the Deepa hue moved from the card to the
- * status mark in the chat's message color; the avatar carries the coding
- * like /people), chatsSeen write-through on visit, error banner with
- * dimmed last-known list, poller teardown. */
+ * restyle (neutral LIST surface — the Deepa hue moved from the card to
+ * the color dot in the chat's message color; the avatar carries the
+ * coding like /people), chatsSeen write-through on visit, error banner
+ * with dimmed last-known list, poller teardown. */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
@@ -244,20 +247,28 @@ describe('/chats — cards (§3.4 as amended by §4.11.5–7, §4.12.2)', () => 
     expect(preview.getAttribute('title')).toBe('х'.repeat(255));
   });
 
-  it('status icon: ACTIVE loading-style glyph by default, status in the accessible name (§4.11.7)', async () => {
+  it('color dot: one state-agnostic dot in the interlocutor\'s hue replaces the status marks (§4.15.2.2)', async () => {
     await renderPage();
     const link = screen.getByRole('link', {
       name: ru['chats.card.aria']
         .replace('{name}', 'Алиса')
         .replace('{status}', ru['chats.status.active'])
     });
-    const status = link.querySelector('.status');
-    expect(status?.classList.contains('active')).toBe(true);
-    expect(status?.classList.contains('finished')).toBe(false);
-    expect(status?.querySelector('svg')).toBeTruthy();
+    const dot = link.querySelector('.dot');
+    expect(dot).toBeTruthy();
+    // state-agnostic: no per-state icon classes on the dot anymore
+    expect(dot?.classList.contains('active')).toBe(false);
+    expect(dot?.classList.contains('finished')).toBe(false);
+    // the §4.12.2 treatment carries over: the dot wears the interlocutor's hue
+    expect(dot?.classList.contains(codeHue('0xa'))).toBe(true);
+    // the glyphs are gone from the card (no svg marks inside the dot)
+    expect(dot?.querySelector('svg')).toBeNull();
+    expect(link.querySelector('.status')).toBeNull();
+    // the dot is decoration: the accessible name carries the status
+    expect(dot?.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('status icon per Chat.done (§4.13.2): done → the FINISHED reminder mark, no override passed', async () => {
+  it('color dot per Chat.done (§4.13.2): done → the SAME dot (state-agnostic), no override passed', async () => {
     // The AUTHORITATIVE signal flows straight from the polled payload —
     // the route passes no presentation override.
     fixture.chats = [{ ...chat('0xchat1', [ME, '0xa'], 5), done: true }];
@@ -267,36 +278,37 @@ describe('/chats — cards (§3.4 as amended by §4.11.5–7, §4.12.2)', () => 
         .replace('{name}', 'Алиса')
         .replace('{status}', ru['chats.status.finished'])
     });
-    const status = link.querySelector('.status');
-    expect(status?.classList.contains('finished')).toBe(true);
-    expect(status?.classList.contains('active')).toBe(false);
-    expect(status?.querySelector('svg')).toBeTruthy();
-    // the §4.12.2 treatment is kept: the mark wears the interlocutor's hue
-    expect(status?.classList.contains(codeHue('0xa'))).toBe(true);
+    const dot = link.querySelector('.dot');
+    expect(dot).toBeTruthy();
+    expect(dot?.classList.contains(codeHue('0xa'))).toBe(true);
   });
 
-  it('status icon per Chat.done (§4.13.2): done missing/false → ACTIVE, and the state follows a poll', async () => {
+  it('color dot per Chat.done (§4.13.2): the SAME dot follows a poll flip (aria wording flips, the dot does not change shape)', async () => {
     await renderPage();
-    const active = screen.getByRole('link', { name: /Диалог с Алиса/ }).querySelector('.status');
-    expect(active?.classList.contains('active')).toBe(true);
-    // kickoff reset semantics server-side: done flips true → the mark swaps
+    const link = () => screen.getByRole('link', { name: /Диалог с Алиса/ });
+    expect(link().querySelector('.dot')).toBeTruthy();
+    const activeAria = ru['chats.card.aria']
+      .replace('{name}', 'Алиса')
+      .replace('{status}', ru['chats.status.active']);
+    const finishedAria = ru['chats.card.aria']
+      .replace('{name}', 'Алиса')
+      .replace('{status}', ru['chats.status.finished']);
+    expect(screen.getByRole('link', { name: activeAria })).toBeTruthy();
+    // kickoff reset semantics server-side: done flips true → the aria
+    // wording flips; the dot stays (state-agnostic marker)
     fixture.chats = [{ ...chat('0xchat1', [ME, '0xa'], 4), done: true }];
     await waitFor(
-      () =>
-        expect(
-          screen.getByRole('link', { name: /Диалог с Алиса/ }).querySelector('.status.finished')
-        ).toBeTruthy(),
+      () => expect(screen.getByRole('link', { name: finishedAria })).toBeTruthy(),
       { timeout: 6000 }
     );
+    expect(link().querySelector('.dot')).toBeTruthy();
     // …and back (a kickoff reset the false field server-side)
     fixture.chats = [{ ...chat('0xchat1', [ME, '0xa'], 4), done: false }];
     await waitFor(
-      () =>
-        expect(
-          screen.getByRole('link', { name: /Диалог с Алиса/ }).querySelector('.status.active')
-        ).toBeTruthy(),
+      () => expect(screen.getByRole('link', { name: activeAria })).toBeTruthy(),
       { timeout: 6000 }
     );
+    expect(link().querySelector('.dot')).toBeTruthy();
   }, 20_000);
 
   it('counterpart derived from participants minus me; a ≠2 chat shows first counterpart + «+N» (AC 2)', async () => {
@@ -309,7 +321,7 @@ describe('/chats — cards (§3.4 as amended by §4.11.5–7, §4.12.2)', () => 
     expect(screen.getByText('+2')).toBeTruthy();
   });
 
-  it('§4.12.2 neutral list role: the card drops the Deepa background; the INTERLOCUTOR\'S hue (fnv1a % 5) moves to the status mark and stays stable across polls', async () => {
+  it('§4.12.2 neutral list role: the card drops the Deepa background; the INTERLOCUTOR\'S hue (fnv1a % 5) moves to the color dot and stays stable across polls', async () => {
     await renderPage();
     // the address-hash contract: fnv1a(counterpart address) % 5 → the hue
     expect(codeHue('0xa')).toBe(CODE_HUES[fnv1a('0xa') % CODE_HUES.length]);
@@ -317,9 +329,9 @@ describe('/chats — cards (§3.4 as amended by §4.11.5–7, §4.12.2)', () => 
     // neutral LIST surface (§4.12.2 / Concept §11.1.2): no hue class on the
     // card itself — the Deepa background left with §4.11.5
     expect(link.className).not.toMatch(/deepa-[1-5]/);
-    // the chat's message color lives on the status mark instead
-    const status = link.querySelector('.status');
-    expect(status?.classList.contains(codeHue('0xa'))).toBe(true);
+    // the chat's message color lives on the color dot instead (§4.15.2.2)
+    const dot = link.querySelector('.dot');
+    expect(dot?.classList.contains(codeHue('0xa'))).toBe(true);
     // the avatar carries the color-coding like /people: plain PixelAvatar,
     // no extra hue wrapper around it
     expect(link.querySelectorAll('.deepa-1, .deepa-2, .deepa-3, .deepa-4, .deepa-5')).toHaveLength(1);
@@ -329,28 +341,36 @@ describe('/chats — cards (§3.4 as amended by §4.11.5–7, §4.12.2)', () => 
       expect(
         screen
           .getByRole('link', { name: /Диалог с Алиса/ })
-          .querySelector('.status')
+          .querySelector('.dot')
           ?.classList.contains(codeHue('0xa'))
       ).toBe(true)
     );
   });
 
-  it('§4.12.2 restyle CSS: neutral surface, no Deepa card background, status marks in the chat\'s hue, animated loading glyph', async () => {
+  it('§4.12.2 + §4.15.2.2 CSS: neutral surface, no Deepa card background, the dot in the chat\'s hue, the old marks/rotated-dots loader gone, the circle loader kept', async () => {
     const cardCss = source('src/lib/components/chats/ChatCard.svelte');
     // neutral surface stays the card background; no Deepa hue is ever a
     // card background anymore (the LIST role amendment)
     expect(cardCss).toMatch(/\.chat-card\s*\{[^}]*background:\s*var\(--color-surface\)/);
     expect(cardCss).not.toMatch(/\.chat-card\.deepa-\d/);
-    // status marks in the chat's message color: every Deepa hue maps the
-    // status mark to its token — and the danger red is gone
+    // the color dot takes the chat's message color: every Deepa hue maps
+    // the dot to its token — and the danger red is gone
     for (let n = 1; n <= 5; n += 1) {
-      expect(cardCss).toMatch(new RegExp(`\\.status\\.deepa-${n}\\s*\\{[^}]*var\\(--color-deepa-${n}\\)`));
+      expect(cardCss).toMatch(new RegExp(`\\.dot\\.deepa-${n}\\s*\\{[^}]*var\\(--color-deepa-${n}\\)`));
     }
     expect(cardCss).not.toMatch(/--color-danger/);
-    // the ACTIVE loading mark is animated (transform-only spin; the
-    // prefers-reduced-motion catch-all in base.css disables it)
-    expect(cardCss).toMatch(/\.status\.active\s*\{[^}]*animation:\s*chat-status-spin/);
-    expect(cardCss).toMatch(/@keyframes chat-status-spin\s*\{[^}]*rotate\(360deg\)/);
+    // the OLD marks are gone: no .status span (line-anchored so the
+    // i18n key `chats.status.*` never trips the check), no PixelIcon
+    // glyph, no rotated-dots spin animation (chat-status-spin removed)
+    expect(cardCss).not.toMatch(/^\s*\.status\b/m);
+    expect(cardCss).not.toMatch(/PixelIcon/);
+    expect(cardCss).not.toMatch(/chat-status-spin/);
+    // the NEWER §4.13.4 circular loader stays untouched
+    expect(cardCss).toMatch(/\.loader\s*\{[^}]*border-radius:\s*50%/);
+    expect(cardCss).toMatch(/\.loader\s*\{[^}]*animation:\s*loader-spin/);
+    expect(cardCss).toMatch(/@keyframes loader-spin\s*\{[^}]*rotate\(360deg\)/);
+    // the dot itself is a small round element
+    expect(cardCss).toMatch(/\.dot\s*\{[^}]*border-radius:\s*50%/);
     // no raw hex in the component (token discipline)
     expect(cardCss).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
@@ -440,11 +460,11 @@ describe('/chats — badge + poller (§1.2, §2.2)', () => {
   });
 });
 
-describe('ChatCard — status icon per state (§4.11.7; the card directly, the route derives)', () => {
+describe('ChatCard — color dot per state (§4.15.2.2; the card directly, the route derives)', () => {
   const cardChat = chat('0xchat1', [ME, '0xa'], 5);
   const entry = { owner: ME, content: 'привет', from: '0xa', created_at: minutesAgo(2) };
 
-  it('Chat.done drives the state without an override (§4.13.2): done → FINISHED, missing/false → ACTIVE', async () => {
+  it('Chat.done drives the aria without an override (§4.13.2); the dot is STATE-AGNOSTIC (both states)', async () => {
     render(ChatCard, {
       props: {
         chat: { ...cardChat, done: true },
@@ -453,7 +473,11 @@ describe('ChatCard — status icon per state (§4.11.7; the card directly, the r
         lastMessage: entry
       }
     });
-    expect(document.querySelector('.status.finished')).toBeTruthy();
+    expect(document.querySelector('.dot')).toBeTruthy();
+    const aria = ru['chats.card.aria']
+      .replace('{name}', 'Алиса')
+      .replace('{status}', ru['chats.status.finished']);
+    expect(screen.getByRole('link', { name: aria })).toBeTruthy();
     cleanup();
 
     render(ChatCard, {
@@ -464,7 +488,11 @@ describe('ChatCard — status icon per state (§4.11.7; the card directly, the r
         lastMessage: entry
       }
     });
-    expect(document.querySelector('.status.active')).toBeTruthy();
+    expect(document.querySelector('.dot')).toBeTruthy();
+    const activeAria = ru['chats.card.aria']
+      .replace('{name}', 'Алиса')
+      .replace('{status}', ru['chats.status.active']);
+    expect(screen.getByRole('link', { name: activeAria })).toBeTruthy();
     cleanup();
 
     // missing done (fixture-compat optionality) means NOT finished
@@ -476,10 +504,10 @@ describe('ChatCard — status icon per state (§4.11.7; the card directly, the r
         lastMessage: entry
       }
     });
-    expect(document.querySelector('.status.active')).toBeTruthy();
+    expect(document.querySelector('.dot')).toBeTruthy();
   });
 
-  it('ACTIVE → the loading-style glyph in the chat\'s hue, animated; status wording in the accessible name (§4.12.2)', async () => {
+  it('the dot carries the interlocutor\'s hue and no glyph; the old marks/rotated-dots loader are gone (§4.15.2.2)', async () => {
     render(ChatCard, {
       props: {
         chat: cardChat,
@@ -489,15 +517,22 @@ describe('ChatCard — status icon per state (§4.11.7; the card directly, the r
         status: 'active'
       }
     });
-    const status = document.querySelector('.status');
-    expect(status?.classList.contains('active')).toBe(true);
-    // §4.12.2: the mark takes the INTERLOCUTOR'S Deepa hue (the chat's
-    // message color) — the spin animation itself is asserted on the CSS
-    expect(status?.classList.contains(codeHue('0xa'))).toBe(true);
-    expect(status?.querySelector('svg')).toBeTruthy();
-  });
+    const dot = document.querySelector('.dot');
+    expect(dot?.classList.contains(codeHue('0xa'))).toBe(true);
+    expect(dot?.querySelector('svg')).toBeNull();
+    expect(dot?.getAttribute('aria-hidden')).toBe('true');
+    // the §10.1.7-era rotated-dots loader (the animated glyph spin) left
+    // with the marks: no .status element, no chat-status-spin keyframes
+    expect(document.querySelector('.status')).toBeNull();
+    const cardSource = readFileSync(
+      join(WEB_ROOT, 'src/lib/components/chats/ChatCard.svelte'),
+      'utf8'
+    );
+    expect(cardSource).not.toMatch(/chat-status-spin/);
+    // the §4.13.4 circle spinner stays on the unfinished card
+    expect(document.querySelector('.loader')).toBeTruthy();
+    cleanup();
 
-  it('FINISHED → the reminder mark in the chat\'s hue, NOT the danger red (§4.12.2)', async () => {
     render(ChatCard, {
       props: {
         chat: cardChat,
@@ -507,18 +542,14 @@ describe('ChatCard — status icon per state (§4.11.7; the card directly, the r
         status: 'finished'
       }
     });
-    const status = document.querySelector('.status');
-    expect(status?.classList.contains('finished')).toBe(true);
-    // §4.12.2: the red reminder mark became the Deepa-hue reminder mark —
-    // the same codeHue class the active state carries; the CSS mapping
-    // (and the absence of --color-danger) is asserted in the restyle test
-    expect(status?.classList.contains(codeHue('0xa'))).toBe(true);
-    expect(status?.querySelector('svg')).toBeTruthy();
+    const finishedDot = document.querySelector('.dot');
+    expect(finishedDot?.classList.contains(codeHue('0xa'))).toBe(true);
+    expect(finishedDot?.querySelector('svg')).toBeNull();
     const aria = ru['chats.card.aria']
       .replace('{name}', 'Алиса')
       .replace('{status}', ru['chats.status.finished']);
     const link = screen.getByRole('link', { name: aria });
-    expect(link.querySelector('.status.finished')).toBeTruthy();
+    expect(link.querySelector('.dot')).toBeTruthy();
     // the card itself stays neutral (no Deepa background class)
     expect(link.className).not.toMatch(/deepa-[1-5]/);
   });

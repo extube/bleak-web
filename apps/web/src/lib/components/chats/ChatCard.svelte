@@ -14,14 +14,21 @@
    * `text-overflow: ellipsis`) when it overflows — plus the TIME OF THE
    * LAST MESSAGE (absolute hh:mm, §4.9.8 form). Until the transcript is
    * fetched the card shows without a preview (no placeholder spinner).
-   * The right side carries the STATUS ICON (§4.11.7, driven by the
-   * AUTHORITATIVE Chat.done signal — CONCEPT §13 R2 / DESIGN §4.13.2):
-   * ACTIVE → the animated loading-style glyph; FINISHED → the reminder
-   * mark. `chatStatus(chat)` derives the state from `chat.done`
+   * The state still derives from the AUTHORITATIVE Chat.done signal
+   * (CONCEPT §13 R2 / DESIGN §4.13.2) via `chatStatus(chat)`
    * (missing/undefined → active); the `status` prop stays as a
    * presentation-level override for direct-card tests. The accessible
    * name drops the removed theme words
    * and carries the status instead.
+   *
+   * §4.15.2.2 (owner microchange, Concept §17.2+17.3): the right-side
+   * STATUS MARKS (the finished reminder glyph / the active loading icon,
+   * §4.11.7 lineage) are REMOVED and replaced by a COLOR DOT — one small
+   * dot per card, right side, STATE-AGNOSTIC (no icon difference between
+   * the finished and active states; both states render the same dot).
+   * The §10.1.7-era ROTATED-DOTS loading indicator (the animated
+   * `status-active` glyph spin) went away with the marks; the newer
+   * unfinished-dialog CIRCULAR LOADER (§4.13.4) stays untouched.
    *
    * §4.12.2 / Concept §11.1.2 (owner change request, 2026-11-18) — the LIST
    * role of the Deepa coding is amended (DIALOG bubbles keep their colors):
@@ -32,15 +39,13 @@
    * Deepa-derived art (hair hues + the dark Deepa backdrop token, both
    * deterministic from the counterpart address) carries the coding.
    *
-   * The status marks render as REMINDERS IN THE CHAT'S MESSAGE COLOR — the
+   * §4.15.2.2: the color dot renders in the REMINDERS' color lineage — the
    * INTERLOCUTOR'S Deepa hue (`--color-deepa-<n>` via codeHue
    * (counterpartAddress), the `fnv1a(address) % 5` contract pinned by
-   * tests): the finished mark keeps its «!» reminder glyph but takes the
-   * chat's hue (NOT the danger red), and the active loading glyph also
-   * takes the hue and is now ANIMATED (transform-only CSS spin; disabled
-   * under prefers-reduced-motion by the base.css catch-all). A missing
-   * counterpart address (degenerate 0-participant case) leaves the mark
-   * uncolored (currentColor on the neutral surface).
+   * tests), the chat's message color. The dot is decoration: the
+   * accessible name carries the status (aria-hidden pattern). A missing
+   * counterpart address (degenerate 0-participant case) leaves the dot
+   * on currentColor (the neutral surface's text color).
    *
    * §4.13.4 (owner change request, Concept §13.1.4): UNFINISHED dialogs
    * (the active state) render DARKER WITH OPACITY — a distinct muted
@@ -50,7 +55,7 @@
    * circle, transform-only CSS; reduced-motion respected by the
    * base.css catch-all). Finished cards render at full emphasis — the
    * default card styles, no loader. The Deepa hue coding (avatar, the
-   * status mark, the muted preview line) is untouched by this round.
+   * color dot, the muted preview line) is untouched by this round.
    */
   import { resolve } from '$app/paths';
   import type { Chat, User } from '@bleak/api-client';
@@ -59,7 +64,6 @@
   import type { LastMessageEntry } from '#lib/stores/lastMessage';
   import { codeHue } from '#lib/avatar/traits';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
-  import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
 
   interface Props {
     chat: Chat;
@@ -90,10 +94,10 @@
   // line — the right-side relative card time is retired with it.
   const time = $derived(lastMessage ? messageTime(lastMessage.created_at, $locale) : '');
   // §4.12.2: the card itself is neutral; the INTERLOCUTOR'S Deepa hue
-  // (fnv1a(address) % 5, pinned by tests) colors only the status mark (the
+  // (fnv1a(address) % 5, pinned by tests) colors only the color dot (the
   // chat's message color). The hue string IS the class name
   // (deepa-1…deepa-5); a missing counterpart address (degenerate
-  // 0-participant case) leaves the mark on currentColor.
+  // 0-participant case) leaves the dot on currentColor.
   const hueClass = $derived(counterpartAddress === null ? '' : codeHue(counterpartAddress));
   const statusLabel = $derived(
     translate($locale, state === 'finished' ? 'chats.status.finished' : 'chats.status.active')
@@ -129,15 +133,11 @@
     {#if state === 'active'}
       <span class="loader" aria-hidden="true"></span>
     {/if}
-    <!-- status icon is decoration: the accessible name carries the status
-         (§4.11.7; the aria-hidden pattern matches the retired time) -->
-    <span
-      class="status {state} {hueClass}"
-      aria-hidden="true"
-      title={statusLabel}
-    >
-      <PixelIcon name={state === 'finished' ? 'status-finished' : 'status-active'} size={16} />
-    </span>
+    <!-- §4.15.2.2: the COLOR DOT replaces the status marks — one small
+         state-agnostic dot (both states render the same dot; no icon
+         difference). Decoration: the accessible name carries the status
+         (§4.11.7; the aria-hidden pattern matches the retired marks). -->
+    <span class="dot {hueClass}" aria-hidden="true" title={statusLabel}></span>
   </a>
 </li>
 
@@ -174,7 +174,7 @@
    * amended — the card stays on the NEUTRAL surface (no Deepa background,
    * no ink pairing); the color-coding lives on the item's AVATAR (the
    * plain PixelAvatar's Deepa-derived art, exactly like PersonCard on
-   * /people) and on the status mark (the chat's message color, below).
+   * /people) and on the color dot (the chat's message color, below).
    * Dialog bubbles (MessageBubble) keep their hues untouched. */
   .main {
     flex: 1;
@@ -212,43 +212,32 @@
     font-size: 14px;
     color: var(--color-text-muted);
   }
-  /* §4.12.2: the status marks are reminders in the CHAT'S MESSAGE COLOR —
-   * the interlocutor's Deepa hue (`--color-deepa-<n>` via codeHue). The
-   * finished «!» reminder mark takes the chat's hue (NOT the danger red);
-   * the active loading glyph takes the hue too and is animated (spin
-   * below). Declared after the base so the hue wins. */
-  .status {
+  /* §4.15.2.2: the color dot renders in the CHAT'S MESSAGE COLOR — the
+   * interlocutor's Deepa hue (`--color-deepa-<n>` via codeHue), the
+   * lineage of the retired reminder marks. The dot is state-agnostic:
+   * one size, one shape for both states (no icon difference). Declared
+   * after the base so the hue wins. */
+  .dot {
     flex-shrink: 0;
-    display: inline-flex;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
   }
-  .status.deepa-1 {
+  .dot.deepa-1 {
     color: var(--color-deepa-1);
   }
-  .status.deepa-2 {
+  .dot.deepa-2 {
     color: var(--color-deepa-2);
   }
-  .status.deepa-3 {
+  .dot.deepa-3 {
     color: var(--color-deepa-3);
   }
-  .status.deepa-4 {
+  .dot.deepa-4 {
     color: var(--color-deepa-4);
   }
-  .status.deepa-5 {
+  .dot.deepa-5 {
     color: var(--color-deepa-5);
-  }
-  /* §4.12.2: the ACTIVE loading glyph rotates (transform-only animation,
-   * §4.6 motion rule; disabled under prefers-reduced-motion by the
-   * base.css global catch-all). The animation lives on the mark itself
-   * (Svelte scoping keeps the child svg unaddressable); the registry
-   * keeps the same three-dot loading glyph — no rotating variant needed. */
-  .status.active {
-    transform-origin: 50% 50%;
-    animation: chat-status-spin 1.6s linear infinite;
-  }
-  @keyframes chat-status-spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
   /* §4.13.4: the ANIMATED CIRCULAR LOADER on unfinished dialogs — a small
    * standard spinning circle (border ring with a transparent top arc,
