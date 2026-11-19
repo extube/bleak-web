@@ -33,9 +33,10 @@
    * - SCORE TIERS at the owner-revised 80/50 cut (§4.15.C-6): GREAT
    *   80–100 (avatars move 18px toward center + 2-frame hop loops,
    *   marching pixel beam + star/heart sparkle poppers, recolored spark
-   *   burst + brightness pulse), GOOD 50–79 (nod/wave once + glowing
-   *   dotted line), LOW 0–49 (avatars stay spaced, sweat drop + idle
-   *   blink). All motion is hand-rolled CSS keyframes on positioned DOM
+   *   burst + brightness pulse), GOOD 50–79 (nod/wave once; the glowing
+   *   dotted line between the users was REMOVED — owner microchange
+   *   Concept §17.1 / DESIGN §4.15.2.1), LOW 0–49 (avatars stay spaced,
+   *   sweat drop + idle blink). All motion is hand-rolled CSS keyframes on positioned DOM
    *   elements (+ the SVG stroke geometry + the two sanctioned JS
    *   one-shots) — no canvas, no animation library (§4.15.C-6a).
    * - CHECKLIST choreography: closed checkpoints pop in sequentially
@@ -366,7 +367,8 @@
       </button>
     {:else if summary}
       <!-- §4.15.C-5 centerpiece: me avatar — ring — them avatar, tier
-           reactions + the bridge per the score tier (§4.15.C-6). -->
+           reactions per the score tier (§4.15.C-6; the GOOD-tier dotted
+           line is removed, §4.15.2.1). -->
       <section class="stage cascade tier-{tier}" class:victory={sheetCelebrated} style:--cascade-i="1">
         <div class="duel">
           <div class="side me">
@@ -420,11 +422,10 @@
               <span class="popper p5"><PixelIcon name="star" size={16} /></span>
               <span class="popper p6"><PixelIcon name="heart" size={16} /></span>
             </div>
-          {:else if tier === 'good'}
-            <!-- GOOD bridge: the dotted pixel line + its pre-blurred glow
-                 layer (static filter, pulsing opacity — §4.6-safe). -->
-            <div class="dots-glow" aria-hidden="true"></div>
-            <div class="dots" aria-hidden="true"></div>
+            <!-- GOOD tier: NO bridge element — the old glowing dotted line
+                 between the two users was removed (owner microchange
+                 Concept §17.1 / DESIGN §4.15.2.1); the nod/wave avatar
+                 animations stay. -->
           {/if}
         </div>
         <p class="tier-label" class:great={tier === 'great'}>{tierText}</p>
@@ -923,37 +924,10 @@
       opacity: 0.7;
     }
   }
-  /* GOOD bridge: the glowing pixel dotted line — a row of 6px square dots
-   * at 60% white plus a pre-blurred duplicate (STATIC blur filter; only
-   * the duplicate's opacity pulses — no filter animation, §4.6-safe). */
-  .dots,
-  .dots-glow {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: calc(160px + 2 * var(--space-5) - 12px);
-    height: 6px;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-    background: repeating-linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--sheet-white) 60%, transparent) 0 6px,
-      transparent 6px 14px
-    );
-  }
-  .dots-glow {
-    filter: blur(6px);
-    animation: dots-pulse 1.6s ease-in-out infinite;
-  }
-  @keyframes dots-pulse {
-    0%,
-    100% {
-      opacity: 0.4;
-    }
-    50% {
-      opacity: 0.9;
-    }
-  }
+  /* GOOD tier: the old glowing dotted-line bridge (the 6px square-dot row
+   * + its pre-blurred pulsing glow layer and its opacity keyframes) was
+   * REMOVED — owner microchange Concept §17.1 / DESIGN §4.15.2.1; the
+   * nod/wave avatar animations above stay. */
   /* GREAT sparkles: 6 pixel-glyph poppers (star ×3, heart ×3) absolutely
    * positioned around the bridge — 1.2s stepped scale/opacity loops with
    * 0–500ms staggered delays, colored yellow/orange/white. */

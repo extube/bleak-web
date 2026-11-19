@@ -737,7 +737,7 @@ describe('§4.15.C-5..C-8 centerpiece (tz7-03): avatars, ring, tiers, checklist,
     expect(SHEET_SOURCE).toMatch(/\.popper\.p3\s*\{[^}]*color: var\(--sheet-white\)/);
   });
 
-  it('§4.15.C-6b GOOD: the nod/wave plays once (2 iterations); the dotted line glows via a pre-blurred pulsing layer', () => {
+  it('§4.15.C-6b GOOD (§4.15.2.1): the nod/wave plays once (2 iterations); the dotted line between the users is REMOVED', () => {
     const nod = source(/\.tier-good \.side\.me \.avatar-frame\s*\{[\s\S]*?\}/);
     expect(nod).toContain('animation: avatar-nod 400ms ease-in-out 400ms 2 both');
     const wave = source(/\.tier-good \.side\.them \.avatar-frame\s*\{[\s\S]*?\}/);
@@ -746,19 +746,16 @@ describe('§4.15.C-5..C-8 centerpiece (tz7-03): avatars, ring, tiers, checklist,
     const waveKf = source(/@keyframes avatar-wave\s*\{[\s\S]*?\n {2}\}/);
     expect(waveKf).toContain('rotate(-6deg)');
     expect(waveKf).toContain('rotate(6deg)');
-    // the glowing pixel dotted line: square dots + a STATIC blur duplicate
-    // whose opacity pulses (no filter animation — §4.6-safe)
-    const dots = source(/\.dots,\n {2}\.dots-glow\s*\{[\s\S]*?\}/);
-    expect(dots).toContain('repeating-linear-gradient');
-    expect(dots).toContain('6px');
-    // the standalone glow rule (the combined selector block matches first —
-    // pin the block that carries the STATIC blur)
-    const glow = SHEET_SOURCE.match(/\.dots-glow\s*\{[\s\S]*?filter: blur\(6px\);[\s\S]*?\}/)?.[0] ?? '';
-    expect(glow).toContain('filter: blur(6px)');
-    expect(glow).toContain('animation: dots-pulse 1.6s ease-in-out infinite');
-    const pulse = source(/@keyframes dots-pulse\s*\{[\s\S]*?\n {2}\}/);
-    expect(pulse).toContain('opacity: 0.4');
-    expect(pulse).toContain('opacity: 0.9');
+    // the dotted line between the two users is REMOVED (owner microchange
+    // Concept §17.1 / DESIGN §4.15.2.1): no bridge element in the GOOD
+    // tier, no dots styles/keyframes left in the sheet scope
+    stubReducedMotion();
+    renderSheet({ summary: summaryFixture(66) });
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.querySelector('.dots')).toBeNull();
+    expect(dialog.querySelector('.dots-glow')).toBeNull();
+    expect(SHEET_SOURCE).not.toMatch(/\.dots[\s,{]/);
+    expect(SHEET_SOURCE).not.toContain('dots-pulse');
   });
 
   it('§4.15.C-6b LOW: the avatars stay spaced — a sweat drop plays twice then idles on the 4s cycle; a neutral idle blink runs', () => {
