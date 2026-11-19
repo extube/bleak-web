@@ -41,6 +41,16 @@
    * under prefers-reduced-motion by the base.css catch-all). A missing
    * counterpart address (degenerate 0-participant case) leaves the mark
    * uncolored (currentColor on the neutral surface).
+   *
+   * §4.13.4 (owner change request, Concept §13.1.4): UNFINISHED dialogs
+   * (the active state) render DARKER WITH OPACITY — a distinct muted
+   * treatment (`chat-card.unfinished`; opacity only, on this dark theme
+   * the card blends toward the darker page background) — plus the
+   * ANIMATED CIRCULAR LOADER (`.loader`, a small standard spinning
+   * circle, transform-only CSS; reduced-motion respected by the
+   * base.css catch-all). Finished cards render at full emphasis — the
+   * default card styles, no loader. The Deepa hue coding (avatar, the
+   * status mark, the muted preview line) is untouched by this round.
    */
   import { resolve } from '$app/paths';
   import type { Chat, User } from '@bleak/api-client';
@@ -96,6 +106,7 @@
 <li class="chat-item">
   <a
     class="chat-card pixel-corners"
+    class:unfinished={state === 'active'}
     href={resolve('/chats/[address]', { address: chat.address })}
     aria-label={aria}
   >
@@ -113,6 +124,11 @@
         <span class="extra">+{extra}</span>
       {/if}
     </div>
+    <!-- §4.13.4: the unfinished dialog's circular loader is decoration too
+         (the accessible name already carries the ACTIVE status) -->
+    {#if state === 'active'}
+      <span class="loader" aria-hidden="true"></span>
+    {/if}
     <!-- status icon is decoration: the accessible name carries the status
          (§4.11.7; the aria-hidden pattern matches the retired time) -->
     <span
@@ -141,6 +157,18 @@
   }
   .chat-card:active {
     opacity: 0.8;
+  }
+  /* §4.13.4: UNFINISHED dialogs render DARKER WITH OPACITY — the muted
+   * treatment for dialogs whose agents are still talking (on this dark
+   * theme the opacity blends the card toward the darker page background).
+   * Finished cards render at full emphasis (the default styles above).
+   * Declared after the press state so the muted value wins for unfinished
+   * cards; a pressed unfinished card dips a touch further. */
+  .chat-card.unfinished {
+    opacity: 0.6;
+  }
+  .chat-card.unfinished:active {
+    opacity: 0.5;
   }
   /* §4.12.2 / Concept §11.1.2: the LIST role of the Deepa coding is
    * amended — the card stays on the NEUTRAL surface (no Deepa background,
@@ -218,6 +246,24 @@
     animation: chat-status-spin 1.6s linear infinite;
   }
   @keyframes chat-status-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  /* §4.13.4: the ANIMATED CIRCULAR LOADER on unfinished dialogs — a small
+   * standard spinning circle (border ring with a transparent top arc,
+   * transform-only rotation, §4.6 motion rule; disabled under
+   * prefers-reduced-motion by the base.css catch-all). */
+  .loader {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--color-text-muted);
+    border-top-color: transparent;
+    animation: loader-spin 0.9s linear infinite;
+  }
+  @keyframes loader-spin {
     to {
       transform: rotate(360deg);
     }

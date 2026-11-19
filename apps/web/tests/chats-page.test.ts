@@ -33,12 +33,14 @@ vi.mock('#lib/api/client', () => ({
   api: {
     listChatsOfUser: vi.fn(),
     listRoomUsers: vi.fn(),
-    listChatMessages: vi.fn()
+    listChatMessages: vi.fn(),
+    matchV2: vi.fn()
   }
 }));
 
 import { api } from '#lib/api/client';
 import { identity } from '#lib/stores/identity';
+import { matchScores } from '#lib/stores/matchScores';
 import Page from '../src/routes/chats/+page.svelte';
 import ChatCard from '../src/lib/components/chats/ChatCard.svelte';
 
@@ -115,12 +117,21 @@ beforeEach(() => {
   identity.set({ roomAddress: ROOM, userAddress: ME, token: 'p-tok' });
   chatsUnseen.set(false);
   lastMessages.set(new Map());
+  matchScores.set(new Map());
   fixture.chats = [];
   fixture.users = [];
   mockedApi.listChatsOfUser.mockImplementation(async () => structuredClone(fixture.chats));
   mockedApi.listRoomUsers.mockImplementation(async () => structuredClone(fixture.users));
   // Default: no transcripts fetched yet → cards render without a preview.
   mockedApi.listChatMessages.mockImplementation(async () => []);
+  // Default: every finished pair grades 50 (individual tests override).
+  mockedApi.matchV2.mockImplementation(async () => ({
+    points: 50,
+    exact_interest_matches: 0,
+    shared_groups: 0,
+    handshake: false,
+    mutual_handshake: false
+  }));
 });
 
 afterEach(() => {
@@ -128,6 +139,7 @@ afterEach(() => {
   identity.set(null);
   localStorage.clear();
   lastMessages.set(new Map());
+  matchScores.set(new Map());
 });
 
 async function renderPage(): Promise<void> {
@@ -509,5 +521,152 @@ describe('ChatCard — status icon per state (§4.11.7; the card directly, the r
     expect(link.querySelector('.status.finished')).toBeTruthy();
     // the card itself stays neutral (no Deepa background class)
     expect(link.className).not.toMatch(/deepa-[1-5]/);
+  });
+});
+
+describe('ChatCard — §4.13.4 unfinished treatment (Concept §13.1.4)', () => {
+  const cardChat = chat('0xchat1', [ME, '0xa'], 5);
+  const entry = { owner: ME, content: 'привет', from: '0xa', created_at: minutesAgo(2) };
+
+  it('UNFINISHED (active) → the darker-with-opacity card class + the circular loader', () => {
+    render(ChatCard, {
+      props: {
+        chat: { ...cardChat, done: false },
+        counterpart: person('0xa', 'Алиса', 10),
+        counterpartAddress: '0xa',
+        lastMessage: entry
+      }
+    });
+    const link = document.querySelector('.chat-card');
+    expect(link?.classList.contains('unfinished')).toBe(true);
+    expect(link?.querySelector('.loader')).toBeTruthy();
+    // the loader is decoration (the accessible name carries the status)
+    expect(link?.querySelector('.loader')?.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('FINISHED → full emphasis: no unfinished class, no loader', () => {
+    render(ChatCard, {
+      props: {
+        chat: { ...cardChat, done: true },
+        counterpart: person('0xa', 'Алиса', 10),
+        counterpartAddress: '0xa',
+        lastMessage: entry
+      }
+    });
+    const link = document.querySelector('.chat-card');
+    expect(link?.classList.contains('unfinished')).toBe(false);
+    expect(link?.querySelector('.loader')).toBeNull();
+  });
+
+  it('§4.13.4 CSS: the muted opacity treatment and the transform-only circular loader', () => {
+    const cardCss = source('src/lib/components/chats/ChatCard.svelte');
+    // darker with opacity (the owner's wording) on the unfinished card
+    expect(cardCss).toMatch(/\.chat-card\.unfinished\s*\{[^}]*opacity:\s*0\.6/);
+    // the standard spinning circle: a border ring, transform-only rotation
+    expect(cardCss).toMatch(/\.loader\s*\{[^}]*border-radius:\s*50%/);
+    expect(cardCss).toMatch(/\.loader\s*\{[^}]*animation:\s*loader-spin/);
+    expect(cardCss).toMatch(/@keyframes loader-spin\s*\{[^}]*rotate\(360deg\)/);
+    // no raw hex in the component (token discipline)
+    expect(cardCss).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+});
+
+describe('/chats — §4.13.4 score-first sorting + score fetches (Concept §13.1.4)', () => {
+  function finished(address: string, participants: string[], createdMinutesAgo: number): Chat {
+    return { ...chat(address, participants, createdMinutesAgo), done: true };
+  }
+
+  function cardOrder(): string[] {
+    return [...document.querySelectorAll('.chat-card')].map(
+      (link) => link.getAttribute('href') ?? ''
+    );
+  }
+
+  it('finished chats first by score DESCENDING; unfinished after, newest first', async () => {
+    fixture.users = [
+      person(ME, 'Я', 30),
+      person('0xa', 'Алиса', 10),
+      person('0xb', 'Борис', 9),
+      person('0xc', 'Вера', 8),
+      person('0xd', 'Гриша', 7)
+    ];
+    // scores arrive per finished pair: Алиса 40, Борис 90
+    mockedApi.matchV2.mockImplementation(async (room: string, first: string, second: string) => ({
+      points: second === '0xb' ? 90 : 40,
+      exact_interest_matches: 0,
+      shared_groups: 0,
+      handshake: false,
+      mutual_handshake: false
+    }));
+    fixture.chats = [
+      chat('0xu1', [ME, '0xc'], 6), // unfinished, older
+      finished('0xf1', [ME, '0xa'], 4), // score 40
+      chat('0xu2', [ME, '0xd'], 2), // unfinished, newest
+      finished('0xf2', [ME, '0xb'], 3) // score 90
+    ];
+    await renderPage();
+    await waitFor(() => expect(mockedApi.matchV2).toHaveBeenCalled());
+    await waitFor(() => expect(cardOrder()).toEqual(['/chats/0xf2', '/chats/0xf1', '/chats/0xu2', '/chats/0xu1']));
+  });
+
+  it('score fetches are bounded to FINISHED chats: me as first_user_address, unfinished never fetched', async () => {
+    fixture.users = [person(ME, 'Я', 30), person('0xa', 'Алиса', 10), person('0xb', 'Борис', 9)];
+    fixture.chats = [finished('0xf1', [ME, '0xa'], 4), chat('0xu1', [ME, '0xb'], 3)];
+    await renderPage();
+    await waitFor(() => expect(mockedApi.matchV2).toHaveBeenCalled());
+    // the caller grades AS itself: first_user_address = me, its own Bearer
+    expect(mockedApi.matchV2).toHaveBeenCalledWith(ROOM, ME, '0xa');
+    // exactly one pair fetched — the unfinished dialog is never fetched
+    expect(mockedApi.matchV2).toHaveBeenCalledTimes(1);
+    expect(mockedApi.matchV2).not.toHaveBeenCalledWith(ROOM, ME, '0xb');
+  });
+
+  it('score fetches follow the poll cadence: a chat that flips to done enters the fetch set', async () => {
+    fixture.users = [person(ME, 'Я', 30), person('0xa', 'Алиса', 10)];
+    fixture.chats = [chat('0xu1', [ME, '0xa'], 5)];
+    await renderPage();
+    expect(mockedApi.matchV2).not.toHaveBeenCalled();
+    // the farewell turn stamps done server-side → the next poll fetches it
+    fixture.chats = [{ ...chat('0xu1', [ME, '0xa'], 4), done: true }];
+    await waitFor(
+      () => expect(mockedApi.matchV2).toHaveBeenCalledWith(ROOM, ME, '0xa'),
+      { timeout: 6000 }
+    );
+  }, 20_000);
+
+  it('a failing score fetch never crashes the page: the chat stays in place at the end of the finished group', async () => {
+    fixture.users = [person(ME, 'Я', 30), person('0xa', 'Алиса', 10), person('0xb', 'Борис', 9)];
+    mockedApi.matchV2.mockImplementation(
+      async (room: string, first: string, second: string) =>
+        second === '0xa'
+          ? Promise.reject(new Error('score endpoint down'))
+          : {
+              points: 90,
+              exact_interest_matches: 0,
+              shared_groups: 0,
+              handshake: false,
+              mutual_handshake: false
+            }
+    );
+    fixture.chats = [finished('0xf1', [ME, '0xa'], 4), finished('0xf2', [ME, '0xb'], 2)];
+    await renderPage();
+    await waitFor(() => expect(mockedApi.matchV2).toHaveBeenCalled());
+    // no error banner, no crash — the failed chat simply renders unscored
+    expect(screen.queryByRole('alert')).toBeNull();
+    await waitFor(() => expect(cardOrder()).toEqual(['/chats/0xf2', '/chats/0xf1']));
+  });
+
+  it('a failing score fetch caches nothing: no error banner surfaces from the score round', async () => {
+    fixture.users = [person(ME, 'Я', 30), person('0xa', 'Алиса', 10)];
+    mockedApi.matchV2.mockImplementation(async () => {
+      throw new Error('score endpoint down');
+    });
+    fixture.chats = [finished('0xf1', [ME, '0xa'], 4)];
+    await renderPage();
+    await waitFor(() => expect(mockedApi.matchV2).toHaveBeenCalled());
+    expect(get(matchScores).get('0xf1')).toBeUndefined();
+    expect(screen.queryByRole('alert')).toBeNull();
+    // the card still renders (full emphasis — a finished chat)
+    expect(document.querySelector('.chat-card.unfinished')).toBeNull();
   });
 });

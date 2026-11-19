@@ -19,6 +19,7 @@ import {
   mergeChats,
   mergeMessages,
   messageTime,
+  orderByMatchScore,
   speakerName,
   stableChats
 } from '../src/lib/chats/view';
@@ -217,6 +218,67 @@ describe('chatStatus + isChatDone (CONCEPT §13 R2, DESIGN §4.13.2 — Chat.don
   it('isChatDone is the tz5-04 contact-share gate selector (done-derived, pure)', () => {
     expect(isChatDone({ ...chat('0x2', [ME, '0xa'], '2026-01-01T00:00:00Z'), done: true })).toBe(true);
     expect(isChatDone({ ...chat('0x3', [ME, '0xa'], '2026-01-01T00:00:00Z'), done: false })).toBe(false);
+  });
+});
+
+describe('orderByMatchScore (CONCEPT §13.1.4, DESIGN §4.13.4 — score-first ordering)', () => {
+  const early = chat('0xearly', [ME, '0xa'], '2026-01-01T00:00:00Z');
+  const late = chat('0xlate', [ME, '0xb'], '2026-01-03T00:00:00Z');
+  const finishedEarly = { ...chat('0xf1', [ME, '0xa'], '2026-01-02T00:00:00Z'), done: true };
+  const finishedLate = { ...chat('0xf2', [ME, '0xb'], '2026-01-05T00:00:00Z'), done: true };
+
+  /** Scores keyed by chat address, like the matchScores store. */
+  const pointsOf =
+    (scores: Readonly<Record<string, number>>) =>
+    (c: Chat): number | null =>
+      scores[c.address] ?? null;
+
+  it('finished chats first by score DESCENDING; unfinished after, NEWEST first', () => {
+    const scores = { 0xf1: 40, 0xf2: 90 };
+    const ordered = orderByMatchScore(
+      [early, finishedEarly, late, finishedLate],
+      pointsOf(scores)
+    );
+    // 0xf2 (90) → 0xf1 (40), then the unfinished group newest-first
+    expect(ordered.map((c) => c.address)).toEqual(['0xf2', '0xf1', '0xlate', '0xearly']);
+  });
+
+  it('an unscored finished chat (in flight / failed) sorts at the END of the finished group', () => {
+    const scores = { '0xf1': 40 }; // 0xf2 has no cached score yet
+    const ordered = orderByMatchScore([finishedLate, finishedEarly, early], pointsOf(scores));
+    expect(ordered.map((c) => c.address)).toEqual(['0xf1', '0xf2', '0xearly']);
+  });
+
+  it('missing scores sort stably: equal / both-missing keep the newest-first base order', () => {
+    // both finished chats unscored → the stableChats base order stands
+    const ordered = orderByMatchScore([finishedLate, finishedEarly, late], pointsOf({}));
+    expect(ordered.map((c) => c.address)).toEqual(['0xf2', '0xf1', '0xlate']);
+    // equal scores → also stable, newest first
+    const tied = orderByMatchScore(
+      [finishedEarly, finishedLate],
+      pointsOf({ '0xf1': 50, '0xf2': 50 })
+    );
+    expect(tied.map((c) => c.address)).toEqual(['0xf2', '0xf1']);
+  });
+
+  it('the unfinished tie-break is the stableChats base: newest created_at first regardless of input order', () => {
+    const ordered = orderByMatchScore([early, late], pointsOf({}));
+    expect(ordered.map((c) => c.address)).toEqual(['0xlate', '0xearly']);
+  });
+
+  it('the finished signal is the tz5-03 selector: missing done → the chat stays in the unfinished group', () => {
+    // 0xf1 carries done: true; an explicitly-false / missing-done chat does not
+    const notDone = { ...chat('0xnd', [ME, '0xa'], '2026-01-04T00:00:00Z'), done: false };
+    const ordered = orderByMatchScore(
+      [notDone, finishedLate],
+      pointsOf({ 0xf2: 10 })
+    );
+    expect(ordered.map((c) => c.address)).toEqual(['0xf2', '0xnd']);
+  });
+
+  it('dedupe by address is preserved (the poll snapshot pipeline feeds the same list)', () => {
+    const ordered = orderByMatchScore([finishedEarly, { ...finishedEarly }, late], pointsOf({}));
+    expect(ordered.map((c) => c.address)).toEqual(['0xf1', '0xlate']);
   });
 });
 

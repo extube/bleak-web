@@ -64,6 +64,36 @@ export function mergeChats(
 }
 
 /**
+ * Score-first chat order (CONCEPT §13.1.4, DESIGN §4.13.4 — owner change
+ * request): FINISHED chats first, sorted by their match/v2 score
+ * DESCENDING; unfinished dialogs after, newest `created_at` first — the
+ * §3.4 `stableChats` base order is the unfinished tie-break, and the
+ * dedupe-by-address of the poll snapshot pipeline is preserved.
+ *
+ * `pointsOf` reads the session score cache (stores/matchScores); a null
+ * result (score still in flight, fetch failed, or a foreign persona's
+ * cache was dropped) sorts the chat at the END of the finished group.
+ * Ties — equal scores, or two unscored chats — keep their relative
+ * newest-first order (Array#sort is stable, §3.4). Pure: the inputs are
+ * the chats plus the injected score reader.
+ */
+export function orderByMatchScore(
+  chats: readonly Chat[],
+  pointsOf: (chat: Chat) => number | null
+): Chat[] {
+  return stableChats(chats).sort((a, b) => {
+    const aDone = isChatDone(a);
+    const bDone = isChatDone(b);
+    if (aDone !== bDone) return aDone ? -1 : 1;
+    if (!aDone) return timestampAt(b.created_at) - timestampAt(a.created_at);
+    const aScore = pointsOf(a) ?? Number.NEGATIVE_INFINITY;
+    const bScore = pointsOf(b) ?? Number.NEGATIVE_INFINITY;
+    if (aScore !== bScore) return bScore - aScore;
+    return 0; // tie → the stable newest-first base order stands
+  });
+}
+
+/**
  * Poll diff for the transcript. `listChatMessages` returns every message
  * oldest-first (client contract); the diff compares the tx_id sequence.
  */

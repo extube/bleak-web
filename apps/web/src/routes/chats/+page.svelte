@@ -17,6 +17,17 @@
    * `refreshLastMessages` — the store's in-flight guard keeps the 4 s
    * cadence from piling up requests, failures keep the previous cached
    * entry, and an empty transcript (fresh/cleared chat) shows no preview.
+   *
+   * §4.13.4 score-first sorting (owner change request, Concept §13.1.4):
+   * the list is ordered `orderByMatchScore` — FINISHED chats first by
+   * their match/v2 score descending, unfinished dialogs after newest
+   * first. On mount and every poll tick the FINISHED chats' scores are
+   * refreshed through `refreshMatchScores` (the same best-effort cadence
+   * as the previews): each fetch grades the pair AS the attendee
+   * (`api.matchV2` — itself as first_user_address, its own Bearer),
+   * unfinished chats are never fetched (the score surface stays bounded
+   * to the finished group), failures keep the previous cached entry and
+   * the card stays in place at the end of the finished group.
    */
   import { get } from 'svelte/store';
   import { ApiError, NetworkError, type Chat, type User } from '@bleak/api-client';
@@ -26,7 +37,18 @@
   import { Poller } from '#lib/polling/poller';
   import { markChatsSeen } from '#lib/stores/chatsSeen';
   import { refreshLastMessages, lastMessages } from '#lib/stores/lastMessage';
-  import { describeChat, mergeChats, stableChats } from '#lib/chats/view';
+  import {
+    refreshMatchScores,
+    matchScores,
+    type MatchScoreRequest
+  } from '#lib/stores/matchScores';
+  import {
+    describeChat,
+    isChatDone,
+    mergeChats,
+    orderByMatchScore,
+    stableChats
+  } from '#lib/chats/view';
   import { locale, translate } from '#lib/i18n/locale';
   import ChatCard from '#lib/components/chats/ChatCard.svelte';
   import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
@@ -68,6 +90,21 @@
       id.userAddress,
       (address) => api.listChatMessages(address)
     );
+    // §4.13.4 score-first sorting: refresh the FINISHED chats' match/v2
+    // scores every tick (same best-effort cadence, in-flight-guarded).
+    // The pair is graded AS the attendee — itself as first_user_address;
+    // unfinished chats are never fetched (no N+1 over the active group).
+    const scoreRequests: MatchScoreRequest[] = [];
+    for (const chat of stableChats(chats)) {
+      if (!isChatDone(chat)) continue;
+      const counterpart = describeChat(chat, id.userAddress).counterpart;
+      if (counterpart) {
+        scoreRequests.push({ address: chat.address, room: chat.room, counterpart });
+      }
+    }
+    void refreshMatchScores(scoreRequests, id.userAddress, (request) =>
+      api.matchV2(request.room, id.userAddress, request.counterpart)
+    );
   }
 
   const poller = new Poller({
@@ -100,9 +137,15 @@
   const me = $derived($identity);
   const userByAddress = $derived(new Map(users.map((user) => [user.address, user])));
   const lastByAddress = $derived($lastMessages);
+  const scoreByAddress = $derived($matchScores);
   const cards = $derived(
     me
-      ? stableChats(chats).map((chat) => {
+      ? orderByMatchScore(chats, (chat) => {
+          // §4.13.4: only THIS persona's cached scores sort the list; a
+          // missing entry (in flight / failed / foreign) sorts unscored.
+          const entry = scoreByAddress.get(chat.address);
+          return entry && entry.owner === me.userAddress ? entry.points : null;
+        }).map((chat) => {
           const data = describeChat(chat, me.userAddress);
           return {
             ...data,

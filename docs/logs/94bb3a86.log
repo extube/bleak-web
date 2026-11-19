@@ -1,0 +1,4 @@
+2026-11-19T17:15:04Z [worker] task 63 started: score-first chats sorting + unfinished loader
+2026-11-19T17:24:20Z [worker] implemented score-first sorting (orderByMatchScore in chats/view.ts), matchScores session store, api.matchV2 wrapper, ChatCard unfinished opacity+loader; targeted tests green (118)
+2026-11-19T17:25:12Z [worker] gates green: full make test (636 web + 49 api-client + 8 helper), make lint, make build (0 svelte-check errors, pre-existing warnings only); preparing handover commit
+2026-11-19T17:25:41Z [worker] handover commit 723701c on feature/94bb3a86-tz5-05-chats-sort-scores (session + log records included); setting ready-for-merge

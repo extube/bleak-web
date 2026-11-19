@@ -47,6 +47,7 @@ import type {
   Invite,
   InviteMintRequest,
   KickoffResponse,
+  MatchResult,
   Message,
   MutualHandshakeRequest,
   MutualHandshakeResponse,
@@ -104,7 +105,10 @@ export const PERSONA_TOKEN_METHODS = [
   // share; the RECIPIENT-only read is called with the attendee's own
   // persona token ("me") — both auto-inject the identity token.
   'shareContact',
-  'listContactsSharedWith'
+  'listContactsSharedWith',
+  // v3 match score (DESIGN §4.13.4): the caller grades AS itself — the
+  // persona passes ITSELF as first_user_address, its own Bearer auto-injected.
+  'matchV2'
 ] as const;
 
 /**
@@ -375,6 +379,14 @@ export const api = {
     return personaGate(() =>
       apiRaw.listContactsSharedWith(address, credential(personaCredential, options))
     );
+  },
+
+  // Match score (DESIGN §4.13.4): POST /api/match/v2 graded AS the caller —
+  // the attendee passes ITSELF as `first_user_address` (its own Bearer,
+  // auto-injected). Feeds the score-first /chats ordering (finished pairs
+  // only, fetched from the matchScores session cache's refresh cadence).
+  matchV2(room: string, first: string, second: string): Promise<MatchResult> {
+    return personaGate(() => apiRaw.matchV2(room, first, second, credential(personaCredential)));
   }
 };
 

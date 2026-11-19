@@ -122,7 +122,10 @@ describe('injection maps (ARCHITECTURE §10.2 policy table, web-layer form)', ()
         // v3 contact share (DESIGN §4.13.3): the FROM persona's share +
         // the recipient-only read (called with the attendee's own token)
         'shareContact',
-        'listContactsSharedWith'
+        'listContactsSharedWith',
+        // v3 match score (DESIGN §4.13.4): the caller grades AS itself —
+        // the persona passes ITSELF as first_user_address
+        'matchV2'
       ].sort()
     );
   });
@@ -173,6 +176,9 @@ describe('credential attachment (behavioral)', () => {
     // recipient-only read of my own inbox both carry the persona token.
     await api.shareContact('0xb', 'telegram: @me', '0xme');
     await api.listContactsSharedWith('0xme');
+    // v3 match score (DESIGN §4.13.4): the pair graded AS the attendee
+    // (itself as first_user_address) carries the persona token.
+    await api.matchV2('0xroom', '0xme', '0xb');
 
     for (const call of calls) {
       expect(authOf(call), `${call.url}`).toBe('Bearer p-tok');
