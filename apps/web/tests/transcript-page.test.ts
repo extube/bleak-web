@@ -2,11 +2,13 @@
  * pass, owner directive): one block per distinct behavior, micro/scroll
  * asserts removed (recorded in docs/verification-v2.md). Covers: oldest-first
  * render + header (public bio replaces theme chips), 2 s live poll, network
- * banner + recovery, poller teardown, warming row, 404 state, contact stub,
- * the permanent NO-COMPOSER check (owner ruling 4; the kickoff button left
- * the dialog view — Concept §8.1.9), the v2.2 polish (hh:mm times, date
- * label, no kickoff, public info header), and the viewer fallback
- * (room-token retry, host-401 gate replication, no-token 401). */
+ * banner + recovery, poller teardown, warming row, 404 state, the §4.13.3
+ * contact-share slide (isChatDone gate, 201/409 shared state, no-card
+ * disabled state, inline error), the permanent NO-COMPOSER check (owner
+ * ruling 4; the kickoff button left the dialog view — Concept §8.1.9), the
+ * v2.2 polish (hh:mm times, date label, no kickoff, public info header),
+ * and the viewer fallback (room-token retry, host-401 gate replication,
+ * no-token 401). */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -35,7 +37,8 @@ vi.mock('#lib/api/client', () => ({
   api: {
     getChat: vi.fn(),
     listChatMessages: vi.fn(),
-    listRoomUsers: vi.fn()
+    listRoomUsers: vi.fn(),
+    shareContact: vi.fn()
   },
   apiRaw: apiRawMock,
   HOST_RESET_KEY: 'bleak.hostReset'
@@ -330,7 +333,7 @@ describe('v2.3 chat colors (Concept §9.1.5, DESIGN §4.10.5 — Deepa palette)'
   });
 });
 
-describe('states: 404, contact stub (§3.5 AC 7, 8)', () => {
+describe('states: 404, contact share (§3.5 AC 7, 8; §4.13.3)', () => {
   it('404 chat renders the not-found state with a working link back to /chats (AC 8)', async () => {
     mockedApi.getChat.mockRejectedValue(new ApiError(404, `/api/chat/${CHAT}`, 'chat not found'));
     render(Page, { props: {} });
@@ -339,34 +342,148 @@ describe('states: 404, contact stub (§3.5 AC 7, 8)', () => {
     expect(goto).toHaveBeenCalledWith('/chats');
   });
 
-  it('the contact-exchange stub is always visible, disabled and non-interactive (AC 7)', async () => {
+  it('the dialog not finished → the slide is disabled with the locked hint (the isChatDone gate, tz5-03)', async () => {
     withMessages(message('tx1', '0xa', 'Привет.', 60));
+    await renderPage(); // baseChat() carries no done field
+    const slide = document.querySelector('.slide');
+    expect(slide).toBeTruthy();
+    expect(slide?.getAttribute('aria-disabled')).toBe('true');
+    expect(slide?.textContent).toContain(ru['chat.contact_share.locked']);
+    const thumb = slide?.querySelector('.thumb') as HTMLButtonElement | null;
+    expect(thumb?.disabled).toBe(true);
+    expect(mockedApi.shareContact).not.toHaveBeenCalled();
+  });
+
+  it('finished dialog + no local card → the slide stays disabled with the no-card hint', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
     await renderPage();
-    const stub = document.querySelector('.contact-stub');
-    expect(stub).toBeTruthy();
-    expect(stub?.getAttribute('aria-disabled')).toBe('true');
-    expect(stub?.textContent).toContain(ru['chat.contact_stub']);
-    expect(stub?.querySelector('button, a, input')).toBeNull();
+    const slide = document.querySelector('.slide');
+    expect(slide?.getAttribute('aria-disabled')).toBe('true');
+    expect(slide?.textContent).toContain(ru['chat.contact_share.no_card']);
+    expect((slide?.querySelector('.thumb') as HTMLButtonElement | null)?.disabled).toBe(true);
+    expect(mockedApi.shareContact).not.toHaveBeenCalled();
+  });
+
+  it('finished dialog + a stored card → completing the slide shares it (to=counterpart, from=me) and lands the shared state (201)', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    localStorage.setItem(
+      'bleak.contactCard',
+      JSON.stringify({ '0xroom|0xme': 'telegram: @me' })
+    );
+    mockedApi.shareContact.mockResolvedValue({
+      content: 'telegram: @me',
+      created_at: new Date().toISOString(),
+      from: ME,
+      to: '0xa'
+    });
+    await renderPage();
+    const slide = document.querySelector('.slide');
+    expect(slide?.getAttribute('aria-disabled')).toBe('false');
+    expect(slide?.textContent).toContain(ru['chat.contact_share.label']);
+    await (slide?.querySelector('.thumb') as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(mockedApi.shareContact).toHaveBeenCalledWith('0xa', 'telegram: @me', ME)
+    );
+    // The 201 lands the shared state + the local pair mark.
+    await waitFor(() =>
+      expect(document.querySelector('.slide')?.textContent).toContain(
+        ru['chat.contact_share.shared']
+      )
+    );
+    expect(document.querySelector('.slide')?.querySelector('svg')).toBeTruthy(); // done glyph
+    expect(
+      JSON.parse(localStorage.getItem('bleak.contactShared') ?? '{}')
+    ).toMatchObject({ '0xroom|0xme': { '0xa': expect.any(String) } });
+  });
+
+  it('a repeated share answers 409 — the shared state, NEVER an error (once per pair)', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    localStorage.setItem(
+      'bleak.contactCard',
+      JSON.stringify({ '0xroom|0xme': 'telegram: @me' })
+    );
+    mockedApi.shareContact.mockRejectedValue(
+      new ApiError(409, '/api/contact', 'contact already shared')
+    );
+    await renderPage();
+    await (document.querySelector('.slide')?.querySelector('.thumb') as HTMLButtonElement).click();
+    await waitFor(() =>
+      expect(mockedApi.shareContact).toHaveBeenCalledWith('0xa', 'telegram: @me', ME)
+    );
+    await waitFor(() =>
+      expect(document.querySelector('.slide')?.textContent).toContain(
+        ru['chat.contact_share.shared']
+      )
+    );
+    expect(screen.queryByRole('alert')).toBeNull(); // 409 is not an error
+    expect(
+      JSON.parse(localStorage.getItem('bleak.contactShared') ?? '{}')
+    ).toMatchObject({ '0xroom|0xme': { '0xa': expect.any(String) } });
+  });
+
+  it('a locally marked pair renders the shared state WITHOUT any share call', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    localStorage.setItem(
+      'bleak.contactCard',
+      JSON.stringify({ '0xroom|0xme': 'telegram: @me' })
+    );
+    localStorage.setItem(
+      'bleak.contactShared',
+      JSON.stringify({ '0xroom|0xme': { '0xa': '2026-11-19T10:00:00.000Z' } })
+    );
+    await renderPage();
+    expect(document.querySelector('.slide')?.textContent).toContain(
+      ru['chat.contact_share.shared']
+    );
+    expect(mockedApi.shareContact).not.toHaveBeenCalled();
+  });
+
+  it('a failed share (400) surfaces inline; the control stays armed', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    localStorage.setItem(
+      'bleak.contactCard',
+      JSON.stringify({ '0xroom|0xme': 'telegram: @me' })
+    );
+    mockedApi.shareContact.mockRejectedValue(
+      new ApiError(400, '/api/contact', 'content must be 1..255 symbols')
+    );
+    await renderPage();
+    await (document.querySelector('.slide')?.querySelector('.thumb') as HTMLButtonElement).click();
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect(screen.getByRole('alert')?.textContent).toContain('content must be 1..255 symbols');
+    // The control stays armed — the pair was NOT marked shared.
+    expect(localStorage.getItem('bleak.contactShared')).toBeNull();
+    expect(
+      (document.querySelector('.slide')?.querySelector('.thumb') as HTMLButtonElement).disabled
+    ).toBe(false);
   });
 });
 
 describe('NO-COMPOSER (owner ruling 4, permanent — §3.5 AC 13)', () => {
-  it('the transcript UI contains no input/textarea/send control; only the back control (kickoff left, §8.1.9)', async () => {
-    withMessages(message('tx1', '0xa', 'Привет.', 60));
+  it('the transcript UI contains no input/textarea/send control; the only buttons are the back control and the share thumb', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
     await renderPage();
 
     const root = document.querySelector('.page');
     expect(root).toBeTruthy();
-    // no composer of any kind, in any state
+    // no composer of any kind, in any state (the contact slide is NOT one)
     expect(root?.querySelector('input, textarea, [contenteditable="true"]')).toBeNull();
     expect(root?.querySelector('form')).toBeNull();
     const buttons = Array.from(root?.querySelectorAll('button') ?? []);
+    const thumb = document.querySelector('.thumb');
     const labels = buttons.map(
       (button) =>
         button.textContent?.trim() || button.getAttribute('aria-label') || ''
     );
     expect(labels).toContain(ru['common.back']);
-    expect(buttons).toHaveLength(1);
+    // every button is the back control or the share slide thumb
+    expect(buttons.filter((button) => button !== thumb)).toHaveLength(1);
     // POST /api/message is not wired: the api mock exposes no sendMessage usage
     expect(mockedApi).not.toHaveProperty('sendMessage');
   });

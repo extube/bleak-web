@@ -255,6 +255,33 @@ describe('v2.1 UI-polish round keys (DESIGN §4.8)', () => {
   });
 });
 
+describe('§4.13.3 contact-share keys (Concept §13.1.3, DESIGN §4.13.3)', () => {
+  it('the slide, contact-card field and received-list copy exist in BOTH dictionaries (RU/EN parity)', () => {
+    for (const key of [
+      'chat.contact_share.label',
+      'chat.contact_share.shared',
+      'chat.contact_share.locked',
+      'chat.contact_share.no_card',
+      'chat.contact_share.error',
+      'profile.contact.edit',
+      'profile.contact.label',
+      'profile.contact.note',
+      'profile.shared.title',
+      'profile.shared.empty'
+    ] as const) {
+      expect(en[key]?.trim().length).toBeGreaterThan(0);
+      expect(ru[key]?.trim().length).toBeGreaterThan(0);
+    }
+    // verbatim spot-checks
+    expect(ru['chat.contact_share.shared']).toBe('Контакт уже передан');
+    expect(en['chat.contact_share.shared']).toBe('Contact already shared');
+    expect(ru['chat.contact_share.label']).toBe('Свайп вправо — поделиться контактом');
+    expect(en['chat.contact_share.locked']).toBe('Available once the dialog is finished');
+    expect(ru['profile.contact.note']).toContain('telegram');
+    expect(en['profile.contact.note']).toContain('telegram');
+  });
+});
+
 describe('v2.5 copy sweep (Concept §11.1.3, DESIGN §4.12.3)', () => {
   it('the interests picker copy is RU/EN paired (DESIGN §4.13.1)', () => {
     for (const key of [

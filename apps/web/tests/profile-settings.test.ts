@@ -21,7 +21,7 @@ import { join, sep } from 'node:path';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
-import { ApiError, type User } from '@bleak/api-client';
+import { ApiError, type Contact, type User } from '@bleak/api-client';
 import { identity, saveIdentity } from '../src/lib/stores/identity';
 import { mutualCode } from '../src/lib/stores/mutualCode';
 import { tokenVault } from '../src/lib/stores/tokenVault';
@@ -42,7 +42,9 @@ vi.mock('#lib/api/client', () => ({
     deleteRoomUser: vi.fn(),
     rotateUserToken: vi.fn(),
     addUserInterests: vi.fn(),
-    deleteUserInterests: vi.fn()
+    deleteUserInterests: vi.fn(),
+    listRoomUsers: vi.fn(),
+    listContactsSharedWith: vi.fn()
   }
 }));
 
@@ -98,6 +100,9 @@ beforeEach(() => {
   mockedApi.getUserGreeting.mockResolvedValue({ address: ME, greeting: 'Привет! Я про трамваи.' });
   mockedApi.rotateUserToken.mockResolvedValue(undefined);
   mockedApi.deleteRoomUser.mockResolvedValue(undefined);
+  // The "Shared with you" list + the roster for name resolution (§4.13.3).
+  mockedApi.listRoomUsers.mockResolvedValue([]);
+  mockedApi.listContactsSharedWith.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -410,6 +415,126 @@ describe('interests picker (DESIGN §4.13.1 — real endpoints + local mirror)',
     const unselected = screen.getByRole('button', { name: /Кофе/ }) as HTMLButtonElement;
     expect(unselected.disabled).toBe(true);
     expect(mockedApi.addUserInterests).not.toHaveBeenCalled();
+  });
+});
+
+describe('contact card field (DESIGN §4.13.3 item 1 — purely local, no API)', () => {
+  it('the persona section carries the contact-card row; the editor prefills from bleak.contactCard', async () => {
+    localStorage.setItem(
+      'bleak.contactCard',
+      JSON.stringify({ '0xroom|0xme': 'telegram: @me' })
+    );
+    await renderPage();
+    expect(screen.getByRole('button', { name: ru['profile.contact.edit'] })).toBeTruthy();
+    await screen.getByRole('button', { name: ru['profile.contact.edit'] }).click();
+    await tick();
+    const input = screen.getByLabelText(ru['profile.contact.label']) as HTMLInputElement;
+    expect(input.value).toBe('telegram: @me');
+    expect(input.maxLength).toBe(255);
+    // caption + counter rendered
+    expect(screen.getByText(ru['profile.contact.note'])).toBeTruthy();
+    expect(screen.getByText('13/255')).toBeTruthy();
+  });
+
+  it('saving persists locally per room|user and returns to the rows — NO API call', async () => {
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.contact.edit'] }).click();
+    await tick();
+    const input = screen.getByLabelText(ru['profile.contact.label']) as HTMLInputElement;
+    input.value = '  telegram: @handle  ';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await screen.getByRole('button', { name: ru['common.save'] }).click();
+    await tick();
+    expect(JSON.parse(localStorage.getItem('bleak.contactCard') ?? '{}')).toMatchObject({
+      '0xroom|0xme': 'telegram: @handle' // trimmed by the store
+    });
+    // back to the rows with the saved flash; mockedApi untouched
+    await waitFor(() =>
+      expect(screen.getByText(ru['profile.saved'], { exact: false })).toBeTruthy()
+    );
+    expect(mockedApi.updateRoomUser).not.toHaveBeenCalled();
+    expect(mockedApi.putUserGreeting).not.toHaveBeenCalled();
+  });
+
+  it('cancel returns without changing the stored card', async () => {
+    localStorage.setItem(
+      'bleak.contactCard',
+      JSON.stringify({ '0xroom|0xme': 'telegram: @me' })
+    );
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.contact.edit'] }).click();
+    await tick();
+    const input = screen.getByLabelText(ru['profile.contact.label']) as HTMLInputElement;
+    input.value = 'changed but not saved';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await screen.getByRole('button', { name: ru['common.cancel'] }).click();
+    await tick();
+    expect(JSON.parse(localStorage.getItem('bleak.contactCard') ?? '{}')).toMatchObject({
+      '0xroom|0xme': 'telegram: @me'
+    });
+    expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
+  });
+});
+
+describe('received contacts list (DESIGN §4.13.3 item 4 — the minimal view)', () => {
+  function contact(from: string, content: string, minutesAgo: number): Contact {
+    return {
+      content,
+      created_at: new Date(Date.now() - minutesAgo * 60_000).toISOString(),
+      from,
+      to: ME
+    };
+  }
+
+  it('empty inbox → the empty-state copy', async () => {
+    await renderPage();
+    expect(screen.getByRole('heading', { level: 2, name: ru['profile.shared.title'] })).toBeTruthy();
+    await waitFor(() => expect(mockedApi.listContactsSharedWith).toHaveBeenCalledWith(ME));
+    await waitFor(() =>
+      expect(screen.getByText(ru['profile.shared.empty'])).toBeTruthy()
+    );
+  });
+
+  it('renders rows newest-first with name resolution, content and relative time', async () => {
+    mockedApi.listRoomUsers.mockResolvedValue([
+      userFixture({ address: '0xa', name: 'Алиса' }),
+      userFixture({ address: '0xb', name: 'Борис' })
+    ]);
+    const rows = [
+      contact('0xa', 'telegram: @alice', 2),
+      contact('0xb', 'phone: +7…', 90)
+    ];
+    mockedApi.listContactsSharedWith.mockResolvedValue(rows); // newest first
+    await renderPage();
+    await waitFor(() => expect(screen.getByText('telegram: @alice')).toBeTruthy());
+    const list = screen.getByRole('list', { name: ru['profile.shared.title'] });
+    const items = Array.from(list.querySelectorAll('li'));
+    expect(items).toHaveLength(2);
+    // order preserved (the endpoint is newest first) — the 2-min row first
+    expect(items[0]?.textContent).toContain('Алиса');
+    expect(items[0]?.textContent).toContain('telegram: @alice');
+    expect(items[0]?.textContent).toContain('2 мин');
+    // roster resolution for BOTH counterparts; order preserved (the
+    // endpoint is newest first) — the 2-min row first
+    expect(items[0]?.textContent).toContain('Алиса');
+    expect(items[0]?.textContent).toContain('telegram: @alice');
+    expect(items[0]?.textContent).toContain('2 мин');
+    // resolved name + hours bucket
+    expect(items[1]?.textContent).toContain('Борис');
+    expect(items[1]?.textContent).toContain('phone: +7…');
+    expect(items[1]?.textContent).toContain('1 ч');
+  });
+
+  it('a failed read shows the ErrorBanner with retry', async () => {
+    mockedApi.listContactsSharedWith.mockRejectedValue(
+      new ApiError(500, `/api/contact/${ME}`, 'boom')
+    );
+    await renderPage();
+    await waitFor(() => expect(screen.getAllByRole('alert').length).toBeGreaterThan(0));
+    // the retry re-reads (the mock now answers empty)
+    mockedApi.listContactsSharedWith.mockResolvedValue([]);
+    await screen.getByRole('button', { name: ru['common.retry'] }).click();
+    await waitFor(() => expect(screen.getByText(ru['profile.shared.empty'])).toBeTruthy());
   });
 });
 

@@ -34,6 +34,7 @@ import { BleakClient, ApiError } from '@bleak/api-client';
 import type {
   Chat,
   ClearChatResponse,
+  Contact,
   CreateHandshakeRequest,
   CreateRoomRequestV2,
   CreateUserRequest,
@@ -98,7 +99,12 @@ export const PERSONA_TOKEN_METHODS = [
   'clearChatHistory',
   // v3 interests (DESIGN §4.13.1): the persona's own rows
   'addUserInterests',
-  'deleteUserInterests'
+  'deleteUserInterests',
+  // v3 contact share (DESIGN §4.13.3): the FROM persona's Bearer on the
+  // share; the RECIPIENT-only read is called with the attendee's own
+  // persona token ("me") — both auto-inject the identity token.
+  'shareContact',
+  'listContactsSharedWith'
 ] as const;
 
 /**
@@ -347,6 +353,27 @@ export const api = {
   ): Promise<Interest[]> {
     return personaGate(() =>
       apiRaw.deleteUserInterests(room, address, keys, credential(personaCredential, options))
+    );
+  },
+
+  // Contact share (DESIGN §4.13.3): POST /api/contact carries the FROM
+  // persona's Bearer (auto-injected); GET /api/contact/{me} is the
+  // recipient-only read — the attendee's own persona token (auto-injected).
+  // A repeated share answers 409 (once per pair) — pages map it to the
+  // "already shared" state, never an error.
+  shareContact(
+    to: string,
+    content: string,
+    from: string,
+    options?: CredentialOptions
+  ): Promise<Contact> {
+    return personaGate(() =>
+      apiRaw.shareContact(to, content, from, credential(personaCredential, options))
+    );
+  },
+  listContactsSharedWith(address: string, options?: CredentialOptions): Promise<Contact[]> {
+    return personaGate(() =>
+      apiRaw.listContactsSharedWith(address, credential(personaCredential, options))
     );
   }
 };

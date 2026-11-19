@@ -23,7 +23,7 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { get } from 'svelte/store';
-  import { ApiError, NetworkError, type Chat, type Message, type User } from '@bleak/api-client';
+  import { ApiError, NetworkError, ValidationError, type Chat, type Message, type User } from '@bleak/api-client';
   import { identity, initIdentity } from '#lib/stores/identity';
   import { requireIdentityOrRedirect } from '#lib/nav/guard';
   import { api, apiRaw, HOST_RESET_KEY } from '#lib/api/client';
@@ -34,6 +34,7 @@
     bubbleAriaLabel,
     chatDateLabel,
     chatStatus,
+    isChatDone,
     isMyMessage,
     isNearBottom,
     mergeMessages,
@@ -42,11 +43,16 @@
   } from '#lib/chats/view';
   import { locale, translate } from '#lib/i18n/locale';
   import { counterpartAddress } from '#lib/room/relationships';
+  import {
+    isPairShared,
+    loadContactCard,
+    markPairShared
+  } from '#lib/stores/contactCard';
+  import ShareContactSlide from '#lib/components/ShareContactSlide.svelte';
   import MessageBubble from '#lib/components/chats/MessageBubble.svelte';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import Chip from '#lib/components/Chip.svelte';
-  import ContactStub from '#lib/components/ContactStub.svelte';
   import ErrorBanner from '#lib/components/ErrorBanner.svelte';
   import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
 
@@ -340,6 +346,70 @@
   const dateLabel = $derived(
     messages[0] ? chatDateLabel(messages[0].created_at, $locale) : null
   );
+
+  // --- contact share (DESIGN §4.13.3, Concept §13.1.3) ----------------------
+  //
+  // The footer's swipe-right slide shares MY contact card with the
+  // counterpart (shareContact(to=counterpart, content=card, from=me)). It is
+  // ENABLED ONLY when the dialog is finished (the authoritative
+  // `isChatDone` gate, tz5-03) AND the local contact card is non-empty
+  // (profile/settings); the 255-symbol cap is enforced client-side (store +
+  // tz5-01 pre-flight). 201 AND 409 (once per pair) both land the control
+  // in the shared state — the local mark (bleak.contactShared) mirrors it;
+  // server truth is the 409 on any later attempt.
+  let card = $state('');
+  let cardShared = $state(false);
+  let sharing = $state(false);
+  let shareError = $state<string | null>(null);
+
+  $effect(() => {
+    const id = me;
+    if (!id) return;
+    // Re-hydrate on mount and when the identity/chat counterpart changes —
+    // the card + the pair marks are local stores, read directly.
+    card = loadContactCard(id.roomAddress, id.userAddress);
+    cardShared =
+      counterpartAddr !== null &&
+      isPairShared(id.roomAddress, id.userAddress, counterpartAddr);
+  });
+
+  const done = $derived(chat !== null && isChatDone(chat));
+  const hasCard = $derived(card.trim() !== '');
+  const slideDisabled = $derived(!done || !hasCard);
+  const slideHint = $derived(
+    !done ? 'chat.contact_share.locked' : 'chat.contact_share.no_card'
+  );
+
+  async function shareCard(): Promise<void> {
+    const id = me;
+    if (!id || !counterpartAddr || sharing) return; // double-submit prevented
+    sharing = true;
+    shareError = null;
+    try {
+      await api.shareContact(counterpartAddr, card.trim(), id.userAddress);
+      markPairShared(id.roomAddress, id.userAddress, counterpartAddr);
+      cardShared = true;
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 409) {
+        // ONCE PER PAIR: the server says already shared — the shared state,
+        // never an error (server truth over the local mark).
+        markPairShared(id.roomAddress, id.userAddress, counterpartAddr);
+        cardShared = true;
+      } else if (cause instanceof NetworkError || cause instanceof ValidationError) {
+        shareError = translate(get(locale), 'common.error.network');
+      } else {
+        // 400 (empty/overlong content slipping through) + anything else —
+        // the transcript page's existing api-error pattern: server text if
+        // any, the generic share copy otherwise.
+        shareError =
+          cause instanceof ApiError && cause.message
+            ? cause.message
+            : translate(get(locale), 'chat.contact_share.error');
+      }
+    } finally {
+      sharing = false;
+    }
+  }
 </script>
 
 <svelte:head>
@@ -464,12 +534,28 @@
     </main>
 
     <footer class="footer">
-      <ContactStub />
+      <!-- §4.13.3 contact share: the slide is armed only when the dialog is
+           finished (isChatDone) and my local contact card is non-empty;
+           shared (201 or the once-per-pair 409) is terminal for the view. -->
+      <ShareContactSlide
+        label={translate($locale, 'chat.contact_share.label')}
+        sharedLabel={translate($locale, 'chat.contact_share.shared')}
+        disabledHint={translate($locale, slideHint)}
+        disabled={slideDisabled}
+        pending={sharing}
+        shared={cardShared}
+        oncomplete={() => void shareCard()}
+      />
+      {#if shareError}
+        <p class="share-error" role="alert" aria-live="polite">{shareError}</p>
+      {/if}
     </footer>
 
-    <!-- NO-COMPOSER (ruling 4): the only interactive elements in this UI are
-         the back control, the scroll chip and the disabled contact stub —
-         the kickoff button left the dialog view (Concept §8.1.9). -->
+    <!-- NO-COMPOSER (ruling 4): no input/textarea/send control anywhere —
+         the interactive elements are the back control, the scroll chip and
+         the share-contact slide (the kickoff button left the dialog view,
+         Concept §8.1.9; the contact share is the owner-approved §13.1.3
+         change, not a composer). -->
 
     <div class="vh" aria-live="polite">
       {#if announcedName}
@@ -701,8 +787,10 @@
     width: 100%;
     margin: 0 auto;
   }
-  .footer > :global(.contact-stub) {
-    width: 100%;
+  .share-error {
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-danger-text);
   }
   @media (min-width: 720px) {
     .column {

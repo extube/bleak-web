@@ -1,5 +1,5 @@
 /** Kit render tests (TZ-02): Chip, SegmentedControl, ErrorBanner, StatTile,
- * ContactStub, CopyButton — @testing-library/svelte over happy-dom. */
+ * ShareContactSlide, CopyButton — @testing-library/svelte over happy-dom. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -7,7 +7,7 @@ import ChipFixture from './fixtures/ChipFixture.svelte';
 import SegmentedControl from '../src/lib/components/SegmentedControl.svelte';
 import ErrorBanner from '../src/lib/components/ErrorBanner.svelte';
 import StatTile from '../src/lib/components/StatTile.svelte';
-import ContactStub from '../src/lib/components/ContactStub.svelte';
+import ShareContactSlide from '../src/lib/components/ShareContactSlide.svelte';
 import CopyButton from '../src/lib/components/CopyButton.svelte';
 import EmptyState from '../src/lib/components/EmptyState.svelte';
 import SkeletonBlock from '../src/lib/components/SkeletonBlock.svelte';
@@ -101,14 +101,47 @@ describe('StatTile', () => {
   });
 });
 
-describe('ContactStub', () => {
-  it('renders the coming-later copy, disabled and non-interactive', () => {
-    render(ContactStub, { props: {} });
-    const stub = screen.getByText(ru['chat.contact_stub']).closest('.contact-stub');
-    expect(stub).toBeTruthy();
-    expect(stub?.getAttribute('aria-disabled')).toBe('true');
-    // no interactive element inside — never enabled by any flow (§2.1)
-    expect(stub?.querySelector('button, a[href], input')).toBeNull();
+describe('ShareContactSlide (DESIGN §4.13.3 — the reusable slide control)', () => {
+  const base = {
+    label: ru['chat.contact_share.label'],
+    sharedLabel: ru['chat.contact_share.shared'],
+    disabledHint: ru['chat.contact_share.locked']
+  };
+
+  it('armed: renders the hint and completes via the thumb activation (the accessible gesture path)', async () => {
+    const oncomplete = vi.fn();
+    render(ShareContactSlide, { props: { ...base, oncomplete } });
+    const thumb = screen.getByRole('button', { name: base.label }) as HTMLButtonElement;
+    expect(thumb.disabled).toBe(false);
+    await thumb.click();
+    expect(oncomplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('disabled: the thumb is inert and the hint replaces the label', async () => {
+    const oncomplete = vi.fn();
+    render(ShareContactSlide, { props: { ...base, disabled: true, oncomplete } });
+    const slide = document.querySelector('.slide');
+    expect(slide?.getAttribute('aria-disabled')).toBe('true');
+    const thumb = screen.getByRole('button', { name: base.disabledHint }) as HTMLButtonElement;
+    expect(thumb.disabled).toBe(true);
+    await thumb.click();
+    expect(oncomplete).not.toHaveBeenCalled();
+  });
+
+  it('pending: the thumb cannot be re-gripped while the request is in flight', async () => {
+    const oncomplete = vi.fn();
+    render(ShareContactSlide, { props: { ...base, pending: true, oncomplete } });
+    const thumb = screen.getByRole('button', { name: base.label }) as HTMLButtonElement;
+    expect(thumb.disabled).toBe(true);
+  });
+
+  it('shared: the done glyph + the shared copy — the terminal non-interactive state', () => {
+    const oncomplete = vi.fn();
+    render(ShareContactSlide, { props: { ...base, shared: true, oncomplete } });
+    expect(screen.getByText(base.sharedLabel)).toBeTruthy();
+    const thumb = screen.getByRole('button', { name: base.sharedLabel }) as HTMLButtonElement;
+    expect(thumb.disabled).toBe(true);
+    expect(thumb.querySelector('svg')).toBeTruthy();
   });
 });
 

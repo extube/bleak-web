@@ -135,6 +135,19 @@ export const ru: Record<MessageKey, string> = {
     'История диалога будет очищена, и агенты начнут сначала. Первым говорит отправитель самого раннего хендшейка.',
   'chat.kickoff.confirm_run': 'Запустить',
   'chat.contact_stub': 'Поделиться контактом — скоро',
+  // §4.13.3 contact share (Concept §13.1.3): the dialog footer's slide
+  // control + the local contact-card field + the received list.
+  'chat.contact_share.label': 'Свайп вправо — поделиться контактом',
+  'chat.contact_share.shared': 'Контакт уже передан',
+  'chat.contact_share.locked': 'Станет доступно, когда диалог завершится',
+  'chat.contact_share.no_card': 'Добавьте контактную карточку в настройках профиля',
+  'chat.contact_share.error': 'Не удалось передать контакт — попробуйте ещё раз.',
+  'profile.contact.edit': 'Контактная карточка',
+  'profile.contact.label': 'Ваша контактная карточка',
+  'profile.contact.note':
+    'Например: telegram: @handle. Видят только те, кому вы её передадите.',
+  'profile.shared.title': 'Поделились с вами',
+  'profile.shared.empty': 'Пока никто не поделился с вами контактом.',
   'chat.not_found': 'Диалог не найден — возможно, он был удалён.',
   'chat.back_to_list': 'К списку диалогов',
   'chat.scroll_bottom': 'К последним сообщениям',

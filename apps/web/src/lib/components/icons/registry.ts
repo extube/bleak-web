@@ -20,7 +20,9 @@ export type IconName =
   | 'face'
   | 'badge'
   | 'status-active'
-  | 'status-finished';
+  | 'status-finished'
+  | 'check'
+  | 'arrow-right';
 
 /** Tab glyphs (§1.2) reference the same set. */
 export const TAB_ICONS = {
@@ -171,5 +173,25 @@ export const ICON_RECTS: Record<IconName, readonly Rect[]> = {
   'status-finished': [
     [7, 2, 2, 8],
     [7, 11, 2, 2]
+  ],
+  // DONE / completed state mark (DESIGN §4.13.3: the contact-share slide's
+  // "already shared" state) — a bold pixel check mark.
+  check: [
+    [3, 7, 2, 2],
+    [5, 9, 2, 2],
+    [7, 11, 2, 2],
+    [9, 9, 2, 2],
+    [11, 7, 2, 2],
+    [13, 5, 2, 2]
+  ],
+  // RIGHT arrow (DESIGN §4.13.3): the swipe-right slide thumb glyph — the
+  // mirrored `back` geometry (shaft x2..9, head x8..12).
+  'arrow-right': [
+    [12, 7, 2, 2],
+    [10, 5, 2, 2],
+    [10, 9, 2, 2],
+    [8, 3, 2, 2],
+    [8, 11, 2, 2],
+    [2, 7, 8, 2]
   ]
 };

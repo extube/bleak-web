@@ -134,6 +134,19 @@ export const en = {
     'The dialog history will be cleared and the agents will start over. The sender of the earliest handshake speaks first.',
   'chat.kickoff.confirm_run': 'Restart',
   'chat.contact_stub': 'Share contact — coming later',
+  // §4.13.3 contact share (Concept §13.1.3): the dialog footer's slide
+  // control + the local contact-card field + the received list.
+  'chat.contact_share.label': 'Swipe right to share your contact',
+  'chat.contact_share.shared': 'Contact already shared',
+  'chat.contact_share.locked': 'Available once the dialog is finished',
+  'chat.contact_share.no_card': 'Add your contact card in profile settings',
+  'chat.contact_share.error': 'Could not share the contact — try again.',
+  'profile.contact.edit': 'Contact card',
+  'profile.contact.label': 'Your contact card',
+  'profile.contact.note':
+    'For example: telegram: @handle. Only people you share it with see it.',
+  'profile.shared.title': 'Shared with you',
+  'profile.shared.empty': 'Nobody has shared a contact with you yet.',
   'chat.not_found': 'Dialog not found — it may have been deleted.',
   'chat.back_to_list': 'Back to dialogs',
   'chat.scroll_bottom': 'Jump to latest',

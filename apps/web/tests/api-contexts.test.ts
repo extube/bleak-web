@@ -118,7 +118,11 @@ describe('injection maps (ARCHITECTURE §10.2 policy table, web-layer form)', ()
         'clearChatHistory',
         // v3 interests (DESIGN §4.13.1): the persona's own rows
         'addUserInterests',
-        'deleteUserInterests'
+        'deleteUserInterests',
+        // v3 contact share (DESIGN §4.13.3): the FROM persona's share +
+        // the recipient-only read (called with the attendee's own token)
+        'shareContact',
+        'listContactsSharedWith'
       ].sort()
     );
   });
@@ -165,6 +169,10 @@ describe('credential attachment (behavioral)', () => {
     // v3 interests (DESIGN §4.13.1): the persona's own rows carry the token.
     await api.addUserInterests('0xroom', '0xme', [{ title: 'Coffee', group: 0, key: 1 }]);
     await api.deleteUserInterests('0xroom', '0xme', [1]);
+    // v3 contact share (DESIGN §4.13.3): the share (from = me) + the
+    // recipient-only read of my own inbox both carry the persona token.
+    await api.shareContact('0xb', 'telegram: @me', '0xme');
+    await api.listContactsSharedWith('0xme');
 
     for (const call of calls) {
       expect(authOf(call), `${call.url}`).toBe('Bearer p-tok');

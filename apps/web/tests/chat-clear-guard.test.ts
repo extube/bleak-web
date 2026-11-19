@@ -68,13 +68,15 @@ const CLEAR_LABELS = [ru['host.drill.clear'], en['host.drill.clear']];
 
 /** Allowed interactive-control labels per attendee state (Concept §7.1.4;
  * the kickoff button left the dialog view — Concept §8.1.9 — so the allowed
- * set shrank to the back control, the jump chip and the not-found link). */
+ * set shrank to the back control, the jump chip and the not-found link;
+ * §4.13.3 adds the contact-share thumb — locked until the dialog is done). */
+const SLIDE_LOCKED = ru['chat.contact_share.locked'];
 const PINS = {
-  transcript: [ru['common.back']],
-  chip: [ru['common.back'], ru['chat.scroll_bottom']],
-  // The footer (contact stub) renders in every state, not-found included.
-  notFound: [ru['common.back'], ru['chat.back_to_list']],
-  hostView: [ru['common.back']]
+  transcript: [ru['common.back'], SLIDE_LOCKED],
+  chip: [ru['common.back'], ru['chat.scroll_bottom'], SLIDE_LOCKED],
+  // The footer (share slide) renders in every state, not-found included.
+  notFound: [ru['common.back'], ru['chat.back_to_list'], SLIDE_LOCKED],
+  hostView: [ru['common.back'], SLIDE_LOCKED]
 };
 
 const fixture = {
@@ -217,12 +219,11 @@ describe('attendee chat clear guard (Concept §7.1.4 — no clear-history contro
 
     expectExactly(PINS[state as keyof typeof PINS]);
 
-    if (state !== 'notFound') {
-      // The disabled contact stub is present and stays non-interactive.
-      const stub = document.querySelector('.contact-stub');
-      expect(stub?.getAttribute('aria-disabled')).toBe('true');
-      expect(stub?.querySelector('button, a, input')).toBeNull();
-    }
+    // The §4.13.3 share slide is present in every state and inert until
+    // the dialog is finished AND the local card is non-empty.
+    const slide = document.querySelector('.slide');
+    expect(slide?.getAttribute('aria-disabled')).toBe('true');
+    expect(slide?.querySelector('.thumb')?.hasAttribute('disabled')).toBe(true);
   });
 
   it('scrolled-up transcript: only the jump-to-bottom chip is added; still no clear', async () => {
