@@ -28,7 +28,7 @@ tz5-06 summary-sheet `670cb96`, tz5-07 radar-tuning `1c73ac7`.
 | Check | Result | Source |
 | --- | --- | --- |
 | Full `make test` re-run by this sweep | **not run** (the process runs the delta-wave CI after this landing) | this session |
-| DELTA-WAVE CI | **[pending — process fills]** | — |
+| DELTA-WAVE CI | **GREEN** (2026-11-19T17:54Z, process, dev tip `9f9e9af` — covers this sweep AND the §14 item-5 sheet-i18n bug round, same wave per owner routing): `make lint` clean · `make test` 721 passed (49 api-client + 8 helper + 664 web, 47 files) · `make build` 0 svelte-check errors (9 pre-existing warnings) | process gate run; recorded via `task.py ci` |
 | Targeted spot-runs (11 card-anchored suites, first-hand) | **green — 230 tests / 11 files** (interests-store + interests-catalog + chats-view + chats-page + summary-sheet + contact-store + match-scores + profile-settings + radar-placement + room-radar + transcript-page) | `npm run test -w @bleak/web -- <files>` (§4), all passing |
 | Owning tasks of the 6 items | R1–R6 all landed into `dev` (dev tip `1c73ac7` at sweep time) | dev log |
 
@@ -208,4 +208,4 @@ delivered end-to-end by this sweep (backend feature + client integration):
 
 ---
 
-DELTA-WAVE CI: [pending — process fills]
+DELTA-WAVE CI: GREEN — 2026-11-19T17:54Z, dev 9f9e9af, lint clean / 721 tests / build 0 errors (covers this sweep + the §14 sheet-i18n bug round)
