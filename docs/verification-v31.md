@@ -27,7 +27,7 @@ creation-contact-input `438b804`, tz6-04 sheet-polish `943bfdd`.
 | Check | Result | Source |
 | --- | --- | --- |
 | Full `make test` re-run by this sweep | **not run** (the process runs the delta-wave CI after this landing) | this session |
-| DELTA-WAVE CI | **[pending — process fills]** | process gate run; recorded via `task.py ci` |
+| DELTA-WAVE CI | **GREEN** (2026-11-19T18:34Z, process, dev tip `e4d70c6` post-sweep-landing): `make lint` clean · `make test` 756 passed (49 api-client + 8 helper + 699 web, 48 files) · `make build` 0 svelte-check errors (9 pre-existing warnings) | process gate run; recorded via `task.py ci` |
 | Targeted spot-runs (7 card-anchored suites, first-hand) | **green — 155 tests / 7 files** (kit + transcript-page + contacts-page + join-flow + summary-sheet + tabbar + i18n) | `npm run test -w @bleak/web -- <files>` (§4), all passing |
 | Owning tasks of the 5 items | tz6-00…tz6-04 all landed into `dev` (dev tip `943bfdd` at sweep time) | dev log |
 
@@ -178,4 +178,4 @@ No backend chat-lifecycle TODO remains on the client ledger for this item.
 
 ---
 
-DELTA-WAVE CI: [pending — process fills]
+DELTA-WAVE CI: GREEN — 2026-11-19T18:34Z, dev e4d70c6, lint clean / 756 tests / build 0 errors
