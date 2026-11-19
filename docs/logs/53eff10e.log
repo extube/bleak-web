@@ -1,0 +1,2 @@
+2026-11-19T17:43:24Z [worker] implemented v3 radar tuning: MIN_CENTER_GAP 74, NODE_AVATAR 40 / HIT 48 / MIN_NODE_DIST 56, EDGE_MARGIN 26, durations 90/135/30; targeted radar-placement+room-radar green (59 tests)
+2026-11-19T17:44:15Z [worker] gates green: make test 720 passed, make lint clean, make build ok; closing session, handing over ready-for-merge
