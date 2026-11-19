@@ -18,6 +18,7 @@ import {
 import { codeHue } from '../src/lib/avatar/traits';
 import type { Summary, User } from '@bleak/api-client';
 import { ru } from '../src/lib/i18n/ru';
+import { en } from '../src/lib/i18n/en';
 
 afterEach(() => {
   cleanup();
@@ -204,5 +205,35 @@ describe('SummarySheet rendering', () => {
     const thumb = document.querySelector('[role="dialog"] .thumb') as HTMLButtonElement;
     await thumb.click();
     expect(onshare).toHaveBeenCalledTimes(1);
+  });
+
+  it('EN interface: every sheet copy renders EN from the i18n table, never RU (DESIGN §4.14.5 bug round)', async () => {
+    // The reported bug: hardcoded Russian («итоги встречи», «сетевой чек
+    // лист») while the owner is in the EN interface. The regression guard:
+    // switch the locale store to EN and assert the sheet copy verbatim.
+    const { setLocale } = await import('../src/lib/i18n/locale');
+    setLocale('en');
+    renderSheet({
+      slideLabel: en['chat.contact_share.label'],
+      slideSharedLabel: en['chat.contact_share.shared'],
+      slideDisabledHint: en['chat.contact_share.no_card']
+    });
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.getAttribute('aria-label')).toBe(en['chat.summary.title']);
+    expect(screen.getByText('Meeting summary')).toBeTruthy();
+    expect(screen.getByText('Networking checklist')).toBeTruthy();
+    expect(document.querySelector('.checklist')?.getAttribute('aria-label')).toBe(
+      en['chat.summary.checklist']
+    );
+    expect(dialog.querySelector('.donut')?.getAttribute('aria-label')).toBe(
+      'Match: 66 out of 100'
+    );
+    // no RU sheet copy leaks into the EN interface
+    expect(screen.queryByText(ru['chat.summary.title'])).toBeNull();
+    expect(screen.queryByText(ru['chat.summary.checklist'])).toBeNull();
+    // checkpoint labels stay server-verbatim (English data — not UI copy)
+    expect(screen.getByText('Both introduced themselves')).toBeTruthy();
+    // restore the default locale for the rest of the suite
+    setLocale('ru');
   });
 });

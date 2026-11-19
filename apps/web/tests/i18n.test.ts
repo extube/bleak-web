@@ -293,9 +293,14 @@ describe('§4.13.5 summary-sheet keys (Concept §13.1.5, DESIGN §4.13.5)', () =
       expect(en[key]?.trim().length).toBeGreaterThan(0);
       expect(ru[key]?.trim().length).toBeGreaterThan(0);
     }
-    // verbatim spot-checks; the {score} placeholder interpolates
+    // verbatim spot-checks (DESIGN §4.14.5 bug round: ALL four sheet keys
+    // asserted verbatim in BOTH locales); the {score} placeholder interpolates
     expect(ru['chat.summary.title']).toBe('Итоги встречи');
     expect(en['chat.summary.title']).toBe('Meeting summary');
+    expect(ru['chat.summary.checklist']).toBe('Сетевой чек-лист');
+    expect(en['chat.summary.checklist']).toBe('Networking checklist');
+    expect(ru['chat.summary.loading']).toBe('Считаем итог диалога…');
+    expect(en['chat.summary.loading']).toBe('Summarizing the dialog…');
     expect(translate('ru', 'chat.summary.score.aria', { score: '87' })).toBe(
       'Совпадение: 87 из 100'
     );

@@ -1,0 +1,4 @@
+2026-11-19T17:50:38Z [worker] task 67 in-progress: sheet i18n bug round
+2026-11-19T17:53:08Z [worker] audit: SummarySheet.svelte + summary.ts carry zero hardcoded copy (all through translate/chat.summary.* + common.*); checkpoint labels server-verbatim per card; dictionaries already hold all 4 sheet keys RU+EN. Real gap = no EN-locale regression test (reported bug scenario)
+2026-11-19T17:53:56Z [worker] added EN-locale regression test to summary-sheet.test.ts (sheet copy verbatim EN, negative RU assertions, checkpoint labels stay server-verbatim) + verbatim RU/EN assertions for chat.summary.checklist/loading in i18n.test.ts §4.13.5 block; no component/dictionary changes needed (already i18n'd since tz5-06 landing)
+2026-11-19T17:54:09Z [worker] handover: commit 4ef0c17 on feature/4ae63f8d-tz6-00-sheet-i18n-bug; gates green (targeted 74, make test 664 web/721 total, lint clean, build green); task 67 ready-for-merge
