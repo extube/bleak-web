@@ -121,9 +121,10 @@ describe('ShareContactSlide v2 (DESIGN §4.15.A — glass pill, marquee candy tr
   }
 
   // Behavioral drag tests stub the real §4.15.A geometry (happy-dom does
-  // no layout): 288px track / 68px thumb → maxDx 220, snapPoint 0.85×220.
+  // no layout): 288px track (padding box) / 66px thumb → maxDx
+  // 288 − 66 − 8 = 214, snapPoint 0.85×214 ≈ 181.9.
   const TRACK_W = 288;
-  const THUMB_W = 68;
+  const THUMB_W = 66;
   function stubGeometry(): void {
     const track = document.querySelector('.slide .track') as HTMLElement;
     const thumb = document.querySelector('.slide .thumb') as HTMLElement;
@@ -159,12 +160,12 @@ describe('ShareContactSlide v2 (DESIGN §4.15.A — glass pill, marquee candy tr
     stubGeometry();
     const thumb = screen.getByRole('button', { name: base.label }) as HTMLButtonElement;
     expect(thumb.disabled).toBe(false);
-    // dx = 0 (far below the 187px snap point) — activation completes anyway
+    // dx = 0 (far below the ~181.9px snap point) — activation completes anyway
     await thumb.click();
     await tick();
     expect(oncomplete).toHaveBeenCalledTimes(1);
-    // the completion animates the thumb to the end (§4.15.A)
-    expect(thumb.style.transform).toBe('translateX(220px)');
+    // the completion animates the thumb to the nested end (§4.15.1.1)
+    expect(thumb.style.transform).toBe('translateX(214px)');
   });
 
   it('disabled: the thumb is inert and the hint replaces the label', async () => {
@@ -196,26 +197,34 @@ describe('ShareContactSlide v2 (DESIGN §4.15.A — glass pill, marquee candy tr
     expect(thumb.querySelector('svg')).toBeTruthy();
   });
 
-  it('§4.15.A armed: the candy trail renders as an aria-hidden clip layer bound to the drag (width = 4px + dx)', async () => {
+  it('§4.15.1.1 armed: the candy trail is an aria-hidden WRAPPING pill bound to the drag (the thumb ring + 8px + dx)', async () => {
     const oncomplete = vi.fn();
     render(ShareContactSlide, { props: { ...base, oncomplete } });
     stubGeometry();
     const candy = document.querySelector('.slide .candy') as HTMLElement;
     expect(candy).toBeTruthy();
     expect(candy.getAttribute('aria-hidden')).toBe('true');
-    expect(candy.style.width).toBe('4px'); // at rest: just the 4px padding
+    // at rest the fill already WRAPS the circle: the thumb's padding-box
+    // diameter (height − 2 × border − ... as a CSS calc) + the two 4px rings
+    expect(candy.style.width).toBe(
+      'calc(var(--slide-height) - 2 * var(--slide-border-w) + 0px)'
+    );
     expect(document.querySelector('.slide .confetti')).toBeNull();
-    // drag to dx = 110 → the trail reaches the thumb's near edge (114px)
+    // drag to dx = 110 → the cap travels with the thumb (concentric, +110px)
     const thumb = screen.getByRole('button', { name: base.label });
     pointer(thumb, 'pointerdown', 0);
     await tick();
     pointer(thumb, 'pointermove', 110);
     await tick();
-    expect(candy.style.width).toBe('114px');
-    // release below the snap point → spring back to the 4px rest
+    expect(candy.style.width).toBe(
+      'calc(var(--slide-height) - 2 * var(--slide-border-w) + 110px)'
+    );
+    // release below the snap point → spring back to the wrapping rest
     pointer(thumb, 'pointerup', 110);
     await tick();
-    expect(candy.style.width).toBe('4px');
+    expect(candy.style.width).toBe(
+      'calc(var(--slide-height) - 2 * var(--slide-border-w) + 0px)'
+    );
     expect(oncomplete).not.toHaveBeenCalled();
   });
 
@@ -235,20 +244,20 @@ describe('ShareContactSlide v2 (DESIGN §4.15.A — glass pill, marquee candy tr
     render(ShareContactSlide, { props: { ...base, oncomplete } });
     stubGeometry();
     const thumb = screen.getByRole('button', { name: base.label });
-    // 110px of the 220px drag range (50% — below the 187px snap point)
+    // 110px of the 214px drag range (51.4% — below the ~181.9px snap point)
     pointer(thumb, 'pointerdown', 100);
     pointer(thumb, 'pointermove', 210);
     pointer(thumb, 'pointerup', 210);
     await tick();
     expect(oncomplete).not.toHaveBeenCalled();
     expect((thumb as HTMLElement).style.transform).toBe('translateX(0px)');
-    // 200px of 220px (90.9% — past the snap point) → complete, exactly once
+    // 200px of 214px (93.5% — past the snap point) → complete, exactly once
     pointer(thumb, 'pointerdown', 100);
     pointer(thumb, 'pointermove', 300);
     pointer(thumb, 'pointerup', 300);
     await tick();
     expect(oncomplete).toHaveBeenCalledTimes(1);
-    expect((thumb as HTMLElement).style.transform).toBe('translateX(220px)');
+    expect((thumb as HTMLElement).style.transform).toBe('translateX(214px)');
   });
 
   it('§4.15.A: dragging all the way to the end mid-gesture completes at once', async () => {
@@ -257,26 +266,29 @@ describe('ShareContactSlide v2 (DESIGN §4.15.A — glass pill, marquee candy tr
     stubGeometry();
     const thumb = screen.getByRole('button', { name: base.label });
     pointer(thumb, 'pointerdown', 0);
-    pointer(thumb, 'pointermove', 220); // dx = maxDx → immediate completion
+    pointer(thumb, 'pointermove', 214); // dx = maxDx → immediate completion
     await tick();
     expect(oncomplete).toHaveBeenCalledTimes(1);
-    expect((thumb as HTMLElement).style.transform).toBe('translateX(220px)');
-    pointer(thumb, 'pointerup', 220);
+    expect((thumb as HTMLElement).style.transform).toBe('translateX(214px)');
+    pointer(thumb, 'pointerup', 214);
     await tick();
     expect(oncomplete).toHaveBeenCalledTimes(1); // the release adds nothing
   });
 
-  it('§4.15.A: the hint fades out with drag progress (inline opacity = 1 − dx/maxDx)', async () => {
+  it('§4.15.1.1: the hint fades BY the center — fully gone as the thumb passes the midpoint', async () => {
     render(ShareContactSlide, { props: base });
     stubGeometry();
     const hint = document.querySelector('.slide .hint') as HTMLElement;
     const thumb = document.querySelector('.slide .thumb') as HTMLElement;
     expect(hint.style.opacity).toBe('1');
     pointer(thumb, 'pointerdown', 0);
-    pointer(thumb, 'pointermove', 110); // halfway → opacity 0.5
+    pointer(thumb, 'pointermove', 53.5); // a quarter of the range → opacity 0.5
     await tick();
     expect(hint.style.opacity).toBe('0.5');
-    pointer(thumb, 'pointerup', 110); // spring back → fully visible again
+    pointer(thumb, 'pointermove', 107); // the midpoint → fully faded
+    await tick();
+    expect(hint.style.opacity).toBe('0');
+    pointer(thumb, 'pointerup', 107); // spring back → fully visible again
     await tick();
     expect(hint.style.opacity).toBe('1');
   });
@@ -324,12 +336,19 @@ describe('ShareContactSlide v2 (DESIGN §4.15.A — glass pill, marquee candy tr
     expect(document.querySelector('.slide .confetti')).toBeNull();
   });
 
-  it('§4.15.A CSS contract: the glass pill — 76px track at min(100%, 288px), blur backdrop, token color-mix surfaces', () => {
+  it('§4.15.A/§4.15.1.1 CSS contract: the glass pill — 76px base track at min(100%, 288px), the sheet track at the full modal-relative width and a literal 64px, blur backdrop, token surfaces', () => {
     const css = source('src/lib/components/ShareContactSlide.svelte');
-    // geometry: the ~3.8:1 pill (288 / 76) at full radius
+    // geometry: the ~3.8:1 base pill (288 / 76) at full radius
     expect(css).toMatch(/--slide-height:\s*76px/);
     expect(css).toMatch(/width:\s*min\(100%,\s*288px\)/);
     expect(css).toMatch(/border-radius:\s*var\(--radius-pill\)/);
+    // §4.15.1.1 sheet geometry: the track spans the FULL content column
+    // (the modal-relative width, aligned with the checklist/summary text
+    // edges) at a literal 64px height, and the border width is a token
+    expect(css).toMatch(/\.variant-sheet \.track\s*\{[^}]*width:\s*100%/);
+    expect(css).toMatch(/\.variant-sheet \.track\s*\{[^}]*--slide-height:\s*64px/);
+    expect(css).toMatch(/--slide-border-w:\s*1px/);
+    expect(css).toMatch(/\.variant-sheet \.track\s*\{[^}]*--slide-border-w:\s*2px/);
     // glassmorphism: the -webkit- prefixed twin ships with the standard
     expect(css).toMatch(/backdrop-filter:\s*blur\(12px\)/);
     expect(css).toMatch(/-webkit-backdrop-filter:\s*blur\(12px\)/);
@@ -344,29 +363,39 @@ describe('ShareContactSlide v2 (DESIGN §4.15.A — glass pill, marquee candy tr
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 
-  it('§4.15.A CSS contract: the thumb is a trackHeight − 8px white circle with the green phone ink', () => {
+  it('§4.15.A/§4.15.1.1 CSS contract: the thumb is the padding-box − 8px circle with the green phone ink', () => {
     const css = source('src/lib/components/ShareContactSlide.svelte');
     expect(css).toMatch(/--slide-thumb:\s*var\(--color-text\)/);
     expect(css).toMatch(/--slide-thumb-ink:\s*var\(--color-check-green\)/);
-    // the invariant: thumb = trackHeight − 8px (the 4px internal padding)
+    // the invariant (§4.15.1.1): thumb = the track's PADDING-BOX height −
+    // 8px (border-agnostic via the border-width token) — the wrapping
+    // fill's concentric cap keeps a uniform 4px ring around the circle
     expect(css).toMatch(
-      /\.thumb\s*\{[\s\S]*?width:\s*calc\(var\(--slide-height\) - 8px\)/
+      /\.thumb\s*\{[\s\S]*?width:\s*calc\(var\(--slide-height\) - 2 \* var\(--slide-border-w\) - 8px\)/
     );
     expect(css).toMatch(
-      /\.thumb\s*\{[\s\S]*?height:\s*calc\(var\(--slide-height\) - 8px\)/
+      /\.thumb\s*\{[\s\S]*?height:\s*calc\(var\(--slide-height\) - 2 \* var\(--slide-border-w\) - 8px\)/
     );
+    // clientWidth is pinned to the CSS width (the drag math reads it)
+    expect(css).toMatch(/\.thumb\s*\{[\s\S]*?padding:\s*0/);
   });
 
-  it('§4.15.A CSS contract: candy trail — 12px token stripes, the seamless 33.941px marquee loop, transform-only', () => {
+  it('§4.15.A/§4.15.1.1 CSS contract: candy trail — the WRAPPING pill cap at the full radius, 12px token stripes, the seamless 33.941px marquee loop, transform-only', () => {
     const css = source('src/lib/components/ShareContactSlide.svelte');
     // WIDER + brighter than the §4.14.1 band: full-opacity 12px stripes,
     // red-white candy via the internal tokens (never raw hex)
     expect(css).toMatch(
       /repeating-linear-gradient\(\s*45deg,\s*var\(--slide-stripe-a\)\s+0\s+12px,\s*var\(--slide-stripe-b\)\s+12px\s+24px\s*\)/
     );
-    // the clip layer is bound to the drag: width = the 4px padding + dx
+    // the striped container is a rounded WRAPPING pill (no flat edge):
+    // full pill radius on the fill itself, overflow-clipped to it
     expect(css).toMatch(/\.candy\s*\{[^}]*overflow:\s*hidden/);
-    expect(css).toMatch(/style:width="\{4 \+ dx\}px"/);
+    expect(css).toMatch(/\.candy\s*\{[^}]*border-radius:\s*var\(--radius-pill\)/);
+    // the fill is bound to the drag: width = the thumb's padding-box
+    // diameter + the two 4px rings + dx (the cap hugs the thumb's edge)
+    expect(css).toMatch(
+      /style:width="calc\(var\(--slide-height\) - 2 \* var\(--slide-border-w\) \+ \{dx\}px\)"/
+    );
     // seamless loop: the 24px stripe period ÷ sin45° ≈ 33.941px horizontal
     // shift, 1.1s linear infinite, transform-only (§4.6)
     expect(css).toMatch(/@keyframes candy-move\s*\{[^}]*translateX\(0\)/);
@@ -379,15 +408,51 @@ describe('ShareContactSlide v2 (DESIGN §4.15.A — glass pill, marquee candy tr
     expect(css).not.toMatch(/(?<!-)filter:/);
   });
 
-  it('§4.15.A CSS contract: the hint fades inline with drag progress and carries the 2.4s transform-only shimmer', () => {
+  it('§4.15.A/§4.15.1.1 CSS contract: the hint fades inline (by the center) and carries the 2.4s transform-only shimmer', () => {
     const css = source('src/lib/components/ShareContactSlide.svelte');
-    // the fade is the inline opacity = 1 − progress binding
-    expect(css).toMatch(/style:opacity=\{`\$\{armed \? 1 - progress : 1\}`\}/);
+    // the fade is the inline opacity binding through hintFade (1 − 2×progress:
+    // fully gone as the thumb passes the midpoint, §4.15.1.1)
+    expect(css).toMatch(/style:opacity=\{`\$\{armed \? 1 - hintFade : 1\}`\}/);
+    expect(css).toMatch(/const hintFade = \$derived\(Math\.min\(progress \* 2, 1\)\)/);
     // the sheen sweeps the hint text only while armed, transform-only
     expect(css).toMatch(/\.armed \.hint::after/);
     expect(css).toMatch(/animation:\s*hint-sheen\s+2\.4s\s+linear\s+infinite/);
     expect(css).toMatch(/@keyframes hint-sheen\s*\{[^}]*translateX/);
     expect(css).not.toMatch(/prefers-reduced-motion/);
+  });
+
+  it('§4.15.1.1 CSS contract: the wrapping geometry — centered placeholder, fill > text > thumb, nested completion', () => {
+    const css = source('src/lib/components/ShareContactSlide.svelte');
+    // the placeholder is STRICTLY centered (both axes) in the full track
+    expect(css).toMatch(/\.track\s*\{[^}]*display:\s*flex/);
+    expect(css).toMatch(/\.track\s*\{[^}]*align-items:\s*center/);
+    expect(css).toMatch(/\.hint\s*\{[^}]*text-align:\s*center/);
+    // z-order: the hint paints BELOW the candy fill, the thumb on top of
+    // the fill — positioned siblings, so DOM order is the paint order
+    expect(css).toMatch(
+      /<span class="hint"[\s\S]*?class="candy"[\s\S]*?class="thumb"/
+    );
+    // the completed thumb nests at the uniform 4px margin (instant swap)
+    expect(css).toMatch(/\.shared \.thumb\s*\{[^}]*right:\s*var\(--slide-pad\)/);
+    expect(css).toMatch(/\.shared \.thumb\s*\{[^}]*transition:\s*none/);
+    // the drag range ends at the mirrored 4px padding edge (nesting)
+    expect(css).toMatch(/Math\.max\(track - thumb - 8, 0\)/);
+  });
+
+  it('§4.15.1.1 layering: the fill paints ABOVE the placeholder and the thumb ABOVE the fill (DOM order)', () => {
+    render(ShareContactSlide, { props: base });
+    const hint = document.querySelector('.slide .hint') as HTMLElement;
+    const candy = document.querySelector('.slide .candy') as HTMLElement;
+    const thumb = document.querySelector('.slide .thumb') as HTMLElement;
+    // all three are positioned — DOM order is the paint order:
+    // the hint precedes the candy, the candy precedes the thumb
+    expect(
+      candy.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_PRECEDING
+    ).toBeTruthy();
+    expect(
+      thumb.compareDocumentPosition(candy) &
+        Node.DOCUMENT_POSITION_PRECEDING
+    ).toBeTruthy();
   });
 
   it('§4.15.A CSS contract: the 85% snap / spring-back transitions', () => {
