@@ -1,0 +1,3 @@
+2026-11-19T20:56:31Z [worker] task 79 in-progress: sheet layout fixes started
+2026-11-19T21:00:50Z [worker] implemented §16.2 sheet layout: fixed height (top: max(10dvh, calc(56px + var(--space-2))), bottom-anchored), pinned top (top-bar + stage), scrollable middle (.sheet-scroll: description + checklist only, smooth), pinned bottom slide, bottom padding mirrors chat footer button offset (calc(--space-4 + safe-area)); gates: summary-sheet+transcript-page 90 passed, make test 807 passed, make lint clean, make build 0 errors
+2026-11-19T21:01:03Z [worker] handover: ready-for-merge, commits 2a68089 + c95b322 on feature/63eff466-tz7-07-sheet-layout-fixes

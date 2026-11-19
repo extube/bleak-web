@@ -53,6 +53,20 @@
    *   A re-mount with `shared` already true replays nothing (shipped
    *   gesture-made gating, restated).
    *
+   * LAYOUT (Concept §16.2, DESIGN §4.15.1.2 — tz7-07): the sheet is a
+   * FIXED-HEIGHT bottom sheet — bottom-anchored with its top edge JUST
+   * BELOW the chat header (header 56px + one --space-2 gap, capped at 90%
+   * of the screen via the max() so 88–90% holds on typical viewports and
+   * the header stays visible at every size). Structure: PINNED TOP (the
+   * top bar + the score stage — never scroll), SCROLLABLE MIDDLE (a
+   * .sheet-scroll region holding ONLY the summary text + the checklist,
+   * smooth, any length), PINNED BOTTOM (the slide, always visible). The
+   * slide's bottom edge mirrors the chat footer's Summarization button
+   * offset verbatim — `calc(var(--space-4) + env(safe-area-inset-bottom,
+   * 0px))`, the .footer padding-bottom — so both controls sit at the same
+   * vertical level from the screen bottom (the stale tab-bar reservation
+   * is gone: the transcript page hides the tab bar).
+   *
    * Pure presentational — the hosting page (routes/chats/[address]) owns the
    * hardMatch call, the share-contact request and the error/retry state; all
    * state comes in as clean props, the embedded ShareContactSlide shares via
@@ -416,32 +430,39 @@
         <p class="tier-label" class:great={tier === 'great'}>{tierText}</p>
       </section>
 
-      {#if summary.description}
-        <p class="description cascade" style:--cascade-i="2">{summary.description}</p>
-      {/if}
+      <!-- §16.2/§4.15.1.2 scrollable middle: ONLY the conversation summary
+           text and the NETWORKING CHECKLIST scroll (smooth, however long
+           the text); the pinned top (bar + stage) and the pinned bottom
+           (slide) stay outside this region. -->
+      <div class="sheet-scroll">
+        {#if summary.description}
+          <p class="description cascade" style:--cascade-i="2">{summary.description}</p>
+        {/if}
 
-      <section class="checklist cascade" style:--cascade-i="3" aria-label={checklistHeading}>
+        <section class="checklist cascade" style:--cascade-i="3" aria-label={checklistHeading}>
         <h3>{checklistHeading}</h3>
-        <ul>
-          {#each summary.checkpoints as checkpoint, i (checkpoint.key)}
-            <li class="checkpoint" class:closed={checkpoint.closed} style:--pop-i={i}>
-              <!-- §4.14.4 sheet polish: a SQUARE checkbox per checkpoint —
-                   the closed ones carry the green check glyph inside, the
-                   open ones keep the empty square. §4.15.C-7: closed items
-                   pop in sequentially with a retro flash. -->
-              <span class="box" aria-hidden="true">
-                {#if checkpoint.closed}
-                  <span class="check"><PixelIcon name="check" size={12} /></span>
-                {/if}
-              </span>
-              <span class="label">{checkpoint.label}</span>
-            </li>
-          {/each}
-        </ul>
-      </section>
+          <ul>
+            {#each summary.checkpoints as checkpoint, i (checkpoint.key)}
+              <li class="checkpoint" class:closed={checkpoint.closed} style:--pop-i={i}>
+                <!-- §4.14.4 sheet polish: a SQUARE checkbox per checkpoint —
+                     the closed ones carry the green check glyph inside, the
+                     open ones keep the empty square. §4.15.C-7: closed items
+                     pop in sequentially with a retro flash. -->
+                <span class="box" aria-hidden="true">
+                  {#if checkpoint.closed}
+                    <span class="check"><PixelIcon name="check" size={12} /></span>
+                  {/if}
+                </span>
+                <span class="label">{checkpoint.label}</span>
+              </li>
+            {/each}
+          </ul>
+        </section>
+      </div>
 
       <!-- §4.15.C-8: the v2 slide in its SHEET variant — same control, same
-           request, sharing to this counterpart via the existing handler. -->
+           request, sharing to this counterpart via the existing handler.
+           §16.2 pinned bottom: it stays fixed at the sheet bottom. -->
       <div class="share cascade" style:--cascade-i="4">
         <ShareContactSlide
           label={slideArmedLabel}
@@ -477,6 +498,13 @@
     left: 0;
     right: 0;
     bottom: 0;
+    /* §16.2 (§4.15.1.2) FIXED HEIGHT + ANCHOR: bottom-anchored; the top
+     * edge sits JUST BELOW the chat header — the header is 56px tall
+     * (routes/chats/[address] `.top-bar`), + one --space-2 gap — and the
+     * max() against 10dvh caps the height at 90% of the screen so the
+     * 88–90% band holds on typical viewports while the header stays
+     * visible at every size. */
+    top: max(10dvh, calc(56px + var(--space-2)));
     width: calc(100% - 2 * var(--space-4));
     margin-inline: auto;
     z-index: 31;
@@ -484,7 +512,14 @@
     color: var(--sheet-ink);
     /* §4.15.C-2: 24px TOP corners only (bottom edge meets the viewport). */
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    padding: var(--space-5) var(--space-5) calc(var(--bottom-tabbar-height) + var(--space-4));
+    /* §16.2 (§4.15.1.2) EXACT VERTICAL ALIGNMENT: the bottom padding is the
+     * chat footer's padding-bottom VERBATIM (routes/chats/[address]
+     * `.footer` — `calc(var(--space-4) + env(safe-area-inset-bottom,
+     * 0px))`), so the pinned slide's bottom edge sits at the SAME offset
+     * from the screen bottom as the Summarization button behind the sheet
+     * (same vertical level / baseline). The stale --bottom-tabbar-height
+     * reservation is gone: the transcript page hides the tab bar. */
+    padding: var(--space-5) var(--space-5) calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
@@ -547,11 +582,14 @@
     }
   }
   /* --- §4.15.C-4 top bar -------------------------------------------------- */
+  /* §16.2 (§4.15.1.2) pinned top: flex-shrink: 0 — the MEETING SUMMARY bar
+   * + X close never scroll and never shrink away. */
   .top-bar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-2);
+    flex-shrink: 0;
   }
   /* The pixel MEETING SUMMARY label — i18n'd (chat.summary.title),
    * uppercase, pixel face 10px (PS2P runs large), white ink. */
@@ -585,11 +623,31 @@
     outline-offset: 2px;
   }
   /* --- §4.15.C-5 centerpiece stage ---------------------------------------- */
+  /* §16.2 (§4.15.1.2) pinned top: the dual avatars + the score ring (the
+   * whole stage, tier label included) never scroll — the tier animations
+   * stay in the pinned top. */
   .stage {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--space-2);
+    flex-shrink: 0;
+  }
+  /* §16.2 (§4.15.1.2) SCROLLABLE MIDDLE: ONLY the conversation summary
+   * text and the NETWORKING CHECKLIST scroll here — smooth, however long
+   * the text. min-height: 0 lets the fixed-height flex sheet hand this
+   * region exactly the leftover space between the pinned top and the
+   * pinned bottom; overscroll containment keeps the scroll inside the
+   * modal (no chaining to the transcript behind the scrim). */
+  .sheet-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
   }
   .duel {
     position: relative;
@@ -1073,6 +1131,9 @@
    * keeps var(--sheet-*) inside the sheet — cascade delivers the values). */
   .share {
     margin-top: var(--space-2);
+    /* §16.2 (§4.15.1.2) pinned bottom: the slide stays fixed at the sheet
+     * bottom, always visible. */
+    flex-shrink: 0;
   }
   .share :global(.slide) {
     /* §4.15.C-8 height: the 64px floor (§15.3) with the width ÷ 3.75

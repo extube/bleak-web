@@ -962,3 +962,87 @@ describe('§4.14.4 width contract: the sheet matches the dialog content box', ()
     expect(sheetMedia).toContain(`max-width: ${columnCap}px`);
   });
 });
+
+describe('§16.2 / §4.15.1.2 sheet layout (tz7-07): fixed height, pinned top/middle/bottom, slide alignment', () => {
+  function block(re: RegExp, source: string = SHEET_SOURCE): string {
+    return source.match(re)?.[0] ?? '';
+  }
+
+  it('(1) fixed height + anchor: bottom-anchored, the top edge = header height + a gap, capped at 90% of the screen', () => {
+    const sheet = block(/\.sheet\s*\{[\s\S]*?\}/);
+    // bottom-anchored (the slide stays at the screen bottom)
+    expect(sheet).toContain('bottom: 0');
+    // the chat header's height feeds the sheet's top edge: the transcript
+    // page's `.top-bar` is 56px; the sheet adds one --space-2 gap so the
+    // top edge sits JUST below it at every viewport
+    const header = block(/\.top-bar\s*\{[\s\S]*?\}/, TRANSCRIPT_SOURCE);
+    const headerHeight = header.match(/height:\s*(\d+)px/)?.[1];
+    expect(headerHeight).toBe('56');
+    expect(sheet).toContain(`top: max(10dvh, calc(${headerHeight}px + var(--space-2)))`);
+    // the max() against 10dvh pins the height at ≤ 90% of the screen (the
+    // 88–90% band holds from ~533px viewport heights up) while the header
+    // stays visible even on the shortest screens
+    expect(sheet).toContain('10dvh');
+  });
+
+  it('(2)+(3) pinned top / scrollable middle: bar + stage never scroll; ONLY description + checklist live in the scroll region', () => {
+    stubReducedMotion();
+    renderSheet();
+    const dialog = screen.getByRole('dialog');
+    // the pinned top (the top bar and the score stage with the ring,
+    // avatars and tier label) sits OUTSIDE the scroll region
+    expect(dialog.querySelector(':scope > header.top-bar')).toBeTruthy();
+    expect(dialog.querySelector(':scope > .stage')).toBeTruthy();
+    // the scroll region holds exactly the summary text + the checklist
+    const scroll = dialog.querySelector('.sheet-scroll');
+    expect(scroll).toBeTruthy();
+    expect(scroll?.querySelector('.description')).toBeTruthy();
+    expect(scroll?.querySelector('.checklist')).toBeTruthy();
+    // nothing else scrolls with it: the stage, the bar and the slide stay out
+    expect(scroll?.querySelector('.stage')).toBeNull();
+    expect(scroll?.querySelector('.top-bar')).toBeNull();
+    expect(scroll?.querySelector('.share')).toBeNull();
+    expect(scroll?.querySelector('.ring')).toBeNull();
+    // the source contract: the region takes the leftover fixed-height
+    // space (flex + min-height: 0) and scrolls smoothly
+    const scrollBlock = block(/\.sheet-scroll\s*\{[\s\S]*?\}/);
+    expect(scrollBlock).toContain('flex: 1 1 auto');
+    expect(scrollBlock).toContain('min-height: 0');
+    expect(scrollBlock).toContain('overflow-y: auto');
+    expect(scrollBlock).toContain('scroll-behavior: smooth');
+    // the pinned top never shrinks away (flex-shrink: 0 on bar + stage)
+    expect(block(/\.top-bar\s*\{[\s\S]*?\}/)).toContain('flex-shrink: 0');
+    expect(block(/\.stage\s*\{[\s\S]*?\}/)).toContain('flex-shrink: 0');
+  });
+
+  it('(4) pinned bottom: the slide stays fixed at the sheet bottom, always visible', () => {
+    stubReducedMotion();
+    renderSheet();
+    const dialog = screen.getByRole('dialog');
+    // the slide renders OUTSIDE the scroll region, as the sheet's last child
+    expect(dialog.querySelector(':scope > .share')).toBeTruthy();
+    expect(dialog.querySelector('.sheet-scroll')?.querySelector('.share')).toBeNull();
+    // it never collapses under a long text
+    expect(block(/\.share\s*\{[\s\S]*?\}/)).toContain('flex-shrink: 0');
+  });
+
+  it('(5) exact vertical alignment: the slide bottom edge sits at the chat footer button\'s exact offset from the screen bottom', () => {
+    // the chat page's `.footer` owns the Summarization button's bottom
+    // offset: padding-bottom = --space-4 + the safe-area inset (the tab
+    // bar is display:none on the transcript page). The sheet's bottom
+    // padding mirrors that expression VERBATIM, so the pinned slide's
+    // bottom edge (baseline) lands on the same vertical level from the
+    // screen bottom as the button behind the sheet.
+    const footer = block(/\.footer\s*\{[\s\S]*?\}/, TRANSCRIPT_SOURCE);
+    const buttonBottomOffset = footer.match(
+      /calc\(var\(--space-4\)\s*\+\s*env\(safe-area-inset-bottom,\s*0px\)\)/
+    )?.[0];
+    expect(buttonBottomOffset).toBeTruthy();
+    const sheet = block(/\.sheet\s*\{[\s\S]*?\}/);
+    expect(sheet).toContain('calc(var(--space-4) + env(safe-area-inset-bottom, 0px))');
+    // the stale tab-bar reservation is gone (no tab bar on this page):
+    // the padding declaration itself no longer references the tab bar
+    const sheetPadding = sheet.match(/padding:[^;]+;/)?.[0] ?? '';
+    expect(sheetPadding).not.toContain('tabbar');
+  });
+});
