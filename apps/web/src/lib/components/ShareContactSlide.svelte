@@ -19,6 +19,11 @@
    * - otherwise   → the armed slide: drag the thumb right (or click /
    *                 keyboard-activate the thumb — the accessible path) to
    *                 complete.
+   *
+   * §4.14.1 polish (Concept §14.1.1): the armed track carries an animated
+   * red-white candy-cane stripe band; the shared-state transition plays a
+   * CSS-only confetti from the top of the slide. Both are decoration only —
+   * the mechanics, props and states above are untouched.
    */
   import PixelIcon from './icons/PixelIcon.svelte';
 
@@ -59,9 +64,33 @@
   let startX = 0;
 
   const inert = $derived(disabled || pending || shared);
+  const armed = $derived(!inert);
   const trackText = $derived(
     shared ? sharedLabel : disabled ? disabledHint : label
   );
+
+  /**
+   * Confetti (Concept §14.1.1 / DESIGN §4.14.1 item 1): plays when a
+   * completion gesture made HERE is followed by the parent landing the
+   * shared state — the choice stated on the task card. The gesture flag is
+   * set in `complete()`; the confetti renders only once BOTH the gesture
+   * and `shared` are true, so 201 AND 409 celebrate (both land `shared`)
+   * while a failed request (never lands `shared`) does not — and an
+   * already-shared chat re-mounting with `shared` true from the start (the
+   * parent hydrating the local mark) replays nothing.
+   */
+  let celebrated = $state(false);
+
+  /** Deterministic flakes — no randomness (SSR render + tests identical). */
+  const FLAKES = Array.from({ length: 12 }, (_, i) => ({
+    x0: ((i * 53) % 200) - 100, // start offset around the center, px
+    x: ((i % 5) - 2) * 18, // horizontal drift while falling, px
+    y: 90 + (i % 3) * 30, // fall distance past the container bottom, px
+    rot: (i % 2 ? 1 : -1) * (240 + i * 37), // spin, deg
+    dur: 0.9 + (i % 4) * 0.18, // duration, s
+    delay: (i % 6) * 0.07, // stagger, s
+    hue: (i % 5) + 1 // Deepa color class 1..5
+  }));
 
   /** progress in 0..1 — 0px track (tests/SSR) completes on any move. */
   let trackEl: HTMLElement | null = $state(null);
@@ -75,6 +104,7 @@
 
   function complete(): void {
     if (inert) return;
+    celebrated = true; // a gesture completed here — §4.14.1 confetti arms
     oncomplete?.();
     gripping = false;
     dx = 0;
@@ -118,8 +148,11 @@
   }
 </script>
 
-<div class="slide" class:shared class:disabled class:pending aria-disabled={inert}>
+<div class="slide" class:shared class:disabled class:pending class:armed={!inert} aria-disabled={inert}>
   <div class="track" bind:this={trackEl}>
+    {#if armed}
+      <span class="candy" aria-hidden="true"></span>
+    {/if}
     <span class="hint">{trackText}</span>
     <button
       type="button"
@@ -142,10 +175,27 @@
       {/if}
     </button>
   </div>
+  {#if celebrated && shared}
+    <div class="confetti" aria-hidden="true">
+      {#each FLAKES as flake, i (i)}
+        <span
+          class="flake deepa-{flake.hue}"
+          style:left="calc(50% + {flake.x0}px)"
+          style:--flake-x="{flake.x}px"
+          style:--flake-y="{flake.y}px"
+          style:--flake-rot="{flake.rot}deg"
+          style:--flake-dur="{flake.dur}s"
+          style:--flake-delay="{flake.delay}s"
+        ></span>
+      {/each}
+    </div>
+  {/if}
 </div>
 
 <style>
   .slide {
+    /* anchors the confetti layer's "from the top of the container" origin */
+    position: relative;
     width: 100%;
   }
   .track {
@@ -160,14 +210,48 @@
     overflow: hidden;
   }
   .hint {
+    position: relative; /* the hint pill sits above the candy stripes */
     flex: 1;
     text-align: center;
     font-size: 14px;
     color: var(--color-text-muted);
     padding: 0 calc(var(--touch-target) + var(--space-2)) 0 var(--space-2);
+    /* readability scrim (§4.14.1): the pill keeps the hint legible over the
+     * animated stripes; the candy band stays visible around it (ring +
+     * the trail the thumb reveals as it slides). */
+    background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+    border-radius: var(--radius-pill);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  /* Candy-cane stripes (Concept §14.1.1 / DESIGN §4.14.1 item 1): an
+   * animated red-white diagonal band across the track, armed state only.
+   * The 45° stripes repeat every 20px along the gradient axis, so shifting
+   * the layer horizontally by 20px/sin(45°) ≈ 28.284px loops the pattern
+   * seamlessly. Transform-only motion (§4.6); the base.css reduced-motion
+   * catch-all collapses it to a static band. */
+  .candy {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: calc(100% + 32px);
+    background: repeating-linear-gradient(
+      45deg,
+      var(--color-danger-text) 0 10px,
+      var(--color-text) 10px 20px
+    );
+    opacity: 0.5;
+    animation: candy-move 1.2s linear infinite;
+  }
+  @keyframes candy-move {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-28.284px);
+    }
   }
   .thumb {
     position: absolute;
@@ -212,5 +296,56 @@
   }
   .pending .thumb {
     opacity: 0.6;
+  }
+  /* Confetti (Concept §14.1.1 / DESIGN §4.14.1 item 1): CSS-only particles
+   * falling FROM THE TOP of the slide, rendered only when a completion
+   * gesture made here is followed by the shared state. 12 deterministic
+   * flakes in the Deepa family, transform/opacity keyframes only (§4.6);
+   * the base.css reduced-motion catch-all collapses the animation to its
+   * instant, invisible end state. */
+  .confetti {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .flake {
+    position: absolute;
+    top: 0;
+    width: 6px;
+    height: 10px;
+    border-radius: 1px;
+    opacity: 0;
+    animation: confetti-fall var(--flake-dur) ease-in var(--flake-delay) 1
+      forwards;
+  }
+  .flake.deepa-1 {
+    background: var(--color-deepa-1);
+  }
+  .flake.deepa-2 {
+    background: var(--color-deepa-2);
+  }
+  .flake.deepa-3 {
+    background: var(--color-deepa-3);
+  }
+  .flake.deepa-4 {
+    background: var(--color-deepa-4);
+  }
+  .flake.deepa-5 {
+    background: var(--color-deepa-5);
+  }
+  @keyframes confetti-fall {
+    0% {
+      transform: translate(0, 0) rotate(0deg);
+      opacity: 1;
+    }
+    80% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(var(--flake-x), var(--flake-y))
+        rotate(var(--flake-rot));
+      opacity: 0;
+    }
   }
 </style>

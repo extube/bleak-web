@@ -540,6 +540,11 @@ describe('states: 404, contact share (§3.5 AC 7, 8; §4.13.3)', () => {
       )
     );
     expect(document.querySelector('.slide')?.querySelector('svg')).toBeTruthy(); // done glyph
+    // §4.14.1: the shared TRANSITION plays the confetti from the top of the
+    // slide — 12 CSS-only Deepa flakes
+    const confetti = document.querySelector('.slide')?.querySelector('.confetti');
+    expect(confetti).toBeTruthy();
+    expect(confetti?.querySelectorAll('.flake')).toHaveLength(12);
     expect(
       JSON.parse(localStorage.getItem('bleak.contactShared') ?? '{}')
     ).toMatchObject({ '0xroom|0xme': { '0xa': expect.any(String) } });
@@ -566,6 +571,9 @@ describe('states: 404, contact share (§3.5 AC 7, 8; §4.13.3)', () => {
       )
     );
     expect(screen.queryByRole('alert')).toBeNull(); // 409 is not an error
+    // §4.14.1: 409 lands the shared state too — the confetti plays on it as
+    // well (the server's answer is the success moment)
+    expect(document.querySelector('.slide')?.querySelector('.confetti')).toBeTruthy();
     expect(
       JSON.parse(localStorage.getItem('bleak.contactShared') ?? '{}')
     ).toMatchObject({ '0xroom|0xme': { '0xa': expect.any(String) } });
@@ -587,6 +595,9 @@ describe('states: 404, contact share (§3.5 AC 7, 8; §4.13.3)', () => {
       ru['chat.contact_share.shared']
     );
     expect(mockedApi.shareContact).not.toHaveBeenCalled();
+    // §4.14.1: an already-shared hydration does NOT replay the confetti —
+    // it celebrates only a completion gesture followed by the shared state
+    expect(document.querySelector('.slide')?.querySelector('.confetti')).toBeNull();
   });
 
   it('a failed share (400) surfaces inline; the control stays armed', async () => {
@@ -608,6 +619,10 @@ describe('states: 404, contact share (§3.5 AC 7, 8; §4.13.3)', () => {
     expect(
       (document.querySelector('.slide')?.querySelector('.thumb') as HTMLButtonElement).disabled
     ).toBe(false);
+    // §4.14.1: a failed share is never celebrated — no confetti, and the
+    // candy-cane stripes return with the armed state
+    expect(document.querySelector('.slide')?.querySelector('.confetti')).toBeNull();
+    expect(document.querySelector('.slide')?.querySelector('.candy')).toBeTruthy();
   });
 });
 

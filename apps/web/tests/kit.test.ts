@@ -3,6 +3,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
+import { readFileSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import ChipFixture from './fixtures/ChipFixture.svelte';
 import SegmentedControl from '../src/lib/components/SegmentedControl.svelte';
 import ErrorBanner from '../src/lib/components/ErrorBanner.svelte';
@@ -108,6 +110,15 @@ describe('ShareContactSlide (DESIGN §4.13.3 — the reusable slide control)', (
     disabledHint: ru['chat.contact_share.locked']
   };
 
+  // Source-level CSS assertions (§4.14.1) read the component file —
+  // happy-dom resolves no component CSS (same pattern as chats-page).
+  const WEB_ROOT = process.cwd().endsWith(sep + 'apps' + sep + 'web')
+    ? process.cwd()
+    : join(process.cwd(), 'apps', 'web');
+  function source(relativePath: string): string {
+    return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
+  }
+
   it('armed: renders the hint and completes via the thumb activation (the accessible gesture path)', async () => {
     const oncomplete = vi.fn();
     render(ShareContactSlide, { props: { ...base, oncomplete } });
@@ -142,6 +153,62 @@ describe('ShareContactSlide (DESIGN §4.13.3 — the reusable slide control)', (
     const thumb = screen.getByRole('button', { name: base.sharedLabel }) as HTMLButtonElement;
     expect(thumb.disabled).toBe(true);
     expect(thumb.querySelector('svg')).toBeTruthy();
+  });
+
+  it('§4.14.1 armed: the candy-cane stripe layer renders as aria-hidden decoration', () => {
+    render(ShareContactSlide, { props: base });
+    const candy = document.querySelector('.slide .candy');
+    expect(candy).toBeTruthy();
+    expect(candy?.getAttribute('aria-hidden')).toBe('true');
+    expect(document.querySelector('.slide .confetti')).toBeNull();
+  });
+
+  it('§4.14.1: the stripes render ONLY in the armed state (disabled/pending/shared stay plain)', () => {
+    render(ShareContactSlide, { props: { ...base, disabled: true } });
+    expect(document.querySelector('.slide .candy')).toBeNull();
+    cleanup();
+    render(ShareContactSlide, { props: { ...base, pending: true } });
+    expect(document.querySelector('.slide .candy')).toBeNull();
+    cleanup();
+    render(ShareContactSlide, { props: { ...base, shared: true } });
+    expect(document.querySelector('.slide .candy')).toBeNull();
+  });
+
+  it('§4.14.1 confetti: an already-shared mount never replays (keyed to gesture → shared)', () => {
+    render(ShareContactSlide, { props: { ...base, shared: true } });
+    expect(document.querySelector('.slide .confetti')).toBeNull();
+  });
+
+  it('§4.14.1 CSS contract: stripes are a token-colored repeating gradient, transform-only loop', () => {
+    const css = source('src/lib/components/ShareContactSlide.svelte');
+    // red-white candy stripes — the danger-text red + text white tokens,
+    // never raw hex (token discipline)
+    expect(css).toMatch(
+      /repeating-linear-gradient\(\s*45deg,\s*var\(--color-danger-text\)\s+0\s+10px,\s*var\(--color-text\)\s+10px\s+20px\s*\)/
+    );
+    // the loop animates transform only (§4.6); background-position and
+    // filter are never animated
+    expect(css).toMatch(/@keyframes candy-move\s*\{[^}]*translateX/);
+    expect(css).not.toMatch(/background-position:/);
+    expect(css).not.toMatch(/filter:/);
+    expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  it('§4.14.1 CSS contract: confetti falls from the top in the Deepa family, transform/opacity only', () => {
+    const css = source('src/lib/components/ShareContactSlide.svelte');
+    // varied colors — all five Deepa tokens are flake fills
+    for (let n = 1; n <= 5; n += 1) {
+      expect(css).toMatch(
+        new RegExp(`\\.flake\\.deepa-${n}\\s*\\{[^}]*var\\(--color-deepa-${n}\\)`)
+      );
+    }
+    // the fall is translate/rotate/opacity only (§4.6); the container is
+    // pointer-transparent decoration anchored to the container's top
+    expect(css).toMatch(/@keyframes confetti-fall\s*\{[\s\S]*translate\(var\(--flake-x\)/);
+    expect(css).toMatch(/\.confetti\s*\{[^}]*pointer-events:\s*none/);
+    expect(css).not.toMatch(/filter:/);
+    // reduced-motion: no local override — the base.css catch-all governs
+    expect(css).not.toMatch(/prefers-reduced-motion/);
   });
 });
 

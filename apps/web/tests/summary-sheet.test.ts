@@ -207,6 +207,17 @@ describe('SummarySheet rendering', () => {
     expect(onshare).toHaveBeenCalledTimes(1);
   });
 
+  it('§4.14.1 polish: the embedded shared slide shows no confetti replay and no stripes', () => {
+    // the slide is embedded unchanged — the shared terminal state is plain
+    // (stripes are armed-only) and an already-shared mount never replays the
+    // confetti (it celebrates only a gesture completed here)
+    renderSheet({ slideShared: true });
+    const slide = screen.getByRole('dialog').querySelector('.slide');
+    expect(slide?.getAttribute('aria-disabled')).toBe('true');
+    expect(slide?.querySelector('.confetti')).toBeNull();
+    expect(slide?.querySelector('.candy')).toBeNull();
+  });
+
   it('EN interface: every sheet copy renders EN from the i18n table, never RU (DESIGN §4.14.5 bug round)', async () => {
     // The reported bug: hardcoded Russian («итоги встречи», «сетевой чек
     // лист») while the owner is in the EN interface. The regression guard:
