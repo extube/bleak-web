@@ -22,13 +22,17 @@
    * Summary per pair, so a repeat opening returns the stored record (200/201
    * both carry the body) and the sheet re-shows it without re-summarizing;
    * closing the sheet returns the dialog to its normal rendering. The call
-   * happens on open, never per poll.
+   * happens on open, never per poll. §4.15.B (Concept §15.2): the footer
+   * share slide is REMOVED — the slide lives only inside the sheet — and
+   * the footer slot holds the SUMMARIZATION BUTTON (done → enabled, opens
+   * the sheet on demand; !done → disabled with the in-progress phrase);
+   * the tz5-06 auto-open trigger stays as landed.
    */
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { get } from 'svelte/store';
-  import { ApiError, NetworkError, ValidationError, type Chat, type Message, type Summary, type User } from '@bleak/api-client';
+  import { ApiError, NetworkError, type Chat, type Message, type Summary, type User } from '@bleak/api-client';
   import { identity, initIdentity } from '#lib/stores/identity';
   import { requireIdentityOrRedirect } from '#lib/nav/guard';
   import { api, apiRaw, HOST_RESET_KEY } from '#lib/api/client';
@@ -53,7 +57,6 @@
     loadContactCard,
     markPairShared
   } from '#lib/stores/contactCard';
-  import ShareContactSlide from '#lib/components/ShareContactSlide.svelte';
   import SummarySheet from '#lib/components/SummarySheet.svelte';
   import MessageBubble from '#lib/components/chats/MessageBubble.svelte';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
@@ -353,20 +356,22 @@
     messages[0] ? chatDateLabel(messages[0].created_at, $locale) : null
   );
 
-  // --- contact share (DESIGN §4.13.3, Concept §13.1.3) ----------------------
+  // --- contact share (§4.13.3 → §4.15.B / Concept §15.2 cutover) ------------
   //
-  // The footer's swipe-right slide shares MY contact card with the
-  // counterpart (shareContact(to=counterpart, content=card, from=me)). It is
-  // ENABLED ONLY when the dialog is finished (the authoritative
-  // `isChatDone` gate, tz5-03) AND the local contact card is non-empty
-  // (profile/settings); the 255-symbol cap is enforced client-side (store +
-  // tz5-01 pre-flight). 201 AND 409 (once per pair) both land the control
-  // in the shared state — the local mark (bleak.contactShared) mirrors it;
-  // server truth is the 409 on any later attempt.
+  // The dialog-footer slide instance is REMOVED (§4.15.B.1 supersedes the
+  // §4.13.3 footer placement): the slide lives ONLY inside the summary
+  // sheet. The page keeps the share plumbing the sheet's embedded slide
+  // consumes — the local contact card, the pair marks and the shareCard
+  // handler (shareContact(to=counterpart, content=card, from=me)). The
+  // sheet arms its own slide variant (disabled only when the local card is
+  // non-empty check fails). 201 AND 409 (once per pair) both land the
+  // shared state — the local mark (bleak.contactShared) mirrors it; server
+  // truth is the 409 on any later attempt. Any other failure leaves the
+  // sheet's slide armed for a retry — the share error surfaces exclusively
+  // through the sheet (§4.15.B.1; the footer alert is gone with the slide).
   let card = $state('');
   let cardShared = $state(false);
   let sharing = $state(false);
-  let shareError = $state<string | null>(null);
 
   $effect(() => {
     const id = me;
@@ -381,16 +386,11 @@
 
   const done = $derived(chat !== null && isChatDone(chat));
   const hasCard = $derived(card.trim() !== '');
-  const slideDisabled = $derived(!done || !hasCard);
-  const slideHint = $derived(
-    !done ? 'chat.contact_share.locked' : 'chat.contact_share.no_card'
-  );
 
   async function shareCard(): Promise<void> {
     const id = me;
     if (!id || !counterpartAddr || sharing) return; // double-submit prevented
     sharing = true;
-    shareError = null;
     try {
       await api.shareContact(counterpartAddr, card.trim(), id.userAddress);
       markPairShared(id.roomAddress, id.userAddress, counterpartAddr);
@@ -401,17 +401,10 @@
         // never an error (server truth over the local mark).
         markPairShared(id.roomAddress, id.userAddress, counterpartAddr);
         cardShared = true;
-      } else if (cause instanceof NetworkError || cause instanceof ValidationError) {
-        shareError = translate(get(locale), 'common.error.network');
-      } else {
-        // 400 (empty/overlong content slipping through) + anything else —
-        // the transcript page's existing api-error pattern: server text if
-        // any, the generic share copy otherwise.
-        shareError =
-          cause instanceof ApiError && cause.message
-            ? cause.message
-            : translate(get(locale), 'chat.contact_share.error');
       }
+      // Other failures (network / 400 / …): no footer alert — the sheet's
+      // slide returns to its armed state and stays available for a retry
+      // (§4.15.B.1: the share error surfaces exclusively through the sheet).
     } finally {
       sharing = false;
     }
@@ -472,6 +465,20 @@
     summaryOpen = true; // the sheet opens itself over the transcript
     void requestSummary();
   });
+
+  /**
+   * §4.15.B.2 (Concept §15.2): the footer summarization button — the
+   * ON-DEMAND re-open path beside the tz5-06 auto-open trigger (which
+   * stays as landed). `done` → enabled; pressed it opens the sheet over a
+   * held Summary WITHOUT a new hard-match call (the once-per-pair rule
+   * holds); when no Summary is held (never requested, or the earlier
+   * attempt failed) it runs the page's existing request flow first.
+   */
+  function openSummary(): void {
+    if (!done || summaryLoading) return;
+    summaryOpen = true;
+    if (summary === null) void requestSummary();
+  }
 </script>
 
 <svelte:head>
@@ -596,27 +603,28 @@
     </main>
 
     <footer class="footer">
-      <!-- §4.13.3 contact share: the slide is armed only when the dialog is
-           finished (isChatDone) and my local contact card is non-empty;
-           shared (201 or the once-per-pair 409) is terminal for the view. -->
-      <ShareContactSlide
-        label={translate($locale, 'chat.contact_share.label')}
-        sharedLabel={translate($locale, 'chat.contact_share.shared')}
-        disabledHint={translate($locale, slideHint)}
-        disabled={slideDisabled}
-        pending={sharing}
-        shared={cardShared}
-        oncomplete={() => void shareCard()}
-      />
-      {#if shareError}
-        <p class="share-error" role="alert" aria-live="polite">{shareError}</p>
-      {/if}
+      <!-- §4.15.B.2 (Concept §15.2): the summarization button took the
+           footer slot from the removed share slide (the slide lives only
+           inside the sheet now). `done` → enabled, opens the sheet again
+           on demand (over a held Summary without a new hard-match call);
+           `!done` → disabled with the "dialog in progress" phrase. -->
+      <button
+        type="button"
+        class="summary-open"
+        disabled={!done}
+        onclick={openSummary}
+      >
+        {done
+          ? translate($locale, 'chat.summary.open')
+          : translate($locale, 'chat.summary.open.disabled')}
+      </button>
     </footer>
 
-    <!-- §4.13.5 summary sheet: the overlay over the transcript; closing it
-         (X / Escape / scrim-less close) returns the dialog to its normal
-         rendering. The embedded slide shares to the same counterpart — the
-         same request + shared state as the footer's control. -->
+    <!-- §4.13.5 → §4.15.C summary sheet: the overlay over the transcript;
+         closing it (X / Escape) returns the dialog to its normal rendering.
+         The embedded slide shares to the same counterpart via the page's
+         shareCard handler — the ONLY slide instance since the §4.15.B.1
+         footer cutover. -->
     <SummarySheet
       bind:open={summaryOpen}
       user={counterpart}
@@ -624,7 +632,6 @@
       loading={summaryLoading}
       error={summaryError}
       errorMessage={summaryErrorMessage}
-      slideLabel={translate($locale, 'chat.contact_share.label')}
       slideSharedLabel={translate($locale, 'chat.contact_share.shared')}
       slideDisabledHint={translate($locale, 'chat.contact_share.no_card')}
       slideDisabled={!hasCard}
@@ -636,9 +643,9 @@
 
     <!-- NO-COMPOSER (ruling 4): no input/textarea/send control anywhere —
          the interactive elements are the back control, the scroll chip and
-         the share-contact slide (the kickoff button left the dialog view,
-         Concept §8.1.9; the contact share is the owner-approved §13.1.3
-         change, not a composer). -->
+         the summarization button (the footer share slide left in the
+         §4.15.B cutover; the kickoff button left the dialog view, Concept
+         §8.1.9 — none of these is a composer). -->
 
     <div class="vh" aria-live="polite">
       {#if announcedName}
@@ -870,10 +877,32 @@
     width: 100%;
     margin: 0 auto;
   }
-  .share-error {
-    margin: 0;
+  /* §4.15.B.2: the summarization button — the footer slot the slide
+   * occupied (below the transcript scroll, above the tab bar), the page's
+   * standard inset width. 48px touch target, pill radius. Disabled:
+   * transparent surface + 1px --color-text-disabled-strong border + the
+   * disabled-strong ink; enabled: the accent-soft treatment (the yellow
+   * interactive/active discipline holds — it IS a control). */
+  .summary-open {
+    width: 100%;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-4);
+    border-radius: var(--radius-pill);
+    border: 1px solid transparent;
+    background: var(--color-accent-soft);
+    color: var(--color-text);
     font-size: 14px;
-    color: var(--color-danger-text);
+    font-weight: 600;
+    transition: opacity 120ms ease-out;
+  }
+  .summary-open:disabled {
+    background: transparent;
+    border-color: var(--color-text-disabled-strong);
+    color: var(--color-text-disabled-strong);
+    cursor: default;
+  }
+  .summary-open:not(:disabled):active {
+    opacity: 0.85;
   }
   @media (min-width: 720px) {
     .column {

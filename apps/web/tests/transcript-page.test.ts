@@ -2,13 +2,16 @@
  * pass, owner directive): one block per distinct behavior, micro/scroll
  * asserts removed (recorded in docs/verification-v2.md). Covers: oldest-first
  * render + header (public bio replaces theme chips), 2 s live poll, network
- * banner + recovery, poller teardown, warming row, 404 state, the §4.13.3
- * contact-share slide (isChatDone gate, 201/409 shared state, no-card
- * disabled state, inline error), the permanent NO-COMPOSER check (owner
- * ruling 4; the kickoff button left the dialog view — Concept §8.1.9), the
- * v2.2 polish (hh:mm times, date label, no kickoff, public info header),
- * and the viewer fallback (room-token retry, host-401 gate replication,
- * no-token 401). */
+ * banner + recovery, poller teardown, warming row, 404 state, the §4.13.5
+ * summary sheet (hardMatch on finished open, §4.15.C arcade contracts), the
+ * §4.15.B placement cutover (footer slide gone; the summarization button in
+ * the footer slot — disabled with the in-progress phrase while active,
+ * enabled opening the sheet when done, re-open over a held Summary without
+ * a new hard-match; the sheet's embedded slide share contracts), the
+ * permanent NO-COMPOSER check (owner ruling 4; the kickoff button left the
+ * dialog view — Concept §8.1.9), the v2.2 polish (hh:mm times, date label,
+ * no kickoff, public info header), and the viewer fallback (room-token
+ * retry, host-401 gate replication, no-token 401). */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -407,9 +410,29 @@ describe('summary sheet (CONCEPT §13.1.5, DESIGN §4.13.5 — hard-match on fin
 
     await (document.querySelector('[role="dialog"] .close') as HTMLButtonElement).click();
     await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
-    // the transcript + the footer slide are untouched underneath
+    // the transcript + the footer summarization button are untouched
+    // underneath; the slide lives only inside the sheet (§4.15.B)
     expect(screen.getByText('Прощальный ответ агентов.')).toBeTruthy();
-    expect(document.querySelector('.slide')).toBeTruthy();
+    expect(document.querySelector('footer .slide')).toBeNull();
+    expect(document.querySelector('.summary-open')).toBeTruthy();
+    expect(mockedApi.hardMatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('§4.15.B.2: the footer button re-opens the sheet over a held Summary WITHOUT re-issuing the hard-match (once-per-pair holds)', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    await renderPage();
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+    expect(mockedApi.hardMatch).toHaveBeenCalledTimes(1);
+
+    // close the auto-opened sheet, then press the footer button
+    await (document.querySelector('[role="dialog"] .close') as HTMLButtonElement).click();
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
+
+    await (document.querySelector('.summary-open') as HTMLButtonElement).click();
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeTruthy());
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+    // the stored Summary is re-shown — no second hard-match call
     expect(mockedApi.hardMatch).toHaveBeenCalledTimes(1);
   });
 
@@ -494,7 +517,7 @@ describe('v2.3 chat colors (Concept §9.1.5, DESIGN §4.10.5 — Deepa palette)'
   });
 });
 
-describe('states: 404, contact share (§3.5 AC 7, 8; §4.13.3)', () => {
+describe('states: 404 + §4.15.B placement cutover (footer button; the slide lives only in the sheet)', () => {
   it('404 chat renders the not-found state with a working link back to /chats (AC 8)', async () => {
     mockedApi.getChat.mockRejectedValue(new ApiError(404, `/api/chat/${CHAT}`, 'chat not found'));
     render(Page, { props: {} });
@@ -503,30 +526,65 @@ describe('states: 404, contact share (§3.5 AC 7, 8; §4.13.3)', () => {
     expect(goto).toHaveBeenCalledWith('/chats');
   });
 
-  it('the dialog not finished → the slide is disabled with the locked hint (the isChatDone gate, tz5-03)', async () => {
+  it('§4.15.B.1: NO ShareContactSlide renders in the transcript footer — in any state', async () => {
     withMessages(message('tx1', '0xa', 'Привет.', 60));
-    await renderPage(); // baseChat() carries no done field
-    const slide = document.querySelector('.slide');
-    expect(slide).toBeTruthy();
-    expect(slide?.getAttribute('aria-disabled')).toBe('true');
-    expect(slide?.textContent).toContain(ru['chat.contact_share.locked']);
-    const thumb = slide?.querySelector('.thumb') as HTMLButtonElement | null;
-    expect(thumb?.disabled).toBe(true);
-    expect(mockedApi.shareContact).not.toHaveBeenCalled();
+    await renderPage(); // active dialog
+    expect(document.querySelector('footer .slide')).toBeNull();
+    expect(document.querySelector('footer .thumb')).toBeNull();
+
+    cleanup();
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    render(Page, { props: {} });
+    await screen.findByText('Прощальный ответ агентов.', undefined, { timeout: 4000 });
+    await tick();
+    expect(document.querySelector('footer .slide')).toBeNull();
   });
 
-  it('finished dialog + no local card → the slide stays disabled with the no-card hint', async () => {
+  it('§4.15.B.2: an ACTIVE dialog → the summarization button is disabled with the "dialog in progress" phrase', async () => {
+    withMessages(message('tx1', '0xa', 'Привет.', 60));
+    await renderPage(); // baseChat() carries no done field
+    const button = document.querySelector('.summary-open') as HTMLButtonElement;
+    expect(button).toBeTruthy();
+    expect(button.disabled).toBe(true);
+    expect(button.textContent).toContain(ru['chat.summary.open.disabled']);
+    expect(mockedApi.hardMatch).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('§4.15.B.2: a FINISHED dialog → the button is enabled with the open label; pressing it opens the sheet', async () => {
     withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
     fixture.chat = { ...baseChat(), done: true };
     await renderPage();
-    const slide = document.querySelector('.slide');
+    const button = document.querySelector('.summary-open') as HTMLButtonElement;
+    expect(button).toBeTruthy();
+    expect(button.disabled).toBe(false);
+    expect(button.textContent).toContain(ru['chat.summary.open']);
+
+    // the tz5-06 auto-open already opened the sheet once — close it and
+    // press the button: the sheet re-opens on demand
+    await (document.querySelector('[role="dialog"] .close') as HTMLButtonElement).click();
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
+    await button.click();
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeTruthy());
+    // the re-open carried no new hard-match (once-per-pair holds)
+    expect(mockedApi.hardMatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('§4.15.B: a finished dialog + no local card → the SHEET slide stays disabled with the no-card hint', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    await renderPage();
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+    const slide = document.querySelector('[role="dialog"] .slide');
+    expect(slide).toBeTruthy();
     expect(slide?.getAttribute('aria-disabled')).toBe('true');
     expect(slide?.textContent).toContain(ru['chat.contact_share.no_card']);
     expect((slide?.querySelector('.thumb') as HTMLButtonElement | null)?.disabled).toBe(true);
     expect(mockedApi.shareContact).not.toHaveBeenCalled();
   });
 
-  it('finished dialog + a stored card → completing the slide shares it (to=counterpart, from=me) and lands the shared state (201)', async () => {
+  it('§4.15.B: a finished dialog + a stored card → completing the SHEET slide shares it (to=counterpart, from=me) and lands the shared state (201)', async () => {
     withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
     fixture.chat = { ...baseChat(), done: true };
     localStorage.setItem(
@@ -540,23 +598,26 @@ describe('states: 404, contact share (§3.5 AC 7, 8; §4.13.3)', () => {
       to: '0xa'
     });
     await renderPage();
-    const slide = document.querySelector('.slide');
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+    const slide = document.querySelector('[role="dialog"] .slide');
     expect(slide?.getAttribute('aria-disabled')).toBe('false');
-    expect(slide?.textContent).toContain(ru['chat.contact_share.label']);
+    expect(slide?.textContent).toContain(ru['chat.contact_share.sheet_label']);
     await (slide?.querySelector('.thumb') as HTMLButtonElement).click();
     await waitFor(() =>
       expect(mockedApi.shareContact).toHaveBeenCalledWith('0xa', 'telegram: @me', ME)
     );
-    // The 201 lands the shared state + the local pair mark.
+    // The 201 lands the shared state + the local pair mark; a gesture made
+    // in the sheet swaps the hint to the completion copy (§4.15.C-8).
     await waitFor(() =>
-      expect(document.querySelector('.slide')?.textContent).toContain(
-        ru['chat.contact_share.shared']
+      expect(document.querySelector('[role="dialog"] .slide')?.textContent).toContain(
+        ru['chat.contact_share.shared_done']
       )
     );
-    expect(document.querySelector('.slide')?.querySelector('svg')).toBeTruthy(); // done glyph
-    // §4.14.1: the shared TRANSITION plays the confetti from the top of the
-    // slide — 12 CSS-only Deepa flakes
-    const confetti = document.querySelector('.slide')?.querySelector('.confetti');
+    expect(document.querySelector('[role="dialog"] .slide')?.querySelector('svg')).toBeTruthy();
+    // §4.14.1: the shared TRANSITION plays the slide's 12-flake confetti
+    const confetti = document
+      .querySelector('[role="dialog"] .slide')
+      ?.querySelector('.confetti');
     expect(confetti).toBeTruthy();
     expect(confetti?.querySelectorAll('.flake')).toHaveLength(12);
     expect(
@@ -564,7 +625,7 @@ describe('states: 404, contact share (§3.5 AC 7, 8; §4.13.3)', () => {
     ).toMatchObject({ '0xroom|0xme': { '0xa': expect.any(String) } });
   });
 
-  it('a repeated share answers 409 — the shared state, NEVER an error (once per pair)', async () => {
+  it('§4.15.B: a repeated share answers 409 — the shared state, NEVER an error (once per pair)', async () => {
     withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
     fixture.chat = { ...baseChat(), done: true };
     localStorage.setItem(
@@ -575,25 +636,28 @@ describe('states: 404, contact share (§3.5 AC 7, 8; §4.13.3)', () => {
       new ApiError(409, '/api/contact', 'contact already shared')
     );
     await renderPage();
-    await (document.querySelector('.slide')?.querySelector('.thumb') as HTMLButtonElement).click();
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+    await (
+      document.querySelector('[role="dialog"] .slide')?.querySelector('.thumb') as HTMLButtonElement
+    ).click();
     await waitFor(() =>
       expect(mockedApi.shareContact).toHaveBeenCalledWith('0xa', 'telegram: @me', ME)
     );
+    // the sheet treats the 409 as the success moment (§4.14.1): the
+    // gesture-made completion copy + the confetti, never an alert
     await waitFor(() =>
-      expect(document.querySelector('.slide')?.textContent).toContain(
-        ru['chat.contact_share.shared']
+      expect(document.querySelector('[role="dialog"] .slide')?.textContent).toContain(
+        ru['chat.contact_share.shared_done']
       )
     );
     expect(screen.queryByRole('alert')).toBeNull(); // 409 is not an error
-    // §4.14.1: 409 lands the shared state too — the confetti plays on it as
-    // well (the server's answer is the success moment)
-    expect(document.querySelector('.slide')?.querySelector('.confetti')).toBeTruthy();
+    expect(document.querySelector('[role="dialog"] .slide')?.querySelector('.confetti')).toBeTruthy();
     expect(
       JSON.parse(localStorage.getItem('bleak.contactShared') ?? '{}')
     ).toMatchObject({ '0xroom|0xme': { '0xa': expect.any(String) } });
   });
 
-  it('a locally marked pair renders the shared state WITHOUT any share call', async () => {
+  it('§4.15.B: a locally marked pair renders the SHEET slide shared WITHOUT any share call (no confetti replay)', async () => {
     withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
     fixture.chat = { ...baseChat(), done: true };
     localStorage.setItem(
@@ -605,16 +669,20 @@ describe('states: 404, contact share (§3.5 AC 7, 8; §4.13.3)', () => {
       JSON.stringify({ '0xroom|0xme': { '0xa': '2026-11-19T10:00:00.000Z' } })
     );
     await renderPage();
-    expect(document.querySelector('.slide')?.textContent).toContain(
-      ru['chat.contact_share.shared']
-    );
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+    const slide = document.querySelector('[role="dialog"] .slide');
+    // no gesture was made here → the 409 "already shared" label, not the
+    // completion copy (§4.15.C-8 replay gating)
+    expect(slide?.textContent).toContain(ru['chat.contact_share.shared']);
+    expect(slide?.textContent).not.toContain(ru['chat.contact_share.shared_done']);
     expect(mockedApi.shareContact).not.toHaveBeenCalled();
     // §4.14.1: an already-shared hydration does NOT replay the confetti —
     // it celebrates only a completion gesture followed by the shared state
-    expect(document.querySelector('.slide')?.querySelector('.confetti')).toBeNull();
+    expect(slide?.querySelector('.confetti')).toBeNull();
+    expect(document.querySelector('[role="dialog"] .confetti')).toBeNull();
   });
 
-  it('a failed share (400) surfaces inline; the control stays armed', async () => {
+  it('§4.15.B.1: a failed share (400) surfaces through the SHEET only — the slide returns armed, no footer alert', async () => {
     withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
     fixture.chat = { ...baseChat(), done: true };
     localStorage.setItem(
@@ -625,30 +693,40 @@ describe('states: 404, contact share (§3.5 AC 7, 8; §4.13.3)', () => {
       new ApiError(400, '/api/contact', 'content must be 1..255 symbols')
     );
     await renderPage();
-    await (document.querySelector('.slide')?.querySelector('.thumb') as HTMLButtonElement).click();
-    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
-    expect(screen.getByRole('alert')?.textContent).toContain('content must be 1..255 symbols');
-    // The control stays armed — the pair was NOT marked shared.
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+    await (
+      document.querySelector('[role="dialog"] .slide')?.querySelector('.thumb') as HTMLButtonElement
+    ).click();
+    await waitFor(() =>
+      expect(mockedApi.shareContact).toHaveBeenCalledWith('0xa', 'telegram: @me', ME)
+    );
+    await tick();
+    await tick();
+    // No alert anywhere (the footer alert left with the slide — §4.15.B.1);
+    // the pair was NOT marked shared.
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(localStorage.getItem('bleak.contactShared')).toBeNull();
+    // The control stays armed — the sheet's slide is the failure surface.
+    const slide = document.querySelector('[role="dialog"] .slide');
     expect(
-      (document.querySelector('.slide')?.querySelector('.thumb') as HTMLButtonElement).disabled
+      (slide?.querySelector('.thumb') as HTMLButtonElement).disabled
     ).toBe(false);
     // §4.14.1: a failed share is never celebrated — no confetti, and the
     // candy-cane stripes return with the armed state
-    expect(document.querySelector('.slide')?.querySelector('.confetti')).toBeNull();
-    expect(document.querySelector('.slide')?.querySelector('.candy')).toBeTruthy();
+    expect(slide?.querySelector('.confetti')).toBeNull();
+    expect(slide?.querySelector('.candy')).toBeTruthy();
   });
 });
 
 describe('NO-COMPOSER (owner ruling 4, permanent — §3.5 AC 13)', () => {
-  it('the transcript UI contains no input/textarea/send control; outside the §4.13.5 sheet the only buttons are the back control and the share thumb', async () => {
+  it('the transcript UI contains no input/textarea/send control; outside the §4.15.C sheet the only buttons are the back control and the summarization button', async () => {
     withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
     fixture.chat = { ...baseChat(), done: true };
     await renderPage();
 
     const root = document.querySelector('.page');
     expect(root).toBeTruthy();
-    // no composer of any kind, in any state (the contact slide is NOT one)
+    // no composer of any kind, in any state (the footer button is NOT one)
     expect(root?.querySelector('input, textarea, [contenteditable="true"]')).toBeNull();
     expect(root?.querySelector('form')).toBeNull();
     // The summary sheet is a dialog overlay, not a composer — its own
@@ -658,15 +736,36 @@ describe('NO-COMPOSER (owner ruling 4, permanent — §3.5 AC 13)', () => {
     const buttons = Array.from(root?.querySelectorAll('button') ?? []).filter(
       (button) => !(dialog && dialog.contains(button))
     );
-    const thumb = document.querySelector('.thumb');
     const labels = buttons.map(
       (button) =>
         button.textContent?.trim() || button.getAttribute('aria-label') || ''
     );
     expect(labels).toContain(ru['common.back']);
-    // every button is the back control or the share slide thumb
-    expect(buttons.filter((button) => button !== thumb)).toHaveLength(1);
+    // the footer slot holds the summarization button (§4.15.B.2)
+    expect(labels).toContain(ru['chat.summary.open']);
+    // every button outside the sheet is the back control or the footer button
+    expect(buttons).toHaveLength(2);
     // POST /api/message is not wired: the api mock exposes no sendMessage usage
+    expect(mockedApi).not.toHaveProperty('sendMessage');
+  });
+
+  it('the ACTIVE dialog has only the back control and the disabled summarization button', async () => {
+    withMessages(message('tx1', '0xa', 'Привет.', 60));
+    await renderPage(); // baseChat() carries no done field
+
+    const root = document.querySelector('.page');
+    expect(root?.querySelector('input, textarea, [contenteditable="true"]')).toBeNull();
+    expect(root?.querySelector('form')).toBeNull();
+    const buttons = Array.from(root?.querySelectorAll('button') ?? []);
+    const labels = buttons.map(
+      (button) =>
+        button.textContent?.trim() || button.getAttribute('aria-label') || ''
+    );
+    expect(labels).toContain(ru['common.back']);
+    expect(labels).toContain(ru['chat.summary.open.disabled']);
+    expect(
+      (document.querySelector('.summary-open') as HTMLButtonElement).disabled
+    ).toBe(true);
     expect(mockedApi).not.toHaveProperty('sendMessage');
   });
 });

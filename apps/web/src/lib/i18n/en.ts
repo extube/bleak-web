@@ -161,6 +161,11 @@ export const en = {
   'chat.summary.checklist': 'Networking checklist',
   'chat.summary.score.aria': 'Match: {score} out of 100',
   'chat.summary.loading': 'Summarizing the dialog…',
+  // §4.15.B/E (Concept §15.2): the footer summarization button — enabled
+  // ("Meeting summary") it opens the summary sheet on demand; disabled it
+  // carries the "dialog in progress" phrase.
+  'chat.summary.open': 'Meeting summary',
+  'chat.summary.open.disabled': 'Dialog in progress',
   // §4.15.C-5/C-6 (Concept §15.3): the caption under the "me" avatar frame
   // and the match-tier labels (80/50 thresholds per the owner revision,
   // 2026-11-20).

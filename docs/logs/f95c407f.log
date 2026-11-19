@@ -1,0 +1,6 @@
+2026-11-19T20:31:52Z [worker] task 76 started: tz7-04 share placement cutover
+2026-11-19T20:31:55Z [worker] task 76 started: tz7-04 share placement cutover, branch checked out
+2026-11-19T20:35:31Z [worker] implemented §4.15.B cutover: footer slide + alert removed, summarization button added, i18n keys chat.summary.open(.disabled), transcript tests rewritten
+2026-11-19T20:36:36Z [worker] targeted vitest green: transcript-page, chat-clear-guard (pins reconciled to footer button), summary-sheet, kit, i18n (154 tests)
+2026-11-19T20:37:29Z [worker] gates green: make test 744/744, make lint clean, make build ok (0 svelte-check errors, 9 pre-existing foreign warnings); committing on feature branch
+2026-11-19T20:37:38Z [worker] handover: commit c93f4ad on feature/f95c407f-tz7-04-share-placement-cutover, task 76 set ready-for-merge
