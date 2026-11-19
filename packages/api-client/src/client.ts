@@ -1,30 +1,42 @@
 import type {
   Chat,
   ClearChatResponse,
+  Contact,
   CreateHandshakeRequest,
   CreateRoomRequestV2,
   CreateRoomResponse,
   CreateUserRequest,
   CreateUserRequestV2,
   Greeting,
+  AddInterestsRequest,
+  DeleteInterestsRequest,
   Handshake,
+  HardMatchRequest,
+  HardMatchResult,
+  Interest,
+  InterestInput,
   Invite,
   InviteMintRequest,
   KickoffResponse,
+  MatchRequest,
+  MatchResult,
+  MatchV2Request,
   Message,
   MutualHandshakeRequest,
   MutualHandshakeResponse,
   Room,
   SendMessageRequest,
+  ShareContactRequest,
+  Summary,
   TokenRotationRequest,
   UpdateRoomRequest,
   UpdateUserRequest,
   User
 } from './types.js';
-import { ApiError, NetworkError } from './errors.js';
+import { ApiError, NetworkError, ValidationError } from './errors.js';
 
 export * from './types.js';
-export { ApiError, NetworkError } from './errors.js';
+export { ApiError, NetworkError, ValidationError } from './errors.js';
 
 /**
  * Per-call credential: attach a persona or room token to a credentialed
@@ -38,8 +50,9 @@ export interface CredentialOptions {
 }
 
 /**
- * Typed client for the bleak-node REST API (v0.1.0, Swagger 2.0 + the v2
- * credential endpoints of CONCEPT §7 — TBD(WP-6) names are marked in place).
+ * Typed client for the bleak-node REST API (Swagger 2.0 + the v2 credential
+ * endpoints of CONCEPT §7 + the v3 contract of CONCEPT §13 / DESIGN §4.13 —
+ * interests, matching, hard-match, shared contacts).
  *
  * One method per endpoint, in swagger path order. The client is
  * transport-agnostic: pass a custom `fetch` in tests (or for proxies); it
@@ -383,6 +396,183 @@ export class BleakClient {
     });
   }
 
+  // --- interests + matching + hard-match + shared contacts (v3, #34/#35) ----
+
+  /**
+   * POST /api/room/{room}/user/{address}/interest — bulk upsert of a
+   * persona's interests (CONCEPT §13 / DESIGN §4.13). Requires THAT
+   * persona's Bearer token. Body `{interests: [...]}` (server.
+   * AddInterestsRequest), 1..50 rows, each title 1..64 symbols and
+   * group/key ≥ 0 — mirrored client-side below (the server answers 400).
+   * Responds 201 with the user's FULL resulting list; there is NO
+   * interests GET endpoint, so UI mirrors feed from these responses.
+   */
+  async addUserInterests(
+    room: string,
+    address: string,
+    interests: InterestInput[],
+    options?: CredentialOptions
+  ): Promise<Interest[]> {
+    if (interests.length === 0 || interests.length > MAX_INTERESTS_PER_REQUEST) {
+      throw new ValidationError(
+        `interests must hold 1..${MAX_INTERESTS_PER_REQUEST} rows`
+      );
+    }
+    for (const interest of interests) {
+      if (symbolCount(interest.title) < 1 || symbolCount(interest.title) > MAX_INTEREST_TITLE_LEN) {
+        throw new ValidationError(
+          `interest title must be 1..${MAX_INTEREST_TITLE_LEN} symbols`
+        );
+      }
+      if (interest.group < 0 || interest.key < 0) {
+        throw new ValidationError('interest group and key must be >= 0');
+      }
+    }
+    return this.postJson<Interest[]>(
+      `/api/room/${enc(room)}/user/${enc(address)}/interest`,
+      { interests } satisfies AddInterestsRequest,
+      options
+    );
+  }
+
+  /**
+   * DELETE /api/room/{room}/user/{address}/interest — bulk delete by keys
+   * (the DELETE carries a JSON body `{keys: [...]}`, per the bleak-node
+   * tests). That persona's Bearer token; 1..50 keys, unknown keys ignored
+   * (idempotent). Responds 200 with the user's REMAINING interests.
+   */
+  async deleteUserInterests(
+    room: string,
+    address: string,
+    keys: number[],
+    options?: CredentialOptions
+  ): Promise<Interest[]> {
+    if (keys.length === 0 || keys.length > MAX_INTERESTS_PER_REQUEST) {
+      throw new ValidationError(`keys must hold 1..${MAX_INTERESTS_PER_REQUEST} entries`);
+    }
+    return this.request<Interest[]>(
+      'DELETE',
+      `/api/room/${enc(room)}/user/${enc(address)}/interest`,
+      { keys } satisfies DeleteInterestsRequest,
+      undefined,
+      options
+    );
+  }
+
+  /**
+   * POST /api/match — legacy time-dependent matching score. Requires the
+   * FIRST persona's Bearer token (the score is computed AS that persona;
+   * the pair order is otherwise agnostic server-side). Responds 200 with
+   * `db.MatchResult`; a mutual handshake grades 100 instantly.
+   */
+  async match(
+    room: string,
+    first: string,
+    second: string,
+    timeMs: number,
+    options?: CredentialOptions
+  ): Promise<MatchResult> {
+    return this.postJson<MatchResult>(
+      '/api/match',
+      {
+        room_address: room,
+        first_user_address: first,
+        second_user_address: second,
+        time: timeMs
+      } satisfies MatchRequest,
+      options
+    );
+  }
+
+  /**
+   * POST /api/match/v2 — time-independent matching score (same pair always
+   * grades the same value, strictly inside (0, 100)). Requires the FIRST
+   * persona's Bearer token: the caller passes ITSELF as `first`
+   * (DESIGN §4.13 R4 sorts finished chats by this score, fetched per
+   * finished pair as self-first).
+   */
+  async matchV2(
+    room: string,
+    first: string,
+    second: string,
+    options?: CredentialOptions
+  ): Promise<MatchResult> {
+    return this.postJson<MatchResult>(
+      '/api/match/v2',
+      {
+        room_address: room,
+        first_user_address: first,
+        second_user_address: second
+      } satisfies MatchV2Request,
+      options
+    );
+  }
+
+  /**
+   * POST /api/hard-match — runs (once per pair) the hard match: summarizes
+   * the pair's chat, grades the 5 networking checkpoints and stores one
+   * `model.Summary`. Requires the FIRST persona's Bearer token (the caller
+   * passes ITSELF as `first`). The response body is the Summary for BOTH
+   * status codes; the client maps 201 created → `created: true` and
+   * 200 stored → `created: false` so the UI can honor the once-only gate.
+   */
+  async hardMatch(
+    room: string,
+    first: string,
+    second: string,
+    options?: CredentialOptions
+  ): Promise<HardMatchResult> {
+    const { status, body } = await this.requestWithStatus<Summary>(
+      'POST',
+      '/api/hard-match',
+      {
+        room_address: room,
+        first_user_address: first,
+        second_user_address: second
+      } satisfies HardMatchRequest,
+      undefined,
+      options
+    );
+    return { summary: body, created: status === 201 };
+  }
+
+  /**
+   * POST /api/contact — one persona shares its contact details with
+   * another. Requires the FROM persona's Bearer token. Content is limited
+   * to 1..255 symbols (mirrored client-side); the (from, to) pair is
+   * unique — a REPEATED share answers 409, which surfaces as `ApiError`
+   * with `status 409` (DESIGN §4.13 R3 maps it to "already shared").
+   * Responds 201 with the stored `model.Contact`.
+   */
+  async shareContact(
+    to: string,
+    content: string,
+    from: string,
+    options?: CredentialOptions
+  ): Promise<Contact> {
+    const n = symbolCount(content);
+    if (n < 1 || n > MAX_CONTACT_CONTENT_LEN) {
+      throw new ValidationError(
+        `content must be 1..${MAX_CONTACT_CONTENT_LEN} symbols`
+      );
+    }
+    return this.postJson<Contact>(
+      '/api/contact',
+      { from, to, content } satisfies ShareContactRequest,
+      options
+    );
+  }
+
+  /**
+   * GET /api/contact/{address} — every contact shared WITH the persona,
+   * newest first. ONLY the RECIPIENT has access: the Bearer must be that
+   * recipient's persona token (the sender reading its outgoing shares gets
+   * 401/403 — pass the recipient's credential).
+   */
+  async listContactsSharedWith(address: string, options?: CredentialOptions): Promise<Contact[]> {
+    return this.getJson<Contact[]>(`/api/contact/${enc(address)}`, options);
+  }
+
   // --- transport -----------------------------------------------------------
 
   private async getJson<T>(path: string, credential?: CredentialOptions): Promise<T> {
@@ -416,6 +606,28 @@ export class BleakClient {
     extraHeaders?: Record<string, string>,
     credential?: CredentialOptions
   ): Promise<T> {
+    const { body: parsed } = await this.requestWithStatus<T>(
+      method,
+      path,
+      body,
+      extraHeaders,
+      credential
+    );
+    return parsed;
+  }
+
+  /**
+   * Transport core; returns the parsed body TOGETHER with the status so
+   * the few endpoints that distinguish 200/201 on the same body shape
+   * (hard-match) can map both responses.
+   */
+  private async requestWithStatus<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    extraHeaders?: Record<string, string>,
+    credential?: CredentialOptions
+  ): Promise<{ status: number; body: T }> {
     const headers: Record<string, string> = { ...extraHeaders };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (credential?.token !== undefined && credential.token !== '') {
@@ -434,8 +646,20 @@ export class BleakClient {
     if (response.status < 200 || response.status >= 300) {
       throw new ApiError(response.status, path, await readErrorBody(response));
     }
-    return (await readJsonBody(response)) as T;
+    return { status: response.status, body: (await readJsonBody(response)) as T };
   }
+}
+
+// Client-side mirrors of the bleak-node validation caps
+// (internal/model: MaxInterestsPerRequest, MaxInterestTitleLen,
+// MaxContactContentLen) — doomed bodies are rejected before the wire.
+const MAX_INTERESTS_PER_REQUEST = 50;
+const MAX_INTEREST_TITLE_LEN = 64;
+const MAX_CONTACT_CONTENT_LEN = 255;
+
+/** The server counts SYMBOLS (UTF-8 runes), not UTF-16 code units. */
+function symbolCount(value: string): number {
+  return [...value].length;
 }
 
 function enc(value: string): string {
