@@ -1,5 +1,35 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.9/§23 ROUND NOTE (tz11-01/02 + §23 design-review batch + the
+> fade-every-boundary extension — appended by the process 2026-11-20,
+> post-round three-gate run GREEN: lint clean · 865 tests total
+> (49 api-client + 8 helper + 808 web, 50 files) · build 0 errors, dev
+> `e28bb62`):**
+> (1) **Bleak mascot de-plated** (§23.1.1, task 102): the pixel figure sits
+> directly on the page; mounted mascot-at-top on the enter-code form, the
+> room form (`RoomPreview` create-profile/join choice) and the wizard intro
+> (§23.1.2–3, verified).
+> (2) **§23.2 wizard amendments folded** (task 101 follow-up, commit
+> `7f3eeda` on dev — ratified): iOS-Messages send button + counters (no send
+> on input taps), "Next" removed (fixed bottom input rising with the
+> keyboard, scrollable chat, centered back below the input), example
+> placeholders per input case, nickname field with `tg:@/signal:@/inst:@`
+> prefixes, **themes model** (8 themes × 6 dedicated topics, slug titles
+> `theme:topic_key` mapped onto the numeric server contract), interests
+> creation-only (InterestsEditor deleted from settings), multi-theme loop
+> returning to the badges step until "Ready", arcade-sheet loading
+> animation, **fade transitions at EVERY creation boundary** (§23.2.5.9
+> extended: form → intro → chat steps → loading → /room, one 200ms opacity
+> treatment, leaving fade with the reduced-motion goto guard), intro bubble
+> un-plated.
+> **Incident disclosed:** the fold-in commit landed directly on dev (worker
+> dev-commit — the process left the checkout on dev mid-handover window);
+> content ratified (803/50 green pre-commit), branch copy tree-identical.
+> Manual checks for the owner: the mascot un-plated on all surfaces, the
+> mascot-at-top order, the wizard end-to-end (send button/counter/
+> placeholders/prefixes/themes loop/Ready/loading animation/fades on a real
+> invite, the leaving fade into /room).
+
 > **v3.10 ROUND NOTE (§23 design-review amendments — tz11-01a mascot fixes +
 > the tz11-02 fold, appended by the process 2026-11-20, post-round three-gate
 > run GREEN: lint clean · 805 web tests, 50 files · build 0 errors, dev
