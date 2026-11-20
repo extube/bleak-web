@@ -4,7 +4,9 @@
  * by the Open-chat button), card actions (send / expanded incoming panel /
  * outgoing-none), the deterministic bucket sort (no filter chips — v3.6),
  * mount auto-open of the first card's handshake-back panel (ONLY the
- * first), «Привет!» copy, page render order + pills + chats-badge
+ * first), the §4.15.4.3 addendum tap contracts (tapping an added-you card
+ * toggles ITS form — single-expanded; non-added-you rows are inert;
+ * dismissal intact), «Привет!» copy, page render order + pills + chats-badge
  * write-through, skeleton→cards→poll mutation, «+» send flip, §2.9 income
  * rejection, dismiss (local only, never re-opened by polls), search,
  * empty room, error banners, poller teardown + visibility regain,
@@ -206,6 +208,41 @@ describe('PersonCard — pills, actions, expanded panel (§3.3, §4.15.4.3)', ()
     expect(document.querySelectorAll('.action button, .action a')).toHaveLength(0);
   });
 
+  it('tap target (§4.15.4.3 addendum): the incoming row is role=button with aria-expanded + ontoggle; non-incoming rows are inert', async () => {
+    const ontoggle = vi.fn();
+    render(PersonCard, {
+      props: {
+        user: alice,
+        relationship: deriveRelationship('0xa', ME, [handshake('0xa', ME, 7)], []),
+        ontoggle
+      }
+    });
+    const row = document.querySelector('.row[role="button"]') as HTMLElement;
+    expect(row).toBeTruthy();
+    expect(row.getAttribute('aria-expanded')).toBe('false');
+    row.click();
+    await tick();
+    expect(ontoggle).toHaveBeenCalledTimes(1);
+    // keyboard parity: Enter activates the row's tap toggle
+    row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(ontoggle).toHaveBeenCalledTimes(2);
+
+    cleanup();
+    // non-incoming ("none"): no tap target at all — nothing new happens
+    const untouchedToggle = vi.fn();
+    render(PersonCard, {
+      props: {
+        user: alice,
+        relationship: deriveRelationship('0xa', ME, [], []),
+        ontoggle: untouchedToggle
+      }
+    });
+    expect(document.querySelector('.row[role="button"]')).toBeNull();
+    (document.querySelector('.row') as HTMLElement).click();
+    await tick();
+    expect(untouchedToggle).not.toHaveBeenCalled();
+  });
+
   it('incoming panel is expanded-prop driven: «Привет!» + «Закрыть»; no toggle icon exists (v3.6)', async () => {
     const onback = vi.fn();
     const { rerender } = render(PersonCard, {
@@ -383,6 +420,95 @@ describe('/people — card actions', () => {
       () => expect(mockedApi.listRoomUsers.mock.calls.length).toBeGreaterThan(callsBefore),
       { timeout: 5000 }
     );
+    await tick();
+    expect(document.querySelector('.expanded-actions')).toBeNull();
+  });
+});
+
+describe('/people — tap on an added-you item opens the form (§4.15.4.3 addendum, Concept §19.3)', () => {
+  it('tapping a non-first added-you card opens ITS form (the form moves — single-expanded); tapping the expanded card collapses it', async () => {
+    fixture.users = [
+      person('0xa', 'Алиса', 2),
+      person('0xb', 'Борис', 10)
+    ];
+    fixture.handshakes = [handshake('0xa', ME, 6), handshake('0xb', ME, 7)];
+
+    await renderPage();
+
+    // auto-open stays: the FIRST added-you card starts expanded
+    const cards = () => document.querySelectorAll('.person-card');
+    expect(cards()[0]?.querySelector('.expanded-actions')).toBeTruthy();
+    expect(cards()[1]?.querySelector('.expanded-actions')).toBeNull();
+
+    // only the two incoming rows are button-role tap targets
+    const rows = document.querySelectorAll('.row[role="button"]');
+    expect(rows).toHaveLength(2);
+
+    // tap Борис → the open form MOVES from Алиса to Борис (single-expanded)
+    (rows[1] as HTMLElement).click();
+    await tick();
+    expect(cards()[1]?.querySelector('.expanded-actions')).toBeTruthy();
+    expect(cards()[1]?.querySelector('.expanded-actions')?.textContent).toContain(
+      ru['people.action.back']
+    );
+    expect(cards()[0]?.querySelector('.expanded-actions')).toBeNull();
+
+    // tap Борис again → the tap toggle collapses the form
+    (rows[1] as HTMLElement).click();
+    await tick();
+    expect(document.querySelector('.expanded-actions')).toBeNull();
+
+    // keyboard parity on the page too: Enter on Алиса's row re-opens it
+    (rows[0] as HTMLElement).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+    );
+    await tick();
+    expect(cards()[0]?.querySelector('.expanded-actions')).toBeTruthy();
+  });
+
+  it('tapping a non-added-you row opens NO handshake form (none / outgoing / chat)', async () => {
+    fixture.users = [
+      person('0xa', 'Алиса', 20), // none
+      person('0xb', 'Борис', 10), // outgoing
+      person('0xc', 'Вера', 2) // chat
+    ];
+    fixture.handshakes = [handshake(ME, '0xb', 8)];
+    fixture.chats = [chat('0xchat1', [ME, '0xc'], 3)];
+
+    await renderPage();
+
+    expect(document.querySelectorAll('.row[role="button"]')).toHaveLength(0);
+    for (const row of document.querySelectorAll('.person-card .row')) {
+      (row as HTMLElement).click();
+    }
+    await tick();
+    expect(document.querySelector('.expanded-actions')).toBeNull();
+    // the non-added-you surfaces are unchanged: Open chat link + sent pill
+    expect(screen.getByRole('link', { name: ru['people.action.open_chat'] })).toBeTruthy();
+    expect(screen.getByText(ru['hs.sent'])).toBeTruthy();
+  });
+
+  it('tap-opened form keeps the dismissal flow intact: local collapse only, and a dismissed card never re-opens (ruling 2)', async () => {
+    fixture.users = [person('0xa', 'Алиса', 10), person('0xb', 'Борис', 2)];
+    fixture.handshakes = [handshake('0xa', ME, 6), handshake('0xb', ME, 7)];
+
+    await renderPage();
+
+    const rows = document.querySelectorAll('.row[role="button"]');
+    (rows[0] as HTMLElement).click(); // toggle the auto-opened first card closed
+    await tick();
+    (rows[1] as HTMLElement).click(); // tap-open the second added-you card
+    await tick();
+    const cards = document.querySelectorAll('.person-card');
+    expect(cards[1]?.querySelector('.expanded-actions')).toBeTruthy();
+
+    await (cards[1]?.querySelector('.dismiss') as HTMLButtonElement).click();
+    await tick();
+    expect(mockedApi.createHandshake).not.toHaveBeenCalled();
+    expect(document.querySelector('.expanded-actions')).toBeNull();
+
+    // a dismissed card is never re-opened by tapping it either
+    (rows[1] as HTMLElement).click();
     await tick();
     expect(document.querySelector('.expanded-actions')).toBeNull();
   });

@@ -7,7 +7,9 @@
    * chats), stable in-place updates. Dismiss on an incoming card is a LOCAL
    * collapse only (owner ruling 2 — nothing is sent to the server). The
    * FIRST card of the sorted list (who added you) auto-expands its
-   * handshake-back panel on mount (§4.15.4.3). Chats-badge write-through on
+   * handshake-back panel on mount (§4.15.4.3). §4.15.4.3 addendum: tapping
+   * any "added you" card toggles the form for THAT user (single-expanded —
+   * opening another card moves the form). Chats-badge write-through on
    * every chats poll (§1.2).
    */
   import { get } from 'svelte/store';
@@ -203,6 +205,21 @@
     if (expandedAddress === address) expandedAddress = null;
   }
 
+  /**
+   * §4.15.4.3 addendum: tap on an "added you" card toggles the Handshake!/
+   * Dismiss form for THAT user — the removed right icon's toggle role moved
+   * to the card tap. Single-expanded pattern: opening another added-you card
+   * MOVES the open form to it; tapping the expanded card collapses it.
+   * A dismissed card never re-opens (the `expanded={!dismissed && …}` guard
+   * plus the collapse effect keep it closed).
+   */
+  function toggleIncoming(address: string): void {
+    const relationship = relationships.get(address);
+    if (!relationship || relationship.state !== 'incoming') return;
+    if (isDismissed(dismissals, relationship)) return; // never re-open (ruling 2)
+    expandedAddress = expandedAddress === address ? null : address;
+  }
+
   function resetSearch(): void {
     query = '';
     debouncedQuery = '';
@@ -279,6 +296,7 @@
           onsend={() => handshake(user.address)}
           onback={() => handshake(user.address)}
           ondismiss={() => dismiss(user.address, relationship?.incomingAt ?? null)}
+          ontoggle={() => toggleIncoming(user.address)}
         />
       {/each}
     </ul>
