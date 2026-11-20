@@ -35,14 +35,19 @@ import {
   codeErrorOf,
   createPersona,
   initialJoinState,
+  initialWizardState,
   isValidInviteCode,
   parseJoinDeepLink,
   personaErrorOf,
   reduce,
+  reduceWizard,
   resolveRoomByCode,
   vaultErrorOf,
   verifyVaultEntry,
-  type PersonaDraft
+  wizardOrderIndex,
+  wizardPersonaDraft,
+  type PersonaDraft,
+  type WizardState
 } from '#lib/join';
 import type { VaultEntry } from '#lib/stores/tokenVault';
 
@@ -299,5 +304,168 @@ describe('services against the mocked clients (v2)', () => {
     expect(mockedApi.getRoomUser).toHaveBeenCalledWith('0xoldroom', '0xold', {
       token: 'stored-vault-token'
     });
+  });
+});
+
+describe('creation wizard step machine (Concept §22.3 item 2, DESIGN §4.16.2)', () => {
+  const walked = (
+    ...events: Parameters<typeof reduceWizard>[1][]
+  ): WizardState => events.reduce(reduceWizard, { ...initialWizardState });
+
+  /** The interview walked to the contact-value question, answers filled. */
+  const toContactValue = (): WizardState =>
+    walked(
+      { type: 'start' },
+      { type: 'name', name: 'Я' },
+      { type: 'next' },
+      { type: 'public-bio', value: 'виден' },
+      { type: 'next' },
+      { type: 'private-bio', value: 'секрет' },
+      { type: 'next' },
+      { type: 'contact-kind', kind: 'phone' as const },
+      { type: 'contact-value', value: '+7 999' }
+    );
+
+  /** …then advanced past the contact question (at interests-group). */
+  const toInterests = (): WizardState => reduceWizard(toContactValue(), { type: 'next' });
+
+  it('starts at the intro and walks the interview order name → bios → contact → interests', () => {
+    expect(initialWizardState.step).toBe('intro');
+    const atName = reduceWizard(initialWizardState, { type: 'start' });
+    expect(atName.step).toBe('name');
+    const atPublic = reduceWizard({ ...atName, name: 'Я' }, { type: 'next' });
+    expect(atPublic.step).toBe('public_bio');
+    expect(reduceWizard(atPublic, { type: 'next' }).step).toBe('private_bio');
+    const atPrivate = reduceWizard(atPublic, { type: 'next' });
+    expect(reduceWizard(atPrivate, { type: 'next' }).step).toBe('contact_type');
+  });
+
+  it('stores the name/bio answers verbatim and ignores answer events at other steps', () => {
+    const atPublic = reduceWizard(reduceWizard(initialWizardState, { type: 'start' }), {
+      type: 'name',
+      name: 'Я'
+    });
+    expect(atPublic.step).toBe('name');
+    expect(atPublic.name).toBe('Я');
+    const named = reduceWizard(atPublic, { type: 'next' });
+    const answered = reduceWizard(named, { type: 'public-bio', value: 'художник' });
+    expect(answered.publicBio).toBe('художник');
+    // The private-bio answer is only stored at the private-bio step.
+    expect(reduceWizard(answered, { type: 'private-bio', value: 'x' }).privateBio).toBe('');
+  });
+
+  it('contact: the KIND is chosen first, then the value; skip clears both (§14.1.3 — local-only, optional)', () => {
+    const atContact = walked(
+      { type: 'start' },
+      { type: 'name', name: 'Я' },
+      { type: 'next' },
+      { type: 'next' },
+      { type: 'next' }
+    );
+    expect(atContact.step).toBe('contact_type');
+    const atValue = reduceWizard(atContact, { type: 'contact-kind', kind: 'messenger' });
+    expect(atValue.step).toBe('contact_value');
+    expect(atValue.contactKind).toBe('messenger');
+    expect(atValue.contactValue).toBe('');
+    const valued = reduceWizard(atValue, { type: 'contact-value', value: '@me' });
+    expect(valued.contactValue).toBe('@me');
+    const atInterests = reduceWizard(valued, { type: 'next' });
+    expect(atInterests.step).toBe('interests_group');
+    // Skip (from the type question) jumps past the whole contact question.
+    const skipped = walked(
+      { type: 'start' },
+      { type: 'next' },
+      { type: 'next' },
+      { type: 'next' },
+      { type: 'skip' }
+    );
+    expect(skipped.step).toBe('interests_group');
+    expect(skipped.contactKind).toBeNull();
+    expect(skipped.contactValue).toBe('');
+  });
+
+  it('interests: group first, then that group\'s items; toggle is a multi-select set capped at MAX_INTERESTS', () => {
+    const atGroup = toInterests();
+    const atPick = reduceWizard(atGroup, { type: 'interest-group', group: 2 });
+    expect(atPick.step).toBe('interests_pick');
+    expect(atPick.interestGroup).toBe(2);
+    const one = reduceWizard(atPick, { type: 'toggle-interest', key: 12 });
+    expect(one.interestKeys).toEqual([12]);
+    const two = reduceWizard(one, { type: 'toggle-interest', key: 13 });
+    expect(two.interestKeys).toEqual([12, 13]);
+    // Re-toggle removes.
+    expect(reduceWizard(two, { type: 'toggle-interest', key: 12 }).interestKeys).toEqual([13]);
+    // Toggle events at other steps are ignored.
+    expect(reduceWizard(atGroup, { type: 'toggle-interest', key: 999 })).toBe(atGroup);
+  });
+
+  it('finish/skip at the interests steps lands on the creating step', () => {
+    const atGroup = toInterests();
+    const atPick = reduceWizard(reduceWizard(atGroup, { type: 'interest-group', group: 2 }), {
+      type: 'toggle-interest',
+      key: 12
+    });
+    expect(reduceWizard(atPick, { type: 'finish' }).step).toBe('creating');
+    expect(reduceWizard(atPick, { type: 'next' }).step).toBe('creating');
+    // Skip at the group question (nothing selected) also goes to creating.
+    expect(reduceWizard(atGroup, { type: 'skip' }).step).toBe('creating');
+  });
+
+  it('back navigation walks the interview backwards; a skipped contact reopens the type question', () => {
+    expect(reduceWizard({ ...initialWizardState }, { type: 'back' }).step).toBe('intro');
+    const atContactValue = toContactValue();
+    expect(reduceWizard(atContactValue, { type: 'back' }).step).toBe('contact_type');
+    const atGroup = reduceWizard(atContactValue, { type: 'next' });
+    expect(reduceWizard(atGroup, { type: 'back' }).step).toBe('contact_value');
+    // A skipped contact: back from interests_group reopens the type pick.
+    const skipped = walked(
+      { type: 'start' },
+      { type: 'next' },
+      { type: 'next' },
+      { type: 'next' },
+      { type: 'skip' }
+    );
+    expect(reduceWizard(skipped, { type: 'back' }).step).toBe('contact_type');
+  });
+
+  it('wizardOrderIndex sorts creating past the whole interview', () => {
+    expect(wizardOrderIndex('intro')).toBe(0);
+    expect(wizardOrderIndex('interests_pick')).toBe(7);
+    expect(wizardOrderIndex('creating')).toBe(8);
+  });
+
+  it('wizardPersonaDraft composes the draft: interests ride as catalog keys, contact is the caller text', () => {
+    const state = reduceWizard(toInterests(), { type: 'interest-group', group: 2 });
+    const picked = reduceWizard(state, { type: 'toggle-interest', key: 12 });
+    const draft = wizardPersonaDraft(picked, 'Телефон: +7 999');
+    expect(draft).toEqual({
+      name: 'Я',
+      publicBio: 'виден',
+      privateBio: 'секрет',
+      contact: 'Телефон: +7 999',
+      interests: [12]
+    });
+    const empty = wizardPersonaDraft({ ...initialWizardState });
+    expect(empty.contact).toBeUndefined();
+    expect(empty.interests).toBeUndefined();
+  });
+
+  it('the composed draft keeps the createPersona body UNCHANGED (no contact, no interests on the wire)', async () => {
+    mockedApi.createRoomUser.mockResolvedValue(user('0xme', 'Я'));
+    const draft = wizardPersonaDraft(toContactValue(), 'Телефон: +7 999');
+    await createPersona(room.address, '123456', draft);
+    const body = mockedApi.createRoomUser.mock.calls[0]?.[1] as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(body).toEqual({
+      name: 'Я',
+      public_bio: 'виден',
+      private_bio: 'секрет',
+      invite_code: '123456',
+      token: 'generated-raw-token'
+    });
+    expect('contact' in body).toBe(false);
+    expect('interests' in body).toBe(false);
   });
 });

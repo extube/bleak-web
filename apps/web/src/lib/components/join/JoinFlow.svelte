@@ -20,13 +20,28 @@
    * same post-join `/room` path a normal join takes. No re-creation, no
    * persona POST. A dead/stale entry (404/401/403) shows the dead-note on
    * the row and does not enter (a 401 also trips the global §2.8 gate).
+   *
+   * v3.9 (Concept §22.3 item 2, DESIGN §4.16.2): the single-form persona
+   * step is replaced by the chat-style CreationWizard; the interview's
+   * selected interests are flushed through ONE bulk addUserInterests call
+   * AFTER the persona 2xx (identity saved first — the auto-injected
+   * persona credential carries the Bearer; §13.1.1). A flush failure does
+   * not undo the creation: the flow still enters the room, no mirror row
+   * is written, and interests stay editable later in /profile.
    */
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
+  import { get } from 'svelte/store';
   import { locale, translate } from '#lib/i18n/locale';
   import { saveIdentity } from '#lib/stores/identity';
   import { saveContactCard } from '#lib/stores/contactCard';
+  import { saveInterests } from '#lib/stores/interests';
+  import { interestTitle } from '#lib/interests/catalog';
+  import { api } from '#lib/api/client';
   import { appendVaultEntry, listVaultEntries, type VaultEntry } from '#lib/stores/tokenVault';
+  import {
+    INTEREST_CATALOG
+  } from '#lib/interests/catalog';
   import {
     codeErrorOf,
     createPersona,
@@ -45,7 +60,7 @@
   import QrScanner from '#lib/components/QrScanner.svelte';
   import CodeEntry from './CodeEntry.svelte';
   import RoomPreview from './RoomPreview.svelte';
-  import PersonaForm from './PersonaForm.svelte';
+  import CreationWizard from './CreationWizard.svelte';
   import VaultList from './VaultList.svelte';
 
   interface Props {
@@ -205,7 +220,8 @@
     creating = true;
     try {
       // generateTokenSecret() → POST createRoomUser (invite_code + raw
-      // token in the body, NO auth header).
+      // token in the body, NO auth header; the wizard draft adds NOTHING
+      // to the wire — same request shape as before the wizard).
       const { user, token } = await createPersona(room.address, flow.code, draft);
       // Identity + vault entry written ONLY after the 2xx (§10.6).
       saveIdentity({ roomAddress: room.address, userAddress: user.address, token });
@@ -221,6 +237,28 @@
         name: user.name,
         savedAt: new Date().toISOString()
       });
+      // §13.1.1: the interview's interests are flushed AFTER the 2xx —
+      // one bulk addUserInterests (the just-saved identity carries the
+      // auto-injected Bearer); the 201 FULL list mirrors into the local
+      // store. A flush failure does not undo the creation: the flow still
+      // enters the room, no mirror row is written, and interests stay
+      // editable later in /profile.
+      const keys = draft.interests ?? [];
+      if (keys.length > 0) {
+        const loc = get(locale);
+        const rows = keys.flatMap((key) => {
+          const entry = INTEREST_CATALOG.find((e) => e.key === key);
+          return entry ? [{ title: interestTitle(entry, loc), group: entry.group, key: entry.key }] : [];
+        });
+        if (rows.length > 0) {
+          try {
+            const list = await api.addUserInterests(room.address, user.address, rows);
+            saveInterests(room.address, user.address, list);
+          } catch {
+            /* interests are optional — the creation stands */
+          }
+        }
+      }
       void goto(resolve('/room'));
     } catch (err) {
       const mapped = personaErrorOf(err);
@@ -294,7 +332,7 @@
           onchange={backToStep1}
         />
       {:else if flow.step === 'persona'}
-        <PersonaForm
+        <CreationWizard
           error={personaError}
           pending={creating}
           onsubmit={(draft) => void submitPersona(draft)}

@@ -37,7 +37,8 @@ vi.mock('#lib/api/client', () => ({
     getRoom: vi.fn(),
     listRoomUsers: vi.fn(),
     getRoomUser: vi.fn(),
-    createRoomUser: vi.fn()
+    createRoomUser: vi.fn(),
+    addUserInterests: vi.fn()
   }
 }));
 
@@ -176,8 +177,17 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
 
 });
 
-describe('JoinFlow — persona creation (v2, token in the body)', () => {
-  async function openForm(): Promise<void> {
+describe('JoinFlow — persona creation via the creation wizard (v3.9, token in the body)', () => {
+  /**
+   * v3.9 (Concept §22.3 item 2, DESIGN §4.16.2): the single form is the
+   * chat-style CreationWizard now — the drive helper walks it: intro →
+   * name → (public/private bios) → contact (skippable) → interests
+   * (skippable) → creating (the loading step while JoinFlow POSTs the
+   * persona with the UNCHANGED v2 body).
+   */
+  const next = (): HTMLElement => screen.getByRole('button', { name: ru['join.wizard.next'] });
+
+  async function openWizard(): Promise<void> {
     mockedResolve.mockResolvedValue({ roomAddress: room.address });
     mockedApi.getRoom.mockResolvedValue(room);
     mockedApi.listRoomUsers.mockResolvedValue([]);
@@ -186,12 +196,33 @@ describe('JoinFlow — persona creation (v2, token in the body)', () => {
     await submitViaCta();
     await screen.findByText(room.name);
     await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
-    await screen.findByText(ru['join.form.name']);
+    await screen.findByText(ru['join.wizard.intro.title']);
+    await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
+    await screen.findByText(ru['join.wizard.name.question']);
+  }
+
+  async function answerName(value: string): Promise<void> {
+    const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
+    fireEvent.input(nameInput, { target: { value } });
+    await next().click();
+    await screen.findByText(ru['join.wizard.public.question']);
+  }
+
+  /** Walk bios empty + skip contact + skip interests → the creating step. */
+  async function skipToInterviewEnd(): Promise<void> {
+    await next().click(); // public bio (empty allowed)
+    await screen.findByText(ru['join.wizard.private.question']);
+    await next().click(); // private bio (empty allowed)
+    await screen.findByText(ru['join.wizard.contact.question']);
+    await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
+    await screen.findByText(ru['join.wizard.interests.question']);
+    await screen.getByRole('button', { name: ru['join.wizard.interests.skip'] }).click();
+    await screen.findByText(ru['join.wizard.creating']);
   }
 
   it('blocks the empty-name submit client-side with the field error (AC 7)', async () => {
-    await openForm();
-    await submitViaCta();
+    await openWizard();
+    await next().click();
     await tick();
     expect(screen.getByText(ru['join.error.name_required'])).toBeTruthy();
     expect(mockedApi.createRoomUser).not.toHaveBeenCalled();
@@ -199,11 +230,9 @@ describe('JoinFlow — persona creation (v2, token in the body)', () => {
 
   it('success sends the exact v2 body (name, bios, invite_code, generated token; no auth header), saves identity + vault, navigates (AC 8)', async () => {
     mockedApi.createRoomUser.mockResolvedValue(user('0xme', 'Я'));
-    await openForm();
-
-    const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
-    fireEvent.input(nameInput, { target: { value: 'Я' } });
-    await submitViaCta();
+    await openWizard();
+    await answerName('Я');
+    await skipToInterviewEnd();
 
     await waitFor(() => expect(mockedApi.createRoomUser).toHaveBeenCalled());
     // invite_code = the entered code; token = the client-generated secret.
@@ -231,60 +260,69 @@ describe('JoinFlow — persona creation (v2, token in the body)', () => {
     expect(goto).toHaveBeenCalledWith('/room');
   });
 
-  it('creation rejected over the invite code shows the §2.9 copy inline, writes no identity/vault (AC 9)', async () => {
+  it('creation rejected over the invite code shows the §2.9 copy inline at the loading step, writes no identity/vault (AC 9)', async () => {
     mockedApi.createRoomUser.mockRejectedValue(
       new ApiError(401, '/api/room/r/user', 'invite code invalid or expired')
     );
-    await openForm();
-    const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
-    fireEvent.input(nameInput, { target: { value: 'Я' } });
-    await submitViaCta();
+    await openWizard();
+    await answerName('Я');
+    await skipToInterviewEnd();
     await screen.findByText(ru['join.error.invite']);
-    // No identity, no vault entry, form state kept.
+    // No identity, no vault entry; the draft state survives for a retry.
     expect(localStorage.getItem('bleak.identity')).toBeNull();
     expect(localStorage.getItem('bleak.tokenVault')).toBeNull();
-    expect((screen.getByLabelText(ru['join.form.name']) as HTMLInputElement).value).toBe('Я');
+    expect(screen.getByRole('button', { name: ru['common.retry'] })).toBeTruthy();
   });
 
-  it('server 409 surfaces the name-taken copy and keeps the form state (AC 10)', async () => {
+  it('server 409 surfaces the name-taken copy with the retry affordance (AC 10)', async () => {
     mockedApi.createRoomUser.mockRejectedValue(
       new ApiError(409, '/api/room/r/user', 'name taken')
     );
-    await openForm();
-    const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
-    fireEvent.input(nameInput, { target: { value: 'Дубль' } });
-    await submitViaCta();
+    await openWizard();
+    await answerName('Дубль');
+    await skipToInterviewEnd();
     await screen.findByText(ru['join.error.name_taken']);
-    expect((screen.getByLabelText(ru['join.form.name']) as HTMLInputElement).value).toBe('Дубль');
+    // The retry re-submits the SAME draft (the name value is preserved).
+    mockedApi.createRoomUser.mockResolvedValue(user('0xme', 'Дубль'));
+    await screen.getByRole('button', { name: ru['common.retry'] }).click();
+    await waitFor(() => expect(mockedApi.createRoomUser).toHaveBeenCalledTimes(2));
+    expect(mockedApi.createRoomUser.mock.calls[1]?.[1]).toMatchObject({ name: 'Дубль' });
   });
 
-  // §4.14.3 (Concept §14.1.3): the contact field — client-LOCAL data,
+  // §4.14.3 (Concept §14.1.3): the contact question — client-LOCAL data,
   // persisted to bleak.contactCard AFTER the persona 2xx, never sent.
-  it('renders the contact field empty with the hint and the 255 cap counter (§4.14.3)', async () => {
-    await openForm();
-    const contactInput = screen.getByLabelText(ru['join.form.contact']) as HTMLInputElement;
-    expect(contactInput).toBeTruthy();
-    expect(contactInput.value).toBe('');
-    expect(contactInput.getAttribute('maxlength')).toBe('255');
+  it('the contact value input carries the §14.1.3 hint and nothing contact-bearing is stored before the 2xx (§4.14.3)', async () => {
+    await openWizard();
+    await answerName('Я');
+    await next().click(); // public
+    await screen.findByText(ru['join.wizard.private.question']);
+    await next().click(); // private
+    await screen.findByText(ru['join.wizard.contact.question']);
+    // Choose the TYPE first (phone), then enter the value.
+    await screen.getByRole('radio', { name: ru['join.wizard.contact.phone'] }).click();
+    const valueInput = screen.getByLabelText(ru['join.wizard.contact.phone']) as HTMLInputElement;
+    expect(valueInput.value).toBe('');
     expect(screen.getByText(ru['join.form.contact_hint'])).toBeTruthy();
-    expect(screen.getByText(ru['profile.greeting.counter'].replace('{n}', '0'))).toBeTruthy();
     // Nothing contact-bearing typed yet → the store is untouched.
     expect(localStorage.getItem('bleak.contactCard')).toBeNull();
   });
 
-  it('success persists the trimmed contact ONLY to bleak.contactCard — the API body carries no contact (§4.14.3)', async () => {
+  it('success persists the composed contact ONLY to bleak.contactCard — the API body carries no contact (§4.14.3)', async () => {
     mockedApi.createRoomUser.mockResolvedValue(user('0xme', 'Я'));
-    await openForm();
+    await openWizard();
+    await answerName('Я');
+    await next().click(); // public
+    await screen.findByText(ru['join.wizard.private.question']);
+    await next().click(); // private
+    await screen.findByText(ru['join.wizard.contact.question']);
+    await screen.getByRole('radio', { name: ru['join.wizard.contact.phone'] }).click();
+    const valueInput = screen.getByLabelText(ru['join.wizard.contact.phone']) as HTMLInputElement;
+    fireEvent.input(valueInput, { target: { value: '  +7 999 123-45-67  ' } });
+    await next().click();
+    await screen.findByText(ru['join.wizard.interests.question']);
+    await screen.getByRole('button', { name: ru['join.wizard.interests.skip'] }).click();
+    await screen.findByText(ru['join.wizard.creating']);
 
-    const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
-    fireEvent.input(nameInput, { target: { value: 'Я' } });
-    const contactInput = screen.getByLabelText(ru['join.form.contact']) as HTMLInputElement;
-    fireEvent.input(contactInput, { target: { value: '  telegram: @me  ' } });
-    await tick();
-    // The counter tracks the raw input length.
-    expect(screen.getByText(ru['profile.greeting.counter'].replace('{n}', '17'))).toBeTruthy();
-
-    await submitViaCta();
     await waitFor(() => expect(mockedApi.createRoomUser).toHaveBeenCalled());
     // NOTHING contact-bearing over the wire: the exact v2 body stays
     // name + bios + invite_code + token.
@@ -293,7 +331,7 @@ describe('JoinFlow — persona creation (v2, token in the body)', () => {
       unknown
     >;
     expect(body).not.toHaveProperty('contact');
-    expect(JSON.stringify(body)).not.toContain('telegram');
+    expect(JSON.stringify(body)).not.toContain('+7 999');
 
     // Flush the continuation (identity + contactCard + vault + goto).
     await tick();
@@ -302,23 +340,100 @@ describe('JoinFlow — persona creation (v2, token in the body)', () => {
       string,
       string
     >;
-    expect(card[`${room.address}|0xme`]).toBe('telegram: @me');
+    // Composed as "<kind label>: <value>" — trimmed, the kind first.
+    expect(card[`${room.address}|0xme`]).toBe('Телефон: +7 999 123-45-67');
   });
 
   it('failed creation (§2.9 invite rejection) persists NO contact card (§4.14.3)', async () => {
     mockedApi.createRoomUser.mockRejectedValue(
       new ApiError(401, '/api/room/r/user', 'invite code invalid or expired')
     );
-    await openForm();
-    const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
-    fireEvent.input(nameInput, { target: { value: 'Я' } });
-    const contactInput = screen.getByLabelText(ru['join.form.contact']) as HTMLInputElement;
-    fireEvent.input(contactInput, { target: { value: 'telegram: @me' } });
-    await submitViaCta();
+    await openWizard();
+    await answerName('Я');
+    await next().click(); // public
+    await screen.findByText(ru['join.wizard.private.question']);
+    await next().click(); // private
+    await screen.findByText(ru['join.wizard.contact.question']);
+    await screen.getByRole('radio', { name: ru['join.wizard.contact.phone'] }).click();
+    const valueInput = screen.getByLabelText(ru['join.wizard.contact.phone']) as HTMLInputElement;
+    fireEvent.input(valueInput, { target: { value: '+7 999' } });
+    await next().click();
+    await screen.findByText(ru['join.wizard.interests.question']);
+    await screen.getByRole('button', { name: ru['join.wizard.interests.skip'] }).click();
     await screen.findByText(ru['join.error.invite']);
     expect(localStorage.getItem('bleak.contactCard')).toBeNull();
-    // The draft value rides the form state for a retry.
-    expect(contactInput.value).toBe('telegram: @me');
+  });
+
+  // §13.1.1: the interview's interests are flushed AFTER the persona 2xx —
+  // one bulk addUserInterests (the saved identity carries the Bearer), the
+  // 201 FULL list mirrors into the local store.
+  it('success flushes the selected interests through ONE post-2xx addUserInterests and mirrors the 201 list (§13.1.1)', async () => {
+    mockedApi.createRoomUser.mockResolvedValue(user('0xme', 'Я'));
+    const full: unknown = [
+      { title: 'Бег', group: 2, key: 12, user_address: '0xme' },
+      { title: 'Велосипед', group: 2, key: 13, user_address: '0xme' }
+    ];
+    mockedApi.addUserInterests.mockResolvedValue(full as never);
+    await openWizard();
+    await answerName('Я');
+    await next().click(); // public
+    await screen.findByText(ru['join.wizard.private.question']);
+    await next().click(); // private
+    await screen.findByText(ru['join.wizard.contact.question']);
+    await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
+    await screen.findByText(ru['join.wizard.interests.question']);
+    await screen.getByRole('radio', { name: ru['interests.group.2'] }).click();
+    await screen.findByText(
+      ru['join.wizard.interests.pick_question'].replace('{group}', ru['interests.group.2'])
+    );
+    await screen.getByRole('button', { name: ru['interests.k12'] }).click();
+    await screen.getByRole('button', { name: ru['interests.k13'] }).click();
+    await screen.getByRole('button', { name: ru['join.wizard.interests.done'] }).click();
+    await screen.findByText(ru['join.wizard.creating']);
+
+    await waitFor(() => expect(mockedApi.addUserInterests).toHaveBeenCalled());
+    // The rows are the tz5-02 catalog entries with the current-locale titles.
+    expect(mockedApi.addUserInterests).toHaveBeenCalledWith(room.address, '0xme', [
+      { title: 'Бег', group: 2, key: 12 },
+      { title: 'Велосипед', group: 2, key: 13 }
+    ]);
+    await tick();
+    await tick();
+    // The 201 FULL list is mirrored per room|user.
+    const mirror = JSON.parse(localStorage.getItem('bleak.interests') ?? '{}');
+    expect(mirror[`${room.address}|0xme`]).toEqual(full);
+    expect(goto).toHaveBeenCalledWith('/room');
+    // The createPersona body stays unchanged (interests ride separately).
+    expect(mockedApi.createRoomUser.mock.calls[0]?.[1]).not.toHaveProperty('interests');
+  });
+
+  it('a failed interests flush does NOT undo the creation — the flow still enters the room (§13.1.1)', async () => {
+    mockedApi.createRoomUser.mockResolvedValue(user('0xme', 'Я'));
+    mockedApi.addUserInterests.mockRejectedValue(new ApiError(500, '/api/interest', 'boom'));
+    await openWizard();
+    await answerName('Я');
+    await next().click();
+    await screen.findByText(ru['join.wizard.private.question']);
+    await next().click();
+    await screen.findByText(ru['join.wizard.contact.question']);
+    await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
+    await screen.findByText(ru['join.wizard.interests.question']);
+    await screen.getByRole('radio', { name: ru['interests.group.2'] }).click();
+    await screen.findByText(
+      ru['join.wizard.interests.pick_question'].replace('{group}', ru['interests.group.2'])
+    );
+    await screen.getByRole('button', { name: ru['interests.k12'] }).click();
+    await screen.getByRole('button', { name: ru['join.wizard.interests.done'] }).click();
+    await screen.findByText(ru['join.wizard.creating']);
+    await waitFor(() => expect(mockedApi.addUserInterests).toHaveBeenCalled());
+    await tick();
+    await tick();
+    // The persona IS created and the flow navigates; no mirror row written.
+    expect(JSON.parse(localStorage.getItem('bleak.identity') ?? 'null')).toMatchObject({
+      userAddress: '0xme'
+    });
+    expect(localStorage.getItem('bleak.interests')).toBeNull();
+    expect(goto).toHaveBeenCalledWith('/room');
   });
 });
 

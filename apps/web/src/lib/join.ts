@@ -24,6 +24,7 @@ import { ApiError, NetworkError } from '@bleak/api-client';
 import { api } from '#lib/api/client';
 import { InviteResolveError, resolveInviteCode } from '#lib/api/invite-resolve';
 import { generateTokenSecret } from '#lib/crypto/secrets';
+import { MAX_INTERESTS } from '#lib/stores/interests';
 import type { VaultEntry } from '#lib/stores/tokenVault';
 
 const CODE_PATTERN = /^\d{6}$/;
@@ -63,7 +64,7 @@ const defaultClients: JoinClients = {
 };
 
 /**
- * A persona form value (Step 3a fields). `contact` (DESIGN §4.14.3,
+ * A persona draft value (Step 3a fields). `contact` (DESIGN §4.14.3,
  * Concept §14.1.3) is CLIENT-LOCAL data: the backend user model has no
  * contact field, so createPersona never sends it — the caller persists it
  * to the contactCard store after the 2xx.
@@ -72,10 +73,185 @@ export interface PersonaDraft {
   name: string;
   publicBio: string;
   privateBio: string;
-  /** Optional: only the creation form (PersonaForm) collects it — the
-   * edit flow (PersonaEditor + ContactCardEditor) does not duplicate the
-   * editor, so an edit-save never carries contact data. */
+  /** Optional: only the creation wizard (CreationWizard, DESIGN §4.16.2)
+   * collects it — the edit flow (PersonaEditor + ContactCardEditor) does
+   * not duplicate the editor, so an edit-save never carries contact data. */
   contact?: string;
+  /** Optional: the interview's selected catalog KEYS (§13.1.1). They are
+   * NOT part of the createPersona body (the API shape is unchanged) — the
+   * caller flushes them through addUserInterests AFTER the persona 2xx. */
+  interests?: number[];
+}
+
+// ---------------------------------------------------------------------------
+// Creation wizard step machine (Concept §22.3 item 2, DESIGN §4.16.2):
+// the single-form persona creation is replaced by a multi-step chat-style
+// wizard entered after the invite code resolves. Pure + unit-tested.
+// ---------------------------------------------------------------------------
+
+/** The contact kind chosen first in the interview (phone / email /
+ * messenger nickname); the value is asked second. */
+export type ContactKind = 'phone' | 'email' | 'messenger';
+
+/** The interview order: name → public bio → private bio → contact
+ * (type → value) → interests (group → items). `creating` is the loading
+ * step while the persona POST runs. */
+export const WIZARD_STEPS = [
+  'intro',
+  'name',
+  'public_bio',
+  'private_bio',
+  'contact_type',
+  'contact_value',
+  'interests_group',
+  'interests_pick'
+] as const;
+
+export type WizardStep = (typeof WIZARD_STEPS)[number] | 'creating';
+
+export interface WizardState {
+  step: WizardStep;
+  name: string;
+  publicBio: string;
+  privateBio: string;
+  contactKind: ContactKind | null;
+  contactValue: string;
+  /** The chosen interests catalog group (first the group, then its items). */
+  interestGroup: number | null;
+  /** Multi-selected catalog keys (deduped, ≤ MAX_INTERESTS). */
+  interestKeys: number[];
+}
+
+export const initialWizardState: WizardState = {
+  step: 'intro',
+  name: '',
+  publicBio: '',
+  privateBio: '',
+  contactKind: null,
+  contactValue: '',
+  interestGroup: null,
+  interestKeys: []
+};
+
+export type WizardEvent =
+  | { type: 'start' }
+  | { type: 'name'; name: string }
+  | { type: 'public-bio'; value: string }
+  | { type: 'private-bio'; value: string }
+  | { type: 'next' }
+  | { type: 'back' }
+  | { type: 'skip' }
+  | { type: 'contact-kind'; kind: ContactKind }
+  | { type: 'contact-value'; value: string }
+  | { type: 'interest-group'; group: number }
+  | { type: 'toggle-interest'; key: number }
+  | { type: 'finish' };
+
+function wizardIndex(step: WizardStep): number {
+  const idx = WIZARD_STEPS.indexOf(step as (typeof WIZARD_STEPS)[number]);
+  return idx < 0 ? -1 : idx;
+}
+
+/** Back navigation along the interview order; a skipped contact (empty
+ * value) reopens the type question instead of an orphaned value field. */
+function previousWizardStep(state: WizardState): WizardStep {
+  // Leaving the loading step re-opens the last interview question.
+  if (state.step === 'creating') return 'interests_pick';
+  const idx = wizardIndex(state.step);
+  if (idx <= 0) return 'intro';
+  if (state.step === 'interests_group' && state.contactValue.trim() === '') {
+    return 'contact_type';
+  }
+  return WIZARD_STEPS[idx - 1] ?? 'intro';
+}
+
+/** Compose the persona draft from the wizard state; the caller passes the
+ * composed contact TEXT (`"<kind label>: <value>"`, localized) — join.ts
+ * stays locale-free and the text is stored client-locally only. */
+export function wizardPersonaDraft(state: WizardState, contact?: string): PersonaDraft {
+  return {
+    name: state.name,
+    publicBio: state.publicBio,
+    privateBio: state.privateBio,
+    contact,
+    interests: state.interestKeys.length > 0 ? [...state.interestKeys] : undefined
+  };
+}
+
+/** The linear interview index of a wizard step — `creating` (and anything
+ * outside the interview array) sorts past the whole interview. The
+ * CreationWizard transcript derivation and tests share it. */
+export function wizardOrderIndex(step: WizardStep): number {
+  const idx = WIZARD_STEPS.indexOf(step as (typeof WIZARD_STEPS)[number]);
+  return idx < 0 ? WIZARD_STEPS.length : idx;
+}
+
+export function reduceWizard(state: WizardState, event: WizardEvent): WizardState {
+  switch (event.type) {
+    case 'start':
+      if (state.step !== 'intro') return state;
+      return { ...state, step: 'name' };
+    case 'name':
+      if (state.step !== 'name') return state;
+      return { ...state, name: event.name };
+    case 'public-bio':
+      if (state.step !== 'public_bio') return state;
+      return { ...state, publicBio: event.value };
+    case 'private-bio':
+      if (state.step !== 'private_bio') return state;
+      return { ...state, privateBio: event.value };
+    case 'next':
+      switch (state.step) {
+        case 'name':
+        case 'public_bio':
+        case 'private_bio':
+          return {
+            ...state,
+            step: WIZARD_STEPS[wizardIndex(state.step) + 1] ?? state.step
+          };
+        case 'contact_type':
+          // No kind chosen: "next" on the type question is the skip path.
+          return { ...state, step: 'interests_group' };
+        case 'contact_value':
+          return { ...state, step: 'interests_group' };
+        case 'interests_pick':
+          return { ...state, step: 'creating' };
+        default:
+          return state;
+      }
+    case 'skip':
+      // Contact is optional (§14.1.3 — nothing sent at creation) and the
+      // interests pick can be left empty too (0 rows → no API flush).
+      if (state.step === 'contact_type' || state.step === 'contact_value') {
+        return { ...state, step: 'interests_group', contactKind: null, contactValue: '' };
+      }
+      if (state.step === 'interests_group' || state.step === 'interests_pick') {
+        return { ...state, step: 'creating' };
+      }
+      return state;
+    case 'contact-kind':
+      if (state.step !== 'contact_type') return state;
+      return { ...state, step: 'contact_value', contactKind: event.kind, contactValue: '' };
+    case 'contact-value':
+      if (state.step !== 'contact_value') return state;
+      return { ...state, contactValue: event.value };
+    case 'interest-group':
+      if (state.step !== 'interests_group') return state;
+      return { ...state, step: 'interests_pick', interestGroup: event.group };
+    case 'toggle-interest': {
+      if (state.step !== 'interests_pick') return state;
+      const keys = state.interestKeys.includes(event.key)
+        ? state.interestKeys.filter((key) => key !== event.key)
+        : state.interestKeys.length >= MAX_INTERESTS
+          ? state.interestKeys
+          : [...state.interestKeys, event.key];
+      return { ...state, interestKeys: keys };
+    }
+    case 'finish':
+      return { ...state, step: 'creating' };
+    case 'back':
+      return { ...state, step: previousWizardStep(state) };
+  }
 }
 
 /**
