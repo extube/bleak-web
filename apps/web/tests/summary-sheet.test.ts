@@ -7,8 +7,13 @@
  * 24px top corners, plus the CENTERPIECE contracts — dual square avatar
  * frames, the clockwise score ring + arcade tally count-up, the 80/50 tier
  * system with the per-tier avatar animations (the dotted-line bridges
- * removed — §4.15.2.1/§4.15.3.1), the checklist pop
+ * removed — §4.15.2.1/§4.15.3.1; converging by-spec across ALL tiers per
+ * the owner reversal 2026-11-20 — Concept §19.1), the checklist pop
  * choreography, and the sheet-variant slide embed + completion sequence.
+ * V3.7 owner amendments (bug round 93): the name captions under the
+ * frames are REMOVED (§4.15.6.1), the GREAT tier's "Great match" title
+ * carries the common ink (§4.15.6.2), and the X close reads the per-hue
+ * ink over a subtle ink chip (§4.15.6.3).
  * The hosting-page trigger behaviors live in transcript-page tests; the
  * sharing/gesture logic is covered by the ShareContactSlide control's own
  * suite (tests/kit.test.ts). */
@@ -213,14 +218,15 @@ describe('SummarySheet rendering', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('the dialog shows both names, the i18n headings and the ring score', () => {
+  it('the dialog shows the i18n headings and the ring score — no name captions (§4.15.6.1: avatars alone)', () => {
     stubReducedMotion(); // deterministic tally: jumps to the final value
     renderSheet();
     const dialog = screen.getByRole('dialog');
     expect(dialog.getAttribute('aria-label')).toBe(ru['chat.summary.title']);
-    // the pair: "me" caption + the interlocutor's name under their frames
-    expect(screen.getByText(ru['chat.summary.me'])).toBeTruthy();
-    expect(screen.getByText('Алиса')).toBeTruthy();
+    // the name captions under the frames are REMOVED (v3.7 owner
+    // amendment) — the interlocutor's name renders nowhere as text
+    expect(dialog.querySelector('.who')).toBeNull();
+    expect(screen.queryByText('Алиса')).toBeNull();
     expect(screen.getByText(ru['chat.summary.title'])).toBeTruthy();
     expect(screen.getByText(ru['chat.summary.checklist'])).toBeTruthy();
     expect(dialog.querySelector('.ring .score')?.textContent).toBe('66');
@@ -421,18 +427,12 @@ describe('SummarySheet rendering', () => {
     // text on the hue follows the pairing (the formerly-white ink)
     const labelBlock = SHEET_SOURCE.match(/\.sheet-label\s*\{[\s\S]*?\}/)?.[0] ?? '';
     expect(labelBlock).toContain('color: var(--sheet-ink)');
-    const whoBlock = SHEET_SOURCE.match(/\.who\s*\{[\s\S]*?\}/)?.[0] ?? '';
-    expect(whoBlock).toContain('color: var(--sheet-ink)');
     const scoreBlock = SHEET_SOURCE.match(/\.ring \.score\s*\{[\s\S]*?\}/)?.[0] ?? '';
     expect(scoreBlock).toContain('fill: var(--sheet-ink)');
     const tierBlock = SHEET_SOURCE.match(/\.tier-label\s*\{[\s\S]*?\}/)?.[0] ?? '';
     expect(tierBlock).toContain('color: var(--sheet-ink)');
     const headingBlock = SHEET_SOURCE.match(/\.checklist h3\s*\{[\s\S]*?\}/)?.[0] ?? '';
     expect(headingBlock).toContain('color: var(--sheet-ink)');
-    // the GREAT yellow stays (unchanged detail)
-    expect(SHEET_SOURCE.match(/\.tier-label\.great\s*\{[\s\S]*?\}/)?.[0]).toContain(
-      'color: var(--sheet-yellow)'
-    );
     // the white STRUCTURAL elements stay (framing/ring — not text ink)
     const frameBlock = SHEET_SOURCE.match(/\.avatar-frame\s*\{[\s\S]*?\}/)?.[0] ?? '';
     expect(frameBlock).toContain('border: 2px solid var(--sheet-white)');
@@ -504,10 +504,12 @@ describe('SummarySheet rendering', () => {
     expect(dialog.querySelector('.slide')?.textContent).toContain(
       en['chat.contact_share.sheet_label']
     );
-    // no RU sheet copy leaks into the EN interface
+    // no RU sheet copy leaks into the EN interface (the removed
+    // chat.summary.me caption key would be a TS error to reference —
+    // the RU «Вы» string must not render either)
     expect(screen.queryByText(ru['chat.summary.title'])).toBeNull();
     expect(screen.queryByText(ru['chat.summary.checklist'])).toBeNull();
-    expect(screen.queryByText(ru['chat.summary.me'])).toBeNull();
+    expect(screen.queryByText('Вы')).toBeNull();
     // checkpoint labels stay server-verbatim (English data — not UI copy)
     expect(screen.getByText('Both introduced themselves')).toBeTruthy();
     // restore the default locale for the rest of the suite
@@ -622,9 +624,10 @@ describe('§4.15.C arcade-sheet core (tz7-02): scope, entrance, typography, top 
     const tierBlock = SHEET_SOURCE.match(/\.tier-label\s*\{[\s\S]*?\}/)?.[0] ?? '';
     expect(tierBlock).toContain('font-family: var(--sheet-font-pixel)');
     expect(tierBlock).toContain('font-size: 10px');
-    expect(SHEET_SOURCE.match(/\.who\s*\{[\s\S]*?\}/)?.[0]).toContain(
-      'font-family: var(--font-body)'
-    );
+    // the name captions under the frames are REMOVED (§4.15.6.1) — no
+    // .who rule set remains in the component (the comment prose may cite
+    // it — the rule anchors at a line start)
+    expect(SHEET_SOURCE).not.toMatch(/^\.who[\s,{]/m);
   });
 
   it('§4.15.C-4 top bar: the i18n pixel MEETING SUMMARY label left + the pixel X close with scale(0.88) press and a 48px target', () => {
@@ -634,18 +637,38 @@ describe('§4.15.C arcade-sheet core (tz7-02): scope, entrance, typography, top 
     expect(bar).toBeTruthy();
     // the label renders the i18n'd title uppercase in the pixel face
     expect(bar?.querySelector('.sheet-label')?.textContent).toBe(ru['chat.summary.title']);
-    // the X close: 48px (--touch-target), yellow glyph, pixel scale-down
-    // press over 90ms, yellow :focus-visible ring
+    // the X close: 48px (--touch-target), pixel scale-down press over
+    // 90ms; the glyph reads the per-hue ink (§4.15.6.3, below)
     const closeBlock = SHEET_SOURCE.match(/\.close\s*\{[\s\S]*?\}/)?.[0] ?? '';
     expect(closeBlock).toContain('width: var(--touch-target)');
     expect(closeBlock).toContain('height: var(--touch-target)');
-    expect(closeBlock).toContain('color: var(--sheet-yellow)');
     expect(SHEET_SOURCE).toMatch(/\.close:active\s*\{[\s\S]*?transform: scale\(0\.88\)/);
-    expect(SHEET_SOURCE).toMatch(
-      /\.close:focus-visible\s*\{[\s\S]*?outline: 2px solid var\(--sheet-yellow\)/
-    );
     // the press still dismisses (behavior unchanged)
     // (the close behavior itself is covered by the rendering tests above)
+  });
+
+  it('§4.15.6.3 the X close is visible on ANY hue: glyph + focus ring read the per-hue ink over a subtle ink chip (the fixed yellow glyph vanished on the yellow Deepa hue)', () => {
+    const closeBlock = SHEET_SOURCE.match(/\.close\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    // the glyph follows the same per-hue ink pairing the sheet text uses
+    expect(closeBlock).toContain('color: var(--sheet-ink)');
+    expect(closeBlock).not.toContain('var(--sheet-yellow)');
+    // the subtle scrim chip: a light ink wash behind the glyph keeps the
+    // target readable on any background (square — the pixel framing)
+    expect(closeBlock).toContain('background: color-mix(in srgb, var(--sheet-ink) 12%, transparent)');
+    expect(closeBlock).toContain('border-radius: 0');
+    // the focus ring follows the ink too (the fixed yellow ring was
+    // equally invisible on the yellow hue)
+    const focus = SHEET_SOURCE.match(/\.close:focus-visible\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(focus).toContain('outline: 2px solid var(--sheet-ink)');
+    // the visibility chain holds per hue: every deepa-<n> block pairs
+    // --sheet-ink with its §4.10 ink token (incl. the yellow hue, where
+    // the ink is the dark surface token)
+    for (let n = 1; n <= 5; n += 1) {
+      const block =
+        SHEET_SOURCE.match(new RegExp(`\\.arcade-sheet\\.deepa-${n}\\s*\\{[\\s\\S]*?\\}`))?.[0] ??
+        '';
+      expect(block).toContain(`--sheet-ink: var(--color-deepa-ink-${n})`);
+    }
   });
 
   it('§4.15.C-2 container: 24px top corners (radius-lg top-only), square elsewhere', () => {
@@ -691,18 +714,26 @@ describe('§4.15.C-5..C-8 centerpiece (tz7-03): avatars, ring, tiers, checklist,
     expect(frameBlock).toContain('image-rendering: pixelated');
   });
 
-  it('§4.15.C-5/§4.15.3.1 names sit under the frames (Inter 16px semibold, centered — matching the good-chat styling); "me" is i18n·d, "them" is the interlocutor', () => {
+  it('§4.15.6.1 names are REMOVED under the frames (v3.7 owner amendment, both tiers — avatars alone)', () => {
     stubReducedMotion();
     renderSheet();
-    const whos = [...screen.getByRole('dialog').querySelectorAll('.who')];
-    expect(whos.map((el) => el.textContent)).toEqual([ru['chat.summary.me'], 'Алиса']);
-    // §4.15.3.1: the name renders STRONGER (the chat surfaces' 16px
-    // semibold treatment) and CENTERED below its avatar
-    const whoBlock = source(/\.who\s*\{[\s\S]*?\}/);
-    expect(whoBlock).toContain('font-family: var(--font-body)');
-    expect(whoBlock).toContain('font-size: 16px');
-    expect(whoBlock).toContain('font-weight: 600');
-    expect(whoBlock).toContain('text-align: center');
+    // GOOD tier: no caption elements under either frame
+    let dialog = screen.getByRole('dialog');
+    expect(dialog.querySelectorAll('.who')).toHaveLength(0);
+    // the interlocutor keeps its accessible name ON the avatar art (role
+    // img); "me" is decorative (the caption key chat.summary.me is gone)
+    const them = dialog.querySelector('.duel .side.them .mover [role="img"]');
+    expect(them?.getAttribute('aria-label')).toBe('Алиса');
+    const me = dialog.querySelector('.duel .side.me .mover [aria-hidden="true"]');
+    expect(me).toBeTruthy();
+    cleanup();
+    // GREAT tier: equally caption-free
+    renderSheet({ summary: summaryFixture(90) });
+    dialog = screen.getByRole('dialog');
+    expect(dialog.querySelectorAll('.who')).toHaveLength(0);
+    // source contract: the .who rule set is gone from the component
+    // (comments may cite it — the rule anchors at a line start)
+    expect(SHEET_SOURCE).not.toMatch(/^\.who[\s,{]/m);
   });
 
   it('§4.15.C-5 SCORE RING: viewBox 160×160, r = RING_RADIUS, thick white butt-capped arc, clockwise fill over 900ms', () => {
@@ -753,24 +784,31 @@ describe('§4.15.C-5..C-8 centerpiece (tz7-03): avatars, ring, tiers, checklist,
     expect(document.querySelector('.stage')?.classList.contains('tier-low')).toBe(true);
   });
 
-  it('§4.15.C-6 tier labels render under the ring from the i18n table — yellow for GREAT, white otherwise', () => {
+  it('§4.15.C-6/§4.15.6.2 the tier label under the ring IS the GREAT "Great match" title — verbatim copy, the sheet\'s COMMON ink (no special color)', () => {
     stubReducedMotion();
     renderSheet({ summary: summaryFixture(90) });
-    let label = document.querySelector('.tier-label');
+    const label = document.querySelector('.tier-label');
+    // the title text renders verbatim in the GREAT tier (RU «Отличное
+    // совпадение» / EN "Great match" — the i18n table, RU/EN parity)
     expect(label?.textContent).toBe(ru['chat.summary.tier.great']);
-    expect(label?.classList.contains('great')).toBe(true);
-    const greatBlock = source(/\.tier-label\.great\s*\{[\s\S]*?\}/);
-    expect(greatBlock).toContain('color: var(--sheet-yellow)');
+    expect(ru['chat.summary.tier.great']).toBe('Отличное совпадение');
+    expect(en['chat.summary.tier.great']).toBe('Great match');
     cleanup();
     renderSheet({ summary: summaryFixture(50) });
-    label = document.querySelector('.tier-label');
-    expect(label?.textContent).toBe(ru['chat.summary.tier.good']);
-    expect(label?.classList.contains('great')).toBe(false);
+    expect(document.querySelector('.tier-label')?.textContent).toBe(
+      ru['chat.summary.tier.good']
+    );
     cleanup();
     renderSheet({ summary: summaryFixture(20) });
     expect(document.querySelector('.tier-label')?.textContent).toBe(
       ru['chat.summary.tier.low']
     );
+    // §4.15.6.2 source contract: the GREAT title takes the sheet's COMMON
+    // text color — the special .tier-label.great yellow override is
+    // REMOVED (element + rule set gone)
+    expect(SHEET_SOURCE).not.toContain('.tier-label.great');
+    const tierBlock = SHEET_SOURCE.match(/\.tier-label\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(tierBlock).toContain('color: var(--sheet-ink)');
   });
 
   it('§4.15.C-6b/§4.15.3.1 GREAT: the avatars move 18px toward center then bounce in 2-frame loops; the dotted line is REMOVED', () => {
@@ -851,40 +889,11 @@ describe('§4.15.C-5..C-8 centerpiece (tz7-03): avatars, ring, tiers, checklist,
     expect(SHEET_SOURCE).not.toContain('dots-pulse');
   });
 
-  it('§4.15.4.1 GOOD no-pull (owner microchange Concept §19.1): the avatars stay SPACED APART — no approach/translation toward center in this tier; nod/wave stays', () => {
-    // every .tier-good CSS rule is free of horizontal approach motion —
-    // the pull-to-center selectors (avatar-approach / translateX) exist
-    // ONLY under the GREAT tier
-    const goodRules = SHEET_SOURCE.match(/\.tier-good[^{@}]*\{[^{}]*\}/g) ?? [];
-    expect(goodRules.length).toBeGreaterThan(0);
-    for (const rule of goodRules) {
-      expect(rule).not.toContain('translateX');
-      expect(rule).not.toContain('avatar-approach');
-    }
-    // the approach keyframes are referenced only by .tier-great selectors
-    // (the GREAT tier keeps its pull-to-center — §4.15.C-6)
-    const approachRefs = SHEET_SOURCE.match(/animation:\s*avatar-approach[^;]*/g) ?? [];
-    expect(approachRefs).toHaveLength(2);
-    for (const ref of approachRefs) {
-      const idx = SHEET_SOURCE.indexOf(ref);
-      const lineStart = SHEET_SOURCE.lastIndexOf('\n', idx);
-      const ruleStart = SHEET_SOURCE.lastIndexOf('}', lineStart);
-      const selector = SHEET_SOURCE.slice(ruleStart + 1, lineStart);
-      expect(selector).toContain('.tier-great');
-    }
-    // the GOOD nod/wave keyframes stay vertical/rotational only — no pull
-    // component (the nod dips translateY, the wave rotates in place)
-    const nodKf = source(/@keyframes avatar-nod\s*\{[\s\S]*?\n {2}\}/);
-    expect(nodKf).not.toContain('translateX');
-    const waveKf = source(/@keyframes avatar-wave\s*\{[\s\S]*?\n {2}\}/);
-    expect(waveKf).not.toContain('translateX');
-    // the GOOD tier still animates: the nod (me) and the wave (them) stay
-    stubReducedMotion();
-    renderSheet({ summary: summaryFixture(66) });
-    const dialog = screen.getByRole('dialog');
-    const frames = dialog.querySelectorAll('.duel > .side > .mover > .avatar-frame');
-    expect(frames).toHaveLength(2); // both frames present, spaced apart
-  });
+  /* §4.15.4.1 GOOD no-pull test REMOVED — the owner CANCELLED the no-pull
+   * restriction (2026-11-20, Concept §19.1): converging is by-spec across
+   * ALL tiers, no behavioral contract pins the GOOD tier's transform
+   * surface anymore (the GOOD nod/wave contract lives in the §4.15.C-6b
+   * test above; the GREAT pull contract in the GREAT test above). */
 
   it('§4.15.C-6b LOW: the avatars stay spaced — a sweat drop plays twice then idles on the 4s cycle; a neutral idle blink runs', () => {
     stubReducedMotion();

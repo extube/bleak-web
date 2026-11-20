@@ -386,7 +386,10 @@ describe('summary sheet (CONCEPT §13.1.5, DESIGN §4.13.5 — hard-match on fin
     await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
 
     const dialog = document.querySelector('[role="dialog"]');
-    expect(dialog?.textContent).toContain('Алиса'); // the interlocutor's name
+    // the name captions under the frames are REMOVED (§4.15.6.1) — the
+    // interlocutor's accessible name stays on the avatar art
+    const themAvatar = dialog?.querySelector('.duel .side.them .mover [role="img"]');
+    expect(themAvatar?.getAttribute('aria-label')).toBe('Алиса');
     // ring (§4.15.C-5): the arc's dashoffset target is c × (1 − score/100)
     const arc = dialog?.querySelector('.ring .arc');
     expect(arc).toBeTruthy();

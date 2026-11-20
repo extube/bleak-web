@@ -11,6 +11,15 @@
    * routes/+layout.svelte with latin + cyrillic(+ext) subsets, RU/EN
    * parity).
    *
+   * V3.7 OWNER AMENDMENTS (bug round 93, 2026-11-20): the name captions
+   * under the avatar frames are REMOVED in both tiers — avatars alone
+   * (supersedes the §4.15.3.1 "names stronger + centered" treatment); the
+   * GREAT tier's "Great match" title carries the sheet's COMMON text ink
+   * (the tier label under the score ring — no special yellow); the X
+   * close reads the per-hue ink over a subtle ink chip so it stays
+   * visible on ANY Deepa hue (the fixed yellow glyph vanished on the
+   * yellow hue).
+   *
    * §4.15.5 OWNER AMENDMENT (2026-11-20, Concept §15.3 + §15.4): the
    * owner-locked electric-purple background (#8A12FF) is SUPERSEDED — the
    * sheet background is again the INTERLOCUTOR'S MESSAGE COLOR, the
@@ -45,12 +54,12 @@
    *   star/heart sparkle poppers, recolored spark burst + brightness
    *   pulse; the marching pixel beam — the dotted line between the
    *   users — was REMOVED, owner microchange Concept §18.1 / DESIGN
-   *   §4.15.3.1), GOOD 50–79 (avatars stay SPACED APART — no approach/
-   *   pull toward center, owner microchange Concept §19.1 / DESIGN
-   *   §4.15.4.1; nod/wave once; the glowing
-   *   dotted line between the users was REMOVED — owner microchange
-   *   Concept §17.1 / DESIGN §4.15.2.1), LOW 0–49 (avatars stay spaced,
-   *   sweat drop + idle blink). All motion is hand-rolled CSS keyframes on positioned DOM
+   *   §4.15.3.1), GOOD 50–79 (nod/wave once; converging is by-spec
+   *   across ALL tiers per the owner reversal 2026-11-20, Concept §19.1
+   *   — the §4.15.4.1 no-pull restriction is CANCELLED and the landed
+   *   nod/wave stays; the glowing dotted line between the users was
+   *   REMOVED — owner microchange Concept §17.1 / DESIGN §4.15.2.1), LOW
+   *   0–49 (avatars stay spaced, sweat drop + idle blink). All motion is hand-rolled CSS keyframes on positioned DOM
    *   elements (+ the SVG stroke geometry + the two sanctioned JS
    *   one-shots) — no canvas, no animation library (§4.15.C-6a).
    * - CHECKLIST choreography: closed checkpoints pop in sequentially
@@ -191,7 +200,9 @@
     if (user === null || summary === null) return '';
     return summary.user_a === user.address ? summary.user_b : summary.user_a;
   });
-  const meName = $derived(translate($locale, 'chat.summary.me'));
+  /* The name captions under the frames are REMOVED (v3.7 owner amendment):
+   * avatars alone — no "me"/counterpart captions; the interlocutor keeps
+   * its accessible name on the avatar art, "me" is decorative. */
 
   /** Fireworks + brightness pulse — the GREAT tier (>= 80, lib/chats/summary). */
   const celebrate = $derived(summaryCelebrates(summary));
@@ -415,10 +426,9 @@
           <div class="side me">
             <span class="mover">
               <span class="avatar-frame">
-                <PixelAvatar address={meAddress} size={52} own label={meName} />
+                <PixelAvatar address={meAddress} size={52} own />
               </span>
             </span>
-            <span class="who">{meName}</span>
           </div>
 
           <svg
@@ -448,7 +458,6 @@
                 <span class="sweat" aria-hidden="true"></span>
               {/if}
             </span>
-            <span class="who">{user.name}</span>
           </div>
 
           {#if tier === 'great'}
@@ -471,7 +480,10 @@
                  animations stay. -->
           {/if}
         </div>
-        <p class="tier-label" class:great={tier === 'great'}>{tierText}</p>
+        <!-- §4.15.6.2: the tier label doubles as the GREAT tier's "Great
+             match" title — directly under the score ring, the sheet's
+             COMMON text ink for every tier (no special color). -->
+        <p class="tier-label">{tierText}</p>
       </section>
 
       <!-- §16.2/§4.15.1.2 scrollable middle: ONLY the conversation summary
@@ -675,8 +687,12 @@
     text-transform: uppercase;
     color: var(--sheet-ink);
   }
-  /* The pixel X close: 48px hit target, yellow glyph, press state =
-   * pixel scale-DOWN over 90ms (no opacity fade), yellow focus ring. */
+  /* The pixel X close (§4.15.6.3): 48px hit target, glyph visible on ANY
+   * hue — it reads the per-hue ink (--sheet-ink, the same pairing as the
+   * sheet text; the former fixed yellow glyph vanished on the yellow
+   * Deepa hue) over a subtle ink scrim chip, square per the sheet's pixel
+   * framing; press state = pixel scale-DOWN over 90ms (no opacity fade),
+   * ink focus ring. */
   .close {
     flex-shrink: 0;
     width: var(--touch-target);
@@ -684,16 +700,17 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
+    background: color-mix(in srgb, var(--sheet-ink) 12%, transparent);
     border: none;
-    color: var(--sheet-yellow);
+    border-radius: 0;
+    color: var(--sheet-ink);
     transition: transform 90ms ease-out;
   }
   .close:active {
     transform: scale(0.88);
   }
   .close:focus-visible {
-    outline: 2px solid var(--sheet-yellow);
+    outline: 2px solid var(--sheet-ink);
     outline-offset: 2px;
   }
   /* --- §4.15.C-5 centerpiece stage ---------------------------------------- */
@@ -757,21 +774,9 @@
     position: relative;
     display: inline-flex;
   }
-  /* Names under the frames — Inter 16px semibold (the chat surfaces' name
-   * treatment — §4.15.3.1: stronger + matching the good-chat styling),
-   * centered below the frame. §4.15.5: the ink follows the per-hue
-   * pairing (--sheet-ink). */
-  .who {
-    font-family: var(--font-body);
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--sheet-ink);
-    max-width: 96px;
-    text-align: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+  /* The name captions under the frames (.who, Inter 16px semibold) were
+   * REMOVED — v3.7 owner amendment (Concept §18.1.1, DESIGN §4.15.6.1):
+   * avatars alone in both tiers, supersedes the §4.15.3.1 treatment. */
   /* --- the ring (§4.15.C-5): SVG stroke-dashoffset fill, clockwise -------- */
   /* Thick white arc (stroke-width 12, butt caps — square ends for the pixel
    * aesthetic), crispEdges on the SVG. The fill runs 0 → score on open:
@@ -821,7 +826,9 @@
     dominant-baseline: central;
   }
   /* §4.15.C-6: the tier label under the ring — pixel face 10px; §4.15.5:
-   * the ink follows the per-hue pairing (--sheet-ink), yellow for GREAT
+   * the ink follows the per-hue pairing (--sheet-ink). §4.15.6.2: it
+   * doubles as the GREAT tier's "Great match" title and carries the
+   * sheet's COMMON text ink — the special yellow override is REMOVED
    * (plain text — no color-only meaning, C-9). */
   .tier-label {
     margin: 0;
@@ -830,9 +837,6 @@
     letter-spacing: 0;
     color: var(--sheet-ink);
     text-align: center;
-  }
-  .tier-label.great {
-    color: var(--sheet-yellow);
   }
   /* --- §4.15.C-6b tier animations ----------------------------------------- */
   /* GREAT 80–100: both avatars move 18px toward the center on open (300ms

@@ -347,7 +347,6 @@ describe('§4.13.5 summary-sheet keys (Concept §13.1.5, DESIGN §4.13.5)', () =
 describe('§4.15.E arcade-sheet keys (Concept §15.3, DESIGN §4.15.C/E)', () => {
   it('the tier labels, the sheet-variant slide copy and the completion text exist in BOTH dictionaries (RU/EN parity)', () => {
     for (const key of [
-      'chat.summary.me',
       'chat.summary.tier.great',
       'chat.summary.tier.good',
       'chat.summary.tier.low',

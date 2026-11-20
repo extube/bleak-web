@@ -163,10 +163,10 @@ export const en = {
   // carries the "dialog in progress" phrase.
   'chat.summary.open': 'Meeting summary',
   'chat.summary.open.disabled': 'Dialog in progress',
-  // §4.15.C-5/C-6 (Concept §15.3): the caption under the "me" avatar frame
-  // and the match-tier labels (80/50 thresholds per the owner revision,
-  // 2026-11-20).
-  'chat.summary.me': 'You',
+  // §4.15.C-5/C-6 (Concept §15.3): the match-tier labels (80/50 thresholds
+  // per the owner revision, 2026-11-20); the chat.summary.me caption key is
+  // removed — v3.7 owner amendment, the name captions under the avatars are
+  // gone (2026-11-20).
   'chat.summary.tier.great': 'Great match',
   'chat.summary.tier.good': 'Good chat',
   'chat.summary.tier.low': 'Different vibes',
