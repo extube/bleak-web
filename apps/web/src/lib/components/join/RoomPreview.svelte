@@ -10,6 +10,7 @@
    */
   import { locale, translate } from '#lib/i18n/locale';
   import type { Room } from '@bleak/api-client';
+  import BleakMascot from '#lib/components/BleakMascot.svelte';
 
   interface Props {
     room: Room;
@@ -22,6 +23,11 @@
 </script>
 
 <div class="step">
+  <!-- §23.1 item 3: the room form (create-profile / join choice) carries
+       the same mascot-at-top header order — mascot → title → content. -->
+  <div class="mascot-row">
+    <BleakMascot size={96} idle />
+  </div>
   <h2 class="room-name">{room.name}</h2>
   {#if room.description}
     <p class="description">{room.description}</p>
@@ -47,6 +53,10 @@
     gap: var(--space-4);
     align-items: stretch;
     text-align: left;
+  }
+  .mascot-row {
+    display: flex;
+    justify-content: center;
   }
   .room-name {
     font-size: 36px;

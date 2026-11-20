@@ -4,9 +4,12 @@
    * a chunky 12×12 pixel-art ghost portrait hand-rolled as inline SVG rects
    * (the PixelIcon/PixelAvatar technique: crispEdges, token fills only).
    * Same art register as the avatar art (tokens.css --color-art-* / deepa
-   * family): muted ghost body on an art-backdrop surface, surface face, a
-   * warm Deepa blush — decorative color, token references only, never the
-   * interactive accent (§4.1 accent discipline).
+   * family): muted ghost body, surface face, a warm Deepa blush —
+   * decorative color, token references only, never the interactive accent
+   * (§4.1 accent discipline).
+   * §23.1 item 1: NO BACKGROUND — no plate/box behind the figure (no
+   * backdrop fill, no frame padding); the pixel figure sits directly on
+   * the page and the ghost outline carries itself.
    * `idle` runs the 2-frame CSS blink (steps(1) — hard toggle between the
    * open and closed eye frames). Reduced motion needs no local override:
    * the base.css catch-all collapses the animation to a single frame.
@@ -24,17 +27,11 @@
   let { size = 112, idle = true, label = '' }: Props = $props();
 </script>
 
-<span
-  class="mascot"
-  class:idle
-  style:width="{size}px"
-  style:height="{size}px"
-  style:background="var(--color-art-backdrop-1)"
->
+<span class="mascot" class:idle>
   <svg
     viewBox="0 0 12 12"
-    width={size - 2}
-    height={size - 2}
+    width={size}
+    height={size}
     shape-rendering="crispEdges"
     role={label ? 'img' : undefined}
     aria-label={label || undefined}
@@ -78,14 +75,11 @@
 </span>
 
 <style>
-  /* §4.8.2 padding analog: 1px backdrop-colored padding on all four sides;
-   * the outer box stays the declared `size` (border-box), so no consumer
-   * layout shifts. The color comes in as the inline `background`. */
+  /* §23.1 item 1: no plate — the frame is a transparent inline box that
+   * reserves exactly the declared `size`; the ghost figure carries itself
+   * directly on the page background. */
   .mascot {
-    box-sizing: border-box;
     display: inline-block;
-    padding: 1px;
-    overflow: hidden;
     flex: none;
   }
   .mascot svg {

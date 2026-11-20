@@ -64,15 +64,14 @@
 </script>
 
 <form class="step" onsubmit={submit}>
-  <h1>{translate($locale, 'join.title')}</h1>
-  <p class="subtitle">{translate($locale, 'join.subtitle')}</p>
-
-  <!-- §4.16.1: the Bleak mascot greets on the code-entry form — centered
-       between the subtitle and the cells, inside the .step column (no new
-       overflow surface; the §12 phone full-screen contract holds). -->
+  <!-- §23.1 item 2: mascot-at-top header order — mascot → title → content.
+       Centered in the .step column (no new overflow surface; the §12 phone
+       full-screen contract holds). -->
   <div class="mascot-row">
     <BleakMascot size={96} idle />
   </div>
+  <h1>{translate($locale, 'join.title')}</h1>
+  <p class="subtitle">{translate($locale, 'join.subtitle')}</p>
 
   <div class="cells" bind:this={cellsWrap} class:shaking>
     <DigitInput bind:value={code} {disabled} />
