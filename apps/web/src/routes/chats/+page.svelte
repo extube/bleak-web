@@ -23,6 +23,15 @@
    * superseding the §4.13.4 score-first ordering. The match/v2 score
    * fetch/cache (stores/matchScores) retired with it; the match/match-v2
    * API methods stay for the summary sheet (hard-match merges it there).
+   *
+   * §4.15.8 (owner change, Concept §21): the chat list items share ONE
+   * COMMON BACKGROUND BLOCK — the `.common-block` list container carries
+   * the surface (`--color-surface`) behind the whole list, split by THIN
+   * DIVIDER LINES in the page background color (`--color-bg`, centered,
+   * ≤95% width; the divider rides the item markup via ChatCard's
+   * `divider` prop, rendered on every item after the first). The
+   * unfinished item's muted look is DIMMED CONTENT inside ChatCard (the
+   * block background itself is untouched).
    */
   import { get } from 'svelte/store';
   import { ApiError, NetworkError, type Chat, type User } from '@bleak/api-client';
@@ -162,14 +171,15 @@
       href="/people"
     />
   {:else}
-    <ul class="cards" class:dimmed={pollError !== null}>
-      {#each cards as card (card.chat.address)}
+    <ul class="cards common-block" class:dimmed={pollError !== null}>
+      {#each cards as card, index (card.chat.address)}
         <ChatCard
           chat={card.chat}
           counterpart={card.user}
           counterpartAddress={card.counterpart}
           extra={card.extra}
           lastMessage={card.lastMessage}
+          divider={index > 0}
         />
       {/each}
     </ul>
@@ -206,6 +216,17 @@
   .cards.dimmed {
     opacity: 0.5;
   }
+  /* §4.15.8 (owner change, Concept §21): ONE COMMON BACKGROUND BLOCK
+   * behind the whole chat list — the container carries the surface so
+   * the items read as one block. The flex gap is dropped (the thin
+   * dividers carry their own vertical rhythm); the block gets a little
+   * edge padding so the outermost items breathe inside it. */
+  .common-block {
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    padding: var(--space-2) 0;
+    gap: 0;
+  }
   .skeleton-card {
     background: var(--color-surface);
     border-radius: var(--radius-md);
@@ -227,6 +248,10 @@
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
       align-items: start;
+      /* the grid separates items spatially on its own (the common
+       * block's gap: 0 is a single-column rule; dividers are hidden on
+       * the grid too) */
+      gap: var(--space-3);
     }
   }
 </style>

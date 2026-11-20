@@ -52,14 +52,29 @@
    * coloring and position stay untouched.
    *
    * §4.13.4 (owner change request, Concept §13.1.4): UNFINISHED dialogs
-   * (the active state) render DARKER WITH OPACITY — a distinct muted
-   * treatment (`chat-card.unfinished`; opacity only, on this dark theme
-   * the card blends toward the darker page background) — plus the
-   * ANIMATED CIRCULAR LOADER (`.loader`, a small standard spinning
-   * circle, transform-only CSS; reduced-motion respected by the
-   * base.css catch-all). Finished cards render at full emphasis — the
-   * default card styles, no loader. The Deepa hue coding (avatar, the
-   * color dot, the muted preview line) is untouched by this round.
+   * (the active state) render a muted treatment plus the ANIMATED
+   * CIRCULAR LOADER (`.loader`, a small standard spinning circle,
+   * transform-only CSS; reduced-motion respected by the base.css
+   * catch-all). Finished cards render at full emphasis — the default
+   * card styles, no loader. §4.15.8 owner amendment (Concept §21): the
+   * muted look is re-expressed as DIMMED CONTENT — the content wrapper
+   * (`main.dimmed-content`, name/preview/time) renders at reduced
+   * opacity, NOT an opacity panel behind the item (the common block
+   * background is untouched). The Deepa hue coding (avatar, the color
+   * dot, the muted preview line) is untouched by this round.
+   *
+   * §4.15.8 (owner change, Concept §21): the list items share a COMMON
+   * BACKGROUND BLOCK — the route's list container carries the surface
+   * (`--color-surface`) behind the whole list, so the card itself is
+   * TRANSPARENT (the per-item surface moved to the block). Items are
+   * split by THIN DIVIDER LINES in the PAGE BACKGROUND COLOR
+   * (`--color-bg`), each HORIZONTALLY CENTERED and ≤95% of the chats box
+   * width (`width: 95%` + `margin-inline: auto`). The divider rides the
+   * item markup (`divider` prop — the route renders it on every item
+   * after the first) and is pure decoration (aria-hidden). On the
+   * ≥720px multi-column grid the items are spatially separated by the
+   * grid gap, so the divider is hidden there. Everything else (dot,
+   * spinner, preview line, hue coding, unfinished opacity) is untouched.
    */
   import { resolve } from '$app/paths';
   import type { Chat, User } from '@bleak/api-client';
@@ -81,6 +96,11 @@
     lastMessage?: LastMessageEntry | null;
     /** Status override (presentation-level; default: derived from chat). */
     status?: ChatStatus;
+    /**
+     * §4.15.8: render the thin common-block divider above this item
+     * (the route sets it on every item after the first; pure decoration).
+     */
+    divider?: boolean;
   }
 
   let {
@@ -89,7 +109,8 @@
     counterpartAddress,
     extra = 0,
     lastMessage = null,
-    status
+    status,
+    divider = false
   }: Props = $props();
 
   const name = $derived(counterpart?.name ?? counterpartAddress ?? chat.address);
@@ -112,6 +133,12 @@
 </script>
 
 <li class="chat-item">
+  <!-- §4.15.8: the thin common-block divider splits this item from the
+       one above (the route renders it on every item after the first);
+       decoration only — the accessible name carries everything -->
+  {#if divider}
+    <span class="divider" aria-hidden="true"></span>
+  {/if}
   <a
     class="chat-card pixel-corners"
     class:unfinished={state === 'active'}
@@ -119,7 +146,10 @@
     aria-label={aria}
   >
     <PixelAvatar address={counterpartAddress ?? ''} size={56} label={name} />
-    <div class="main">
+    <div
+      class="main"
+      class:dimmed-content={state === 'active'}
+    >
       <p class="name">{name}</p>
       {#if lastMessage}
         <p class="preview-line">
@@ -152,12 +182,34 @@
   .chat-item {
     list-style: none;
   }
+  /* §4.15.8: the thin divider line in the PAGE BACKGROUND COLOR —
+   * horizontally centered (`margin-inline: auto`) and no wider than
+   * 95% of the chats box width (`width: 95%`). Pure decoration
+   * (aria-hidden in the markup). On the ≥720px multi-column grid the
+   * items are spatially separated by the grid gap, so the divider is
+   * hidden there. */
+  .divider {
+    display: block;
+    width: 95%;
+    height: 1px;
+    margin-inline: auto;
+    margin-block: var(--space-2);
+    background: var(--color-bg);
+  }
+  @media (min-width: 720px) {
+    .divider {
+      display: none;
+    }
+  }
   .chat-card {
     display: flex;
     align-items: center;
     gap: var(--space-3);
     padding: var(--space-4);
-    background: var(--color-surface);
+    /* §4.15.8: the items share ONE COMMON BACKGROUND BLOCK — the route's
+     * list container carries the surface behind the whole list, so the
+     * item itself is transparent (no per-item background panel). */
+    background: transparent;
     border-radius: var(--radius-md);
     color: var(--color-text);
     transition: opacity 120ms ease-out;
@@ -165,17 +217,15 @@
   .chat-card:active {
     opacity: 0.8;
   }
-  /* §4.13.4: UNFINISHED dialogs render DARKER WITH OPACITY — the muted
-   * treatment for dialogs whose agents are still talking (on this dark
-   * theme the opacity blends the card toward the darker page background).
-   * Finished cards render at full emphasis (the default styles above).
-   * Declared after the press state so the muted value wins for unfinished
-   * cards; a pressed unfinished card dips a touch further. */
-  .chat-card.unfinished {
+  /* §4.13.4 + §4.15.8 owner amendment (Concept §21): the UNFINISHED
+   * dialog's muted look is DIMMED CONTENT — the content wrapper (name,
+   * preview, time) renders at reduced opacity. The common block
+   * background is untouched and there is NO opacity panel behind the
+   * item (the card itself is transparent). Finished items render at
+   * full emphasis — no dimmed-content class. Declared after the press
+   * state so the dimmed value stands. */
+  .chat-card .main.dimmed-content {
     opacity: 0.6;
-  }
-  .chat-card.unfinished:active {
-    opacity: 0.5;
   }
   /* §4.12.2 / Concept §11.1.2: the LIST role of the Deepa coding is
    * amended — the card stays on the NEUTRAL surface (no Deepa background,

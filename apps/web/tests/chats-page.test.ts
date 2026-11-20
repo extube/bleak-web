@@ -19,7 +19,12 @@
  * restyle (neutral LIST surface — the Deepa hue moved from the card to
  * the color dot in the chat's message color; the avatar carries the
  * coding like /people), chatsSeen write-through on visit, error banner
- * with dimmed last-known list, poller teardown. */
+ * with dimmed last-known list, poller teardown,
+ * §4.15.8 (Concept §21): the list on ONE common background block (the
+ * container carries the surface; items are transparent) split by thin
+ * dividers in the page background color (centered, ≤95% width), the
+ * unfinished item's muted look re-expressed as DIMMED CONTENT on the
+ * content wrapper (no opacity panel). */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
@@ -360,9 +365,11 @@ describe('/chats — cards (§3.4 as amended by §4.11.5–7, §4.12.2)', () => 
 
   it('§4.12.2 + §4.15.2.2 CSS: neutral surface, no Deepa card background, the dot in the chat\'s hue, the old marks/rotated-dots loader gone, the circle loader kept', async () => {
     const cardCss = source('src/lib/components/chats/ChatCard.svelte');
-    // neutral surface stays the card background; no Deepa hue is ever a
-    // card background anymore (the LIST role amendment)
-    expect(cardCss).toMatch(/\.chat-card\s*\{[^}]*background:\s*var\(--color-surface\)/);
+    // §4.15.8: the COMMON BLOCK (the route's list container) carries the
+    // surface behind the whole list — the item itself is transparent (no
+    // per-item background panel); no Deepa hue is ever a card background
+    // anymore (the LIST role amendment)
+    expect(cardCss).toMatch(/\.chat-card\s*\{[^}]*background:\s*transparent/);
     expect(cardCss).not.toMatch(/\.chat-card\.deepa-\d/);
     // the color dot takes the chat's message color: every Deepa hue maps
     // the dot to its token — and the danger red is gone
@@ -585,7 +592,7 @@ describe('ChatCard — §4.13.4 unfinished treatment (Concept §13.1.4)', () => 
   const cardChat = chat('0xchat1', [ME, '0xa'], 5);
   const entry = { owner: ME, content: 'привет', from: '0xa', created_at: minutesAgo(2) };
 
-  it('UNFINISHED (active) → the darker-with-opacity card class + the circular loader', () => {
+  it('UNFINISHED (active) → the unfinished card class + DIMMED CONTENT on the content wrapper (§4.15.8 owner amendment) + the circular loader', () => {
     render(ChatCard, {
       props: {
         chat: { ...cardChat, done: false },
@@ -596,12 +603,15 @@ describe('ChatCard — §4.13.4 unfinished treatment (Concept §13.1.4)', () => 
     });
     const link = document.querySelector('.chat-card');
     expect(link?.classList.contains('unfinished')).toBe(true);
+    // the muted look lives on the CONTENT (name / preview / time), not on
+    // a background panel: the dimmed-content class on the content wrapper
+    expect(link?.querySelector('.main')?.classList.contains('dimmed-content')).toBe(true);
     expect(link?.querySelector('.loader')).toBeTruthy();
     // the loader is decoration (the accessible name carries the status)
     expect(link?.querySelector('.loader')?.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('FINISHED → full emphasis: no unfinished class, no loader', () => {
+  it('FINISHED → full emphasis: no unfinished class, no dimmed content, no loader', () => {
     render(ChatCard, {
       props: {
         chat: { ...cardChat, done: true },
@@ -612,19 +622,112 @@ describe('ChatCard — §4.13.4 unfinished treatment (Concept §13.1.4)', () => 
     });
     const link = document.querySelector('.chat-card');
     expect(link?.classList.contains('unfinished')).toBe(false);
+    expect(link?.querySelector('.main')?.classList.contains('dimmed-content')).toBe(false);
     expect(link?.querySelector('.loader')).toBeNull();
   });
 
-  it('§4.13.4 CSS: the muted opacity treatment and the transform-only circular loader', () => {
+  it('§4.13.4 CSS: the muted treatment and the transform-only circular loader', () => {
     const cardCss = source('src/lib/components/chats/ChatCard.svelte');
-    // darker with opacity (the owner's wording) on the unfinished card
-    expect(cardCss).toMatch(/\.chat-card\.unfinished\s*\{[^}]*opacity:\s*0\.6/);
-    // the standard spinning circle: a border ring, transform-only rotation
+    // §4.15.8 owner amendment (Concept §21): the muted look is DIMMED
+    // CONTENT — reduced opacity on the content wrapper (name / preview /
+    // time), NOT an opacity panel behind the item
+    expect(cardCss).toMatch(/\.main\.dimmed-content\s*\{[^}]*opacity:\s*0\.6/);
+    // the loader stays a standard spinning circle: border ring,
+    // transform-only rotation
     expect(cardCss).toMatch(/\.loader\s*\{[^}]*border-radius:\s*50%/);
     expect(cardCss).toMatch(/\.loader\s*\{[^}]*animation:\s*loader-spin/);
     expect(cardCss).toMatch(/@keyframes loader-spin\s*\{[^}]*rotate\(360deg\)/);
     // no raw hex in the component (token discipline)
     expect(cardCss).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+});
+
+describe('/chats — §4.15.8 common block + thin dividers (Concept §21)', () => {
+  const cardChat = chat('0xchat1', [ME, '0xa'], 5);
+  const entry = { owner: ME, content: 'привет', from: '0xa', created_at: minutesAgo(2) };
+
+  it('the chat list renders on ONE common background block (the container carries the surface)', async () => {
+    fixture.users = [person(ME, 'Я', 30), person('0xa', 'Алиса', 10), person('0xb', 'Борис', 8)];
+    fixture.chats = [chat('0xchat1', [ME, '0xa'], 5), chat('0xchat2', [ME, '0xb'], 3)];
+    await renderPage();
+    // the list container is the common block; every item sits inside it
+    const list = document.querySelector('ul.cards.common-block');
+    expect(list).toBeTruthy();
+    expect(list?.querySelectorAll('.chat-item')).toHaveLength(2);
+    // source contract: the block carries the surface token (no raw hex)
+    const pageCss = source('src/routes/chats/+page.svelte');
+    expect(pageCss).toMatch(/\.common-block\s*\{[^}]*background:\s*var\(--color-surface\)/);
+    expect(pageCss).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    // the skeleton list is NOT a common block (placeholder cards keep
+    // their own surfaces while loading)
+    expect(document.querySelectorAll('ul.cards:not(.common-block)')).toHaveLength(0);
+  });
+
+  it('thin dividers split the items: every item after the first, page-background color, centered, ≤95% width', async () => {
+    fixture.users = [person(ME, 'Я', 30), person('0xa', 'Алиса', 10), person('0xb', 'Борис', 8)];
+    fixture.chats = [chat('0xchat1', [ME, '0xa'], 5), chat('0xchat2', [ME, '0xb'], 3)];
+    await renderPage();
+    // n items → n−1 dividers: the first item has none
+    const items = [...document.querySelectorAll('.chat-item')];
+    expect(items).toHaveLength(2);
+    expect(items[0]?.querySelector('.divider') ?? null).toBeNull();
+    const dividers = document.querySelectorAll('.chat-item .divider');
+    expect(dividers).toHaveLength(1);
+    expect(dividers[0]?.getAttribute('aria-hidden')).toBe('true');
+    // source contracts: page-background token, thin (1px), centered, ≤95%
+    const cardCss = source('src/lib/components/chats/ChatCard.svelte');
+    expect(cardCss).toMatch(/\.divider\s*\{[^}]*background:\s*var\(--color-bg\)/);
+    expect(cardCss).toMatch(/\.divider\s*\{[^}]*height:\s*1px/);
+    expect(cardCss).toMatch(/\.divider\s*\{[^}]*width:\s*95%/);
+    expect(cardCss).toMatch(/\.divider\s*\{[^}]*margin-inline:\s*auto/);
+    // no raw hex in the divider (token discipline)
+    expect(cardCss).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  it('ChatCard renders the divider only when asked (the divider prop)', () => {
+    render(ChatCard, {
+      props: {
+        chat: cardChat,
+        counterpart: person('0xa', 'Алиса', 10),
+        counterpartAddress: '0xa',
+        lastMessage: entry,
+        divider: true
+      }
+    });
+    expect(document.querySelector('.chat-item .divider')).toBeTruthy();
+    cleanup();
+
+    render(ChatCard, {
+      props: {
+        chat: cardChat,
+        counterpart: person('0xa', 'Алиса', 10),
+        counterpartAddress: '0xa',
+        lastMessage: entry
+      }
+    });
+    // default (the first item): no divider
+    expect(document.querySelector('.divider')).toBeNull();
+  });
+
+  it('§4.15.8 owner amendment: the unfinished item dims its CONTENT (no opacity panel); finished items keep full emphasis', async () => {
+    fixture.users = [person(ME, 'Я', 30), person('0xa', 'Алиса', 10), person('0xb', 'Борис', 8)];
+    // one unfinished, one finished dialog
+    fixture.chats = [chat('0xu1', [ME, '0xa'], 5), { ...chat('0xf1', [ME, '0xb'], 3), done: true }];
+    await renderPage();
+    const links = [...document.querySelectorAll('.chat-card')];
+    const unfinished = links.find((link) => link.classList.contains('unfinished'));
+    const finished = links.find((link) => !link.classList.contains('unfinished'));
+    expect(unfinished).toBeTruthy();
+    expect(finished).toBeTruthy();
+    // UNFINISHED: the content wrapper carries the dimmed-content class
+    // (name / preview / time at reduced opacity); no opacity panel — the
+    // card background stays transparent (the common block is untouched)
+    expect(unfinished?.querySelector('.main')?.classList.contains('dimmed-content')).toBe(true);
+    expect(unfinished?.querySelector('.loader')).toBeTruthy();
+    // FINISHED: full emphasis — no dimmed-content class, no loader
+    expect(finished?.querySelector('.main')?.classList.contains('dimmed-content')).toBe(false);
+    expect(finished?.querySelector('.loader')).toBeNull();
+    expect(finished?.querySelector('.dot')).toBeTruthy();
   });
 });
 
