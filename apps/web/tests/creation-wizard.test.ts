@@ -201,13 +201,27 @@ describe('CreationWizard — the §23.2 5.1/5.2 composer', () => {
     expect(flowCss).toMatch(/\.card\.composer-card\s*\{[^}]*display:\s*flex/);
   });
 
-  it('§23.2 5.9: the step transitions are FADES (opacity-only keyframes)', () => {
+  it('§23.2 5.9 (owner amendment, DESIGN §4.15.6.4): EVERY wizard step boundary uses the ONE fade treatment', () => {
     const css = source('src/lib/components/join/CreationWizard.svelte');
-    expect(css).toMatch(/animation:\s*panel-fade\s+200ms\s+ease-out/);
-    expect(css).toMatch(/@keyframes panel-fade\s*\{[\s\S]*?opacity:\s*0[\s\S]*?opacity:\s*1/);
-    // No slide/translate in the step transition (fade only); the bubble
-    // entrance keeps its small rise (MessageBubble lineage).
+    // One treatment everywhere: the sheets' 200ms opacity-only fade-in
+    // (fade-in 200ms ease-out), on the composer panel (chat-step swaps),
+    // the chat stage (intro ⇄ chat, creating ⇄ chat branch swaps) and the
+    // intro/creating stage (form → intro, chat → creating).
+    expect(css).toMatch(/\.panel\s*\{[^}]*animation:\s*fade-in\s+200ms\s+ease-out/);
+    expect(css).toMatch(/\.stage\s*\{[^}]*animation:\s*fade-in\s+200ms\s+ease-out/);
+    expect(css).toMatch(/\.creating-stage\s*\{[^}]*animation:\s*fade-in\s+200ms\s+ease-out/);
+    expect(css).toMatch(/@keyframes fade-in\s*\{[\s\S]*?opacity:\s*0[\s\S]*?opacity:\s*1/);
+    // Opacity only — no slide/translate in the step transition (the bubble
+    // entrance keeps its small rise, MessageBubble lineage).
     expect(css).not.toMatch(/panel-in/);
+    expect(css).not.toMatch(/stage-fade|panel-fade/);
+    // The chat stage is one fading unit wrapping log + composer + back.
+    expect(css).toMatch(/<div class="stage">/);
+    // Reduced motion: the fade is a CSS animation, collapsed to instant by
+    // the base.css catch-all (state changes remain visible).
+    const base = source('src/lib/styles/base.css');
+    expect(base).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
+    expect(base).toMatch(/animation-duration:\s*0\.01ms\s*!important/);
   });
 });
 

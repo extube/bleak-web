@@ -259,11 +259,11 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
       token: 'generated-raw-token',
       name: 'Я'
     });
-    expect(goto).toHaveBeenCalledWith('/room');
+    // §23.2 5.9: goto follows the card's fade-out (the boundary into /room).
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/room'));
   });
 
-  it('creation rejected over the invite code shows the §2.9 copy inline at the loading step, writes no identity/vault (AC 9)', async () => {
-    mockedApi.createRoomUser.mockRejectedValue(
+  it('creation rejected over the invite code shows the §2.9 copy inline at the loading step, writes no identity/vault (AC 9)', async () => {    mockedApi.createRoomUser.mockRejectedValue(
       new ApiError(401, '/api/room/r/user', 'invite code invalid or expired')
     );
     await openWizard();
@@ -408,7 +408,8 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
     // The 201 FULL list is mirrored per room|user.
     const mirror = JSON.parse(localStorage.getItem('bleak.interests') ?? '{}');
     expect(mirror[`${room.address}|0xme`]).toEqual(full);
-    expect(goto).toHaveBeenCalledWith('/room');
+    // §23.2 5.9: goto follows the card's fade-out (the boundary into /room).
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/room'));
     // The createPersona body stays unchanged (interests ride separately).
     expect(mockedApi.createRoomUser.mock.calls[0]?.[1]).not.toHaveProperty('interests');
   });
@@ -441,7 +442,8 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
       userAddress: '0xme'
     });
     expect(localStorage.getItem('bleak.interests')).toBeNull();
-    expect(goto).toHaveBeenCalledWith('/room');
+    // §23.2 5.9: goto follows the card's fade-out (the boundary into /room).
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/room'));
   });
 });
 
@@ -817,5 +819,82 @@ describe('JoinFlow — phone full-screen forms (Concept §12, DESIGN §4.12.1 it
       expect(base).not.toContain('clip-path: none');
       expect(base).not.toContain('max-width: none');
     }
+  });
+});
+
+describe('JoinFlow — §23.2 5.9 fade on every creation step boundary (owner amendment, DESIGN §4.15.6.4)', () => {
+  /**
+   * happy-dom runs no CSS animation engine, so the fade contract is pinned
+   * the established way — source reads (the kit's CSS-contract pattern).
+   * The owner amendment: the fade treatment covers EVERY step boundary of
+   * the whole creation path — form → intro theme → chat (interview) →
+   * "creating your profile" loading → app main page — one 200ms
+   * opacity-only treatment everywhere (the sheets' established fade).
+   */
+  const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
+    ? process.cwd()
+    : join(process.cwd(), 'apps', 'web');
+  function source(relativePath: string): string {
+    return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
+  }
+
+  it('the card content fades in on every join-step swap (form → wizard intro included)', () => {
+    const css = source('src/lib/components/join/JoinFlow.svelte');
+    // The card content remounts per flow step ({#key}) inside the fading
+    // stage — covering the code ⇄ preview ⇄ wizard ⇄ vault swaps.
+    expect(css).toMatch(/\{#key flow\.step\}/);
+    expect(css).toMatch(/<div class="stage">/);
+    expect(css).toMatch(/\.stage\s*\{[^}]*animation:\s*fade-in\s+200ms\s+ease-out/);
+    expect(css).toMatch(/@keyframes fade-in\s*\{[\s\S]*?opacity:\s*0[\s\S]*?opacity:\s*1/);
+    // The composer-card flex chain survives the wrapper (log scrolls,
+    // composer pins to the bottom).
+    expect(css).toMatch(
+      /\.card\.composer-card\s+\.stage\s*\{[^}]*flex:\s*1[^}]*min-height:\s*0/
+    );
+  });
+
+  it('the loading → /room boundary: the card fades OUT (same treatment) before the route hand-off, skipped under reduced motion', () => {
+    const css = source('src/lib/components/join/JoinFlow.svelte');
+    expect(css).toMatch(/class:leaving=\{enteringRoom\}/);
+    expect(css).toMatch(/\.card\.leaving\s*\{[^}]*animation:\s*fade-out\s+200ms\s+ease-out/);
+    expect(css).toMatch(/@keyframes fade-out\s*\{[\s\S]*?opacity:\s*1[\s\S]*?opacity:\s*0/);
+    // The goto waits out the fade; prefers-reduced-motion navigates
+    // immediately (the base.css catch-all collapses the animation).
+    expect(css).toMatch(/matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
+    expect(css).toMatch(/if\s*\(!reducedMotion\)\s*await[^;]*FADE_MS/);
+  });
+
+  it('behavior: after the creation 2xx the card takes the leaving fade, then the flow enters /room', async () => {
+    mockedApi.createRoomUser.mockResolvedValue(user('0xme', 'Я'));
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
+    mockedApi.getRoom.mockResolvedValue(room);
+    mockedApi.listRoomUsers.mockResolvedValue([]);
+    render(JoinFlow, { props: {} });
+    pasteCode('123456');
+    await submitViaCta();
+    await screen.findByText(room.name);
+    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
+    await screen.findByText(ru['join.wizard.intro.title']);
+    await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
+    await screen.findByText(ru['join.wizard.name.question']);
+    const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
+    fireEvent.input(nameInput, { target: { value: 'Я' } });
+    await screen.getByRole('button', { name: ru['join.wizard.send'] }).click();
+    await screen.findByText(ru['join.wizard.public.question']);
+    await screen.getByRole('button', { name: ru['join.wizard.send'] }).click(); // public
+    await screen.findByText(ru['join.wizard.private.question']);
+    await screen.getByRole('button', { name: ru['join.wizard.send'] }).click(); // private
+    await screen.findByText(ru['join.wizard.contact.question']);
+    await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
+    await screen.findByText(ru['join.wizard.interests.question']);
+    await screen.getByRole('button', { name: ru['join.wizard.themes.ready'] }).click();
+    await screen.findByText(ru['join.wizard.creating']);
+    await waitFor(() => expect(mockedApi.createRoomUser).toHaveBeenCalled());
+    // The boundary OUT of the loading step: the card fades out first...
+    await waitFor(() =>
+      expect(document.querySelector('section.card')?.className).toMatch(/leaving/)
+    );
+    // ...then the route hand-off into /room.
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/room'));
   });
 });

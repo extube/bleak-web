@@ -25,7 +25,9 @@
    * - 5.3: every input case carries an example placeholder.
    * - 5.8: the loading step animates the SummarySheet pixel-dots beat
    *   (steps(2), transform/opacity only — reduced motion via base.css).
-   * - 5.9: fade transitions between the steps.
+   * - 5.9: fade transitions — the owner amendment (Concept §23.2.5.9,
+   *   DESIGN §4.15.6.4) extends them to EVERY step boundary of the whole
+   *   creation path; one 200ms opacity-only treatment everywhere.
    * - §23.1 item 4: the intro copy is plain page text (no bubble
    *   background).
    *
@@ -442,17 +444,21 @@
       <button type="button" class="link" onclick={back}>{t('common.back')}</button>
     </div>
   {:else}
-    <!-- The interview log: the mascot asks in chat bubbles, the answers
-         land as mine bubbles; new lines are announced (role=log). -->
-    <ul class="log" bind:this={logEl} role="log" aria-live="polite" aria-label={t('join.wizard.log')}>
-      {#each transcript as line, i (i)}
-        <WizardBubble who={line.who} text={line.text} />
-      {/each}
-    </ul>
+    <!-- §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the chat stage is
+         ONE fading unit — it mounts fresh at every branch boundary
+         (intro ⇄ chat, creating ⇄ chat) and replays the fade there. -->
+    <div class="stage">
+      <!-- The interview log: the mascot asks in chat bubbles, the answers
+           land as mine bubbles; new lines are announced (role=log). -->
+      <ul class="log" bind:this={logEl} role="log" aria-live="polite" aria-label={t('join.wizard.log')}>
+        {#each transcript as line, i (i)}
+          <WizardBubble who={line.who} text={line.text} />
+        {/each}
+      </ul>
 
-    <!-- §23.2 5.2: the composer is fixed at the bottom of the card; the
-         log above scrolls when it overflows. -->
-    <div class="composer">
+      <!-- §23.2 5.2: the composer is fixed at the bottom of the card; the
+           log above scrolls when it overflows. -->
+      <div class="composer">
       {#key wizard.step}
         <div class="panel">
           {#if isTextStep}
@@ -560,8 +566,9 @@
       {/key}
     </div>
 
-    <!-- §23.2 5.2: the back button sits below the input, centered. -->
-    <button type="button" class="link back" onclick={back}>{t('common.back')}</button>
+      <!-- §23.2 5.2: the back button sits below the input, centered. -->
+      <button type="button" class="link back" onclick={back}>{t('common.back')}</button>
+    </div>
   {/if}
 </div>
 
@@ -578,6 +585,11 @@
     min-height: 0;
   }
   .creating-stage {
+    /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the intro and the
+     * loading stage mount fresh at their boundaries (form → intro,
+     * chat → creating, and every way back) — the ONE fade treatment
+     * (200ms opacity-only; base.css reduced-motion catch-all). */
+    animation: fade-in 200ms ease-out;
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
@@ -611,6 +623,20 @@
     min-height: 0;
     overflow-y: auto;
   }
+  /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the chat stage is ONE
+   * fading unit — it mounts fresh at every branch boundary (intro ⇄ chat,
+   * creating ⇄ chat) and replays the same fade treatment. The flex column
+   * carries the old .wizard layout (log scrolls, composer pins to the
+   * bottom) unchanged. */
+  .stage {
+    animation: fade-in 200ms ease-out;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+  }
   .composer {
     /* §23.2 5.2: fixed at the bottom of the card (sticky pins it while
      * the log scrolls; mobile visual viewports rise with the keyboard). */
@@ -622,7 +648,7 @@
   .panel {
     /* §23.2 5.9: fade transitions between the creation-chat steps
      * (opacity only; the base.css reduced-motion catch-all collapses it). */
-    animation: panel-fade 200ms ease-out;
+    animation: fade-in 200ms ease-out;
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
@@ -812,7 +838,10 @@
     /* §23.2 5.2: below the input, centered. */
     margin-top: var(--space-1);
   }
-  @keyframes panel-fade {
+  /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the ONE fade treatment
+   * for EVERY wizard step boundary — the same 200ms opacity-only fade the
+   * sheets use (HandshakeSheet/SummarySheet); transform untouched. */
+  @keyframes fade-in {
     from {
       opacity: 0;
     }

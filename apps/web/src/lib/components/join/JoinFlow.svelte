@@ -28,6 +28,11 @@
    * persona credential carries the Bearer; §13.1.1). A flush failure does
    * not undo the creation: the flow still enters the room, no mirror row
    * is written, and interests stay editable later in /profile.
+   *
+   * §23.2 5.9 (owner amendment, Concept §23.2.5.9 / DESIGN §4.15.6.4): the
+   * fade treatment covers EVERY step boundary of the creation path — the
+   * join card's content fades in on every flow-step swap (form → wizard
+   * intro included) and fades out into /room after the creation 2xx.
    */
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -87,6 +92,16 @@
   let vaultLoading = $state(false);
   let vaultDead = $state<{ address: string; text: string | null } | null>(null);
   let scannerOpen = $state(false);
+  // §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the boundary OUT of the
+  // loading step — the card fades out (the same 200ms opacity treatment)
+  // before the route hand-off into /room. The /room page mount itself is
+  // outside this card's scope; the fade-out IS the join-side treatment.
+  let enteringRoom = $state(false);
+  const FADE_MS = 200;
+  const reducedMotion =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let codeEntry: { focusCode(): void } | null = $state(null);
 
@@ -260,6 +275,12 @@
           }
         }
       }
+      // §23.2 5.9: the loading → /room boundary — the card fades out with
+      // the SAME 200ms opacity treatment, then the route hands off into
+      // /room. Under prefers-reduced-motion the base.css catch-all
+      // collapses the fade, so the navigation is immediate.
+      enteringRoom = true;
+      if (!reducedMotion) await new Promise((r) => setTimeout(r, FADE_MS));
       void goto(resolve('/room'));
     } catch (err) {
       const mapped = personaErrorOf(err);
@@ -315,41 +336,52 @@
 
     <!-- §23.2 5.2: the wizard's persona card is a flex column — the
          composer pins to its bottom and the chat log scrolls. -->
-    <section class="card pixel-corners" class:composer-card={flow.step === 'persona'}>
-      {#if flow.step === 'code'}
-        <CodeEntry
-          bind:this={codeEntry}
-          bind:code={flow.code}
-          disabled={resolving}
-          error={codeError}
-          {shakeKey}
-          onsubmit={(code) => void submitCode(code)}
-          onscan={() => (scannerOpen = true)}
-          onreturn={canReturn ? chooseReturn : undefined}
-        />
-      {:else if flow.step === 'room' && flow.room}
-        <RoomPreview
-          room={flow.room}
-          memberCount={flow.members.length}
-          oncreate={chooseCreate}
-          onchange={backToStep1}
-        />
-      {:else if flow.step === 'persona'}
-        <CreationWizard
-          error={personaError}
-          pending={creating}
-          onsubmit={(draft) => void submitPersona(draft)}
-          onback={() => (flow = reduce(flow, { type: 'back' }))}
-        />
-      {:else if flow.step === 'vault'}
-        <VaultList
-          entries={vaultEntries}
-          loading={vaultLoading}
-          dead={vaultDead}
-          onpick={(entry) => void pickVaultEntry(entry)}
-          onback={() => (flow = reduce(flow, { type: 'back' }))}
-        />
-      {/if}
+    <section
+      class="card pixel-corners"
+      class:composer-card={flow.step === 'persona'}
+      class:leaving={enteringRoom}
+    >
+      <!-- §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the card content
+           mounts fresh on every join-step swap (code ⇄ preview ⇄ wizard ⇄
+           vault) and replays the fade there. -->
+      {#key flow.step}
+        <div class="stage">
+        {#if flow.step === 'code'}
+          <CodeEntry
+            bind:this={codeEntry}
+            bind:code={flow.code}
+            disabled={resolving}
+            error={codeError}
+            {shakeKey}
+            onsubmit={(code) => void submitCode(code)}
+            onscan={() => (scannerOpen = true)}
+            onreturn={canReturn ? chooseReturn : undefined}
+          />
+        {:else if flow.step === 'room' && flow.room}
+          <RoomPreview
+            room={flow.room}
+            memberCount={flow.members.length}
+            oncreate={chooseCreate}
+            onchange={backToStep1}
+          />
+        {:else if flow.step === 'persona'}
+          <CreationWizard
+            error={personaError}
+            pending={creating}
+            onsubmit={(draft) => void submitPersona(draft)}
+            onback={() => (flow = reduce(flow, { type: 'back' }))}
+          />
+        {:else if flow.step === 'vault'}
+          <VaultList
+            entries={vaultEntries}
+            loading={vaultLoading}
+            dead={vaultDead}
+            onpick={(entry) => void pickVaultEntry(entry)}
+            onback={() => (flow = reduce(flow, { type: 'back' }))}
+          />
+        {/if}
+        </div>
+      {/key}
     </section>
   {/if}
 </div>
@@ -381,6 +413,37 @@
     width: 100%;
     padding: var(--space-5);
   }
+  /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the card content
+   * mounts fresh on every join-step swap (code ⇄ preview ⇄ wizard ⇄
+   * vault) and replays the ONE fade treatment — 200ms opacity-only, the
+   * sheets' established fade (base.css reduced-motion catch-all). */
+  .stage {
+    animation: fade-in 200ms ease-out;
+    min-width: 0;
+  }
+  /* §23.2 5.9: the boundary OUT of the loading step — the card fades out
+   * with the same 200ms opacity treatment before the route hand-off into
+   * /room (JoinFlow delays the goto by the fade duration; reduced motion
+   * navigates immediately — see submitPersona). */
+  .card.leaving {
+    animation: fade-out 200ms ease-out forwards;
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
   /* §23.2 5.2: the wizard's card is a flex column — the CreationWizard
    * fills it (flex: 1), the chat log scrolls and the composer sticks to
    * the bottom. Only the persona step gets the treatment (the other join
@@ -388,6 +451,15 @@
   .card.composer-card {
     display: flex;
     flex-direction: column;
+  }
+  /* §23.2 5.2: the §23.2 5.9 stage wrapper carries the flex column into
+   * the wizard — the chat log scrolls and the composer pins to the card
+   * bottom exactly as before the wrapper existed. */
+  .card.composer-card .stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
   .gone-card {
     display: flex;
