@@ -12,6 +12,9 @@
  * size matches the loader's outer diameter (§4.15.3.2, Concept §18.2),
  * «+N»,
  * empty state CTA → /people,
+ * §4.15.7 time sort (Concept §20, owner change): the list orders by
+ * `stableChats` — a single time-based sort, newest first — with NO
+ * match/v2 fetch wiring (the score-first ordering + score cache retired),
  * skeletons, in-place poll updates (removed chats disappear), the §4.12.2
  * restyle (neutral LIST surface — the Deepa hue moved from the card to
  * the color dot in the chat's message color; the avatar carries the
@@ -46,7 +49,6 @@ vi.mock('#lib/api/client', () => ({
 
 import { api } from '#lib/api/client';
 import { identity } from '#lib/stores/identity';
-import { matchScores } from '#lib/stores/matchScores';
 import Page from '../src/routes/chats/+page.svelte';
 import ChatCard from '../src/lib/components/chats/ChatCard.svelte';
 
@@ -123,14 +125,14 @@ beforeEach(() => {
   identity.set({ roomAddress: ROOM, userAddress: ME, token: 'p-tok' });
   chatsUnseen.set(false);
   lastMessages.set(new Map());
-  matchScores.set(new Map());
   fixture.chats = [];
   fixture.users = [];
   mockedApi.listChatsOfUser.mockImplementation(async () => structuredClone(fixture.chats));
   mockedApi.listRoomUsers.mockImplementation(async () => structuredClone(fixture.users));
   // Default: no transcripts fetched yet → cards render without a preview.
   mockedApi.listChatMessages.mockImplementation(async () => []);
-  // Default: every finished pair grades 50 (individual tests override).
+  // Default match/v2 mock: the list NEVER grades pairs (§4.15.7 time sort —
+  // the score fetch/cache retired; the API methods stay for the summary).
   mockedApi.matchV2.mockImplementation(async () => ({
     points: 50,
     exact_interest_matches: 0,
@@ -145,7 +147,6 @@ afterEach(() => {
   identity.set(null);
   localStorage.clear();
   lastMessages.set(new Map());
-  matchScores.set(new Map());
 });
 
 async function renderPage(): Promise<void> {
@@ -627,7 +628,7 @@ describe('ChatCard — §4.13.4 unfinished treatment (Concept §13.1.4)', () => 
   });
 });
 
-describe('/chats — §4.13.4 score-first sorting + score fetches (Concept §13.1.4)', () => {
+describe('/chats — §4.15.7 time sort + no score-fetch wiring (Concept §20)', () => {
   function finished(address: string, participants: string[], createdMinutesAgo: number): Chat {
     return { ...chat(address, participants, createdMinutesAgo), done: true };
   }
@@ -638,7 +639,7 @@ describe('/chats — §4.13.4 score-first sorting + score fetches (Concept §13.
     );
   }
 
-  it('finished chats first by score DESCENDING; unfinished after, newest first', async () => {
+  it('a SINGLE time sort: newest created_at first — finished chats do NOT float above unfinished ones', async () => {
     fixture.users = [
       person(ME, 'Я', 30),
       person('0xa', 'Алиса', 10),
@@ -646,83 +647,45 @@ describe('/chats — §4.13.4 score-first sorting + score fetches (Concept §13.
       person('0xc', 'Вера', 8),
       person('0xd', 'Гриша', 7)
     ];
-    // scores arrive per finished pair: Алиса 40, Борис 90
-    mockedApi.matchV2.mockImplementation(async (room: string, first: string, second: string) => ({
-      points: second === '0xb' ? 90 : 40,
-      exact_interest_matches: 0,
-      shared_groups: 0,
-      handshake: false,
-      mutual_handshake: false
-    }));
     fixture.chats = [
-      chat('0xu1', [ME, '0xc'], 6), // unfinished, older
-      finished('0xf1', [ME, '0xa'], 4), // score 40
+      chat('0xu1', [ME, '0xc'], 6), // unfinished, oldest
+      finished('0xf1', [ME, '0xa'], 4),
       chat('0xu2', [ME, '0xd'], 2), // unfinished, newest
-      finished('0xf2', [ME, '0xb'], 3) // score 90
+      finished('0xf2', [ME, '0xb'], 3)
     ];
     await renderPage();
-    await waitFor(() => expect(mockedApi.matchV2).toHaveBeenCalled());
-    await waitFor(() => expect(cardOrder()).toEqual(['/chats/0xf2', '/chats/0xf1', '/chats/0xu2', '/chats/0xu1']));
+    // pure created_at DESCENDING across the done/active split:
+    // 0xu2 (2 min) → 0xf2 (3) → 0xf1 (4) → 0xu1 (6)
+    expect(cardOrder()).toEqual(['/chats/0xu2', '/chats/0xf2', '/chats/0xf1', '/chats/0xu1']);
   });
 
-  it('score fetches are bounded to FINISHED chats: me as first_user_address, unfinished never fetched', async () => {
-    fixture.users = [person(ME, 'Я', 30), person('0xa', 'Алиса', 10), person('0xb', 'Борис', 9)];
-    fixture.chats = [finished('0xf1', [ME, '0xa'], 4), chat('0xu1', [ME, '0xb'], 3)];
-    await renderPage();
-    await waitFor(() => expect(mockedApi.matchV2).toHaveBeenCalled());
-    // the caller grades AS itself: first_user_address = me, its own Bearer
-    expect(mockedApi.matchV2).toHaveBeenCalledWith(ROOM, ME, '0xa');
-    // exactly one pair fetched — the unfinished dialog is never fetched
-    expect(mockedApi.matchV2).toHaveBeenCalledTimes(1);
-    expect(mockedApi.matchV2).not.toHaveBeenCalledWith(ROOM, ME, '0xb');
-  });
-
-  it('score fetches follow the poll cadence: a chat that flips to done enters the fetch set', async () => {
+  it('no score-fetch wiring: match/v2 is never called from the list (the store is retired)', async () => {
     fixture.users = [person(ME, 'Я', 30), person('0xa', 'Алиса', 10)];
-    fixture.chats = [chat('0xu1', [ME, '0xa'], 5)];
+    fixture.chats = [finished('0xf1', [ME, '0xa'], 2), chat('0xu1', [ME, '0xa'], 3)];
     await renderPage();
-    expect(mockedApi.matchV2).not.toHaveBeenCalled();
-    // the farewell turn stamps done server-side → the next poll fetches it
-    fixture.chats = [{ ...chat('0xu1', [ME, '0xa'], 4), done: true }];
+    // let several poll ticks pass (the fetch would fire within the first)
     await waitFor(
-      () => expect(mockedApi.matchV2).toHaveBeenCalledWith(ROOM, ME, '0xa'),
+      () => expect(mockedApi.listChatsOfUser.mock.calls.length).toBeGreaterThan(1),
       { timeout: 6000 }
     );
+    expect(mockedApi.matchV2).not.toHaveBeenCalled();
+    expect(cardOrder()).toEqual(['/chats/0xf1', '/chats/0xu1']);
   }, 20_000);
 
-  it('a failing score fetch never crashes the page: the chat stays in place at the end of the finished group', async () => {
+  it('the time sort updates in place on polls: a newer chat takes the top without a reload', async () => {
     fixture.users = [person(ME, 'Я', 30), person('0xa', 'Алиса', 10), person('0xb', 'Борис', 9)];
-    mockedApi.matchV2.mockImplementation(
-      async (room: string, first: string, second: string) =>
-        second === '0xa'
-          ? Promise.reject(new Error('score endpoint down'))
-          : {
-              points: 90,
-              exact_interest_matches: 0,
-              shared_groups: 0,
-              handshake: false,
-              mutual_handshake: false
-            }
-    );
-    fixture.chats = [finished('0xf1', [ME, '0xa'], 4), finished('0xf2', [ME, '0xb'], 2)];
+    fixture.chats = [chat('0xchat1', [ME, '0xa'], 5), chat('0xchat2', [ME, '0xb'], 3)];
     await renderPage();
-    await waitFor(() => expect(mockedApi.matchV2).toHaveBeenCalled());
-    // no error banner, no crash — the failed chat simply renders unscored
-    expect(screen.queryByRole('alert')).toBeNull();
-    await waitFor(() => expect(cardOrder()).toEqual(['/chats/0xf2', '/chats/0xf1']));
-  });
-
-  it('a failing score fetch caches nothing: no error banner surfaces from the score round', async () => {
-    fixture.users = [person(ME, 'Я', 30), person('0xa', 'Алиса', 10)];
-    mockedApi.matchV2.mockImplementation(async () => {
-      throw new Error('score endpoint down');
+    // 0xchat2 (3 min ago) is newer than 0xchat1 (5 min ago)
+    expect(cardOrder()).toEqual(['/chats/0xchat2', '/chats/0xchat1']);
+    // a fresh chat created after both → sorts to the top on the next poll
+    fixture.chats = [
+      chat('0xchat1', [ME, '0xa'], 5),
+      chat('0xchat2', [ME, '0xb'], 3),
+      chat('0xchat3', [ME, '0xa'], 1)
+    ];
+    await waitFor(() => expect(cardOrder()).toEqual(['/chats/0xchat3', '/chats/0xchat2', '/chats/0xchat1']), {
+      timeout: 6000
     });
-    fixture.chats = [finished('0xf1', [ME, '0xa'], 4)];
-    await renderPage();
-    await waitFor(() => expect(mockedApi.matchV2).toHaveBeenCalled());
-    expect(get(matchScores).get('0xf1')).toBeUndefined();
-    expect(screen.queryByRole('alert')).toBeNull();
-    // the card still renders (full emphasis — a finished chat)
-    expect(document.querySelector('.chat-card.unfinished')).toBeNull();
-  });
+  }, 20_000);
 });
