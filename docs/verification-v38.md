@@ -1,5 +1,33 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.10 ROUND NOTE (§23 design-review amendments — tz11-01a mascot fixes +
+> the tz11-02 fold, appended by the process 2026-11-20, post-round three-gate
+> run GREEN: lint clean · 805 web tests, 50 files · build 0 errors, dev
+> `48e3172`):**
+> (1) **Mascot de-plated** (§23.1.1, task 102): BleakMascot's backdrop fill +
+> §4.8.2-style frame removed — the pixel figure sits directly on the page
+> (idle blink and token fills unchanged).
+> (2) **Mascot-at-top ordering** (§23.1.2–3, task 102): mascot → title →
+> content on the enter-code form AND the room-form surface (found in
+> `RoomPreview.svelte` — the create-profile/join choice step); the wizard
+> intro verified already mascot-at-top (task 102 report, item 4).
+> (3) **§23.2 wizard amendments folded** (task 101 follow-up, commit
+> `7f3eeda` on dev — ratified): iOS-Messages send button + counters (no send
+> on input taps), "Next" removed (fixed bottom input that rises with the
+> keyboard, scrollable chat, centered back below the input), example
+> placeholders per input case, nickname field with `tg:@/signal:@/inst:@`
+> prefixes, **themes model** (8 themes × 6 dedicated topics, slug titles
+> `theme:topic_key` mapped onto the numeric server contract), interests
+> creation-only (InterestsEditor deleted from settings), multi-theme loop
+> returning to the badges step until "Ready", arcade-sheet loading
+> animation, fade transitions, intro bubble un-plated.
+> **Incident disclosed:** the fold-in commit landed directly on dev (worker
+> dev-commit — the process left the checkout on dev mid-handover window);
+> content ratified (803/50 green pre-commit), branch copy tree-identical.
+> Manual checks for the owner: the mascot un-plated on all surfaces, the
+> mascot-at-top order, the wizard end-to-end (send button/counter/
+> placeholders/prefixes/themes loop/Ready/loading animation/fades).
+
 > **v3.9 ROUND NOTE (tz11-01 + tz11-02, lean protocol — appended by the process
 > 2026-11-20, post-round three-gate run GREEN: lint clean · 858 tests total
 > (49 api-client + 8 helper + 801 web, 50 files) · build 0 errors, dev
