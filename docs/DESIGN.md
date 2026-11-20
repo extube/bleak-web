@@ -2111,6 +2111,779 @@ round:
    one-off style tweak), routed as `bug/5c1c6036-join-input-overflow`
    (the hash of the worker that owns the §11.1.4 fix).
 
+### 4.13 v3 reconciliation amendments (2026-11-19, owner-approved Concept §13)
+
+bleak-node #34/#35 client integration. New API surface (swagger-verified):
+interests upsert/delete (persona Bearer; POST body `{interests:[{title
+1..64, group≥0, key≥0}]}` 1..50 rows → 201 full list; DELETE body
+`{keys:[...]}` 1..50 → 200 remaining; **no GET exists**); `Chat.done`
+boolean (farewell stamps, kickoff resets); `POST /api/match` (+`time` ms,
+mutual → 100) and `POST /api/match/v2` (no time, tanh, strictly (0,100))
+→ `MatchResult{points, exact_interest_matches, shared_groups, handshake,
+mutual_handshake}`; `POST /api/hard-match` (caller passes itself as
+`first_user_address` + its Bearer; order-agnostic, once per pair, repeat
+returns the stored Summary → 200/201) → `Summary{score (0,100),
+checkpoints[5]{key,label,closed}, description, user_a/b, chat, room}`;
+`POST /api/contact` (`{content ≤255, from, to}` + from-persona Bearer →
+201 `Contact`, repeat 409); `GET /api/contact/{address}` (recipient-only,
+newest first).
+
+1. **Interests (R1):** a curated static catalog (group → key → title +
+   emoji) ships client-side; the picker lives in profile/settings;
+   writes go through the real upsert/delete endpoints (1..50 rows,
+   idempotent delete); the badge displays the interests from a
+   **client-side write-through mirror** (the API has no interests GET —
+   documented limitation: mirror is per-device, seeded/updated from the
+   endpoint responses). The §1 mock model is retired.
+2. **Chat.done (R2):** `done` is the authoritative finished signal —
+   chat-list status (finished → red reminder mark; active → animated
+   loading), dialog UI states, and the contact-share gate. The
+   §10.1.7 default-active fallback is retired.
+3. **Share contact (R3):** a swipe-right slide control in the dialog
+   footer (and inside the summary sheet), enabled only when `done`;
+   `POST /api/contact` with content composed from a new **local
+   contact-card field** in profile/settings (e.g. "telegram: @handle" —
+   client-local, no backend user field); 409 → "already shared" state.
+   Minimal received view: a small "shared contacts" list in
+   profile/settings fed by `GET /api/contact/{me}` (the flagged open
+   point resolved minimally).
+4. **Chats sorting (R4):** finished chats first, sorted by their
+   match/v2 score descending (client fetches `POST /api/match/v2` per
+   finished pair, itself as first_user_address; only finished pairs are
+   fetched); unfinished after, newest first. Unfinished items render
+   darker with opacity plus an animated circular loader (standard
+   spinning circle).
+5. **Summary sheet (R5):** opening a finished chat triggers the
+   once-only hard-match and opens a sheet modal: donut diagram with the
+   score, the 5 networking checkpoints (closed/open), score > 80 →
+   fireworks + brightness effect; round corners; X close top-right; the
+   share-contact slide inside; background = the interlocutor's Deepa hue
+   with the existing ink pairing for readable contrast.
+6. **Radar tuning (R6):** center-to-nearest-ring gap closer still,
+   user icons a little smaller, ring rotation slower overall — per-ring
+   speed differences (§8.1.2) and all no-overlap/upright/on-canvas
+   guarantees remain.
+
+### 4.14 v3.1 addendum amendments (2026-11-19, owner-approved Concept §14)
+
+Queued after the v3 wave; item 5 is a live bug in the shipped sheet.
+
+1. **Share-slide polish:** the slide track/knob becomes **candy-cane
+   style** (animated red-white striped bar around/behind the circle);
+   on swipe completion a **confetti animation plays from the top**.
+2. **Contacts footer page:** a new bottom-nav **"Contacts" tab** lists
+   the contacts shared with the user (recipient GET, newest first) — the
+   primary surface, superseding §4.13.3's minimal settings-side list
+   (that list moves or stays at the process's discretion); the tab icon
+   carries a **dot when new/unseen contacts arrive**.
+3. **Creation-form contact input:** the join flow gains a contact field;
+   the value is stored **only in localStorage** (the client contact card)
+   until actually shared — nothing is sent at creation.
+4. **Sheet polish:** the summary sheet's width matches the dialog
+   content width (aligned with the message borders); the score displays
+   as a **ceil integer**; checklist items render as **square checkboxes
+   with green check signs**.
+5. **Sheet i18n bug (bug round):** the sheet shows hardcoded Russian
+   strings ("итоги встречи", "сетевой чек лист") in the EN interface —
+   all sheet copy routes through the i18n table (EN in EN, RU when RU is
+   chosen); the RU/EN parity test covers the sheet.
+
+### 4.15 v3.2 arcade-sheet design (2026-11-20, owner-approved Concept §15; tier re-cut per the owner revision recorded in Concept §15.3)
+
+The owner gave two **binding component specs** (§15.1 ShareContactSlide, §15.3
+the summary-sheet redesign) plus placement changes (§15.2). This section maps
+them to the implementable design. Supersessions declared here: the dialog
+**footer** share slide (§4.13.3, Concept §13.1.3) is **removed** — the slide
+lives only in the sheet; the sheet's **background** = the interlocutor's Deepa
+hue (§4.13.5) is replaced by the locked purple (owner flag §15.4); the
+**>80 fireworks-only rule** (§4.13.5, Concept §13.1.5) is replaced by the
+three-tier system, and §15.3's drafted **70/40 cutoffs are re-cut to
+80/50** by the owner revision (2026-11-20, recorded in Concept §15.3) —
+GREAT ≥80, GOOD 50–79, LOW <50. The §4.14.4 sheet width contract, ceil score
+display, and square-check checklist are **kept** (restated below where they
+bind the new layout).
+
+API surface (swagger-verified, `/mount/bleak-node/docs/swagger.json`): **no
+new endpoints** — the round is presentational. The sheet still consumes
+`POST /api/hard-match` (once per pair; a repeat open returns the stored
+Summary, 200/201) and the slide consumes `POST /api/contact`
+(`{content ≤255, from, to}` + from-persona Bearer → 201 `Contact`; repeat
+→ 409 "already shared"). The chat-page button only re-opens the sheet over
+the page's existing once-only hardMatch flow.
+
+#### 4.15.A ShareContactSlide v2 (Concept §15.1)
+
+The component is rebuilt to the owner's iOS-style "Slide to Answer" spec.
+The **state machine and props semantics stay as shipped** (parent-driven
+`disabled` / `pending` / `shared`, `oncomplete` fired once per completed
+gesture, accessible click/Enter/Space activation on the thumb) — the redesign
+changes geometry, surfaces, the trail, and the completion rule.
+
+**Geometry (base variant).** Pill track: **height 76px**, full border-radius
+(`--radius-pill`), aspect ratio **~3.8:1** → width `min(100% of container,
+288px)`, centered in its slot. Thumb: **circular, 68px diameter** with **4px
+internal padding** (invariant: `thumb = trackHeight − 8px`; the sheet variant
+reuses the same invariant at its own height). Drag range `maxDx = innerWidth
+− thumbWidth`.
+
+**Track surface (base variant).** Dark translucent **glassmorphism**:
+`background: color-mix(in srgb, var(--color-bg) 45%, transparent)` +
+`backdrop-filter: blur(12px)` (with the `-webkit-` prefixed twin), 1px border
+`color-mix(in srgb, var(--color-text) 18%, transparent)` (color-mix over
+existing tokens only — no new raw hex, §4.1 rule). Centered placeholder text
+("slide to answer" hint, 14px Inter, `--color-text-muted`) with a **shimmer
+sheen**: a pseudo-element gradient stripe sweeping across the text via
+transform-only keyframes (2.4s loop), and the text **fades out as the thumb
+moves**: inline `opacity = 1 − progress` (progress = `dx / maxDx`), gone
+before the thumb reaches the end.
+
+**Thumb (base variant).** Crisp white circle (`--color-text` — reads as white
+on the dark glass) carrying a **green phone icon**: a new `phone` PixelIcon
+glyph (16×16 rect data per §4.4, colored `var(--color-check-green)`). The
+sheet variant draws the existing `arrow-right` glyph instead (see variant
+API below).
+
+**Candy-cane trail.** A fill bar **from the track's inner edge up to the
+thumb's near edge** (thumb's left edge → `width = 4px + dx`), full inner
+height, clipped by the pill's `overflow: hidden`. Two layers: an outer
+**clip layer** whose width is bound to the drag progress, and an inner
+**stripe layer** that runs the continuous marquee so the pattern scrolls
+even while the clip edge moves.
+
+- Stripes: `repeating-linear-gradient(45deg, A 0 12px, B 12px 24px)` —
+  **wider** than the §4.14.1 band (12px vs 10px stripes) and **brighter**
+  (full opacity; the old band sat at 0.5). Base colors: **A =
+  `var(--color-danger-text)` (#e05252), B = `var(--color-text)`** — the
+  classic red-white candy cane, token-driven.
+- **Seamless marquee math (v3.1 `candy-move` technique, re-derived for the
+  wider period):** the stripe period along the gradient axis is 24px, so a
+  horizontal loop shift of `period ÷ sin45° = 24 / 0.70711 ≈ 33.941px`
+  tiles the pattern exactly. Keyframes `translateX(0 → −33.941px)`,
+  `1.1s linear infinite`, transform-only (§4.6). The same technique carries
+  the sheet variant at its own period (below); if the marching direction
+  reads wrong in review, flip the shift's sign — geometry unchanged.
+- The trail renders only in the armed state during/after a drag; the shared
+  and disabled states keep the plain track.
+
+**Completion rule — 85% snap vs spring-back (differs from the shipped
+always-snap).** `snapPoint = 0.85 × maxDx`. On release: `dx ≥ snapPoint` →
+**complete**: the thumb animates to the end (`dx = maxDx`, transition
+160ms ease-out) and `oncomplete` fires immediately (the parent starts the
+request; the shared state swaps the track to its terminal look — same
+celebration gating as shipped). `dx < snapPoint` → **spring back**:
+`dx = 0`, transition 240ms `cubic-bezier(0.34, 1.56, 0.64, 1)` (light
+overshoot, transform-only). Dragging all the way to `maxDx` mid-gesture
+still completes at once (as shipped). Keyboard/click activation completes
+directly — it is the documented accessible equivalent of the gesture and is
+NOT subject to the 85% rule.
+
+**Drag inputs.** The shipped pointer-events approach already covers **both
+touch and mouse**: one `pointerdown/move/up` path with
+`setPointerCapture` + `touch-action: none` — confirmed, keep as is.
+
+**Confetti (base variant).** The v3.1 flake system is **reused unchanged**
+(12 deterministic flakes from the slide's top, Deepa hues, transform/opacity
+keyframes, celebration gated on "gesture made here + shared landed" so 201
+and 409 celebrate and a re-mount replays nothing). The **sheet-level**
+completion burst is an extension of the same system — specified in
+§4.15.C "Completion sequence".
+
+**Variant API — decision: a `variant` prop, not parent-passed colors.**
+`variant: 'base' | 'sheet'` (default `base`) maps to a scope class that
+swaps the component's **internal** custom properties. The component defines
+its colors only through internal tokens — `--slide-track-bg`,
+`--slide-track-border`, `--slide-thumb`, `--slide-thumb-ink`,
+`--slide-stripe-a/b/c`, `--slide-hint-ink`, `--slide-hint-font`,
+`--slide-height` — with base defaults as above; the sheet scope overrides
+them (§4.15.C-E). Parents may not pass raw colors: the locked sheet palette
+(§15.3 "do not remap") stays honest and the component remains the single
+source of slide visuals. The thumb glyph follows the variant (base →
+`phone`, sheet → `arrow-right`). The base variant is **currently
+unmounted** (the footer instance is removed, §4.15.B) but ships and is
+tested as the component default per §15.1.
+
+States rendered per the existing machine: `shared` → thumb locks right,
+trail hidden, hint = `sharedLabel`; `disabled` → thumb inert at rest at
+35% opacity, `disabledHint` centered (no glass shimmer motion); `pending`
+→ thumb inert at 60% opacity; armed → the full v2 look.
+
+#### 4.15.B Placement & chat-page changes (Concept §15.2)
+
+1. **Footer slide removed (supersedes §4.13.3).** The transcript page's
+   dialog-footer `ShareContactSlide` instance and its copy keys' footer-only
+   usage go away; the slide lives **only inside the summary sheet**. The
+   page keeps: the finished indicator, the hardMatch auto-open flow
+   (finished chat → once-only `POST /api/hard-match` → sheet), and the
+   share request/error plumbing — now surfaced exclusively through the
+   sheet.
+2. **Summarization button on the chat page.** In the dialog footer's place:
+   a full-width secondary button —
+   - `done` (authoritative `Chat.done` per §4.13.2) → **enabled**; pressed →
+     opens the summary sheet (re-opens over a stored Summary without a new
+     hard-match call — the once-per-pair rule stays; if no Summary is held,
+     it runs the page's existing once-only flow first).
+   - `!done` → **disabled**, showing the "dialog in progress" phrase
+     (copy keys in §4.15.E). No loader on the button itself — the sheet owns
+     the loading row.
+   - Placement: same footer slot the slide occupied (below the transcript
+     scroll, above the tab bar), the page's standard inset width; 48px
+     touch target, `--radius-pill`, transparent surface + 1px
+     `--color-text-disabled-strong` border when disabled, accent-soft
+     treatment when enabled (the slide's yellow accent discipline holds —
+     the button is interactive/active).
+3. **Sheet slide ratio.** The sheet's slide is the **sheet variant at
+   3.5:1–4:1** — geometry under §4.15.C-E (the §15.3 "height 64px" and the
+   §15.2 ratio band are reconciled by a clamp; the interplay is flagged in
+   §4.15.G).
+
+#### 4.15.C Arcade sheet system (Concept §15.3)
+
+**C-1. Palette scoping — the sheet does NOT remap app tokens.** The app
+palette (Concept §4) is unchanged; the sheet's locked colors live in a
+scope block on the sheet root (`.arcade-sheet`):
+
+| Scoped token | Value | Use |
+| --- | --- | --- |
+| `--sheet-bg` | `#8A12FF` | sheet background (**locked**, owner §15.3) |
+| `--sheet-charcoal` | `#18181B` | slide track fill |
+| `--sheet-yellow` | `#FACC15` | slide border/stripes/thumb, X close, tier labels |
+| `--sheet-white` | `#FFFFFF` | ring, text ink, avatar frames, dotted line |
+| `--sheet-orange` | `#FF8A00` | trail stripe accent, sparkle accents |
+| `--sheet-green` | `var(--color-check-green)` | checkmarks, phone icon (reuses the approved Deepa green — no new hex) |
+| `--sheet-ink` | `var(--sheet-white)` | default text ink on purple (#FFF on #8A12FF ≈ 5.9:1, AA ✓) |
+| `--sheet-font-pixel` | `'Press Start 2P', 'Handjet Variable', 'Handjet', monospace` | pixel typography (decision below) |
+
+Contrast notes: `--sheet-yellow` on `#8A12FF` ≈ 3.8:1 (≥3:1 non-text ✓ —
+the slide's 2px border and icons qualify); `#18181B` on `--sheet-yellow`
+≈ 11.3:1 (thumb icon ink ✓). Components inside the sheet consume ONLY
+`--sheet-*` (plus shared structural tokens — spacing, radii, touch target,
+`--color-scrim` for the dark backdrop scrim, which stays as shipped). The
+`.deepa-N` hue classes on the sheet are **removed** (background supersession
+above; §15.4 keeps the owner's option to restore the hue).
+
+**C-2. Container & entrance.** Same modal pattern as shipped
+(HandshakeSheet dialog discipline: scrim, Escape + focus + tab-trap, X
+close; fixed bottom sheet; §4.14.4 width contract kept — sheet width
+matches the dialog content column, `max-width: 640px` from 720px up).
+Surface: `--sheet-bg`, top corners `24px` (`var(--radius-lg)` top-only:
+`border-radius: var(--radius-lg) var(--radius-lg) 0 0`). Entrance: the
+200ms linear slide-up is **superseded** by a retro **spring-bounce** rise —
+keyframes `arcade-rise`: `0% translateY(100%) → 62% translateY(-12px) →
+82% translateY(4px) → 100% 0`, 460ms `cubic-bezier(0.22, 1, 0.36, 1)`
+(transform-only; scrim keeps its 200ms fade). **Cascade:** the sheet's
+sections (top bar → score stage → description → checklist → slide) each
+run `cascade-in` (opacity 0→1, translateY 10px→0, 240ms ease-out) with
+delay `120ms + i×50ms` — the ~50ms stagger per §15.3.
+
+**C-3. Typography — decision: Press Start 2P for BOTH locales.** The
+flagged caveat is resolved by verification, not by locale splitting:
+**Press Start 2P officially ships Cyrillic** — the upstream Google Fonts
+metadata (`ofl/pressstart2p/METADATA.pb`, checked 2026-11-20) lists
+`subsets: "cyrillic"` and `"cyrillic-ext"`. Therefore:
+
+- The sheet's pixel face is `--sheet-font-pixel: 'Press Start 2P',
+  'Handjet Variable', 'Handjet', monospace` for EN **and** RU — one face,
+  true RU/EN glyph parity, no per-locale mapping table.
+- **Loading mechanism (the checked constraint):** the app loads fonts via
+  npm **Fontsource** packages imported once in `routes/+layout.svelte`
+  (`@fontsource-variable/handjet`, `@fontsource-variable/inter`) with
+  `unicode-range` subsetting — no raw font files, no network CSS. Press
+  Start 2P lands the same way: `@fontsource/press-start-2p` (static,
+  single 400 weight) imported for its `latin` + `cyrillic`(+`cyrillic-ext`)
+  subset CSS files. **Justification for the new font asset:** one extra
+  static package in the existing mechanism; only the latin/cyrillic subset
+  bytes of the used glyphs load; it is consumed only by the sheet scope;
+  zero runtime JS. The alternatives were rejected on parity/asset grounds:
+  per-locale mapping (EN=PS2P / RU=Handjet) breaks glyph-style parity and
+  doubles the QA matrix against the mandatory RU/EN parity test;
+  Handjet-for-both avoids the dependency but loses the authentic 8-bit look
+  the owner explicitly asked for. **Silkscreen stays rejected** (Latin-only,
+  confirmed). Fallback safety: Handjet sits second in the stack, so a
+  missing PS2P glyph degrades to the approved Cyrillic pixel face, never to
+  a serif.
+- Sizes (PS2P runs large): pixel labels/tier labels **10px**, score number
+  **28px**, all with `letter-spacing: 0`; sheet body copy (description,
+  checklist labels, names, slide hint base sizing) stays **Inter**
+  (`var(--font-body)`). The sheet-variant slide hint is the pixel face at
+  10px (12px from 720px up).
+
+**C-4. Top bar.** Left: the pixel label **MEETING SUMMARY** — the i18n'd
+`chat.summary.title` rendered uppercase in `--sheet-font-pixel` 10px,
+`--sheet-white`. Right: the **pixel X close** — the existing `PixelIcon
+close` 16px on a 48px hit target (`--touch-target`), `--sheet-yellow`
+glyph, press state = **pixel scale-down**: `transform: scale(0.88)` over
+90ms, no opacity fade; `:focus-visible` ring in `--sheet-yellow`.
+
+**C-5. Dual avatars + score ring (centerpiece).** Stage: a centered row —
+**me avatar (56×56) — ring (≈160×160) — them avatar (56×56)**, gap
+`--space-5`, names under each frame in Inter 12px semibold
+(`--sheet-white`).
+
+- **Avatars:** the app's `PixelAvatar` **is** the 8-bit pixel art (12×12
+  chunky grid, §4.3) — the owner's "8-bit pixel-art avatars" are satisfied
+  by **framing, not new sprites**: each avatar renders inside a **square
+  56×56 frame** — `border: 2px solid var(--sheet-white)`,
+  `border-radius: 0` (square pixel-art frame, unlike the rounded frames
+  elsewhere), `PixelAvatar size=52` inside the border, SVG
+  `shape-rendering: crispEdges` preserved (PixelAvatar is vector pixel
+  art, so no raster scaling occurs; the spec still pins
+  `image-rendering: pixelated` on the frame for any raster fallback). No
+  new avatar assets are drawn.
+- **Ring:** SVG viewBox 160×160, `r = 66`, **thick white arc**
+  (`stroke-width: 12`, `--sheet-white`, `stroke-linecap: butt` — square
+  caps for the pixel aesthetic; `crispEdges` on the SVG). Track circle at
+  25% white (`color-mix(in srgb, var(--sheet-white) 25%, transparent)`).
+  Fill **clockwise from 0 to the score** on open, starting at 12 o'clock
+  (`rotate(-90deg)`): `stroke-dasharray` = full circumference,
+  `stroke-dashoffset` animated `c → c × (1 − score/100)` over **900ms
+  ease-out** — this follows the shipped donut precedent (§4.13.5 already
+  animates SVG stroke geometry; everything else in the sheet stays
+  transform/opacity per §4.6). The arc math reuses `donutScoreDash` /
+  a radius parameter (lib/chats/summary.ts stays the pure-geometry home).
+- **Score tally count-up:** the displayed number (ceil integer per
+  §4.14.4) counts up **0 → ceil(score) in a JS rAF loop, 700ms, cubic
+  ease-out, integer steps**, rendered in `--sheet-font-pixel` 28px —
+  picked over a CSS-only approximation because text content cannot be
+  keyframed and a stepping `counter` hack would not hit the exact final
+  value. Dependency-light: a native rAF, one-shot per open, no libraries;
+  a pure helper (frame→value function) lives in lib/chats/summary.ts so
+  the easing is unit-testable. Under reduced-motion the count-up jumps
+  straight to the final value (explicit guard — the rAF path checks the
+  media query, since the base.css catch-all only intercepts CSS).
+
+**C-6. Score tiers (owner revision 2026-11-20: 80/50 — supersedes §15.3's
+drafted 70/40 and §13.1.5's ">80 fireworks").** Tiers evaluate the **raw
+Summary score**; the display keeps the ceil (§4.14.4). `isCelebration`
+in lib/chats/summary.ts is re-cut to `score >= 80` (was `> 80`) — GREAT is
+inclusive of 80 per the revision's "80–100"; the celebration verdict
+(`summaryCelebrates`) keys off the same constant.
+
+| Tier | Raw score | Label key (EN / RU) | Avatars | Bridge |
+| --- | --- | --- | --- | --- |
+| GREAT | **80–100** | `chat.summary.tier.great` — "Great match" / «Отличное совпадение» | move **toward the center** on open (18px inward, 300ms ease-out, 200ms delay), then idle **2-frame bounce loops** | **pixel energy beam + sparkling hearts & stars** |
+| GOOD | **50–79** | `chat.summary.tier.good` — "Good chat" / «Хороший разговор» | friendly **nod / wave** in place | **glowing pixel dotted line** |
+| LOW | **0–49** | `chat.summary.tier.low` — "Different vibes" / «Разные вибрации» | **stay spaced apart**, neutral idle | **sweat drop / blink** |
+
+The tier label renders under the ring in `--sheet-font-pixel` 10px —
+`--sheet-yellow` for GREAT, `--sheet-white` otherwise. Tier labels come
+from the i18n table (both dictionaries — §4.15.E).
+
+**C-6a. Animation-system decision: hand-rolled CSS keyframes on positioned
+DOM elements (+ SVG for the ring, + the two sanctioned JS one-shots).** One
+system for all sheet motion — no canvas layer, no animation library:
+
+- **Why CSS keyframes:** §4.6 already mandates transform/opacity-only CSS
+  animation, and the base.css `prefers-reduced-motion` catch-all disables
+  exactly CSS animations/transitions globally — a canvas or rAF-driven
+  layer would bypass that guarantee and need its own manual guards; CSS
+  keyframes are deterministic and SSR/test-render identical (the shipped
+  FLAKES/sparks pattern); an animation/pixel lib (GSAP, PixiJS…) would add
+  a dependency the delivery strategy and TZ constraints don't carry.
+- **The only JS motion allowed:** the score count-up rAF (C-5) and the
+  existing gesture logic — both one-shot, both explicitly reduced-motion
+  guarded. No continuous JS animation loops.
+- **Pixel feel:** two-state animations use `steps(2, jump-none)` timing on
+  a 0%→100% two-keyframe pair (exact 2-frame pixel loops); bursts use
+  staggered delays; everything is positioned with transforms only.
+
+**C-6b. Tier animations, concretely.**
+
+- **GREAT.** Avatars: per side, `translateX(±18px)` toward center (300ms
+  ease-out, delay 200ms), then the idle loop
+  `avatar-hop: 0% translateY(0) → 100% translateY(−6px)`,
+  `600ms steps(2, jump-none) infinite alternate` — the joyful 2-frame
+  bounce. Beam: between the two avatar frames across the ring's center —
+  a 4px-high stepped strip
+  (`repeating-linear-gradient(90deg, var(--sheet-yellow) 0 8px,
+  transparent 8px 16px)`), marching via `translateX(0 → −16px)`,
+  800ms `steps(2, jump-none)` infinite, opacity pulsing 0.7↔1.0
+  (1.2s ease-in-out). Sparkles: **6 glyph poppers** (PixelIcon `star` ×3,
+  `heart` ×3 — `heart` is a **new registry entry** per §4.4, 16×16 rect
+  data) absolutely positioned around the bridge, each running a 1.2s loop
+  (`scale(0) → scale(1) → scale(0)`, `steps(2)`, opacity 0→1→0) with
+  staggered delays (0–500ms), colored `--sheet-yellow` / `--sheet-orange`
+  / `--sheet-white`. The §13.1.5 fireworks fold in: the shipped spark
+  burst + brightness pulse keep running on this tier, **recolored to the
+  sheet scope** (sparks `--sheet-yellow/orange/white` instead of
+  `currentColor`; the wash layer uses `--sheet-white` at its existing
+  0.22 peak).
+- **GOOD.** Nod/wave (once on open, then idle): the "me" avatar dips
+  `translateY(0 → 2px → 0)` twice (400ms each, transform-only); the "them"
+  avatar rocks `rotate(−6deg ↔ 6deg)` (transform-origin bottom center)
+  twice. Dotted line: a 3px-high row of 6×6px square dots
+  (`--sheet-white` at 60%) spanning between the frames; its **glow** is a
+  static `filter: blur(6px)` duplicate layer whose **opacity pulses**
+  0.4↔0.9 over 1.6s (animating opacity of a pre-blurred layer — no filter
+  animation, §4.6-safe).
+- **LOW.** No avatar motion toward center; the frames stay at rest. A
+  **sweat drop** — an 8×10px pixel-drop element in `--sheet-white` beside
+  the counterpart's frame — slides down `translateY(0 → 10px)` with
+  opacity 1→0 (700ms), twice, then idles on a 4s loop. The **neutral idle
+  blink** is a 120ms opacity dip to 0.65 on each avatar frame every 4s.
+  (Drop color: white per the locked palette; a cyan `--color-deepa-5`
+  variant is flagged as owner-optional — §4.15.G.)
+
+**C-7. Conversation summary & checklist.** `Summary.description` renders
+left-aligned in Inter 14px/1.45, `--sheet-ink` (crisp white sans per the
+spec). Under the pixel header **NETWORKING CHECKLIST** (`chat.summary.checklist`,
+`--sheet-font-pixel` 10px), the 5 checkpoints keep the §4.14.4 shape —
+**square box** (16px, `1.5px solid var(--sheet-white)`) + **green check**
+(`--sheet-green` → the `--color-check-green` token stays) for closed,
+empty muted square for open (0.6 opacity). **Entrance choreography:** each
+closed checkpoint pops in **sequentially** — box `scale(0 → 1)` with
+`steps(2)` (150ms), a **retro flash** (a `--sheet-white` overlay on the
+box flashing 100%→0 opacity over 120ms right after the pop), then the
+check glyph appears (60ms later); item i's delay = `400ms + i×140ms` —
+the drawn one-by-one cadence. Open checkpoints appear with the cascade
+(no pop, no flash). Reduced-motion collapses all of it to the final
+instant state (base.css catch-all).
+
+**C-8. Sheet slide embed (§15.3 bottom action).** The v2 component in its
+**`variant="sheet"`** scope, overriding the internal tokens:
+`--slide-height: clamp(64px, calc(sheet content width ÷ 3.75), 80px)`
+(the 64px floor is the §15.3 explicit height; the clamp lands the width in
+the §15.2 3.5:1–4:1 band on phone widths — from 720px up the slide is
+capped at 320px wide, centered, so the ratio holds); thumb = height − 8px
+per the §4.15.A invariant. Colors: track `--sheet-charcoal` with a **2px
+`--sheet-yellow` border**; thumb `--sheet-yellow` with the **pulsing pixel
+arrow** (`PixelIcon arrow-right`, `#18181B` ink, opacity pulse 1↔0.6 over
+1s — "subtly pulsing"); hint text pixel-accented (`--sheet-font-pixel`
+10px, `--sheet-white`, uppercase, shimmer sheen retained, fade-on-drag
+retained). Trail stripes: **3-color cycle**
+`repeating-linear-gradient(45deg, var(--sheet-yellow) 0 12px,
+var(--sheet-white) 12px 24px, var(--sheet-orange) 24px 36px)` — period
+36px → seamless loop shift `36 / 0.70711 ≈ 50.912px`, marquee 0.9s linear
+infinite ("continuously scrolling forward"); brighter/wider per the owner
+note (12px segments, full opacity).
+
+**Completion sequence (shared landing, gesture-made only — the existing
+celebration gating).** (1) The slide locks: thumb snaps right, hint →
+**"Contact shared!"** (new key, §4.15.E); the 409 "already shared" state
+keeps its own label. (2) **8-bit square-pixel confetti across the modal** —
+an extension of the v3.1 FLAKES system at sheet level: **24 deterministic
+flakes** (same no-randomness pattern — SSR/test parity), **8–10px
+squares** (`border-radius: 0` — the 8-bit shape change vs the 6×10 rounded
+base flakes), colors from `--sheet-yellow / --sheet-white /
+--sheet-orange` + the pair's Deepa hues, origins spread across the sheet's
+top edge and the slide's center, fall 60–140% of the sheet height,
+0.9–1.6s, 0–0.4s stagger, transform/opacity only. (3) **Both avatars do a
+celebratory victory jump:** `victory-jump` keyframes (`0% 0 → 30% −10px →
+45% 0 → 55% −6px → 65% 0`, 700ms, `steps(2, jump-none)`, played twice),
+once per completion gesture — a re-mount with `shared` already true
+replays nothing (shipped gating, restated).
+
+**C-9. Accessibility & motion (sheet).** Dialog role/labels/focus/
+tab-trap/Escape as shipped; the X and the slide thumb keep 48px targets;
+the score ring's `aria-label` keeps the `chat.summary.score.aria` wording
+(ceil value); tier is conveyed by the visible tier label (plain text —
+no color-only meaning); decorative layers (trail, beam, sparkles, confetti,
+flashes) are `aria-hidden`. All sheet animation is transform/opacity (+
+the sanctioned SVG stroke geometry), collapses under
+`prefers-reduced-motion`, and the two JS one-shots carry explicit
+reduced-motion guards. Backdrop-filter has a solid-color fallback
+(`color-mix` background without blur still meets contrast).
+
+#### 4.15.D Task-split recommendation (for the implementation wave)
+
+Three tasks (the process opens cards and fills criteria/tests/constraints;
+TZ derives formally):
+
+1. **`slide-v2-rebuild`** — ShareContactSlide v2 per §4.15.A: geometry +
+   glass + hint fade/shimmer, white thumb + new `phone` PixelIcon registry
+   entry, candy trail (clip + marquee layers, the 33.941px loop), **85%
+   snap/spring-back rule**, `variant` prop with the internal-token API
+   (base defaults shipped + tested even though currently unmounted),
+   v3.1 confetti reused unchanged. Depends on: nothing. **Gates** the next
+   two (both embed the component).
+2. **`arcade-sheet-redesign`** — SummarySheet v2 per §4.15.C: `.arcade-sheet`
+   scope tokens (locked hexes), arcade-rise + cascade entrance, the
+   Press Start 2P asset (`@fontsource/press-start-2p` + cyrillic subsets,
+   `--sheet-font-pixel`), top bar, avatar frames + ring/count-up (incl.
+   the pure tally helper), **tier system at 80/50 with the
+   `isCelebration ≥ 80` re-cut in lib/chats/summary.ts**, checklist
+   choreography, sheet-variant slide embed + completion sequence
+   (sheet-level square confetti, victory jumps). Depends on: task 1. If
+   the wave needs parallelism it may split into 2a (structure, tokens,
+   typography, slide embed) and 2b (tier animations, count-up, completion
+   sequence) — single-owner execution is recommended (one visual system,
+   one reviewer).
+3. **`share-placement-cutover`** — per §4.15.B: remove the transcript
+   footer slide instance (supersedes §4.13.3), add the summarization
+   button with its enabled/disabled gating and copy, sweep the retired
+   keys, extend the RU/EN parity + transcript/sheet test suites.
+   Depends on: tasks 1 and 2 (the button opens the redesigned sheet; the
+   footer cutover must not land while the sheet still needs the footer's
+   shared-state plumbing).
+
+Suggested order: 1 → 2 → 3, with 3's i18n keys landable inside 2 where
+the process prefers two cards.
+
+#### 4.15.E RU/EN parity — new copy (both dictionaries required; parity test extended per the §14.1.5 precedent)
+
+| Key | EN | RU |
+| --- | --- | --- |
+| `chat.summary.open` | Meeting summary | Итоги встречи |
+| `chat.summary.open.disabled` | Dialog in progress | Диалог ещё идёт |
+| `chat.summary.tier.great` | Great match | Отличное совпадение |
+| `chat.summary.tier.good` | Good chat | Хороший разговор |
+| `chat.summary.tier.low` | Different vibes | Разные вибрации |
+| `chat.contact_share.sheet_label` | Slide to share contact | Смахните, чтобы поделиться |
+| `chat.contact_share.shared_done` | Contact shared! | Контакт отправлен! |
+
+Reused unchanged (already in both dictionaries): `chat.summary.title`
+(the top-bar MEETING SUMMARY label, uppercased via CSS),
+`chat.summary.checklist`, `chat.summary.score.aria`, `chat.summary.loading`,
+`common.close`, `common.retry`, the error pair, and the 409 label
+`chat.contact_share.shared` ("Contact already shared" / «Контакт уже
+отправлен»). `chat.contact_share.label` keeps serving any residual
+non-sheet uses but loses its footer usage in the cutover. Every new key is
+present in BOTH `en.ts` and `ru.ts` in the same commit; the i18n parity
+suite enumerates the sheet's keys.
+
+#### 4.15.F Acceptance criteria (checkable)
+
+**Slide v2 (§4.15.A):**
+- [ ] The armed slide renders a 76px-tall pill track (base), full
+      border-radius, width ≤288px (≈3.8:1), glass background with
+      backdrop blur, centered hint with a shimmering sheen.
+- [ ] The hint's opacity decreases linearly with drag progress and is 0
+      at full extension.
+- [ ] The thumb is a 68px white circle with 4px internal padding and a
+      green `phone` pixel glyph (base variant).
+- [ ] During a drag, a candy-cane fill bar extends from the track's inner
+      edge to the thumb's left edge with 45° alternating stripes
+      (12px/12px) whose pattern scrolls continuously and loops seamlessly
+      (33.941px shift; no visible seam at the loop point).
+- [ ] Releasing the drag below 85% of the range springs the thumb back
+      with an overshoot easing; releasing at ≥85% completes: the thumb
+      animates to the end and `oncomplete` fires exactly once.
+- [ ] Keyboard activation (Tab to the thumb, Enter/Space) and click
+      complete directly, regardless of position.
+- [ ] Touch and mouse drags both work (pointer capture; no scroll-jank —
+      `touch-action: none`).
+- [ ] `disabled` / `pending` / `shared` render the existing inert states;
+      `shared` shows the shared label and locks the thumb right.
+- [ ] The base confetti (12 flakes, Deepa hues, from the top) plays only
+      when a completion gesture made in the component is followed by the
+      shared state; a re-mount with `shared` true replays nothing.
+- [ ] The sheet variant overrides track/stripes/thumb/hint via the
+      component's internal tokens only — no color props exist on the API.
+- [ ] Reduced motion: the marquee, sheen and transitions collapse to
+      instant states (base.css catch-all).
+
+**Placement & chat page (§4.15.B):**
+- [ ] No ShareContactSlide renders in the transcript dialog footer.
+- [ ] A summarization button sits in the footer slot; with `Chat.done`
+      false it is disabled and shows the "dialog in progress" phrase;
+      with `done` it opens the summary sheet.
+- [ ] Opening the sheet via the button on an already-summarized chat does
+      not re-issue `POST /api/hard-match` (once-per-pair holds).
+
+**Arcade sheet (§4.15.C):**
+- [ ] The sheet background is exactly `#8A12FF` with 24px top corners and
+      a dark scrim; no Deepa-hue background classes remain on it.
+- [ ] The sheet's scoped tokens are defined in the `.arcade-sheet` block;
+      no `--sheet-*` token is consumed outside the sheet; the app
+      `:root` tokens are unchanged by the sheet.
+- [ ] The entrance plays the spring-bounce rise; the five sections
+      cascade in with ~50ms stagger.
+- [ ] Pixel labels/tier labels/score render in Press Start 2P with
+      Handjet fallback; the font loads through a Fontsource import
+      including the Cyrillic subset; Russian sheet copy renders in the
+      pixel face with no missing-glyph fallback to a serif.
+- [ ] The top bar shows the i18n'd MEETING SUMMARY label and a pixel X
+      with a scale(0.88) press state and 48px target.
+- [ ] Both avatars render as 56×56 SQUARE frames (2px white border, no
+      border-radius) around PixelAvatar art with crisp pixel edges; no
+      new avatar sprites were added.
+- [ ] The white ring fills clockwise from 0 to the score over ~900ms; the
+      displayed integer counts up over ~700ms and lands exactly on
+      ceil(score); both fire once per open.
+- [ ] Tier thresholds are 80/50 on the raw score: ≥80 GREAT, 50–79 GOOD,
+      <50 LOW; `isCelebration` returns true for score 80 (re-cut from
+      >80) and the GREAT tier triggers the recolored sparks + brightness
+      pulse.
+- [ ] GREAT: avatars move 18px toward center then bounce in 2-frame
+      loops; a marching pixel beam plus star/heart poppers bridge the
+      ring. GOOD: nod/wave plays once and a glowing dotted line pulses.
+      LOW: avatars stay apart; a sweat drop plays and an idle blink runs.
+- [ ] The tier label renders under the ring from the i18n table
+      (yellow for GREAT, white otherwise).
+- [ ] Closed checkpoints pop sequentially (140ms stagger) with a retro
+      flash, and their green square-box checkmarks appear one by one;
+      open checkpoints render as empty muted squares.
+- [ ] The sheet slide renders in the sheet variant: charcoal `#18181B`
+      track, 2px `#FACC15` border, yellow thumb with pulsing arrow,
+      pixel-accented hint, yellow/white/orange 45° stripes scrolling
+      forward (50.912px loop), height 64–80px per the clamp and the
+      3.5:1–4:1 band.
+- [ ] Completing the sheet slide locks it, swaps the hint to
+      "Contact shared!" (409 keeps "already shared"), fires the 24-flake
+      square-pixel confetti across the modal, and both avatars do the
+      victory jump — all only for a gesture made here, none on re-mount.
+- [ ] All sheet copy is RU/EN-parity tested; no hardcoded strings remain
+      in the sheet components.
+
+#### 4.15.G Flags for the owner / concept (concept report)
+
+1. **Sheet slide height:** §15.3 says "height 64px" explicitly, §15.2 says
+   "bigger" with a 3.5:1–4:1 band. The design reconciles with
+   `clamp(64px, width ÷ 3.75, 80px)` (80px on typical phones, 64px floor).
+   If the owner meant a literal fixed 64px, drop the clamp — one token.
+2. **Trail stripe mix:** "bright yellow #FACC15 and white/orange" is
+   interpreted as a 3-color cycle (yellow/white/orange, 12px segments).
+   A 2-color yellow/white variant is a one-line change if preferred.
+3. **`isCelebration` inclusivity:** the re-cut is `score >= 80` (per
+   "80–100 = GREAT"); if the owner meant strictly above 80, it is a
+   one-character change.
+4. **Ceil-vs-tier edge:** tiers evaluate the raw score, the display is
+   ceil (§4.14.4) — a raw 79.6 displays "80" but sits in GOOD (no
+   celebration). Accepted as server-truth-first; flagged for awareness.
+5. **New pixel glyphs:** `phone` (slide thumb, base variant) and `heart`
+   (GREAT sparkles) join the §4.4 PixelIcon registry as 16×16 rect data —
+   no new dependency.
+6. **Sweat-drop color:** white per the locked palette; `--color-deepa-5`
+   cyan is available if the owner wants the classic "sweat" blue.
+7. **Press Start 2P Cyrillic** was verified against the upstream font
+   metadata (cyrillic + cyrillic-ext subsets) before the both-locales
+   decision; a render audit of the RU strings in the new face is part of
+   task 2's checklist, with the Handjet fallback as the safety net.
+8. **The base slide variant is unmounted** after the footer cutover (kept
+   per §15.1 as the component default, with test coverage) — say the word
+   if another surface should mount it.
+
+### 4.15.1 v3.3 addendum amendments (2026-11-20, owner-approved Concept §16)
+
+Layout/geometry-only fixes; the locked §4.15 palette is untouched.
+
+1. **ShareContactSlide geometry:** the pill track spans **88–92% of the
+   modal's width** (aligned with the checklist/summary text edges),
+   **64px** high, full **9999px** pill radius; the candy-cane fill
+   **wraps around the circle** — the striped container ends in a matching
+   9999px pill cap hugging the thumb's right edge with uniform 4px
+   padding (no flat vertical edge); the placeholder stays strictly
+   centered in the full track with z-order **fill > text > thumb**
+   (stripes cover/clip the text; optional fade past center); the
+   completed state nests the thumb in the right end with 4px uniform
+   margin.
+2. **Sheet layout/scrolling:** the sheet is **88–90% of screen height**,
+   bottom-anchored with its top edge just below the chat header; **pinned
+   top** (header + X, avatars + name, score ring), **scrollable middle**
+   (summary text + checklist only), **pinned bottom** (the slide button
+   always visible); the slide button sits at the **same vertical level
+   from the screen bottom** as the chat view's Summarization button
+   behind the sheet.
+
+### 4.15.2 v3.4 microchange amendments (2026-11-20, owner-approved Concept §17)
+
+1. **Sheet:** the **dotted line between the two users** (the medium-tier
+   connector from §4.15.C) is **removed** — the GOOD-tier nod/wave avatar
+   animations themselves stay.
+2. **Chat list:** the **right-side status marks** (loading icon / reminder
+   mark, §4.11.5–7 lineage) are **removed** and replaced by a **color
+   dot** in the interlocutor's user-id-derived Deepa hue; the
+   **old rotated-dots loading indicator is removed** — the **newer
+   loading circle** (the unfinished-dialog spinner, §4.13.4) stays.
+
+### 4.15.3 v3.5 microchange amendments (2026-11-20, owner-approved Concept §18)
+
+1. **GREAT-tier cleanup:** in the summary sheet's GREAT-match layout the
+   **dotted line between the two users is removed** (matching the
+   GOOD-tier removal, §4.15.2.1) and the **user's name renders stronger
+   and centered below its avatar**, matching the GOOD-chat styling.
+2. **Finished-dot size:** the chat list's finished-dot grows to the
+   **same size as the round loading circle** it replaced.
+3. **Summary lazy background loading:** for **finished** chats the
+   summary is **lazily fetched in the background** (never blocking the
+   open); if the user opens the sheet **while summarization is still in
+   progress**, the sheet shows an **animated loading state** until the
+   summary arrives.
+
+### 4.15.4 v3.6 microchange amendments (2026-11-20, owner-approved Concept §19)
+
+1. **GOOD-tier avatars stay put:** in the summary sheet's GOOD-chat tier
+   the avatars must **not pull toward each other** — they stay spaced
+   apart while keeping the nod/wave animation; the GREAT-match tier keeps
+   its pull-to-center (verify whether the v3.2 cleanup pass introduced
+   the pull in this tier and fix to this rule). **CANCELLED (2026-11-20,
+   owner reversal in Concept §19.1): avatars may converge/pull together
+   in the sheet animation across ALL tiers — the no-pull restriction and
+   its behavior test are dropped; the converging animation is by-spec
+   everywhere.** (The related owner additions below stay: name-label
+   removal per the §18.1.1 amendment, GREAT-match title, X-close
+   visibility.) **SUPERSEDED in part
+   (2026-11-20, owner addition in Concept §18.1.1): the user-name labels
+   under BOTH avatars are removed entirely (both tiers; avatars alone) —
+   the "stronger and centered names" treatment below never ships.**
+2. **/people — no filter chips; deterministic sort:** the filter chips
+   are removed entirely; the list is simply sorted: (1) who added you
+   (incoming handshakes), (2) no handshakes at all, (3) chatting with
+   you (mutual/chat exists), (4) you sent a handshake (outgoing pending).
+3. **/people item rework:** the right icon (chat-open / handshake-form
+   toggle) is removed; for the **first user in the list (who added
+   you)** the "handshake back" state **opens automatically**; the copy
+   becomes **"handshake!"** (RU **«Привет!»**); the "chatting" badge is
+   removed — instead a **button "Open chat"** renders (RU/EN parity).
+   **ADDENDUM (2026-11-20, recorded in Concept §19.3): tapping/clicking
+   ANY item with the "added you" status opens the Handshake!/Dismiss
+   form for that user** (handshake-back send + local dismissal, side by
+   side) — the form takes over the removed right icon's toggle role as
+   the tap-target behavior for added-you items.
+4. **Sheet loading state (refines §4.15.3):** **more loading items** in
+   the in-progress view and the **text moves below the loading
+   animation, centered** in the modal sheet.
+
+### 4.15.5 owner amendment (2026-11-20, recorded in Concept §15.3 + §15.4)
+
+**Sheet background restored to the interlocutor's Deepa hue** (the
+§4.13.5/§4.10 rule: user-id-derived `--color-deepa-<n>` with the per-hue
+ink pairing for readable contrast) — **superseding the locked #8A12FF
+purple scope** (§4.15.C). Consequences: the sheet-variant slide's
+charcoal/yellow palette stays (self-contained contrast); the
+sweep-test hex exception tied to the locked block **dissolves** — the
+sheet is token-driven again (`--sheet-bg: var(--color-deepa-<n>)` derived
+per chat; the ink pairing follows §4.10). All other sheet spec details
+(typography, animations, layout, slide) unchanged.
+
+### 4.15.6 owner additions (2026-11-20, recorded in Concept §18.1.1 + §15.3 amendments)
+
+1. **Avatar name labels removed entirely** (both tiers; avatars alone) —
+   superseding §4.15.4.1's "stronger and centered" treatment.
+2. **GREAT-match tier title:** a **"Great match"** heading in the
+   GREAT tier, styled with the **sheet's common text color** (no special
+   color), RU **«Отличное совпадение»** via the i18n table (RU/EN
+   parity); placement per the sheet layout (near the score ring).
+3. **X close visibility on any background:** the sheet's X close button
+   takes the **per-hue ink/contrast treatment** (per §4.10 pairings —
+   e.g. a scrim chip behind it or the dark-ink color for light hues like
+   yellow/cyan), with a hover/press state consistent with the pixel
+   press effect; visible on every Deepa hue.
+
+### 4.15.7 v3.7 addendum (2026-11-20, owner-approved Concept §20)
+
+**Chats list time sort:** chat items are sorted **by time, newest
+first** — a single time-based sort **superseding §4.13.4's score-first
+ordering** (finished-by-score first). The unfinished-item styling
+(opacity + spinner), the finished dot, previews, and the Deepa hue
+coding are unaffected. The match/v2 score surface stays for the summary
+sheet (hard-match merges it); the chats-list score fetch/cache retires
+unless another surface consumes it.
+
+### 4.15.8 v3.8 addendum (2026-11-20, owner-approved Concept §21)
+
+**Chats list common block + thin dividers:** the items share a **common
+background block** (one surface container behind the list), split by
+**thin divider lines** in the **page background color**
+(`--color-bg`, #1A1C20 per §4); each divider is **horizontally
+centered** and **≤95% of the chats box width**. Per-item styling
+(dot, spinner, preview, hue coding) is unchanged. **Owner edge-case
+decision (recorded in Concept §21 amendment): an unfinished chat item
+keeps its muted look as DIMMED CONTENT** — name, preview and time at
+reduced opacity, the spinner stays, the common block background is
+untouched, **no per-item background panel** (the old opacity-on-panel
+treatment is re-expressed on the content); finished items render at full
+emphasis.
+
 ## 5. Design-decision rationale (short)
 
 - **Radar ring semantics = relationship distance**, not random placement: the
