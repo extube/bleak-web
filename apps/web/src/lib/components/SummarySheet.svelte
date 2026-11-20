@@ -32,8 +32,10 @@
    *   base.css catch-all only intercepts CSS).
    * - SCORE TIERS at the owner-revised 80/50 cut (§4.15.C-6): GREAT
    *   80–100 (avatars move 18px toward center + 2-frame hop loops,
-   *   marching pixel beam + star/heart sparkle poppers, recolored spark
-   *   burst + brightness pulse), GOOD 50–79 (nod/wave once; the glowing
+   *   star/heart sparkle poppers, recolored spark burst + brightness
+   *   pulse; the marching pixel beam — the dotted line between the
+   *   users — was REMOVED, owner microchange Concept §18.1 / DESIGN
+   *   §4.15.3.1), GOOD 50–79 (nod/wave once; the glowing
    *   dotted line between the users was REMOVED — owner microchange
    *   Concept §17.1 / DESIGN §4.15.2.1), LOW 0–49 (avatars stay spaced,
    *   sweat drop + idle blink). All motion is hand-rolled CSS keyframes on positioned DOM
@@ -367,8 +369,8 @@
       </button>
     {:else if summary}
       <!-- §4.15.C-5 centerpiece: me avatar — ring — them avatar, tier
-           reactions per the score tier (§4.15.C-6; the GOOD-tier dotted
-           line is removed, §4.15.2.1). -->
+           reactions per the score tier (§4.15.C-6; the GOOD- and
+           GREAT-tier dotted lines are removed — §4.15.2.1, §4.15.3.1). -->
       <section class="stage cascade tier-{tier}" class:victory={sheetCelebrated} style:--cascade-i="1">
         <div class="duel">
           <div class="side me">
@@ -411,9 +413,11 @@
           </div>
 
           {#if tier === 'great'}
-            <!-- GREAT bridge: the marching pixel energy beam + 6 sparkle
-                 poppers (star ×3, heart ×3) around it (§4.15.C-6b). -->
-            <div class="beam" aria-hidden="true"><span class="beam-stripes"></span></div>
+            <!-- GREAT tier: 6 sparkle poppers (star ×3, heart ×3) around
+                 the stage (§4.15.C-6b); the marching pixel beam — the
+                 dotted line between the two users — was REMOVED (owner
+                 microchange Concept §18.1 / DESIGN §4.15.3.1); the hop
+                 loops stay. -->
             <div class="sparkles" aria-hidden="true">
               <span class="popper p1"><PixelIcon name="star" size={16} /></span>
               <span class="popper p2"><PixelIcon name="heart" size={16} /></span>
@@ -684,10 +688,12 @@
     position: relative;
     display: inline-flex;
   }
-  /* Names under the frames — Inter 12px semibold, white ink. */
+  /* Names under the frames — Inter 16px semibold (the chat surfaces' name
+   * treatment — §4.15.3.1: stronger + matching the good-chat styling),
+   * white ink, centered below the frame. */
   .who {
     font-family: var(--font-body);
-    font-size: 12px;
+    font-size: 16px;
     font-weight: 600;
     color: var(--sheet-white);
     max-width: 96px;
@@ -880,56 +886,17 @@
       opacity: 1;
     }
   }
-  /* GREAT bridge: the marching pixel energy beam — a 4px stepped strip
-   * (8px dashes) translating one step per 800ms, its opacity pulsing
-   * 0.7↔1.0 (two animations, disjoint properties). */
-  .beam {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: calc(160px + 2 * var(--space-5));
-    height: 4px;
-    transform: translate(-50%, -50%);
-    overflow: hidden;
-    pointer-events: none;
-    animation: beam-pulse 1.2s ease-in-out infinite;
-  }
-  .beam-stripes {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: calc(100% + 16px);
-    background: repeating-linear-gradient(
-      90deg,
-      var(--sheet-yellow) 0 8px,
-      transparent 8px 16px
-    );
-    animation: beam-march 800ms steps(2, jump-none) infinite;
-  }
-  @keyframes beam-march {
-    from {
-      transform: translateX(0);
-    }
-    to {
-      transform: translateX(-16px);
-    }
-  }
-  @keyframes beam-pulse {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.7;
-    }
-  }
+  /* GREAT tier: the marching pixel energy beam — the dotted line between
+   * the two users (the 4px dashed strip, .beam/.beam-stripes, its march
+   * and pulse keyframes) — was REMOVED — owner microchange Concept §18.1
+   * / DESIGN §4.15.3.1; the approach/hop avatar animations above and the
+   * sparkle poppers below stay. */
   /* GOOD tier: the old glowing dotted-line bridge (the 6px square-dot row
    * + its pre-blurred pulsing glow layer and its opacity keyframes) was
    * REMOVED — owner microchange Concept §17.1 / DESIGN §4.15.2.1; the
    * nod/wave avatar animations above stay. */
   /* GREAT sparkles: 6 pixel-glyph poppers (star ×3, heart ×3) absolutely
-   * positioned around the bridge — 1.2s stepped scale/opacity loops with
+   * positioned around the stage — 1.2s stepped scale/opacity loops with
    * 0–500ms staggered delays, colored yellow/orange/white. */
   .sparkles {
     position: absolute;

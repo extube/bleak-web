@@ -4,7 +4,8 @@
  * + section cascade, the Press Start 2P pixel stack, the pixel top bar, the
  * 24px top corners, plus the CENTERPIECE contracts — dual square avatar
  * frames, the clockwise score ring + arcade tally count-up, the 80/50 tier
- * system with the per-tier avatar/bridge animations, the checklist pop
+ * system with the per-tier avatar animations (the dotted-line bridges
+ * removed — §4.15.2.1/§4.15.3.1), the checklist pop
  * choreography, and the sheet-variant slide embed + completion sequence.
  * The hosting-page trigger behaviors live in transcript-page tests; the
  * sharing/gesture logic is covered by the ShareContactSlide control's own
@@ -602,11 +603,18 @@ describe('§4.15.C-5..C-8 centerpiece (tz7-03): avatars, ring, tiers, checklist,
     expect(frameBlock).toContain('image-rendering: pixelated');
   });
 
-  it('§4.15.C-5 names sit under the frames (Inter 12px semibold); "me" is i18n\u00b7d, "them" is the interlocutor', () => {
+  it('§4.15.C-5/§4.15.3.1 names sit under the frames (Inter 16px semibold, centered — matching the good-chat styling); "me" is i18n·d, "them" is the interlocutor', () => {
     stubReducedMotion();
     renderSheet();
     const whos = [...screen.getByRole('dialog').querySelectorAll('.who')];
     expect(whos.map((el) => el.textContent)).toEqual([ru['chat.summary.me'], 'Алиса']);
+    // §4.15.3.1: the name renders STRONGER (the chat surfaces' 16px
+    // semibold treatment) and CENTERED below its avatar
+    const whoBlock = source(/\.who\s*\{[\s\S]*?\}/);
+    expect(whoBlock).toContain('font-family: var(--font-body)');
+    expect(whoBlock).toContain('font-size: 16px');
+    expect(whoBlock).toContain('font-weight: 600');
+    expect(whoBlock).toContain('text-align: center');
   });
 
   it('§4.15.C-5 SCORE RING: viewBox 160×160, r = RING_RADIUS, thick white butt-capped arc, clockwise fill over 900ms', () => {
@@ -677,7 +685,7 @@ describe('§4.15.C-5..C-8 centerpiece (tz7-03): avatars, ring, tiers, checklist,
     );
   });
 
-  it('§4.15.C-6b GREAT: the avatars move 18px toward center then bounce in 2-frame loops; the beam marches and pulses', () => {
+  it('§4.15.C-6b/§4.15.3.1 GREAT: the avatars move 18px toward center then bounce in 2-frame loops; the dotted line is REMOVED', () => {
     const approach = source(/\.tier-great \.side\.me \.mover\s*\{[\s\S]*?\}/);
     expect(approach).toContain('animation: avatar-approach 300ms ease-out 200ms both');
     const approachLeft = source(/\.tier-great \.side\.them \.mover\s*\{[\s\S]*?\}/);
@@ -694,21 +702,18 @@ describe('§4.15.C-5..C-8 centerpiece (tz7-03): avatars, ring, tiers, checklist,
     const hopKf = source(/@keyframes avatar-hop\s*\{[\s\S]*?\n {2}\}/);
     expect(hopKf).toContain('translateY(0)');
     expect(hopKf).toContain('translateY(-6px)');
-    // the pixel energy beam: a stepped strip marching one 16px step per
-    // 800ms, opacity pulsing 0.7↔1.0 over 1.2s
-    const beam = source(/\.beam\s*\{[\s\S]*?\}/);
-    expect(beam).toContain('animation: beam-pulse 1.2s ease-in-out infinite');
-    const stripes = source(/\.beam-stripes\s*\{[\s\S]*?\}/);
-    expect(stripes).toContain(
-      'repeating-linear-gradient(\n      90deg,\n      var(--sheet-yellow) 0 8px,'
-    );
-    expect(stripes).toContain('animation: beam-march 800ms steps(2, jump-none) infinite');
-    const march = source(/@keyframes beam-march\s*\{[\s\S]*?\n {2}\}/);
-    expect(march).toContain('translateX(0)');
-    expect(march).toContain('translateX(-16px)');
-    const pulse = source(/@keyframes beam-pulse\s*\{[\s\S]*?\n {2}\}/);
-    expect(pulse).toContain('opacity: 0.7');
-    expect(pulse).toContain('opacity: 1');
+    // the marching pixel beam — the dotted line between the two users — is
+    // REMOVED (owner microchange Concept §18.1 / DESIGN §4.15.3.1): no
+    // bridge element in the GREAT tier, no beam styles/keyframes left in
+    // the sheet scope (the approach/hop animations stay)
+    stubReducedMotion();
+    renderSheet({ summary: summaryFixture(90) });
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.querySelector('.beam')).toBeNull();
+    expect(dialog.querySelector('.beam-stripes')).toBeNull();
+    expect(SHEET_SOURCE).not.toMatch(/\.beam[\s,{]/);
+    expect(SHEET_SOURCE).not.toContain('beam-march');
+    expect(SHEET_SOURCE).not.toContain('beam-pulse');
   });
 
   it('§4.15.C-6b GREAT sparkles: 6 star/heart poppers (the new heart registry entry), staggered, sheet-colored', () => {
