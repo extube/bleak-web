@@ -1,17 +1,18 @@
-/** People-list pure view tests (TZ-06): filter chips, search, stable roster
- * ordering + poll diffing (no duplicates), relative time, dismissal rule
- * (owner ruling 2 — local collapse only). */
+/** People-list pure view tests (TZ-06; reworked §4.15.4.2, Concept §19.2):
+ * the deterministic relationship-bucket sort (no filter chips — v3.6),
+ * search, stable roster ordering + poll diffing (no duplicates), relative
+ * time, dismissal rule (owner ruling 2 — local collapse only). */
 import { describe, expect, it } from 'vitest';
 import type { Chat, Handshake, User } from '@bleak/api-client';
-import { deriveRelationship } from '../src/lib/room/relationships';
+import { deriveRelationship, type Relationship } from '../src/lib/room/relationships';
 import {
   isDismissed,
-  matchesFilter,
   matchesQuery,
   mergeRoster,
   relativeTime,
-  stableRoster,
-  type PeopleFilter
+  relationshipBucket,
+  sortedPeople,
+  stableRoster
 } from '../src/lib/people/view';
 
 const NOW = Date.parse('2026-11-14T12:00:00Z');
@@ -56,17 +57,87 @@ function chat(address: string, participants: string[], created_at: string): Chat
   };
 }
 
-describe('matchesFilter (§3.3 chips)', () => {
-  it('maps the four chips to the relationship states', () => {
-    expect(matchesFilter('chat', 'chatting')).toBe(true);
-    expect(matchesFilter('incoming', 'chatting')).toBe(false);
-    expect(matchesFilter('outgoing', 'sent')).toBe(true);
-    expect(matchesFilter('incoming', 'sent')).toBe(false);
-    expect(matchesFilter('incoming', 'added')).toBe(true);
-    expect(matchesFilter('outgoing', 'added')).toBe(false);
-    for (const state of ['chat', 'incoming', 'outgoing', 'none'] as const) {
-      expect(matchesFilter(state, 'all')).toBe(true);
+describe('relationshipBucket (§4.15.4.2 — the four sort buckets)', () => {
+  it('orders incoming → none → chat → outgoing', () => {
+    expect(relationshipBucket('incoming')).toBe(0);
+    expect(relationshipBucket('none')).toBe(1);
+    expect(relationshipBucket('chat')).toBe(2);
+    expect(relationshipBucket('outgoing')).toBe(3);
+  });
+});
+
+describe('sortedPeople (§4.15.4.2 — deterministic bucket order, no chips)', () => {
+  const AT = '2026-11-14T10:00:00Z';
+
+  function relationship(state: Relationship['state']): Relationship {
+    switch (state) {
+      case 'chat':
+        return {
+          user: '0x',
+          state,
+          chatAddress: '0xchat',
+          outgoingAt: null,
+          incomingAt: AT,
+          chatAt: AT
+        };
+      case 'incoming':
+        return { user: '0x', state, chatAddress: null, outgoingAt: null, incomingAt: AT, chatAt: null };
+      case 'outgoing':
+        return { user: '0x', state, chatAddress: null, outgoingAt: AT, incomingAt: null, chatAt: null };
+      default:
+        return { user: '0x', state: 'none', chatAddress: null, outgoingAt: null, incomingAt: null, chatAt: null };
     }
+  }
+
+  it('buckets: who added you, then untouched, then chatting, then you sent', () => {
+    // newest-first roster: 0xin (14:00) … 0xout (11:00) — the bucket sort
+    // overrides the roster order entirely.
+    const users = [
+      user('0xout', 'O', '2026-11-14T11:00:00Z'),
+      user('0xchat', 'C', '2026-11-14T12:00:00Z'),
+      user('0xnone', 'N', '2026-11-14T13:00:00Z'),
+      user('0xin', 'I', '2026-11-14T14:00:00Z')
+    ];
+    const relationships = new Map([
+      ['0xin', relationship('incoming')],
+      ['0xnone', relationship('none')],
+      ['0xchat', relationship('chat')],
+      ['0xout', relationship('outgoing')]
+    ]);
+    expect(sortedPeople(users, relationships).map((u) => u.address)).toEqual([
+      '0xin',
+      '0xnone',
+      '0xchat',
+      '0xout'
+    ]);
+  });
+
+  it('within a bucket keeps the roster tie-break (newest first) + the address guard', () => {
+    const a = user('0xa', 'A', '2026-11-14T10:00:00Z');
+    const b = user('0xb', 'B', '2026-11-14T11:00:00Z');
+    // equal created_at → the address is the final deterministic key
+    const c = user('0xc', 'C', '2026-11-14T09:00:00Z');
+    const d = user('0xd', 'D', '2026-11-14T09:00:00Z');
+    expect(sortedPeople([d, b, c, a], new Map()).map((u) => u.address)).toEqual([
+      '0xb',
+      '0xa',
+      '0xc',
+      '0xd'
+    ]);
+  });
+
+  it('is deterministic regardless of the input order and does not mutate it', () => {
+    const a = user('0xa', 'A', '2026-11-14T10:00:00Z');
+    const b = user('0xb', 'B', '2026-11-14T11:00:00Z');
+    const relationships = new Map([['0xb', relationship('incoming')]]);
+    expect(sortedPeople([a, b], relationships).map((u) => u.address)).toEqual(['0xb', '0xa']);
+    expect(sortedPeople([b, a], relationships).map((u) => u.address)).toEqual(['0xb', '0xa']);
+    expect([a, b]).toHaveLength(2);
+  });
+
+  it('a missing relationship classifies as none (bucket 1)', () => {
+    const a = user('0xa', 'A', '2026-11-14T10:00:00Z');
+    expect(sortedPeople([a], new Map()).map((u) => u.address)).toEqual(['0xa']);
   });
 });
 
@@ -186,7 +257,7 @@ describe('isDismissed (ruling 2 — local dismissal only)', () => {
   });
 });
 
-describe('filter × relationship end-to-end', () => {
+describe('relationship classification feeds the bucket sort (TZ-02)', () => {
   it('classifies every state the chips can select', () => {
     const ME = '0xme';
     const AT = '2026-11-14T10:00:00Z';
@@ -199,12 +270,5 @@ describe('filter × relationship end-to-end', () => {
       deriveRelationship('0xout', ME, [handshake(ME, '0xout', AT)], []).state
     ).toBe('outgoing');
     expect(deriveRelationship('0xnone', ME, [], []).state).toBe('none');
-  });
-});
-
-describe('PeopleFilter exhaustiveness', () => {
-  it('has exactly the four chip values', () => {
-    const all: PeopleFilter[] = ['all', 'sent', 'added', 'chatting'];
-    for (const filter of all) expect(matchesFilter('none', filter)).toBe(filter === 'all');
   });
 });

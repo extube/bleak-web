@@ -105,24 +105,21 @@ export const en = {
   'hs.income_limit': 'Outgoing handshake limit reached — receive handshakes first.',
   'hs.error.network': 'Connection lost. Check the Wi-Fi.',
 
-  /* --- people (DESIGN §3.3, §4.7) --- */
+  /* --- people (DESIGN §3.3, §4.7; reworked §4.15.4.3) --- */
   'people.title': 'People',
   'people.subtitle': 'Everyone in the room.',
   'people.empty': 'The room is empty so far.',
   'people.search.placeholder': 'Search by name or bio…',
-  'people.filter.all': 'All',
-  'people.filter.sent': 'Sent',
-  'people.filter.added': 'Added you',
-  'people.filter.chatting': 'Chatting',
   'people.empty_search': 'Nobody matches “{q}”',
   'people.reset': 'Reset',
   'people.search.label': 'Search people',
-  'people.filters': 'Status filter',
   'people.action.send': 'Send handshake to {name}',
-  'people.action.dialog': 'Open dialog with {name}',
-  'people.action.expand': '{name} — show actions',
-  'people.action.collapse': '{name} — hide actions',
   'people.dismiss': 'Dismiss',
+  // §4.15.4.3 (Concept §19.3): "handshake back" → "handshake!" — the
+  // handshake-back button copy; the "chatting" badge is replaced by the
+  // "Open chat" button (navigates the way the removed icon did).
+  'people.action.back': 'handshake!',
+  'people.action.open_chat': 'Open chat',
 
   /* --- chats (DESIGN §3.4/§3.5, §4.7) --- */
   'chats.title': 'Chats',

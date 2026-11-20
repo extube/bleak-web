@@ -110,19 +110,16 @@ export const ru: Record<MessageKey, string> = {
   'people.subtitle': 'Все участники комнаты.',
   'people.empty': 'Комната пока пуста.',
   'people.search.placeholder': 'Поиск по имени или био…',
-  'people.filter.all': 'Все',
-  'people.filter.sent': 'Отправлены',
-  'people.filter.added': 'Добавили вас',
-  'people.filter.chatting': 'Общаемся',
   'people.empty_search': 'Никого не найдено по «{q}»',
   'people.reset': 'Сбросить',
   'people.search.label': 'Поиск участников',
-  'people.filters': 'Фильтр статусов',
   'people.action.send': 'Отправить хендшейк {name}',
-  'people.action.dialog': 'Открыть диалог с {name}',
-  'people.action.expand': '{name} — показать действия',
-  'people.action.collapse': '{name} — скрыть',
   'people.dismiss': 'Закрыть',
+  // §4.15.4.3 (Concept §19.3): «handshake back» → «handshake!» — копия
+  // кнопки ответа хендшейком; «chatting»-бейдж заменён кнопкой «Открыть
+  // чат» (ведёт в существующий диалог, как убранная иконка).
+  'people.action.back': 'Привет!',
+  'people.action.open_chat': 'Открыть чат',
 
   /* --- chats --- */
   'chats.title': 'Диалоги',

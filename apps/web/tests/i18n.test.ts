@@ -146,9 +146,9 @@ const DESIGN_4_7_KEYS: string[] = [
   // handshake states
   'hs.send', 'hs.sent', 'hs.waiting', 'hs.back', 'hs.added_you',
   'hs.chatting', 'hs.agents_talking', 'hs.open_dialog',
-  // people
-  'people.empty', 'people.search.placeholder', 'people.filter.all',
-  'people.filter.sent', 'people.filter.added', 'people.filter.chatting',
+  // people ('people.filter.*' retired — Concept §19.2: the filter chips are
+  // gone, the list is just sorted; asserted in the v3.6 describe below)
+  'people.empty', 'people.search.placeholder',
   // chats
   'chats.empty', 'chats.find_people',
   // chat transcript — the kickoff button left the dialog view (Concept
@@ -197,7 +197,7 @@ describe('DESIGN §4.7 copy table coverage', () => {
       expect((ru as Record<string, string>)[key]?.trim().length).toBeGreaterThan(0);
       expect((en as Record<string, string>)[key]?.trim().length).toBeGreaterThan(0);
     }
-    expect(DESIGN_4_7_KEYS).toHaveLength(98);
+    expect(DESIGN_4_7_KEYS).toHaveLength(94);
   });
 
   it('the retired v1 key host.token.label is gone (renamed to host.gate.label)', () => {
@@ -457,6 +457,44 @@ describe('v2.5 leave copy (Concept §11.1.1, DESIGN §4.12.1)', () => {
     // The copy no longer implies server-side deletion of the persona.
     expect(ru['profile.leave.confirm_body']).not.toMatch(/удал/i);
     expect(en['profile.leave.confirm_body']).not.toMatch(/remov|delet/i);
+  });
+});
+
+describe('v3.6 people-page rework keys (Concept §19.2+§19.3, DESIGN §4.15.4.2/4.15.4.3)', () => {
+  it('the handshake! + Open-chat copy exists in BOTH dictionaries (RU/EN parity)', () => {
+    for (const key of ['people.action.back', 'people.action.open_chat'] as const) {
+      expect(en[key]?.trim().length).toBeGreaterThan(0);
+      expect(ru[key]?.trim().length).toBeGreaterThan(0);
+    }
+    // verbatim owner copy (Concept §19.3)
+    expect(ru['people.action.back']).toBe('Привет!');
+    expect(en['people.action.back']).toBe('handshake!');
+    expect(ru['people.action.open_chat']).toBe('Открыть чат');
+    expect(en['people.action.open_chat']).toBe('Open chat');
+  });
+
+  it('the filter-chip keys are retired from BOTH dictionaries (no chips — v3.6)', () => {
+    for (const key of [
+      'people.filter.all',
+      'people.filter.sent',
+      'people.filter.added',
+      'people.filter.chatting',
+      'people.filters'
+    ] as const) {
+      expect(en).not.toHaveProperty(key);
+      expect(ru).not.toHaveProperty(key);
+    }
+  });
+
+  it('the removed right-icon copy is retired; hs.back stays for the sheet (task 88)', () => {
+    expect(en).not.toHaveProperty('people.action.dialog');
+    expect(ru).not.toHaveProperty('people.action.dialog');
+    expect(en).not.toHaveProperty('people.action.expand');
+    expect(ru).not.toHaveProperty('people.action.expand');
+    expect(en).not.toHaveProperty('people.action.collapse');
+    expect(ru).not.toHaveProperty('people.action.collapse');
+    expect(ru['hs.back']).toBe('Ответить хендшейком');
+    expect(en['hs.back']).toBe('Handshake back');
   });
 });
 

@@ -1,7 +1,12 @@
 /**
- * People-list view logic (TZ-06, DESIGN §3.3) — pure and unit-tested.
- * Search, filter chips, stable roster ordering, poll diffing, relative
+ * People-list view logic (TZ-06, DESIGN §3.3; reworked by §4.15.4.2,
+ * Concept §19.2). Pure and unit-tested: search, the deterministic
+ * relationship-bucket sort, stable roster ordering, poll diffing, relative
  * timestamps and the incoming-request dismissal rule.
+ *
+ * v3.6 (§4.15.4.2): the filter chips are gone — the list is simply SORTED:
+ * (1) who added you (incoming), (2) no handshakes at all, (3) chatting
+ * (mutual/chat exists), (4) you sent a handshake (outgoing pending).
  *
  * Owner ruling 2 (Concept §1c): a handshake is never "declined". Dismiss is a
  * LOCAL collapse only — nothing is sent to the server; the request still
@@ -12,20 +17,42 @@
 import type { User } from '@bleak/api-client';
 import type { Relationship, RelationshipState } from '#lib/room/relationships';
 
-export type PeopleFilter = 'all' | 'sent' | 'added' | 'chatting';
-
-/** True when the relationship state matches the selected filter chip (§3.3). */
-export function matchesFilter(state: RelationshipState, filter: PeopleFilter): boolean {
-  switch (filter) {
-    case 'all':
-      return true;
-    case 'sent':
-      return state === 'outgoing';
-    case 'added':
-      return state === 'incoming';
-    case 'chatting':
-      return state === 'chat';
+/**
+ * Sort bucket for a relationship state (§4.15.4.2): incoming (who added you)
+ * → none (no handshakes either direction) → chat (chatting with you) →
+ * outgoing (you sent a handshake, waiting for theirs).
+ */
+export function relationshipBucket(state: RelationshipState): number {
+  switch (state) {
+    case 'incoming':
+      return 0;
+    case 'none':
+      return 1;
+    case 'chat':
+      return 2;
+    case 'outgoing':
+      return 3;
   }
+}
+
+/**
+ * Deterministic people order (§4.15.4.2): relationship bucket first, then
+ * the existing roster tie-break (newest `created_at` first), then the
+ * address as the final determinism guard (never reorders on equal keys).
+ * A missing relationship classifies as `none` (no handshakes known).
+ */
+export function sortedPeople(
+  users: readonly User[],
+  relationships: ReadonlyMap<string, Relationship>
+): User[] {
+  return [...users].sort((a, b) => {
+    const bucketA = relationshipBucket(relationships.get(a.address)?.state ?? 'none');
+    const bucketB = relationshipBucket(relationships.get(b.address)?.state ?? 'none');
+    if (bucketA !== bucketB) return bucketA - bucketB;
+    const byTime = timestampAt(b.created_at) - timestampAt(a.created_at);
+    if (byTime !== 0) return byTime;
+    return a.address < b.address ? -1 : a.address > b.address ? 1 : 0;
+  });
 }
 
 /** Case-insensitive client-side search over `name` and `public_bio` (§3.3). */
