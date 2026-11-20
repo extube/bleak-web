@@ -1,5 +1,29 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.9 ROUND NOTE (tz11-01 + tz11-02, lean protocol — appended by the process
+> 2026-11-20, post-round three-gate run GREEN: lint clean · 858 tests total
+> (49 api-client + 8 helper + 801 web, 50 files) · build 0 errors, dev
+> `925e913`):** §22.3 delivered — (1) **Bleak mascot** (`BleakMascot.svelte`,
+> tz11-01, task 100): reusable 12×12 chunky pixel-art ghost (token fills,
+> 2-frame steps() blink idle, decorative/label props, reduced-motion via the
+> base.css catch-all, §4.8.2-style backdrop-frame padding) mounted on the
+> enter-invite-code form between the subtitle and the digit cells (§12 phone
+> contract intact); contracts in `mascot.test.ts` (6/6). (2) **Step-by-step
+> creation wizard** (`CreationWizard.svelte` + `WizardBubble.svelte` +
+> the `WIZARD_STEPS` machine in `lib/join.ts`, tz11-02, task 101, P1):
+> intro → name → auto-chat interview (public bio → private bio → contact
+> type/value → group/items multi-select) → creating-your-profile loading
+> step; chat-styled (WizardBubble rows, mascot as the interviewer), smooth
+> transitions, RU/EN parity (22 `join.wizard.*` keys); `createPersona` body
+> UNCHANGED (name/bios/invite_code/token — no contact/interests keys on the
+> wire, machine-test-pinned); interests QUEUED during the interview and
+> flushed post-2xx via one bulk `addUserInterests` (failure never undoes the
+> creation); contact persisted locally post-2xx (§14.1.3); `PersonaForm`
+> deleted (replaced); import/return flows untouched. Tests: 15 wizard
+> machine/surface tests + updated join-machine/join-flow. Manual checks for
+> the owner: the wizard end-to-end on a real invite (all steps, skip/back
+> paths, the loading step), mascot placement on phone full-screen.
+
 Worker instance `95489390` · 2026-11-20 · branch
 `feature/95489390-tz10-03-verify-v38` (base = dev tip `88633c6` — the landing of
 `feature/794a26e9-tz10-02-chats-common-block`; both §10 landings — tz10-01 time
