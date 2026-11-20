@@ -406,10 +406,10 @@ describe('summary sheet (CONCEPT §13.1.5, DESIGN §4.13.5 — hard-match on fin
     expect(items?.[0]?.querySelector('svg')).toBeTruthy();
     expect(items?.[2]?.classList.contains('closed')).toBe(false);
     expect(items?.[2]?.querySelector('svg')).toBeNull();
-    // §4.15.C-1: the sheet background is the owner-locked arcade scope —
-    // the Deepa-hue pairing is superseded (Concept §15.4, recorded)
+    // §4.15.5: the sheet background is the interlocutor's derived Deepa
+    // hue again (the locked-purple scope superseded, Concept §15.3+15.4)
     expect(dialog?.classList.contains('arcade-sheet')).toBe(true);
-    expect(dialog?.className).not.toMatch(/deepa-[1-5]/);
+    expect(dialog?.className).toMatch(/(?<![\w-])deepa-[1-5]/);
   });
 
   it('X close dismisses the sheet and the dialog renders normally afterwards', async () => {

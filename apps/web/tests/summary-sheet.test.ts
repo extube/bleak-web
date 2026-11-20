@@ -1,6 +1,8 @@
 /** SummarySheet component tests (CONCEPT §15.3, DESIGN §4.15.C — v3.2
  * arcade sheet, tz7-02 core + tz7-03 centerpiece): the arcade scope tokens
- * (locked palette, NOT remapped to app tokens), the spring-bounce entrance
+ * (§4.15.5 owner amendment: the background is the interlocutor's derived
+ * Deepa hue with the §4.10 ink pairing; the slide's charcoal/yellow
+ * palette stays locked), the spring-bounce entrance
  * + section cascade, the Press Start 2P pixel stack, the pixel top bar, the
  * 24px top corners, plus the CENTERPIECE contracts — dual square avatar
  * frames, the clockwise score ring + arcade tally count-up, the 80/50 tier
@@ -31,6 +33,7 @@ import {
 } from '../src/lib/chats/summary';
 import { ICON_RECTS } from '../src/lib/components/icons/registry';
 import type { Summary, User } from '@bleak/api-client';
+import { codeHue } from '../src/lib/avatar/traits';
 import { ru } from '../src/lib/i18n/ru';
 import { en } from '../src/lib/i18n/en';
 
@@ -62,6 +65,10 @@ const ALICE: User = {
   updated_at: '2026-11-14T10:00:00Z',
   deleted_at: null
 };
+
+/** A second counterpart with a different address — the §4.15.5 derived
+ * hue must follow the interlocutor (codeHue(counterpartAddress)). */
+const BOB: User = { ...ALICE, address: '0xbob', name: 'Борис' };
 
 function summaryFixture(score: number): Summary {
   return {
@@ -296,8 +303,10 @@ describe('SummarySheet rendering', () => {
     // the token exists in tokens.css (sourced from the approved Deepa green)
     const tokensCss = readFileSync(join(WEB_ROOT, 'src/lib/styles/tokens.css'), 'utf8');
     expect(tokensCss).toMatch(/--color-check-green:\s*var\(--color-deepa-1\)/);
-    // RAW HEX lives only in the .arcade-sheet scope block (the owner-locked
-    // palette, §4.15.C-1) — everything outside consumes the --sheet-* vars.
+    // RAW HEX lives only in the .arcade-sheet scope block (the sheet-
+    // variant slide's locked charcoal/yellow palette, §4.15.C-8 — the
+    // §4.15.5 amendment removed the bg hex; everything outside consumes
+    // the --sheet-* vars).
     // Comments are prose (they may cite the hexes) — they are stripped.
     const scopeBlock = SHEET_SOURCE.match(/\.arcade-sheet\s*\{[\s\S]*?\}/)?.[0] ?? '';
     expect(scopeBlock).toBeTruthy();
@@ -364,17 +373,71 @@ describe('SummarySheet rendering', () => {
     expect(calm?.querySelector('.fireworks')).toBeNull();
   });
 
-  it('§4.15.C-1: the sheet background is the owner-locked purple via the arcade-sheet scope — no Deepa-hue classes remain', () => {
+  it('§4.15.5: the sheet background is the INTERLOCUTOR\'S derived Deepa hue — the hue class lands on the sheet root', () => {
     renderSheet({ summary: summaryFixture(50) });
     const dialog = document.querySelector('[role="dialog"]');
     expect(dialog?.classList.contains('arcade-sheet')).toBe(true);
-    // the §13.1.5 Deepa-hue background pairing is superseded (§15.4): no
-    // deepa-N class lands on the sheet anymore
-    expect(dialog?.className).not.toMatch(/(?<![\w-])deepa-[1-5]/);
-    // the background renders through the locked scope token
+    // the user-id-derived hue (fnv1a(address) % 5 — the same derivation
+    // ChatCard's dot uses) is the sheet root's hue class
+    expect(dialog?.classList.contains(codeHue(ALICE.address))).toBe(true);
+    expect(dialog?.className).toMatch(/(?<![\w-])deepa-[1-5]/);
+    // the background/ink render through the scope tokens (unchanged plumbing)
     const sheetBlock = SHEET_SOURCE.match(/\.sheet\s*\{[\s\S]*?\}/)?.[0] ?? '';
     expect(sheetBlock).toContain('background: var(--sheet-bg)');
     expect(sheetBlock).toContain('color: var(--sheet-ink)');
+  });
+
+  it('§4.15.5: the hue follows the counterpart — a different interlocutor derives its own hue', () => {
+    renderSheet({ summary: summaryFixture(50), user: BOB });
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog?.classList.contains(codeHue(BOB.address))).toBe(true);
+  });
+
+  it('§4.15.5: the per-hue bg/ink mapping — --sheet-bg = var(--color-deepa-<n>), --sheet-ink = the §4.10 ink token, for all five hues', () => {
+    for (let n = 1; n <= 5; n += 1) {
+      const block =
+        SHEET_SOURCE.match(
+          new RegExp(`\\.arcade-sheet\\.deepa-${n}\\s*\\{[\\s\\S]*?\\}`)
+        )?.[0] ?? '';
+      expect(block).toContain(`--sheet-bg: var(--color-deepa-${n})`);
+      expect(block).toContain(`--sheet-ink: var(--color-deepa-ink-${n})`);
+    }
+    // the base scope defines NEITHER — bg/ink come only from the hue class
+    const scopeBlock = SHEET_SOURCE.match(/\.arcade-sheet\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(scopeBlock).not.toContain('--sheet-bg');
+    expect(scopeBlock).not.toContain('--sheet-ink');
+  });
+
+  it('§4.10 ink pairing: dark surface ink on deepa-1/2/3/5, LIGHT text ink on violet (deepa-4) — the sheet consumes the tokens', () => {
+    const tokensCss = readFileSync(join(WEB_ROOT, 'src/lib/styles/tokens.css'), 'utf8');
+    expect(tokensCss).toMatch(/--color-deepa-ink-1:\s*var\(--color-surface\)/);
+    expect(tokensCss).toMatch(/--color-deepa-ink-2:\s*var\(--color-surface\)/);
+    expect(tokensCss).toMatch(/--color-deepa-ink-3:\s*var\(--color-surface\)/);
+    expect(tokensCss).toMatch(/--color-deepa-ink-4:\s*var\(--color-text\)/);
+    expect(tokensCss).toMatch(/--color-deepa-ink-5:\s*var\(--color-surface\)/);
+  });
+
+  it('§4.15.5: text on the hue reads the paired ink; the white structural elements and the slide palette stay', () => {
+    // text on the hue follows the pairing (the formerly-white ink)
+    const labelBlock = SHEET_SOURCE.match(/\.sheet-label\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(labelBlock).toContain('color: var(--sheet-ink)');
+    const whoBlock = SHEET_SOURCE.match(/\.who\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(whoBlock).toContain('color: var(--sheet-ink)');
+    const scoreBlock = SHEET_SOURCE.match(/\.ring \.score\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(scoreBlock).toContain('fill: var(--sheet-ink)');
+    const tierBlock = SHEET_SOURCE.match(/\.tier-label\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(tierBlock).toContain('color: var(--sheet-ink)');
+    const headingBlock = SHEET_SOURCE.match(/\.checklist h3\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(headingBlock).toContain('color: var(--sheet-ink)');
+    // the GREAT yellow stays (unchanged detail)
+    expect(SHEET_SOURCE.match(/\.tier-label\.great\s*\{[\s\S]*?\}/)?.[0]).toContain(
+      'color: var(--sheet-yellow)'
+    );
+    // the white STRUCTURAL elements stay (framing/ring — not text ink)
+    const frameBlock = SHEET_SOURCE.match(/\.avatar-frame\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(frameBlock).toContain('border: 2px solid var(--sheet-white)');
+    const circleBlock = SHEET_SOURCE.match(/\.ring circle\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(circleBlock).toContain('stroke: var(--sheet-white)');
   });
 
   it('the tz5-04 ShareContactSlide is embedded inside the dialog (sheet variant)', () => {
@@ -453,18 +516,22 @@ describe('SummarySheet rendering', () => {
 });
 
 describe('§4.15.C arcade-sheet core (tz7-02): scope, entrance, typography, top bar', () => {
-  it('the scope block carries the LOCKED palette — raw values, not app-token remaps', () => {
-    // §4.15.C-1: the locked hexes live verbatim in the .arcade-sheet block
-    // (owner-locked #8A12FF purple — NOT remapped to the app palette)
+  it('§4.15.5 + §4.15.C-8: the scope block carries the slide palette (raw values) — the locked purple bg is REMOVED', () => {
+    // §4.15.5: the owner-locked #8A12FF background is superseded — the bg
+    // derives per chat from the Deepa hue; the hex is gone everywhere
+    const src = SHEET_SOURCE.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(src).not.toContain('#8a12ff');
     const scopeBlock = SHEET_SOURCE.match(/\.arcade-sheet\s*\{[\s\S]*?\}/)?.[0] ?? '';
-    expect(scopeBlock).toContain('--sheet-bg: #8a12ff');
+    expect(scopeBlock).not.toContain('--sheet-bg');
+    // the sheet-variant slide's charcoal/yellow palette stays AS-IS
+    // (§4.15.C-8, self-contained contrast on any hue) — the locked slide
+    // hexes remain the sheet's only raw values
     expect(scopeBlock).toContain('--sheet-charcoal: #18181b');
     expect(scopeBlock).toContain('--sheet-yellow: #facc15');
     expect(scopeBlock).toContain('--sheet-white: #ffffff');
     expect(scopeBlock).toContain('--sheet-orange: #ff8a00');
-    // green reuses the approved Deepa green token (no new hex); ink is white
+    // green reuses the approved Deepa green token (no new hex)
     expect(scopeBlock).toContain('--sheet-green: var(--color-check-green)');
-    expect(scopeBlock).toContain('--sheet-ink: var(--sheet-white)');
   });
 
   it('no --sheet-* token is consumed outside the sheet component (scope containment)', () => {

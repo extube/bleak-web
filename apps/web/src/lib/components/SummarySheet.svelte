@@ -6,12 +6,22 @@
    * dialog pattern (scrim, Escape + focus + tab-trap, X close top-right).
    *
    * Arcade core (§4.15.C-1..C-4, tz7-02): the `.arcade-sheet` scope block
-   * carries the LOCKED sheet palette (owner-locked electric-purple
-   * background — NOT remapped to app tokens; it supersedes the §13.1.5
-   * Deepa-hue background, recorded in §15.4) plus the pixel stack
-   * ('Press Start 2P' with Handjet fallback — the Fontsource import lives
-   * in routes/+layout.svelte with latin + cyrillic(+ext) subsets, RU/EN
-   * parity). The entrance is the retro spring-bounce `arcade-rise` and the
+   * carries the sheet palette plus the pixel stack ('Press Start 2P' with
+   * Handjet fallback — the Fontsource import lives in
+   * routes/+layout.svelte with latin + cyrillic(+ext) subsets, RU/EN
+   * parity).
+   *
+   * §4.15.5 OWNER AMENDMENT (2026-11-20, Concept §15.3 + §15.4): the
+   * owner-locked electric-purple background (#8A12FF) is SUPERSEDED — the
+   * sheet background is again the INTERLOCUTOR'S MESSAGE COLOR, the
+   * user-id-derived Deepa hue (`codeHue(user.address)` → deepa-<n>, the
+   * §13.1.5/§4.10 rule restored) with the per-hue ink pairing for readable
+   * contrast (dark surface ink on green/yellow/orange/cyan, light text ink
+   * on violet — --sheet-ink maps to --color-deepa-ink-<n>). Text on the
+   * hue follows the pairing (the formerly-white ink reads --sheet-ink);
+   * the white structural elements (avatar frames, ring stroke, checkbox
+   * borders, sparks) and the sheet-variant slide's charcoal/yellow palette
+   * stay as-is. The entrance is the retro spring-bounce `arcade-rise` and the
    * sections cascade in (~50ms stagger). Top bar: the pixel MEETING
    * SUMMARY label (chat.summary.title) + the pixel X close (scale(0.88)
    * press, 48px target). Top corners 24px; dark scrim stays.
@@ -93,6 +103,7 @@
   import ShareContactSlide from './ShareContactSlide.svelte';
   import PixelAvatar from './PixelAvatar.svelte';
   import PixelIcon from './icons/PixelIcon.svelte';
+  import { codeHue } from '#lib/avatar/traits';
 
   interface Props {
     open?: boolean;
@@ -184,6 +195,18 @@
 
   /** Fireworks + brightness pulse — the GREAT tier (>= 80, lib/chats/summary). */
   const celebrate = $derived(summaryCelebrates(summary));
+
+  /**
+   * §4.15.5 (owner amendment, Concept §15.3 + §15.4): the sheet background
+   * is the INTERLOCUTOR'S MESSAGE COLOR — the user-id-derived Deepa hue,
+   * derived exactly like ChatCard's dot does (fnv1a(address) % 5, pinned by
+   * tests). The hue string IS the class name (deepa-1…deepa-5); the CSS
+   * mapping below turns it into --sheet-bg / --sheet-ink per the §4.10 ink
+   * pairing. The sheet always renders with a non-null `user`, so the class
+   * is always present; the empty-string fallback only satisfies the
+   * degenerate type.
+   */
+  const hueClass = $derived(user === null ? '' : codeHue(user.address));
 
   /**
    * §4.15.C-8 sheet-variant slide copy: the armed hint is the sheet_label
@@ -308,7 +331,7 @@
 {#if open && user}
   <div class="scrim" aria-hidden="true"></div>
   <div
-    class="sheet arcade-sheet"
+    class="sheet arcade-sheet {hueClass}"
     class:celebrate
     role="dialog"
     aria-modal="true"
@@ -548,24 +571,53 @@
     overflow: hidden;
   }
   /* §4.15.C-1 PALETTE SCOPE — the sheet does NOT remap app tokens: the
-   * locked sheet colors live here and are consumed ONLY inside the sheet
-   * (--sheet-*). --sheet-bg is OWNER-LOCKED (Concept §15.3; the
-   * app palette itself is unchanged) and supersedes the §13.1.5
-   * Deepa-hue background (recorded, Concept §15.4) — the .deepa-N hue
-   * classes are removed from the sheet. --sheet-green reuses the approved
+   * sheet colors live here and are consumed ONLY inside the sheet
+   * (--sheet-*). §4.15.5 OWNER AMENDMENT (Concept §15.3 + §15.4): the
+   * owner-locked #8a12ff purple background is REMOVED (superseded) —
+   * --sheet-bg and --sheet-ink now derive PER CHAT from the interlocutor's
+   * Deepa hue via the deepa-<n> classes below (--sheet-bg:
+   * var(--color-deepa-<n>), the §13.1.5/§4.10 rule restored; --sheet-ink:
+   * the per-hue ink token --color-deepa-ink-<n> — dark surface ink on
+   * green/yellow/orange/cyan, light text ink on violet). The
+   * sheet-variant slide's charcoal/yellow palette stays as-is (§4.15.C-8,
+   * self-contained contrast on any hue) — the locked slide hexes are the
+   * sheet's only remaining raw values. --sheet-green reuses the approved
    * Deepa green (--color-check-green — no new hex). */
   .arcade-sheet {
-    --sheet-bg: #8a12ff;
     --sheet-charcoal: #18181b;
     --sheet-yellow: #facc15;
     --sheet-white: #ffffff;
     --sheet-orange: #ff8a00;
     --sheet-green: var(--color-check-green);
-    --sheet-ink: var(--sheet-white);
-    /* §4.15.C-3 typography: Press Start 2P for BOTH locales (it ships
+    /* §4.15.3 typography: Press Start 2P for BOTH locales (it ships
      * Cyrillic upstream; Handjet second = the Cyrillic pixel fallback,
      * never a serif). Loaded via Fontsource in routes/+layout.svelte. */
     --sheet-font-pixel: 'Press Start 2P', 'Handjet Variable', 'Handjet', monospace;
+  }
+  /* §4.15.5 per-hue background + ink pairing (§4.10): the derived
+   * deepa-<n> class on the sheet root selects the interlocutor's message
+   * color as --sheet-bg and pairs it with its ink token for readable
+   * contrast — dark ink on deepa-1/2/3/5, light ink on deepa-4 (the only
+   * light-ink pairing). Declared after the base scope so the hue wins. */
+  .arcade-sheet.deepa-1 {
+    --sheet-bg: var(--color-deepa-1);
+    --sheet-ink: var(--color-deepa-ink-1);
+  }
+  .arcade-sheet.deepa-2 {
+    --sheet-bg: var(--color-deepa-2);
+    --sheet-ink: var(--color-deepa-ink-2);
+  }
+  .arcade-sheet.deepa-3 {
+    --sheet-bg: var(--color-deepa-3);
+    --sheet-ink: var(--color-deepa-ink-3);
+  }
+  .arcade-sheet.deepa-4 {
+    --sheet-bg: var(--color-deepa-4);
+    --sheet-ink: var(--color-deepa-ink-4);
+  }
+  .arcade-sheet.deepa-5 {
+    --sheet-bg: var(--color-deepa-5);
+    --sheet-ink: var(--color-deepa-ink-5);
   }
   /* §4.15.C-2 ENTRANCE — the 200ms linear slide-up is superseded by the
    * retro-arcade SPRING BOUNCE rise (transform-only; the scrim keeps its
@@ -613,14 +665,15 @@
     flex-shrink: 0;
   }
   /* The pixel MEETING SUMMARY label — i18n'd (chat.summary.title),
-   * uppercase, pixel face 10px (PS2P runs large), white ink. */
+   * uppercase, pixel face 10px (PS2P runs large). §4.15.5: the ink
+   * follows the per-hue pairing (--sheet-ink). */
   .sheet-label {
     margin: 0;
     font-family: var(--sheet-font-pixel);
     font-size: 10px;
     letter-spacing: 0;
     text-transform: uppercase;
-    color: var(--sheet-white);
+    color: var(--sheet-ink);
   }
   /* The pixel X close: 48px hit target, yellow glyph, press state =
    * pixel scale-DOWN over 90ms (no opacity fade), yellow focus ring. */
@@ -706,12 +759,13 @@
   }
   /* Names under the frames — Inter 16px semibold (the chat surfaces' name
    * treatment — §4.15.3.1: stronger + matching the good-chat styling),
-   * white ink, centered below the frame. */
+   * centered below the frame. §4.15.5: the ink follows the per-hue
+   * pairing (--sheet-ink). */
   .who {
     font-family: var(--font-body);
     font-size: 16px;
     font-weight: 600;
-    color: var(--sheet-white);
+    color: var(--sheet-ink);
     max-width: 96px;
     text-align: center;
     overflow: hidden;
@@ -755,24 +809,26 @@
       stroke-dashoffset: var(--ring-target);
     }
   }
-  /* §4.15.C-5/C-3: the score numeral renders in the pixel stack 28px. */
+  /* §4.15.C-5/C-3: the score numeral renders in the pixel stack 28px.
+   * §4.15.5: the fill is text on the hue — it follows the per-hue ink. */
   .ring .score {
     stroke: none;
-    fill: var(--sheet-white);
+    fill: var(--sheet-ink);
     font-family: var(--sheet-font-pixel);
     font-size: 28px;
     letter-spacing: 0;
     text-anchor: middle;
     dominant-baseline: central;
   }
-  /* §4.15.C-6: the tier label under the ring — pixel face 10px, yellow for
-   * GREAT, white otherwise (plain text — no color-only meaning, C-9). */
+  /* §4.15.C-6: the tier label under the ring — pixel face 10px; §4.15.5:
+   * the ink follows the per-hue pairing (--sheet-ink), yellow for GREAT
+   * (plain text — no color-only meaning, C-9). */
   .tier-label {
     margin: 0;
     font-family: var(--sheet-font-pixel);
     font-size: 10px;
     letter-spacing: 0;
-    color: var(--sheet-white);
+    color: var(--sheet-ink);
     text-align: center;
   }
   .tier-label.great {
@@ -977,7 +1033,8 @@
     }
   }
   /* --- §4.15.C-7 conversation summary & checklist ------------------------- */
-  /* §4.15.C-7: crisp white sans body copy on purple. */
+  /* §4.15.C-7: crisp sans body copy on the derived hue (§4.15.5 — the ink
+   * reads the per-hue pairing). */
   .description {
     margin: 0;
     color: var(--sheet-ink);
@@ -985,14 +1042,15 @@
     line-height: 1.45;
     text-align: left;
   }
-  /* §4.15.C-7: the pixel NETWORKING CHECKLIST header. */
+  /* §4.15.C-7: the pixel NETWORKING CHECKLIST header. §4.15.5: the ink
+   * follows the per-hue pairing (--sheet-ink). */
   .checklist h3 {
     margin: 0 0 var(--space-2);
     font-family: var(--sheet-font-pixel);
     font-size: 10px;
     letter-spacing: 0;
     text-transform: uppercase;
-    color: var(--sheet-white);
+    color: var(--sheet-ink);
   }
   .checklist ul {
     list-style: none;
@@ -1262,7 +1320,7 @@
     color: var(--sheet-ink);
     font-size: 14px;
   }
-  /* The retry affordance stays readable on the locked purple: white ink. */
+  /* The retry affordance stays readable on any hue (§4.15.5 ink pairing). */
   .cta {
     display: inline-flex;
     align-items: center;

@@ -165,33 +165,51 @@ describe('sweep: QR module placement (DESIGN §3.8 AC 14, §3.6 AC 13)', () => {
 });
 
 describe('sweep: token discipline (DESIGN §2.4 — no hardcoded hex in components)', () => {
-  /* §4.15.C-1 exception (2026-11-20 owner ruling, arcade sheet): the sheet's
-   * palette is OWNER-LOCKED and sheet-scoped — its raw hexes live ONLY in
-   * SummarySheet's `.arcade-sheet` scope block. That one block supersedes the
-   * blanket ban (the design pins the values verbatim, e.g. #8A12FF); every
-   * other file, and every line outside the scope block, still obeys §2.4. */
+  /* §4.15.5 (2026-11-20 owner amendment, Concept §15.3 + §15.4): the sheet
+   * background is token-driven again (the derived Deepa hue) — the former
+   * whole-`.arcade-sheet`-block hex exception is DISSOLVED (the superseded
+   * #8a12ff purple is gone from the component). The sheet-variant slide's
+   * charcoal/yellow palette (§4.15.C-8, self-contained contrast on any
+   * hue) remains the sheet's ONLY sanctioned raw hexes — the four locked
+   * declarations below, still confined to SummarySheet's scope block.
+   * Every other file, and every other line, obeys §2.4. */
   const SHEET_SCOPE_FILE = 'src/lib/components/SummarySheet.svelte';
-  const withoutScopeBlock = (file: string, src: string): string =>
-    rel(file) === SHEET_SCOPE_FILE ? src.replace(/\.arcade-sheet\s*\{[\s\S]*?\}/, '') : src;
+  const LOCKED_SHEET_DECLARATIONS = [
+    '--sheet-charcoal: #18181b',
+    '--sheet-yellow: #facc15',
+    '--sheet-white: #ffffff',
+    '--sheet-orange: #ff8a00'
+  ];
+  const withoutLockedHexes = (file: string, src: string): string =>
+    rel(file) === SHEET_SCOPE_FILE
+      ? LOCKED_SHEET_DECLARATIONS.reduce(
+          (acc, line) => acc.split(line).join(''),
+          // comments are prose (they may cite the hexes) — stripped, same
+          // pattern as the summary-sheet source assertions
+          src.replace(/\/\*[\s\S]*?\*\//g, '')
+        )
+      : src;
 
-  it('no .svelte file contains a raw color literal (sole exception: the owner-locked .arcade-sheet scope block, §4.15.C-1)', () => {
+  it('no .svelte file contains a raw color literal outside the four sanctioned slide-palette declarations (§4.15.C-8)', () => {
     const offenders = SVELTE_FILES
       .filter(
         (f) =>
-          /#[0-9a-fA-F]{3,8}\b/.test(withoutScopeBlock(f, readFileSync(f, 'utf8')))
+          /#[0-9a-fA-F]{3,8}\b/.test(withoutLockedHexes(f, readFileSync(f, 'utf8')))
       )
       .map(rel);
     expect(offenders, `hardcoded hex in: ${offenders.join(', ')}`).toEqual([]);
   });
 
-  it('the exception is not vacuous: the .arcade-sheet block carries the LOCKED hexes verbatim', () => {
+  it('the remaining locked hexes are exactly the slide palette; the superseded #8a12ff background is gone', () => {
     const src = readFileSync(join(WEB_ROOT, SHEET_SCOPE_FILE), 'utf8');
+    // §4.15.5: the owner-locked purple background is superseded — no
+    // #8a12ff in the component (comments are prose — stripped)
+    expect(src.replace(/\/\*[\s\S]*?\*\//g, '')).not.toContain('#8a12ff');
+    // the slide palette's locked declarations stay verbatim in the scope
     const scopeBlock = src.match(/\.arcade-sheet\s*\{[\s\S]*?\}/)?.[0] ?? '';
-    expect(scopeBlock).toContain('--sheet-bg: #8a12ff');
-    expect(scopeBlock).toContain('--sheet-charcoal: #18181b');
-    expect(scopeBlock).toContain('--sheet-yellow: #facc15');
-    expect(scopeBlock).toContain('--sheet-white: #ffffff');
-    expect(scopeBlock).toContain('--sheet-orange: #ff8a00');
+    for (const declaration of LOCKED_SHEET_DECLARATIONS) {
+      expect(scopeBlock).toContain(declaration);
+    }
   });
 
   it('the only light-surface exception (--color-qr-frame) is declared in tokens.css', () => {
