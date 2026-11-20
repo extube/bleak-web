@@ -46,6 +46,11 @@
    * counterpart address (degenerate 0-participant case) leaves the dot
    * on currentColor (the neutral surface's text color).
    *
+   * §4.15.3.2 (owner microchange, Concept §18.2): the finished-dot GROWS
+   * to the loading circle's size — the dot's width/height now match the
+   * §4.13.4 loader's outer diameter (14px, border-box) exactly; the hue
+   * coloring and position stay untouched.
+   *
    * §4.13.4 (owner change request, Concept §13.1.4): UNFINISHED dialogs
    * (the active state) render DARKER WITH OPACITY — a distinct muted
    * treatment (`chat-card.unfinished`; opacity only, on this dark theme
@@ -219,11 +224,15 @@
    * interlocutor's Deepa hue (`--color-deepa-<n>` via codeHue), the
    * lineage of the retired reminder marks. Unfinished items show NO dot
    * (the §4.13.4 loader circle instead) — the two never coexist.
-   * Declared after the base so the hue wins. */
+   * Declared after the base so the hue wins.
+   * §4.15.3.2 (owner microchange, Concept §18.2): the dot's SIZE matches
+   * the §4.13.4 loader's outer diameter exactly (14px, border-box — the
+   * loader's width/height with its 2px ring included). Hue and position
+   * untouched. */
   .dot {
     flex-shrink: 0;
-    width: 8px;
-    height: 8px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     background: currentColor;
   }
@@ -245,7 +254,8 @@
   /* §4.13.4: the ANIMATED CIRCULAR LOADER on unfinished dialogs — a small
    * standard spinning circle (border ring with a transparent top arc,
    * transform-only rotation, §4.6 motion rule; disabled under
-   * prefers-reduced-motion by the base.css catch-all). */
+   * prefers-reduced-motion by the base.css catch-all). The outer diameter
+   * is 14px (border-box) — the size the §4.15.3.2 dot matches. */
   .loader {
     flex-shrink: 0;
     width: 14px;

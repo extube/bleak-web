@@ -8,7 +8,9 @@
  * indicator are REMOVED; a dot in the interlocutor's Deepa hue renders on
  * FINISHED cards only — an unfinished item shows NO dot, only the
  * §4.13.4 circular loader; the two never coexist), derived from the
- * AUTHORITATIVE Chat.done (CONCEPT §13 R2 / DESIGN §4.13.2), «+N»,
+ * AUTHORITATIVE Chat.done (CONCEPT §13 R2 / DESIGN §4.13.2) — the dot's
+ * size matches the loader's outer diameter (§4.15.3.2, Concept §18.2),
+ * «+N»,
  * empty state CTA → /people,
  * skeletons, in-place poll updates (removed chats disappear), the §4.12.2
  * restyle (neutral LIST surface — the Deepa hue moved from the card to
@@ -379,6 +381,19 @@ describe('/chats — cards (§3.4 as amended by §4.11.5–7, §4.12.2)', () => 
     expect(cardCss).toMatch(/@keyframes loader-spin\s*\{[^}]*rotate\(360deg\)/);
     // the dot itself is a small round element
     expect(cardCss).toMatch(/\.dot\s*\{[^}]*border-radius:\s*50%/);
+    // §4.15.3.2 (owner microchange, Concept §18.2): the dot's SIZE matches
+    // the §4.13.4 loader's outer diameter exactly — the same width/height
+    // value (14px, border-box) on both selectors
+    const dotBlock = cardCss.match(/\.dot\s*\{([^}]*)\}/)?.[1] ?? '';
+    const loaderBlock = cardCss.match(/\.loader\s*\{([^}]*)\}/)?.[1] ?? '';
+    const dotWidth = dotBlock.match(/width:\s*(\d+)px/)?.[1];
+    const loaderWidth = loaderBlock.match(/width:\s*(\d+)px/)?.[1];
+    expect(dotWidth).toBeTruthy();
+    expect(dotWidth).toBe(loaderWidth);
+    const dotHeight = dotBlock.match(/height:\s*(\d+)px/)?.[1];
+    const loaderHeight = loaderBlock.match(/height:\s*(\d+)px/)?.[1];
+    expect(dotHeight).toBe(loaderHeight);
+    expect(dotWidth).toBe('14');
     // no raw hex in the component (token discipline)
     expect(cardCss).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });

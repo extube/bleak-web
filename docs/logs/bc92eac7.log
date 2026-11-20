@@ -1,0 +1,2 @@
+2026-11-20T06:55:24Z [worker] tz8-06-dot-size: ChatCard .dot 8px→14px (= .loader outer diameter, border-box); chats-page dot-size contract test added; targeted chats-page suite 27/27 green
+2026-11-20T06:56:48Z [worker] tz8-06-dot-size: handover — commit 93c133b on feature/bc92eac7-tz8-06-dot-size; gates green (targeted chats-page 27/27, make test 762/762, make lint, make build); task set ready-for-merge (autonomous merge mode)
