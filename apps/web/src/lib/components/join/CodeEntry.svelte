@@ -8,6 +8,7 @@
    */
   import { locale, translate } from '#lib/i18n/locale';
   import { isValidInviteCode } from '#lib/join';
+  import BleakMascot from '#lib/components/BleakMascot.svelte';
   import DigitInput from '#lib/components/DigitInput.svelte';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import LocaleControl from './LocaleControl.svelte';
@@ -66,6 +67,13 @@
   <h1>{translate($locale, 'join.title')}</h1>
   <p class="subtitle">{translate($locale, 'join.subtitle')}</p>
 
+  <!-- §4.16.1: the Bleak mascot greets on the code-entry form — centered
+       between the subtitle and the cells, inside the .step column (no new
+       overflow surface; the §12 phone full-screen contract holds). -->
+  <div class="mascot-row">
+    <BleakMascot size={96} idle />
+  </div>
+
   <div class="cells" bind:this={cellsWrap} class:shaking>
     <DigitInput bind:value={code} {disabled} />
   </div>
@@ -118,6 +126,10 @@
     margin: 0;
     color: var(--color-text-muted);
     font-size: 14px;
+  }
+  .mascot-row {
+    display: flex;
+    justify-content: center;
   }
   .cells {
     /* §4.12.1 item 6: NOT a flex container anymore — as a flex row it made
