@@ -90,12 +90,15 @@ export interface PersonaDraft {
 // ---------------------------------------------------------------------------
 
 /** The contact kind chosen first in the interview (phone / email /
- * messenger nickname); the value is asked second. */
-export type ContactKind = 'phone' | 'email' | 'messenger';
+ * messenger nickname; §23.2 5.4 — the messenger is a NICKNAME field with
+ * suggested prefixes tg:/signal:/inst:, not a kind of its own). The value
+ * is asked second. */
+export type ContactKind = 'phone' | 'email' | 'nickname';
 
 /** The interview order: name → public bio → private bio → contact
- * (type → value) → interests (group → items). `creating` is the loading
- * step while the persona POST runs. */
+ * (type → value) → themes (badges) ⇄ topics (multi-select per theme,
+ * §23.2 5.5/5.7 — the flow returns to the theme badges until Ready).
+ * `creating` is the loading step while the persona POST runs. */
 export const WIZARD_STEPS = [
   'intro',
   'name',
@@ -103,8 +106,8 @@ export const WIZARD_STEPS = [
   'private_bio',
   'contact_type',
   'contact_value',
-  'interests_group',
-  'interests_pick'
+  'themes',
+  'topics'
 ] as const;
 
 export type WizardStep = (typeof WIZARD_STEPS)[number] | 'creating';
@@ -116,9 +119,9 @@ export interface WizardState {
   privateBio: string;
   contactKind: ContactKind | null;
   contactValue: string;
-  /** The chosen interests catalog group (first the group, then its items). */
+  /** The theme whose topics are being picked (badges ⇄ topics loop). */
   interestGroup: number | null;
-  /** Multi-selected catalog keys (deduped, ≤ MAX_INTERESTS). */
+  /** Multi-selected topic keys across ALL chosen themes (deduped, ≤ MAX_INTERESTS). */
   interestKeys: number[];
 }
 
@@ -145,6 +148,8 @@ export type WizardEvent =
   | { type: 'contact-value'; value: string }
   | { type: 'interest-group'; group: number }
   | { type: 'toggle-interest'; key: number }
+  | { type: 'theme-done' }
+  | { type: 'ready' }
   | { type: 'finish' };
 
 function wizardIndex(step: WizardStep): number {
@@ -155,11 +160,11 @@ function wizardIndex(step: WizardStep): number {
 /** Back navigation along the interview order; a skipped contact (empty
  * value) reopens the type question instead of an orphaned value field. */
 function previousWizardStep(state: WizardState): WizardStep {
-  // Leaving the loading step re-opens the last interview question.
-  if (state.step === 'creating') return 'interests_pick';
+  // Leaving the loading step re-opens the theme badges (the loop's home).
+  if (state.step === 'creating') return 'themes';
   const idx = wizardIndex(state.step);
   if (idx <= 0) return 'intro';
-  if (state.step === 'interests_group' && state.contactValue.trim() === '') {
+  if (state.step === 'themes' && state.contactValue.trim() === '') {
     return 'contact_type';
   }
   return WIZARD_STEPS[idx - 1] ?? 'intro';
@@ -211,21 +216,23 @@ export function reduceWizard(state: WizardState, event: WizardEvent): WizardStat
           };
         case 'contact_type':
           // No kind chosen: "next" on the type question is the skip path.
-          return { ...state, step: 'interests_group' };
+          return { ...state, step: 'themes' };
         case 'contact_value':
-          return { ...state, step: 'interests_group' };
-        case 'interests_pick':
-          return { ...state, step: 'creating' };
+          return { ...state, step: 'themes' };
+        case 'topics':
+          // Done with this theme's topics → BACK to the theme badges
+          // (§23.2 5.7 — the loop repeats until Ready), never forward.
+          return { ...state, step: 'themes' };
         default:
           return state;
       }
     case 'skip':
       // Contact is optional (§14.1.3 — nothing sent at creation) and the
-      // interests pick can be left empty too (0 rows → no API flush).
+      // themes pick can be left empty too (0 rows → no API flush).
       if (state.step === 'contact_type' || state.step === 'contact_value') {
-        return { ...state, step: 'interests_group', contactKind: null, contactValue: '' };
+        return { ...state, step: 'themes', contactKind: null, contactValue: '' };
       }
-      if (state.step === 'interests_group' || state.step === 'interests_pick') {
+      if (state.step === 'themes' || state.step === 'topics') {
         return { ...state, step: 'creating' };
       }
       return state;
@@ -236,10 +243,10 @@ export function reduceWizard(state: WizardState, event: WizardEvent): WizardStat
       if (state.step !== 'contact_value') return state;
       return { ...state, contactValue: event.value };
     case 'interest-group':
-      if (state.step !== 'interests_group') return state;
-      return { ...state, step: 'interests_pick', interestGroup: event.group };
+      if (state.step !== 'themes') return state;
+      return { ...state, step: 'topics', interestGroup: event.group };
     case 'toggle-interest': {
-      if (state.step !== 'interests_pick') return state;
+      if (state.step !== 'topics') return state;
       const keys = state.interestKeys.includes(event.key)
         ? state.interestKeys.filter((key) => key !== event.key)
         : state.interestKeys.length >= MAX_INTERESTS
@@ -247,6 +254,15 @@ export function reduceWizard(state: WizardState, event: WizardEvent): WizardStat
           : [...state.interestKeys, event.key];
       return { ...state, interestKeys: keys };
     }
+    case 'theme-done':
+      // Finished one theme's topics: BACK to the theme badges (§23.2 5.7);
+      // the keys accumulate across themes.
+      if (state.step !== 'topics') return state;
+      return { ...state, step: 'themes' };
+    case 'ready':
+      // The Ready button on the theme badges ends the whole themes phase.
+      if (state.step !== 'themes') return state;
+      return { ...state, step: 'creating' };
     case 'finish':
       return { ...state, step: 'creating' };
     case 'back':

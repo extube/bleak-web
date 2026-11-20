@@ -8,15 +8,16 @@
    * leave-room button + its ConfirmDialog + error display).
    *
    * Concept §10.1.4 / DESIGN §4.11.4: ALL persona editing lives here — the
-   * PersonaEditor (name/public/private bio), the GreetingEditor, the
-   * interests picker (InterestsEditor, DESIGN §4.13.1: real upsert/delete
-   * endpoints + the local mirror) and the LOCAL contact-card field
-   * (ContactCardEditor, DESIGN §4.13.3: `bleak.contactCard`, no backend
-   * field) — the same inline-swap pattern (one editor at a time),
-   * returning to the settings rows after save/cancel. §4.13.3's minimal
-   * "Shared with you" list lived here once — DESIGN §4.14.2 supersedes it
-   * with the /contacts footer tab (the PRIMARY surface), so the list was
-   * REMOVED to avoid a duplicate surface.
+   * PersonaEditor (name/public/private bio), the GreetingEditor and the
+   * LOCAL contact-card field (ContactCardEditor, DESIGN §4.13.3:
+   * `bleak.contactCard`, no backend field) — the same inline-swap pattern
+   * (one editor at a time), returning to the settings rows after
+   * save/cancel. §23.2 5.6: the interests EDITOR is REMOVED — interests
+   * are set at creation only (the wizard's themes); the local mirror
+   * (stores/interests.ts) stays as the badge display source. §4.13.3's
+   * minimal "Shared with you" list lived here once — DESIGN §4.14.2
+   * supersedes it with the /contacts footer tab (the PRIMARY surface), so
+   * the list was REMOVED to avoid a duplicate surface.
    *
    * Token rotation (§3.6 settings): confirm dialog (other-device lockout
    * copy) → generate the new secret → `rotateUserToken` (Bearer = current,
@@ -55,7 +56,6 @@
   import LocaleControl from '#lib/components/join/LocaleControl.svelte';
   import PersonaEditor from '#lib/components/profile/PersonaEditor.svelte';
   import GreetingEditor from '#lib/components/profile/GreetingEditor.svelte';
-  import InterestsEditor from '#lib/components/profile/InterestsEditor.svelte';
   import ContactCardEditor from '#lib/components/profile/ContactCardEditor.svelte';
   import ErrorBanner from '#lib/components/ErrorBanner.svelte';
 
@@ -66,7 +66,7 @@
   const me = $derived($identity);
 
   // --- persona editing (moved from /profile, Concept §10.1.4) ------------------
-  type View = 'rows' | 'persona' | 'greeting' | 'interests' | 'contact';
+  type View = 'rows' | 'persona' | 'greeting' | 'contact';
 
   let view = $state<View>('rows');
   let user = $state<User | null>(null);
@@ -337,9 +337,8 @@
         <button type="button" class="row" onclick={openGreeting}>
           {translate($locale, 'profile.greeting.edit')}
         </button>
-        <button type="button" class="row" onclick={() => (view = 'interests')}>
-          {translate($locale, 'profile.interests.edit')}
-        </button>
+        <!-- §23.2 5.6: no interests row — interests are set at creation
+             only (the wizard's themes); the badge renders the mirror. -->
         <button type="button" class="row" onclick={openContact}>
           {translate($locale, 'profile.contact.edit')}
         </button>
@@ -399,8 +398,6 @@
           oncancel={() => (view = 'rows')}
         />
       {/key}
-    {:else if view === 'interests'}
-      <InterestsEditor ondone={() => (view = 'rows')} />
     {:else if view === 'contact'}
       <ContactCardEditor
         initial={me ? loadContactCard(me.roomAddress, me.userAddress) : ''}

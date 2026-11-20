@@ -326,8 +326,8 @@ describe('creation wizard step machine (Concept §22.3 item 2, DESIGN §4.16.2)'
       { type: 'contact-value', value: '+7 999' }
     );
 
-  /** …then advanced past the contact question (at interests-group). */
-  const toInterests = (): WizardState => reduceWizard(toContactValue(), { type: 'next' });
+  /** …then advanced past the contact question (at the theme badges). */
+  const toThemes = (): WizardState => reduceWizard(toContactValue(), { type: 'next' });
 
   it('starts at the intro and walks the interview order name → bios → contact → interests', () => {
     expect(initialWizardState.step).toBe('intro');
@@ -363,14 +363,14 @@ describe('creation wizard step machine (Concept §22.3 item 2, DESIGN §4.16.2)'
       { type: 'next' }
     );
     expect(atContact.step).toBe('contact_type');
-    const atValue = reduceWizard(atContact, { type: 'contact-kind', kind: 'messenger' });
+    const atValue = reduceWizard(atContact, { type: 'contact-kind', kind: 'nickname' });
     expect(atValue.step).toBe('contact_value');
-    expect(atValue.contactKind).toBe('messenger');
+    expect(atValue.contactKind).toBe('nickname');
     expect(atValue.contactValue).toBe('');
-    const valued = reduceWizard(atValue, { type: 'contact-value', value: '@me' });
-    expect(valued.contactValue).toBe('@me');
-    const atInterests = reduceWizard(valued, { type: 'next' });
-    expect(atInterests.step).toBe('interests_group');
+    const valued = reduceWizard(atValue, { type: 'contact-value', value: 'tg:@me' });
+    expect(valued.contactValue).toBe('tg:@me');
+    const atThemes = reduceWizard(valued, { type: 'next' });
+    expect(atThemes.step).toBe('themes');
     // Skip (from the type question) jumps past the whole contact question.
     const skipped = walked(
       { type: 'start' },
@@ -379,45 +379,58 @@ describe('creation wizard step machine (Concept §22.3 item 2, DESIGN §4.16.2)'
       { type: 'next' },
       { type: 'skip' }
     );
-    expect(skipped.step).toBe('interests_group');
+    expect(skipped.step).toBe('themes');
     expect(skipped.contactKind).toBeNull();
     expect(skipped.contactValue).toBe('');
   });
 
-  it('interests: group first, then that group\'s items; toggle is a multi-select set capped at MAX_INTERESTS', () => {
-    const atGroup = toInterests();
-    const atPick = reduceWizard(atGroup, { type: 'interest-group', group: 2 });
-    expect(atPick.step).toBe('interests_pick');
-    expect(atPick.interestGroup).toBe(2);
-    const one = reduceWizard(atPick, { type: 'toggle-interest', key: 12 });
-    expect(one.interestKeys).toEqual([12]);
-    const two = reduceWizard(one, { type: 'toggle-interest', key: 13 });
-    expect(two.interestKeys).toEqual([12, 13]);
+  it('themes: a theme opens its topics; toggles are a multi-select set capped at MAX_INTERESTS (§23.2 5.5)', () => {
+    const atThemes = toThemes();
+    const atTopics = reduceWizard(atThemes, { type: 'interest-group', group: 1 });
+    expect(atTopics.step).toBe('topics');
+    expect(atTopics.interestGroup).toBe(1);
+    const one = reduceWizard(atTopics, { type: 'toggle-interest', key: 8 });
+    expect(one.interestKeys).toEqual([8]);
+    const two = reduceWizard(one, { type: 'toggle-interest', key: 7 });
+    expect(two.interestKeys).toEqual([8, 7]);
     // Re-toggle removes.
-    expect(reduceWizard(two, { type: 'toggle-interest', key: 12 }).interestKeys).toEqual([13]);
+    expect(reduceWizard(two, { type: 'toggle-interest', key: 8 }).interestKeys).toEqual([7]);
     // Toggle events at other steps are ignored.
-    expect(reduceWizard(atGroup, { type: 'toggle-interest', key: 999 })).toBe(atGroup);
+    expect(reduceWizard(atThemes, { type: 'toggle-interest', key: 999 })).toBe(atThemes);
   });
 
-  it('finish/skip at the interests steps lands on the creating step', () => {
-    const atGroup = toInterests();
-    const atPick = reduceWizard(reduceWizard(atGroup, { type: 'interest-group', group: 2 }), {
-      type: 'toggle-interest',
-      key: 12
-    });
-    expect(reduceWizard(atPick, { type: 'finish' }).step).toBe('creating');
-    expect(reduceWizard(atPick, { type: 'next' }).step).toBe('creating');
-    // Skip at the group question (nothing selected) also goes to creating.
-    expect(reduceWizard(atGroup, { type: 'skip' }).step).toBe('creating');
+  it('the themes loop (§23.2 5.7): theme-done returns to the badges with the keys kept; only Ready (or skip) reaches creating', () => {
+    const atThemes = toThemes();
+    const atTopics = reduceWizard(atThemes, { type: 'interest-group', group: 0 });
+    const picked = reduceWizard(atTopics, { type: 'toggle-interest', key: 2 });
+    // Done with the theme → BACK to the badges, keys accumulate.
+    const backAtThemes = reduceWizard(picked, { type: 'theme-done' });
+    expect(backAtThemes.step).toBe('themes');
+    expect(backAtThemes.interestKeys).toEqual([2]);
+    expect(backAtThemes.interestGroup).toBe(0);
+    // Another theme, more topics — still no creating.
+    const secondTopics = reduceWizard(backAtThemes, { type: 'interest-group', group: 1 });
+    const secondPicked = reduceWizard(secondTopics, { type: 'toggle-interest', key: 8 });
+    const themesAgain = reduceWizard(secondPicked, { type: 'theme-done' });
+    expect(themesAgain.step).toBe('themes');
+    expect(themesAgain.interestKeys).toEqual([2, 8]);
+    // topics' next/theme-done never jumps forward; only Ready/skip/finish do.
+    expect(reduceWizard(themesAgain, { type: 'ready' }).step).toBe('creating');
+    expect(reduceWizard(themesAgain, { type: 'skip' }).step).toBe('creating');
+    expect(reduceWizard(themesAgain, { type: 'finish' }).step).toBe('creating');
+    // 'next' at themes is inert (the Ready button is the forward path).
+    expect(reduceWizard(themesAgain, { type: 'next' }).step).toBe('themes');
   });
 
-  it('back navigation walks the interview backwards; a skipped contact reopens the type question', () => {
+  it('back navigation walks the interview backwards; a skipped contact reopens the type question; creating returns to the badges', () => {
     expect(reduceWizard({ ...initialWizardState }, { type: 'back' }).step).toBe('intro');
     const atContactValue = toContactValue();
     expect(reduceWizard(atContactValue, { type: 'back' }).step).toBe('contact_type');
-    const atGroup = reduceWizard(atContactValue, { type: 'next' });
-    expect(reduceWizard(atGroup, { type: 'back' }).step).toBe('contact_value');
-    // A skipped contact: back from interests_group reopens the type pick.
+    const atThemes = reduceWizard(atContactValue, { type: 'next' });
+    expect(reduceWizard(atThemes, { type: 'back' }).step).toBe('contact_value');
+    const atTopics = reduceWizard(atThemes, { type: 'interest-group', group: 1 });
+    expect(reduceWizard(atTopics, { type: 'back' }).step).toBe('themes');
+    // A skipped contact: back from the themes badges reopens the type pick.
     const skipped = walked(
       { type: 'start' },
       { type: 'next' },
@@ -430,20 +443,23 @@ describe('creation wizard step machine (Concept §22.3 item 2, DESIGN §4.16.2)'
 
   it('wizardOrderIndex sorts creating past the whole interview', () => {
     expect(wizardOrderIndex('intro')).toBe(0);
-    expect(wizardOrderIndex('interests_pick')).toBe(7);
+    expect(wizardOrderIndex('themes')).toBe(6);
+    expect(wizardOrderIndex('topics')).toBe(7);
     expect(wizardOrderIndex('creating')).toBe(8);
   });
 
-  it('wizardPersonaDraft composes the draft: interests ride as catalog keys, contact is the caller text', () => {
-    const state = reduceWizard(toInterests(), { type: 'interest-group', group: 2 });
-    const picked = reduceWizard(state, { type: 'toggle-interest', key: 12 });
-    const draft = wizardPersonaDraft(picked, 'Телефон: +7 999');
+  it('wizardPersonaDraft composes the draft: interests ride as topic keys, contact is the caller text', () => {
+    const state = reduceWizard(reduceWizard(toThemes(), { type: 'interest-group', group: 1 }), {
+      type: 'toggle-interest',
+      key: 8
+    });
+    const draft = wizardPersonaDraft(state, 'Телефон: +7 999');
     expect(draft).toEqual({
       name: 'Я',
       publicBio: 'виден',
       privateBio: 'секрет',
       contact: 'Телефон: +7 999',
-      interests: [12]
+      interests: [8]
     });
     const empty = wizardPersonaDraft({ ...initialWizardState });
     expect(empty.contact).toBeUndefined();

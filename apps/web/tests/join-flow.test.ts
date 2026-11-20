@@ -177,15 +177,17 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
 
 });
 
-describe('JoinFlow — persona creation via the creation wizard (v3.9, token in the body)', () => {
+describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 amendments, token in the body)', () => {
   /**
-   * v3.9 (Concept §22.3 item 2, DESIGN §4.16.2): the single form is the
-   * chat-style CreationWizard now — the drive helper walks it: intro →
-   * name → (public/private bios) → contact (skippable) → interests
-   * (skippable) → creating (the loading step while JoinFlow POSTs the
-   * persona with the UNCHANGED v2 body).
+   * v3.9 (Concept §22.3 item 2, DESIGN §4.16.2; §23.2 5.1–5.9): the single
+   * form is the chat-style CreationWizard now — the drive helper walks it:
+   * intro → name → (public/private bios via the iOS-Messages composer:
+   * send on Enter or the button, no Next) → contact (skippable) → the
+   * THEMES loop (badge → topics → back to badges; Ready ends it) →
+   * creating (the loading step while JoinFlow POSTs the persona with the
+   * UNCHANGED v2 body).
    */
-  const next = (): HTMLElement => screen.getByRole('button', { name: ru['join.wizard.next'] });
+  const send = (): HTMLElement => screen.getByRole('button', { name: ru['join.wizard.send'] });
 
   async function openWizard(): Promise<void> {
     mockedResolve.mockResolvedValue({ roomAddress: room.address });
@@ -204,25 +206,25 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9, token in 
   async function answerName(value: string): Promise<void> {
     const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
     fireEvent.input(nameInput, { target: { value } });
-    await next().click();
+    await send().click();
     await screen.findByText(ru['join.wizard.public.question']);
   }
 
-  /** Walk bios empty + skip contact + skip interests → the creating step. */
+  /** Walk bios empty (send) + skip contact + Ready → the creating step. */
   async function skipToInterviewEnd(): Promise<void> {
-    await next().click(); // public bio (empty allowed)
+    await send().click(); // public bio (empty allowed)
     await screen.findByText(ru['join.wizard.private.question']);
-    await next().click(); // private bio (empty allowed)
+    await send().click(); // private bio (empty allowed)
     await screen.findByText(ru['join.wizard.contact.question']);
     await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
     await screen.findByText(ru['join.wizard.interests.question']);
-    await screen.getByRole('button', { name: ru['join.wizard.interests.skip'] }).click();
+    await screen.getByRole('button', { name: ru['join.wizard.themes.ready'] }).click();
     await screen.findByText(ru['join.wizard.creating']);
   }
 
   it('blocks the empty-name submit client-side with the field error (AC 7)', async () => {
     await openWizard();
-    await next().click();
+    await send().click();
     await tick();
     expect(screen.getByText(ru['join.error.name_required'])).toBeTruthy();
     expect(mockedApi.createRoomUser).not.toHaveBeenCalled();
@@ -294,9 +296,9 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9, token in 
   it('the contact value input carries the §14.1.3 hint and nothing contact-bearing is stored before the 2xx (§4.14.3)', async () => {
     await openWizard();
     await answerName('Я');
-    await next().click(); // public
+    await send().click(); // public
     await screen.findByText(ru['join.wizard.private.question']);
-    await next().click(); // private
+    await send().click(); // private
     await screen.findByText(ru['join.wizard.contact.question']);
     // Choose the TYPE first (phone), then enter the value.
     await screen.getByRole('radio', { name: ru['join.wizard.contact.phone'] }).click();
@@ -311,16 +313,16 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9, token in 
     mockedApi.createRoomUser.mockResolvedValue(user('0xme', 'Я'));
     await openWizard();
     await answerName('Я');
-    await next().click(); // public
+    await send().click(); // public
     await screen.findByText(ru['join.wizard.private.question']);
-    await next().click(); // private
+    await send().click(); // private
     await screen.findByText(ru['join.wizard.contact.question']);
     await screen.getByRole('radio', { name: ru['join.wizard.contact.phone'] }).click();
     const valueInput = screen.getByLabelText(ru['join.wizard.contact.phone']) as HTMLInputElement;
     fireEvent.input(valueInput, { target: { value: '  +7 999 123-45-67  ' } });
-    await next().click();
+    await send().click();
     await screen.findByText(ru['join.wizard.interests.question']);
-    await screen.getByRole('button', { name: ru['join.wizard.interests.skip'] }).click();
+    await screen.getByRole('button', { name: ru['join.wizard.themes.ready'] }).click();
     await screen.findByText(ru['join.wizard.creating']);
 
     await waitFor(() => expect(mockedApi.createRoomUser).toHaveBeenCalled());
@@ -350,52 +352,56 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9, token in 
     );
     await openWizard();
     await answerName('Я');
-    await next().click(); // public
+    await send().click(); // public
     await screen.findByText(ru['join.wizard.private.question']);
-    await next().click(); // private
+    await send().click(); // private
     await screen.findByText(ru['join.wizard.contact.question']);
     await screen.getByRole('radio', { name: ru['join.wizard.contact.phone'] }).click();
     const valueInput = screen.getByLabelText(ru['join.wizard.contact.phone']) as HTMLInputElement;
     fireEvent.input(valueInput, { target: { value: '+7 999' } });
-    await next().click();
+    await send().click();
     await screen.findByText(ru['join.wizard.interests.question']);
-    await screen.getByRole('button', { name: ru['join.wizard.interests.skip'] }).click();
+    await screen.getByRole('button', { name: ru['join.wizard.themes.ready'] }).click();
     await screen.findByText(ru['join.error.invite']);
     expect(localStorage.getItem('bleak.contactCard')).toBeNull();
   });
 
-  // §13.1.1: the interview's interests are flushed AFTER the persona 2xx —
-  // one bulk addUserInterests (the saved identity carries the Bearer), the
+  // §13.1.1 + §23.2 5.5: the interview's topics are flushed AFTER the
+  // persona 2xx — one bulk addUserInterests (the saved identity carries
+  // the Bearer) with the THEMES title composition `<theme>:<topic>`; the
   // 201 FULL list mirrors into the local store.
-  it('success flushes the selected interests through ONE post-2xx addUserInterests and mirrors the 201 list (§13.1.1)', async () => {
+  it('success flushes the selected topics through ONE post-2xx addUserInterests with the theme:topic titles (§13.1.1 + §23.2 5.5)', async () => {
     mockedApi.createRoomUser.mockResolvedValue(user('0xme', 'Я'));
     const full: unknown = [
-      { title: 'Бег', group: 2, key: 12, user_address: '0xme' },
-      { title: 'Велосипед', group: 2, key: 13, user_address: '0xme' }
+      { title: 'sport:hockey', group: 1, key: 7, user_address: '0xme' },
+      { title: 'sport:running', group: 1, key: 8, user_address: '0xme' }
     ];
     mockedApi.addUserInterests.mockResolvedValue(full as never);
     await openWizard();
     await answerName('Я');
-    await next().click(); // public
+    await send().click(); // public
     await screen.findByText(ru['join.wizard.private.question']);
-    await next().click(); // private
+    await send().click(); // private
     await screen.findByText(ru['join.wizard.contact.question']);
     await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
     await screen.findByText(ru['join.wizard.interests.question']);
-    await screen.getByRole('radio', { name: ru['interests.group.2'] }).click();
+    await screen.getByRole('radio', { name: ru['interests.group.1'] }).click();
     await screen.findByText(
-      ru['join.wizard.interests.pick_question'].replace('{group}', ru['interests.group.2'])
+      ru['join.wizard.interests.pick_question'].replace('{group}', ru['interests.group.1'])
     );
-    await screen.getByRole('button', { name: ru['interests.k12'] }).click();
-    await screen.getByRole('button', { name: ru['interests.k13'] }).click();
+    await screen.getByRole('button', { name: ru['interests.k7'] }).click();
+    await screen.getByRole('button', { name: ru['interests.k8'] }).click();
     await screen.getByRole('button', { name: ru['join.wizard.interests.done'] }).click();
+    await screen.findByText(ru['join.wizard.interests.question']);
+    await screen.getByRole('button', { name: ru['join.wizard.themes.ready'] }).click();
     await screen.findByText(ru['join.wizard.creating']);
 
     await waitFor(() => expect(mockedApi.addUserInterests).toHaveBeenCalled());
-    // The rows are the tz5-02 catalog entries with the current-locale titles.
+    // The rows are the §23.2 5.5 theme/topic composition over the numeric
+    // (group, key) server contract.
     expect(mockedApi.addUserInterests).toHaveBeenCalledWith(room.address, '0xme', [
-      { title: 'Бег', group: 2, key: 12 },
-      { title: 'Велосипед', group: 2, key: 13 }
+      { title: 'sport:hockey', group: 1, key: 7 },
+      { title: 'sport:running', group: 1, key: 8 }
     ]);
     await tick();
     await tick();
@@ -412,18 +418,20 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9, token in 
     mockedApi.addUserInterests.mockRejectedValue(new ApiError(500, '/api/interest', 'boom'));
     await openWizard();
     await answerName('Я');
-    await next().click();
+    await send().click();
     await screen.findByText(ru['join.wizard.private.question']);
-    await next().click();
+    await send().click();
     await screen.findByText(ru['join.wizard.contact.question']);
     await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
     await screen.findByText(ru['join.wizard.interests.question']);
-    await screen.getByRole('radio', { name: ru['interests.group.2'] }).click();
+    await screen.getByRole('radio', { name: ru['interests.group.1'] }).click();
     await screen.findByText(
-      ru['join.wizard.interests.pick_question'].replace('{group}', ru['interests.group.2'])
+      ru['join.wizard.interests.pick_question'].replace('{group}', ru['interests.group.1'])
     );
-    await screen.getByRole('button', { name: ru['interests.k12'] }).click();
+    await screen.getByRole('button', { name: ru['interests.k7'] }).click();
     await screen.getByRole('button', { name: ru['join.wizard.interests.done'] }).click();
+    await screen.findByText(ru['join.wizard.interests.question']);
+    await screen.getByRole('button', { name: ru['join.wizard.themes.ready'] }).click();
     await screen.findByText(ru['join.wizard.creating']);
     await waitFor(() => expect(mockedApi.addUserInterests).toHaveBeenCalled());
     await tick();

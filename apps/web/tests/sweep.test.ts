@@ -116,12 +116,12 @@ describe('sweep: no-composer invariant (Concept §1c ruling 4 — permanent)', (
   });
 });
 
-describe('sweep: interests v3 shape adherence (DESIGN §4.13.1 — the §1 mock retired)', () => {
+describe('sweep: interests v3 shape adherence (DESIGN §4.13.1 + §23.2 5.5 themes model)', () => {
   it('displayInterests renders EXACTLY the {key, title, emoji} chip shape — no extra keys', async () => {
     const { displayInterests } = await import('#lib/stores/interests');
     const rows = [
-      { title: 'Кофе', group: 0, key: 1, user_address: '0xme' },
-      { title: 'Музыка', group: 1, key: 6, user_address: '0xme' }
+      { title: 'food:coffee', group: 2, key: 13, user_address: '0xme' },
+      { title: 'art:books', group: 3, key: 22, user_address: '0xme' }
     ];
     const chips = displayInterests(rows, 'en');
     expect(chips).toHaveLength(2);
@@ -133,16 +133,20 @@ describe('sweep: interests v3 shape adherence (DESIGN §4.13.1 — the §1 mock 
     }
   });
 
-  it('every catalog entry carries group + key + emoji + titleKey (numeric API pair)', async () => {
+  it('every catalog entry carries group + key + slug + emoji + titleKey (numeric API pair + the §23.2 5.5 slug)', async () => {
     const { INTEREST_CATALOG, INTEREST_GROUPS } = await import('#lib/interests/catalog');
-    expect(INTEREST_GROUPS.length).toBeGreaterThanOrEqual(4);
+    // §23.2 5.5: 6–10 theme badges; the catalog ships 8 themes × 6 topics.
+    expect(INTEREST_GROUPS.length).toBeGreaterThanOrEqual(6);
+    expect(INTEREST_GROUPS.length).toBeLessThanOrEqual(10);
     expect(INTEREST_CATALOG.length).toBeGreaterThanOrEqual(8);
     for (const entry of INTEREST_CATALOG) {
-      expect(Object.keys(entry).sort()).toEqual(['emoji', 'group', 'key', 'titleKey']);
+      expect(Object.keys(entry).sort()).toEqual(['emoji', 'group', 'key', 'slug', 'titleKey']);
       expect(typeof entry.group).toBe('number');
       expect(typeof entry.key).toBe('number');
       expect(entry.emoji.length).toBeGreaterThan(0);
       expect(entry.titleKey.startsWith('interests.')).toBe(true);
+      // The §23.2 5.5 slugs are lowercase ids (theme:topic composition).
+      expect(entry.slug).toMatch(/^[a-z_]+$/);
     }
   });
 });

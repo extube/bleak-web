@@ -136,8 +136,8 @@ describe('badge card (AC 1, 9, 11)', () => {
       'bleak.interests',
       JSON.stringify({
         '0xroom|0xme': [
-          { title: 'Кофе', group: 0, key: 1, user_address: ME },
-          { title: 'Книги', group: 1, key: 10, user_address: ME }
+          { title: 'Кофе', group: 2, key: 13, user_address: ME },
+          { title: 'Книги', group: 3, key: 22, user_address: ME }
         ]
       })
     );
@@ -154,7 +154,7 @@ describe('badge card (AC 1, 9, 11)', () => {
     expect(screen.getByText('Привет! Я про трамваи.')).toBeTruthy();
     expect(screen.getByText('Поттер из Питера')).toBeTruthy();
     // Badge chips read the mirror and re-localize through the catalog
-    // (RU locale: keys 1 and 10 → «Кофе» / «Книги», with their emojis).
+    // (RU locale: keys 13 and 22 → «Кофе» / «Книги», with their emojis).
     expect(screen.getByText(/Кофе/)).toBeTruthy();
     expect(screen.getByText(/Книги/)).toBeTruthy();
     expect(screen.getByText(ru['profile.stats.handshakes_label'])).toBeTruthy();
@@ -181,8 +181,8 @@ describe('badge card (AC 1, 9, 11)', () => {
       'bleak.interests',
       JSON.stringify({
         '0xroom|0xme': [
-          { title: 'Кофе', group: 0, key: 1, user_address: ME },
-          { title: 'Книги', group: 1, key: 10, user_address: ME }
+          { title: 'Кофе', group: 2, key: 13, user_address: ME },
+          { title: 'Книги', group: 3, key: 22, user_address: ME }
         ]
       })
     );
@@ -265,12 +265,13 @@ describe('read-only display (Concept §10.1.4, DESIGN §4.11.4)', () => {
   it('NO persona edit affordances remain on /profile — no edit buttons, editors live in /profile/settings', async () => {
     localStorage.setItem('bleak.interests', JSON.stringify({}));
     await renderPage();
-    // The badge-header persona edit button and the greeting/interests edit
-    // controls are GONE from the profile page.
+    // The badge-header persona edit button and the greeting edit controls
+    // are GONE from the profile page; the removed interests keys (§23.2
+    // 5.6) no longer exist at all.
     expect(screen.queryByRole('button', { name: ru['profile.persona.edit'] })).toBeNull();
     expect(screen.queryByRole('button', { name: ru['profile.greeting.edit'] })).toBeNull();
-    expect(screen.queryByRole('button', { name: ru['profile.interests.edit'] })).toBeNull();
-    expect(screen.queryByRole('button', { name: ru['profile.interests.add'] })).toBeNull();
+    expect(ru['profile.interests.edit' as keyof typeof ru]).toBeUndefined();
+    expect(ru['profile.interests.add' as keyof typeof ru]).toBeUndefined();
     // The persona is still displayed in full: greeting preview, bios,
     // interests title (read-only section labels, not edit affordances).
     expect(screen.getByText('Привет! Я про трамваи.')).toBeTruthy();

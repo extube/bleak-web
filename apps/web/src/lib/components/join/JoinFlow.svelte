@@ -31,17 +31,16 @@
    */
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
-  import { get } from 'svelte/store';
   import { locale, translate } from '#lib/i18n/locale';
   import { saveIdentity } from '#lib/stores/identity';
   import { saveContactCard } from '#lib/stores/contactCard';
   import { saveInterests } from '#lib/stores/interests';
-  import { interestTitle } from '#lib/interests/catalog';
+  // §23.2 5.5: the stored title is the THEMES composition
+  // `'<theme slug>:<topic slug>'` (e.g. `sport:hockey`) — the numeric
+  // (group, key) pair keeps the server contract.
+  import { interestApiTitle, INTEREST_CATALOG } from '#lib/interests/catalog';
   import { api } from '#lib/api/client';
   import { appendVaultEntry, listVaultEntries, type VaultEntry } from '#lib/stores/tokenVault';
-  import {
-    INTEREST_CATALOG
-  } from '#lib/interests/catalog';
   import {
     codeErrorOf,
     createPersona,
@@ -237,18 +236,20 @@
         name: user.name,
         savedAt: new Date().toISOString()
       });
-      // §13.1.1: the interview's interests are flushed AFTER the 2xx —
-      // one bulk addUserInterests (the just-saved identity carries the
-      // auto-injected Bearer); the 201 FULL list mirrors into the local
-      // store. A flush failure does not undo the creation: the flow still
-      // enters the room, no mirror row is written, and interests stay
-      // editable later in /profile.
+      // §13.1.1 + §23.2 5.5: the interview's topics are flushed AFTER the
+      // 2xx — one bulk addUserInterests (the just-saved identity carries
+      // the auto-injected Bearer) with the THEMES title composition; the
+      // 201 FULL list mirrors into the local store. A flush failure does
+      // not undo the creation: the flow still enters the room, no mirror
+      // row is written (interests are creation-only per §23.2 5.6 — the
+      // badge renders whatever was mirrored).
       const keys = draft.interests ?? [];
       if (keys.length > 0) {
-        const loc = get(locale);
         const rows = keys.flatMap((key) => {
           const entry = INTEREST_CATALOG.find((e) => e.key === key);
-          return entry ? [{ title: interestTitle(entry, loc), group: entry.group, key: entry.key }] : [];
+          return entry
+            ? [{ title: interestApiTitle(entry), group: entry.group, key: entry.key }]
+            : [];
         });
         if (rows.length > 0) {
           try {
@@ -312,7 +313,9 @@
       <h1 class="vh">{translate($locale, 'join.title')}</h1>
     {/if}
 
-    <section class="card pixel-corners">
+    <!-- §23.2 5.2: the wizard's persona card is a flex column — the
+         composer pins to its bottom and the chat log scrolls. -->
+    <section class="card pixel-corners" class:composer-card={flow.step === 'persona'}>
       {#if flow.step === 'code'}
         <CodeEntry
           bind:this={codeEntry}
@@ -377,6 +380,14 @@
   .card {
     width: 100%;
     padding: var(--space-5);
+  }
+  /* §23.2 5.2: the wizard's card is a flex column — the CreationWizard
+   * fills it (flex: 1), the chat log scrolls and the composer sticks to
+   * the bottom. Only the persona step gets the treatment (the other join
+   * steps keep their content-driven block layout). */
+  .card.composer-card {
+    display: flex;
+    flex-direction: column;
   }
   .gone-card {
     display: flex;

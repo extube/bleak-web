@@ -375,24 +375,20 @@ describe('§4.15.E arcade-sheet keys (Concept §15.3, DESIGN §4.15.C/E)', () =>
 });
 
 describe('v2.5 copy sweep (Concept §11.1.3, DESIGN §4.12.3)', () => {
-  it('the interests picker copy is RU/EN paired (DESIGN §4.13.1)', () => {
+  it('the interests badge copy is RU/EN paired (DESIGN §4.13.1; §23.2 5.6 — the settings picker copy is gone, interests are creation-only)', () => {
     for (const key of [
       'profile.interests.title',
-      'profile.interests.edit',
-      'profile.interests.note',
-      'profile.interests.error',
-      'profile.interests.empty',
-      'profile.interests.done'
+      'profile.interests.empty'
     ] as const) {
       expect(en[key]?.trim().length).toBeGreaterThan(0);
       expect(ru[key]?.trim().length).toBeGreaterThan(0);
     }
-    expect(ru['profile.interests.error']).toBe('Не удалось сохранить интересы — попробуйте ещё раз.');
-    expect(en['profile.interests.note']).toContain('50');
-    expect(ru['profile.interests.note']).toContain('50');
+    // §23.2 5.6: the removed settings-picker keys must not come back.
+    expect(en['profile.interests.edit' as keyof typeof en]).toBeUndefined();
+    expect(ru['profile.interests.note' as keyof typeof ru]).toBeUndefined();
   });
 
-  it('the §4.13.1 catalog title keys resolve in both dictionaries (all 25 keys + 5 groups)', async () => {
+  it('the §23.2 5.5 themes catalog title keys resolve in both dictionaries (all 48 topics + 8 themes)', async () => {
     const { INTEREST_CATALOG, INTEREST_GROUPS } = await import('../src/lib/interests/catalog');
     for (const entry of INTEREST_CATALOG) {
       expect(en[entry.titleKey]?.trim().length).toBeGreaterThan(0);
@@ -404,13 +400,11 @@ describe('v2.5 copy sweep (Concept §11.1.3, DESIGN §4.12.3)', () => {
     }
   });
 
-  it('edit-screen titles drop the word "Edit" (values only — key names intact)', () => {
+  it('edit-screen titles drop the word "Edit" (values only — key names intact; §23.2 5.6 removed the interests row)', () => {
     expect(en['profile.persona.edit']).toBe('Profile');
     expect(ru['profile.persona.edit']).toBe('Профиль');
     expect(en['profile.greeting.edit']).toBe('Greeting');
     expect(ru['profile.greeting.edit']).toBe('Приветствие');
-    expect(en['profile.interests.edit']).toBe('Interests');
-    expect(ru['profile.interests.edit']).toBe('Интересы');
   });
 
   it('the persona section heading is retitled "My profile" / «Мой профиль» (owner change request)', () => {

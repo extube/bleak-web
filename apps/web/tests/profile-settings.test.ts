@@ -12,8 +12,9 @@
  *
  * ALL persona editing lives here now (Concept §10.1.4): the persona section
  * hosts the PersonaEditor (name/public/private bio), GreetingEditor and the
- * interests picker (DESIGN §4.13.1: real addUserInterests/deleteUserInterests
- * + the local mirror store).
+ * contact-card field. §23.2 5.6: the interests picker was REMOVED —
+ * interests are set at creation only (the wizard's themes); the local
+ * mirror store stays the badge display source.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -149,8 +150,8 @@ describe('settings route renders (AC: heading, locale, rows; RU + EN)', () => {
   });
 });
 
-describe('persona editing section (Concept §10.1.4, DESIGN §4.11.4)', () => {
-  it('renders the persona section with the three editor rows (RU + EN)', async () => {
+describe('persona editing section (Concept §10.1.4, DESIGN §4.11.4; §23.2 5.6)', () => {
+  it('renders the persona section with the editor rows — NO interests row (§23.2 5.6: interests are creation-only)', async () => {
     const { setLocale } = await import('../src/lib/i18n/locale');
     const { en } = await import('../src/lib/i18n/en');
     await renderPage();
@@ -159,7 +160,9 @@ describe('persona editing section (Concept §10.1.4, DESIGN §4.11.4)', () => {
     expect(screen.getByRole('heading', { level: 2, name: ru['profile.settings.persona'] })).toBeTruthy();
     expect(screen.getByRole('button', { name: ru['profile.persona.edit'] })).toBeTruthy();
     expect(screen.getByRole('button', { name: ru['profile.greeting.edit'] })).toBeTruthy();
-    expect(screen.getByRole('button', { name: ru['profile.interests.edit'] })).toBeTruthy();
+    // §23.2 5.6: the interests EDITOR row is REMOVED from the settings —
+    // the wizard's themes set the interests; the mirror stays for the badge.
+    expect(screen.queryByRole('button', { name: 'Интересы' })).toBeNull();
     // EN parity through the locale store.
     setLocale('en');
     await tick();
@@ -284,134 +287,11 @@ describe('greeting editor (AC 3, 4, moved from /profile)', () => {
   });
 });
 
-describe('interests picker (DESIGN §4.13.1 — real endpoints + local mirror)', () => {
-  const FULL_AFTER_ADD = [
-    { title: 'Велосипед', group: 2, key: 13, user_address: ME },
-    { title: 'Кофе', group: 0, key: 1, user_address: ME }
-  ];
-
-  it('toggling a chip ON upserts via addUserInterests and mirrors the 201 FULL list; Done returns to the rows', async () => {
-    mockedApi.addUserInterests.mockResolvedValue(FULL_AFTER_ADD);
-    await renderPage();
-    await screen.getByRole('button', { name: ru['profile.interests.edit'] }).click();
-    await tick();
-
-    const chip = screen.getByRole('button', { name: /Велосипед/ });
-    await chip.click();
-
-    await waitFor(() =>
-      expect(mockedApi.addUserInterests).toHaveBeenCalledWith(ROOM, ME, [
-        { title: 'Велосипед', group: 2, key: 13 }
-      ])
-    );
-    expect(mockedApi.deleteUserInterests).not.toHaveBeenCalled();
-    // The 201 FULL list is mirrored per room+user (`bleak.interests`).
-    expect(JSON.parse(localStorage.getItem('bleak.interests') ?? '{}')).toMatchObject({
-      '0xroom|0xme': FULL_AFTER_ADD
-    });
-    // The chip stays selected from the mirrored list.
-    await waitFor(() => expect(chip.getAttribute('aria-pressed')).toBe('true'));
-
-    // Done returns to the settings rows.
-    await screen.getByRole('button', { name: ru['profile.interests.done'] }).click();
-    await tick();
-    expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
-  });
-
-  it('toggling a mirrored chip OFF deletes via deleteUserInterests and mirrors the 200 REMAINING list', async () => {
-    localStorage.setItem(
-      'bleak.interests',
-      JSON.stringify({ '0xroom|0xme': FULL_AFTER_ADD })
-    );
-    const remaining = [{ title: 'Кофе', group: 0, key: 1, user_address: ME }];
-    mockedApi.deleteUserInterests.mockResolvedValue(remaining);
-    await renderPage();
-    await screen.getByRole('button', { name: ru['profile.interests.edit'] }).click();
-    await tick();
-
-    const chip = screen.getByRole('button', { name: /Велосипед/ });
-    expect(chip.getAttribute('aria-pressed')).toBe('true'); // pre-selected from the mirror
-    await chip.click();
-
-    await waitFor(() =>
-      expect(mockedApi.deleteUserInterests).toHaveBeenCalledWith(ROOM, ME, [13])
-    );
-    expect(mockedApi.addUserInterests).not.toHaveBeenCalled();
-    await waitFor(() =>
-      expect(
-        JSON.parse(localStorage.getItem('bleak.interests') ?? '{}')['0xroom|0xme']
-      ).toEqual(remaining)
-    );
-    await waitFor(() => expect(chip.getAttribute('aria-pressed')).toBe('false'));
-  });
-
-  it('the mirror takes whatever the server answers — even a REMAINING list that differs locally', async () => {
-    localStorage.setItem(
-      'bleak.interests',
-      JSON.stringify({ '0xroom|0xme': [FULL_AFTER_ADD[0]] }) // only Велосипед mirrored
-    );
-    // The delete is idempotent server-side (unknown keys ignored); here the
-    // remaining list carries a DIFFERENT row — the mirror adopts it as-is.
-    mockedApi.deleteUserInterests.mockResolvedValue([FULL_AFTER_ADD[1]!]);
-    await renderPage();
-    await screen.getByRole('button', { name: ru['profile.interests.edit'] }).click();
-    await tick();
-
-    const chip = screen.getByRole('button', { name: /Велосипед/ });
-    expect(chip.getAttribute('aria-pressed')).toBe('true');
-    await chip.click();
-    await waitFor(() =>
-      expect(mockedApi.deleteUserInterests).toHaveBeenCalledWith(ROOM, ME, [13])
-    );
-    await waitFor(() =>
-      expect(
-        JSON.parse(localStorage.getItem('bleak.interests') ?? '{}')['0xroom|0xme']
-      ).toEqual([FULL_AFTER_ADD[1]])
-    );
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Кофе/ }).getAttribute('aria-pressed')).toBe('true')
-    );
-  });
-
-  it('a failed write shows the inline error copy and keeps the mirror untouched', async () => {
-    mockedApi.addUserInterests.mockRejectedValue(new ApiError(400, '/x', 'interests bad'));
-    await renderPage();
-    await screen.getByRole('button', { name: ru['profile.interests.edit'] }).click();
-    await tick();
-
-    await screen.getByRole('button', { name: /Велосипед/ }).click();
-    await waitFor(() => expect(screen.getByText(ru['profile.interests.error'])).toBeTruthy());
-    expect(localStorage.getItem('bleak.interests')).toBeNull();
-    await waitFor(() =>
-      expect(
-        (screen.getByRole('button', { name: /Велосипед/ }) as HTMLButtonElement).disabled
-      ).toBe(false)
-    );
-  });
-
-  it('at the 50-row mirror cap the unselected chips disable (client-side 1..50 rows, no request needed)', async () => {
-    // 50 mirrored rows with keys 2..51: Чай (key 2) is mirrored/selected,
-    // Кофе (key 1) is not — at the cap the unselected chip must disable.
-    const full = Array.from({ length: 50 }, (_, i) => ({
-      title: `Ряд ${i + 2}`,
-      group: i % 5,
-      key: i + 2,
-      user_address: ME
-    }));
-    localStorage.setItem('bleak.interests', JSON.stringify({ '0xroom|0xme': full }));
-    await renderPage();
-    await screen.getByRole('button', { name: ru['profile.interests.edit'] }).click();
-    await tick();
-
-    // A mirrored chip (Чай, key 2) stays enabled; an unselected one (Кофе)
-    // is disabled at the cap — and clicking nothing means no add call.
-    const selected = screen.getByRole('button', { name: /Чай/ }) as HTMLButtonElement;
-    expect(selected.disabled).toBe(false);
-    const unselected = screen.getByRole('button', { name: /Кофе/ }) as HTMLButtonElement;
-    expect(unselected.disabled).toBe(true);
-    expect(mockedApi.addUserInterests).not.toHaveBeenCalled();
-  });
-});
+// §23.2 5.6 (2026-11-20 owner amendment): the interests PICKER was REMOVED
+// from the settings — interests are set at creation only (the wizard's
+// themes); the mirror store stays the badge display source. The removed
+// endpoint-driven picker tests lived here (addUserInterests/deleteUserInterests
+// toggles) and are superseded by the wizard flush tests in join-flow.test.ts.
 
 describe('contact card field (DESIGN §4.13.3 item 1 — purely local, no API)', () => {
   it('the persona section carries the contact-card row; the editor prefills from bleak.contactCard', async () => {

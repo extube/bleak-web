@@ -95,14 +95,14 @@ describe('write-through normalization (201 FULL / 200 REMAINING responses)', () 
 
 describe('display re-localization through the catalog', () => {
   it('renders exactly {key, title, emoji} chips for the current locale', () => {
-    saveInterests(ROOM, ME, [row(1, 'Кофе', 0), row(13, 'Велосипед', 2)]);
+    saveInterests(ROOM, ME, [row(13, 'food:coffee', 2), row(22, 'art:books', 3)]);
     const chips = displayInterests(loadInterests(ROOM, ME), 'en');
     expect(chips).toEqual([
-      { key: 1, title: 'Coffee', emoji: '☕' },
-      { key: 13, title: 'Cycling', emoji: '🚲' }
+      { key: 13, title: 'Coffee', emoji: '☕' },
+      { key: 22, title: 'Books', emoji: '📚' }
     ]);
-    const ru = displayInterests(loadInterests(ROOM, ME), 'ru');
-    expect(ru.map((c) => c.title)).toEqual(['Кофе', 'Велосипед']);
+    const ruChips = displayInterests(loadInterests(ROOM, ME), 'ru');
+    expect(ruChips.map((c) => c.title)).toEqual(['Кофе', 'Книги']);
   });
 
   it('unknown keys fall back to the stored title with no emoji', () => {
