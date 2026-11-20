@@ -35,7 +35,9 @@
    *   star/heart sparkle poppers, recolored spark burst + brightness
    *   pulse; the marching pixel beam — the dotted line between the
    *   users — was REMOVED, owner microchange Concept §18.1 / DESIGN
-   *   §4.15.3.1), GOOD 50–79 (nod/wave once; the glowing
+   *   §4.15.3.1), GOOD 50–79 (avatars stay SPACED APART — no approach/
+   *   pull toward center, owner microchange Concept §19.1 / DESIGN
+   *   §4.15.4.1; nod/wave once; the glowing
    *   dotted line between the users was REMOVED — owner microchange
    *   Concept §17.1 / DESIGN §4.15.2.1), LOW 0–49 (avatars stay spaced,
    *   sweat drop + idle blink). All motion is hand-rolled CSS keyframes on positioned DOM
@@ -98,9 +100,10 @@
     user: User | null;
     /** The hard-match Summary (null while loading / failed). */
     summary?: Summary | null;
-    /** Page-driven hardMatch pending state (the animated loading row, no
-     * stale data — §4.15.3.3: the fetch runs in the background, the sheet
-     * shows this until the Summary lands). */
+    /** Page-driven hardMatch pending state (the animated loading view —
+     * five stepping dots over the centered status text; no stale data —
+     * §4.15.3.3: the fetch runs in the background, the sheet shows this
+     * until the Summary lands). */
     loading?: boolean;
     /** Inline failure state with a retry affordance (no crash). */
     error?: 'network' | 'api' | null;
@@ -355,16 +358,18 @@
     </header>
 
     {#if loading}
-      <!-- §4.15.3.3 hardMatch pending (the background fetch): an animated
-           arcade loading row — three pixel dots step under the status text
-           while the summary is awaited; no fake data. Reduced motion
-           collapses the loop (the base.css catch-all + the sheet's delay
-           zeroing below). -->
+      <!-- §4.15.3.3 + §4.15.4.4 hardMatch pending (the background fetch):
+           an animated arcade loading view — FIVE pixel dots step in a
+           centered row while the status text sits BELOW the animation,
+           CENTERED in the modal sheet (owner microchange Concept §19.4 /
+           DESIGN §4.15.4.4); no fake data. Reduced motion collapses the
+           loop (the base.css catch-all + the sheet's delay zeroing
+           below). -->
       <p class="loading cascade" style:--cascade-i="1" role="status">
-        {loadingText}
         <span class="loading-dots" aria-hidden="true">
-          <i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i>
+          <i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i><i class="dot d4"></i><i class="dot d5"></i>
         </span>
+        <span class="loading-text">{loadingText}</span>
       </p>
     {:else if error}
       <!-- Inline failure + retry affordance; the sheet stays open. -->
@@ -1199,19 +1204,25 @@
       opacity: 0;
     }
   }
+  /* §4.15.3.3 + §4.15.4.4 loading view: the animation image on TOP, the
+   * status text BELOW it, the whole column CENTERED in the modal sheet
+   * (owner microchange Concept §19.4 — the text no longer sits beside/
+   * above the dots). */
   .loading {
     margin: 0;
     color: var(--sheet-ink);
     font-size: 14px;
-    display: inline-flex;
+    display: flex;
+    flex-direction: column;
     align-items: center;
     gap: var(--space-2);
-    align-self: flex-start;
+    text-align: center;
   }
-  /* §4.15.3.3 animated loading: three square pixel dots step through a
+  /* §4.15.3.3 animated loading: FIVE square pixel dots step through a
    * 1.2s loop (steps(2) — the arcade cadence, transform/opacity only),
    * staggered 120ms so the row reads as a marching beat while the
-   * background fetch is pending. */
+   * background fetch is pending (owner microchange Concept §19.4 —
+   * more loading items, was three). */
   .loading-dots {
     display: inline-flex;
     align-items: center;
@@ -1228,6 +1239,12 @@
   }
   .dot.d3 {
     animation-delay: 240ms;
+  }
+  .dot.d4 {
+    animation-delay: 360ms;
+  }
+  .dot.d5 {
+    animation-delay: 480ms;
   }
   @keyframes loading-pulse {
     0%,

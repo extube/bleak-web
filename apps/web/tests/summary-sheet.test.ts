@@ -310,17 +310,30 @@ describe('SummarySheet rendering', () => {
     expect(document.querySelector('.description')?.textContent).toContain('ceramics');
   });
 
-  it('§4.15.3.3 loading state: the animated arcade row (three stepping dots), no ring and no checklist', () => {
+  it('§4.15.3.3 + §4.15.4.4 loading state: FIVE stepping dots, the text BELOW the centered animation, no ring and no checklist', () => {
     renderSheet({ summary: null, loading: true });
     const row = document.querySelector('[role="dialog"] .loading');
     expect(row).toBeTruthy();
-    expect(row?.textContent).toContain(ru['chat.summary.loading']);
-    // the animated part: three square pixel dots stepping under the text
+    // the animated part: FIVE square pixel dots stepping in the row
+    // (owner microchange Concept §19.4 — more loading items, was three)
     const dots = row?.querySelectorAll('.loading-dots .dot');
-    expect(dots).toHaveLength(3);
+    expect(dots).toHaveLength(5);
     // the dots are decorative — the status text alone carries the meaning
     expect(row?.getAttribute('aria-hidden')).toBeNull();
     expect(document.querySelector('.loading-dots')?.getAttribute('aria-hidden')).toBe('true');
+    // the text sits BELOW the loading animation, CENTERED in the modal
+    // sheet: the dots row is the loading element's FIRST child, the text
+    // its LAST (the restructure — was beside/above)
+    expect(row?.firstElementChild?.classList.contains('loading-dots')).toBe(true);
+    const textEl = [...(row?.children ?? [])].at(-1);
+    expect(textEl?.classList.contains('loading-text')).toBe(true);
+    expect(textEl?.textContent).toBe(ru['chat.summary.loading']);
+    // CSS contract (jsdom resolves no component CSS): the loading element
+    // is a centered column — animation on top, text below, both centered
+    const loadingBlock = SHEET_SOURCE.match(/\.loading\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(loadingBlock).toContain('flex-direction: column');
+    expect(loadingBlock).toContain('align-items: center');
+    expect(loadingBlock).toContain('text-align: center');
     expect(document.querySelector('.ring')).toBeNull();
     expect(screen.queryByText(ru['chat.summary.checklist'])).toBeNull();
   });
@@ -769,6 +782,41 @@ describe('§4.15.C-5..C-8 centerpiece (tz7-03): avatars, ring, tiers, checklist,
     expect(dialog.querySelector('.dots-glow')).toBeNull();
     expect(SHEET_SOURCE).not.toMatch(/\.dots[\s,{]/);
     expect(SHEET_SOURCE).not.toContain('dots-pulse');
+  });
+
+  it('§4.15.4.1 GOOD no-pull (owner microchange Concept §19.1): the avatars stay SPACED APART — no approach/translation toward center in this tier; nod/wave stays', () => {
+    // every .tier-good CSS rule is free of horizontal approach motion —
+    // the pull-to-center selectors (avatar-approach / translateX) exist
+    // ONLY under the GREAT tier
+    const goodRules = SHEET_SOURCE.match(/\.tier-good[^{@}]*\{[^{}]*\}/g) ?? [];
+    expect(goodRules.length).toBeGreaterThan(0);
+    for (const rule of goodRules) {
+      expect(rule).not.toContain('translateX');
+      expect(rule).not.toContain('avatar-approach');
+    }
+    // the approach keyframes are referenced only by .tier-great selectors
+    // (the GREAT tier keeps its pull-to-center — §4.15.C-6)
+    const approachRefs = SHEET_SOURCE.match(/animation:\s*avatar-approach[^;]*/g) ?? [];
+    expect(approachRefs).toHaveLength(2);
+    for (const ref of approachRefs) {
+      const idx = SHEET_SOURCE.indexOf(ref);
+      const lineStart = SHEET_SOURCE.lastIndexOf('\n', idx);
+      const ruleStart = SHEET_SOURCE.lastIndexOf('}', lineStart);
+      const selector = SHEET_SOURCE.slice(ruleStart + 1, lineStart);
+      expect(selector).toContain('.tier-great');
+    }
+    // the GOOD nod/wave keyframes stay vertical/rotational only — no pull
+    // component (the nod dips translateY, the wave rotates in place)
+    const nodKf = source(/@keyframes avatar-nod\s*\{[\s\S]*?\n {2}\}/);
+    expect(nodKf).not.toContain('translateX');
+    const waveKf = source(/@keyframes avatar-wave\s*\{[\s\S]*?\n {2}\}/);
+    expect(waveKf).not.toContain('translateX');
+    // the GOOD tier still animates: the nod (me) and the wave (them) stay
+    stubReducedMotion();
+    renderSheet({ summary: summaryFixture(66) });
+    const dialog = screen.getByRole('dialog');
+    const frames = dialog.querySelectorAll('.duel > .side > .mover > .avatar-frame');
+    expect(frames).toHaveLength(2); // both frames present, spaced apart
   });
 
   it('§4.15.C-6b LOW: the avatars stay spaced — a sweat drop plays twice then idles on the 4s cycle; a neutral idle blink runs', () => {
