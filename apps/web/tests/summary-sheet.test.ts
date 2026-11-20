@@ -310,9 +310,17 @@ describe('SummarySheet rendering', () => {
     expect(document.querySelector('.description')?.textContent).toContain('ceramics');
   });
 
-  it('loading state: a quiet status row, no ring and no checklist', () => {
+  it('§4.15.3.3 loading state: the animated arcade row (three stepping dots), no ring and no checklist', () => {
     renderSheet({ summary: null, loading: true });
-    expect(document.querySelector('[role="dialog"] .loading')).toBeTruthy();
+    const row = document.querySelector('[role="dialog"] .loading');
+    expect(row).toBeTruthy();
+    expect(row?.textContent).toContain(ru['chat.summary.loading']);
+    // the animated part: three square pixel dots stepping under the text
+    const dots = row?.querySelectorAll('.loading-dots .dot');
+    expect(dots).toHaveLength(3);
+    // the dots are decorative — the status text alone carries the meaning
+    expect(row?.getAttribute('aria-hidden')).toBeNull();
+    expect(document.querySelector('.loading-dots')?.getAttribute('aria-hidden')).toBe('true');
     expect(document.querySelector('.ring')).toBeNull();
     expect(screen.queryByText(ru['chat.summary.checklist'])).toBeNull();
   });

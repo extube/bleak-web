@@ -17,12 +17,14 @@
    * public bio in the header. §4.13.2 (CONCEPT §13 R2): the dialog reflects
    * the AUTHORITATIVE Chat.done — a subtle finished indicator beside the
    * header name (the attendee dialog displays only; kickoff resets done
-   * server-side via the host drill-down). §4.13.5 (CONCEPT §13.1.5): opening
-   * a FINISHED chat triggers the ONCE-ONLY hardMatch — the server stores one
-   * Summary per pair, so a repeat opening returns the stored record (200/201
-   * both carry the body) and the sheet re-shows it without re-summarizing;
-   * closing the sheet returns the dialog to its normal rendering. The call
-   * happens on open, never per poll. §4.15.B (Concept §15.2): the footer
+   * server-side via the host drill-down). §4.13.5 (CONCEPT §13.1.5) →
+   * §4.15.3.3 (Concept §18.3, owner microchange): opening a FINISHED chat
+   * no longer fires the hard-match at open — the Summary is fetched LAZILY
+   * IN THE BACKGROUND (when the chat is known finished, the
+   * lastMessage/matchScores cadence pattern) and cached per chat in the
+   * session store; the sheet still auto-opens for finished chats, reads the
+   * cached Summary when present and shows the animated loading state while
+   * the fetch is pending. §4.15.B (Concept §15.2): the footer
    * share slide is REMOVED — the slide lives only inside the sheet — and
    * the footer slot holds the SUMMARIZATION BUTTON (done → enabled, opens
    * the sheet on demand; !done → disabled with the in-progress phrase);
@@ -57,6 +59,7 @@
     loadContactCard,
     markPairShared
   } from '#lib/stores/contactCard';
+  import { ensureSummary, summaries, type SummaryRequest } from '#lib/stores/summaryCache';
   import SummarySheet from '#lib/components/SummarySheet.svelte';
   import MessageBubble from '#lib/components/chats/MessageBubble.svelte';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
@@ -410,74 +413,115 @@
     }
   }
 
-  // --- finished-chat summary sheet (DESIGN §4.13.5, Concept §13.1.5) --------
+  // --- finished-chat summary sheet (DESIGN §4.13.5 → §4.15.3.3) -------------
   //
-  // Opening a FINISHED chat triggers the ONCE-ONLY hardMatch: the caller
-  // passes ITSELF as `first` (me) with the counterpart as `second` — the
-  // pair is order-agnostic server-side and stored once per pair (201
-  // created / 200 stored, both carry the Summary). The call fires on open
-  // (when the authoritative `done` lands), NEVER per poll; the
-  // `summaryRequested` flag is reset per chat address so a repeat open
-  // re-shows the stored record (the server answers 200 without
-  // re-summarizing). Failure surfaces inline in the sheet with a retry
-  // affordance — a 401 is the §2.8 global gate and renders no sheet error.
-  let summary = $state<Summary | null>(null);
-  let summaryOpen = $state(false);
-  let summaryLoading = $state(false);
-  let summaryError = $state<'network' | 'api' | null>(null);
-  let summaryErrorMessage = $state<string | null>(null);
-  let summaryRequested = $state(false);
+  // LAZY BACKGROUND FETCH (owner microchange, Concept §18.3): for a FINISHED
+  // chat the once-only hardMatch runs in the BACKGROUND — the caller passes
+  // ITSELF as `first` (me) with the counterpart as `second`; the pair is
+  // order-agnostic server-side and stored once per pair (201 created / 200
+  // stored, both carry the Summary). The fetch starts when the chat is known
+  // finished (the tick that observes `done`, like the lastMessage/matchScores
+  // background-cadence pattern) and caches per chat in the session store —
+  // the store's guards (ready / pending / failed entries) keep it ONE fetch
+  // per finished chat unless it failed. Opening the sheet (auto-open or the
+  // footer button) NEVER fires the request: the sheet reads the cached
+  // Summary when present and shows the animated loading state while the
+  // background fetch is pending, swapping to the content when it lands.
+  // Failure surfaces inline in the sheet with a retry affordance (a force
+  // re-fetch through the same store); a 401 is the §2.8 global gate and
+  // renders no sheet error (`failure.gate`).
+  const summaryEntry = $derived(
+    me && counterpartAddr ? ($summaries.get(address) ?? null) : null
+  );
+  const summary = $derived(
+    summaryEntry !== null && summaryEntry.status === 'ready' ? summaryEntry.summary : null
+  );
+  /** Pending = no entry yet or the background fetch is running. */
+  const summaryLoading = $derived(
+    summaryEntry === null || summaryEntry.status === 'pending'
+  );
+  const summaryError = $derived(
+    summaryEntry !== null &&
+    summaryEntry.status === 'failed' &&
+    !summaryEntry.failure.gate
+      ? summaryEntry.failure.kind
+      : null
+  );
+  const summaryErrorMessage = $derived(
+    summaryEntry !== null &&
+    summaryEntry.status === 'failed' &&
+    !summaryEntry.failure.gate
+      ? summaryEntry.failure.message
+      : null
+  );
 
-  async function requestSummary(): Promise<void> {
-    const id = me;
-    if (!id || !counterpartAddr || summaryLoading) return;
-    summaryLoading = true;
-    summaryError = null;
-    summaryErrorMessage = null;
-    try {
-      const result = await api.hardMatch(id.roomAddress, id.userAddress, counterpartAddr);
-      summary = result.summary;
-    } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) return; // global gate
-      summaryError = cause instanceof NetworkError ? 'network' : 'api';
-      summaryErrorMessage = cause instanceof ApiError ? cause.message : null;
-    } finally {
-      summaryLoading = false;
-    }
+  /** The injected hardMatch call — the store owns the guards, not the page. */
+  function fetchSummaryFor(first: string): (request: SummaryRequest) => Promise<Summary> {
+    return (request) =>
+      api
+        .hardMatch(request.room, first, request.counterpart)
+        .then((result) => result.summary);
   }
 
-  // Per-chat reset (the mount effect below owns it) + the once-per-open
-  // trigger: fires when the chat is (or becomes) finished while open.
+  /**
+   * The sheet's retry affordance (§4.15.3.3): a failed background fetch
+   * re-runs ON DEMAND — `force` bypasses the store's failed-entry guard
+   * (never the in-flight one), so a retry while pending stays a no-op.
+   */
+  function retrySummary(): void {
+    const id = me;
+    if (!id || !counterpartAddr) return;
+    void ensureSummary(
+      [{ address, room: id.roomAddress, counterpart: counterpartAddr }],
+      id.userAddress,
+      fetchSummaryFor(id.userAddress),
+      { force: true }
+    );
+  }
+
+  // Per-chat reset (the mount effect below owns it) + the auto-open trigger:
+  // the sheet opens itself over the transcript when the chat is (or becomes)
+  // finished — the tz5-06 landed behavior — but it no longer fires the fetch
+  // (§4.15.3.3: opening never blocks on the background call).
+  let summaryOpen = $state(false);
+  let summaryAutoOpened = $state(false);
+
   $effect(() => {
     const addr = address;
     if (!addr) return;
-    summary = null;
     summaryOpen = false;
-    summaryLoading = false;
-    summaryError = null;
-    summaryErrorMessage = null;
-    summaryRequested = false;
+    summaryAutoOpened = false;
+  });
+
+  // The lazy background fetch: fires when the chat is known finished — NOT
+  // at sheet open. The store's entry guards make repeat ticks no-ops.
+  $effect(() => {
+    const id = me;
+    if (!done || !id || !counterpartAddr) return;
+    void ensureSummary(
+      [{ address, room: id.roomAddress, counterpart: counterpartAddr }],
+      id.userAddress,
+      fetchSummaryFor(id.userAddress)
+    );
   });
 
   $effect(() => {
-    if (!done || !me || !counterpartAddr || summaryRequested) return;
-    summaryRequested = true;
+    if (!done || !me || !counterpartAddr || summaryAutoOpened) return;
+    summaryAutoOpened = true;
     summaryOpen = true; // the sheet opens itself over the transcript
-    void requestSummary();
   });
 
   /**
    * §4.15.B.2 (Concept §15.2): the footer summarization button — the
-   * ON-DEMAND re-open path beside the tz5-06 auto-open trigger (which
-   * stays as landed). `done` → enabled; pressed it opens the sheet over a
-   * held Summary WITHOUT a new hard-match call (the once-per-pair rule
-   * holds); when no Summary is held (never requested, or the earlier
-   * attempt failed) it runs the page's existing request flow first.
+   * ON-DEMAND re-open path beside the auto-open trigger. It opens the sheet
+   * over the pending/arrived state and NEVER forces a second request
+   * (§4.15.3.3): a cached Summary re-shows instantly; a pending background
+   * fetch keeps the loading state; a failed one shows the inline error with
+   * the sheet's retry affordance.
    */
   function openSummary(): void {
-    if (!done || summaryLoading) return;
+    if (!done) return;
     summaryOpen = true;
-    if (summary === null) void requestSummary();
   }
 </script>
 
@@ -606,8 +650,9 @@
       <!-- §4.15.B.2 (Concept §15.2): the summarization button took the
            footer slot from the removed share slide (the slide lives only
            inside the sheet now). `done` → enabled, opens the sheet again
-           on demand (over a held Summary without a new hard-match call);
-           `!done` → disabled with the "dialog in progress" phrase. -->
+           on demand — over the cached/pending/failed summary state with NO
+           new hard-match call (§4.15.3.3: the background cadence owns the
+           fetch); `!done` → disabled with the "dialog in progress" phrase. -->
       <button
         type="button"
         class="summary-open"
@@ -638,7 +683,7 @@
       slidePending={sharing}
       slideShared={cardShared}
       onshare={() => void shareCard()}
-      onretry={() => void requestSummary()}
+      onretry={retrySummary}
     />
 
     <!-- NO-COMPOSER (ruling 4): no input/textarea/send control anywhere —

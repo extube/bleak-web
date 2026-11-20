@@ -15,7 +15,9 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
-import { ApiError, NetworkError, type Chat, type Message, type Summary, type User } from '@bleak/api-client';
+import { readFileSync } from 'node:fs';
+import { join, sep } from 'node:path';
+import { ApiError, NetworkError, type Chat, type HardMatchResult, type Message, type Summary, type User } from '@bleak/api-client';
 
 const { mockPage } = vi.hoisted(() => ({
   mockPage: {
@@ -52,6 +54,7 @@ import { goto } from '$app/navigation';
 import { api, apiRaw } from '#lib/api/client';
 import { saveHostRoom, clearHostRoom } from '#lib/stores/hostSession';
 import { identity } from '#lib/stores/identity';
+import { summaries } from '../src/lib/stores/summaryCache';
 import { codeHue } from '../src/lib/avatar/traits';
 import { ringScoreOffset } from '../src/lib/chats/summary';
 import Page from '../src/routes/chats/[address]/+page.svelte';
@@ -63,6 +66,12 @@ const ROOM = '0xroom';
 const CHAT = '0xchat1';
 const mockedApi = vi.mocked(api, true);
 const mockedApiRaw = vi.mocked(apiRaw, true);
+
+/** Source-level CSS assertions (jsdom resolves no component CSS). */
+const WEB_ROOT = process.cwd().endsWith(sep + 'apps' + sep + 'web')
+  ? process.cwd()
+  : join(process.cwd(), 'apps', 'web');
+const SHEET_SOURCE = readFileSync(join(WEB_ROOT, 'src/lib/components/SummarySheet.svelte'), 'utf8');
 
 const fixture = {
   chat: null as Chat | null,
@@ -141,6 +150,7 @@ beforeEach(() => {
   mockPage.params = { address: CHAT };
   localStorage.clear();
   sessionStorage.clear();
+  summaries.set(new Map()); // the §4.15.3.3 session cache resets per test
   localStorage.setItem(
     'bleak.identity',
     JSON.stringify({ roomAddress: ROOM, userAddress: ME, token: 'p-tok' })
@@ -447,6 +457,10 @@ describe('summary sheet (CONCEPT §13.1.5, DESIGN §4.13.5 — hard-match on fin
     expect(sheet?.querySelectorAll('.spark').length).toBeGreaterThan(0);
 
     cleanup();
+    // each re-render is a FRESH summarization for this tier test — the
+    // §4.15.3.3 session cache would legitimately answer with the earlier
+    // cached Summary, so it resets between renders here
+    summaries.set(new Map());
     // GREAT is inclusive of 80 (owner revision, 2026-11-20)
     mockedApi.hardMatch.mockResolvedValue({ summary: summaryFixture(80), created: true });
     render(Page, { props: {} });
@@ -454,6 +468,7 @@ describe('summary sheet (CONCEPT §13.1.5, DESIGN §4.13.5 — hard-match on fin
     expect(document.querySelector('[role="dialog"]')?.classList.contains('celebrate')).toBe(true);
 
     cleanup();
+    summaries.set(new Map());
     mockedApi.hardMatch.mockResolvedValue({ summary: summaryFixture(79), created: true });
     render(Page, { props: {} });
     await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
@@ -497,6 +512,94 @@ describe('summary sheet (CONCEPT §13.1.5, DESIGN §4.13.5 — hard-match on fin
     await screen.getByRole('button', { name: ru['common.retry'] }).click();
     await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
     expect(screen.getByText('Прощальный ответ агентов.')).toBeTruthy();
+  });
+});
+
+describe('§4.15.3.3 lazy background summary fetch + animated loading (Concept §18.3)', () => {
+  /**
+   * A deferred hardMatch mock: the background fetch stays pending until the
+   * test releases it — the loading-while-pending window.
+   */
+  function deferHardMatch(): (summary: Summary) => void {
+    let release: ((summary: Summary) => void) | undefined;
+    mockedApi.hardMatch.mockImplementation(
+      () =>
+        new Promise<HardMatchResult>((resolve) => {
+          release = (summary) => resolve({ summary, created: true });
+        })
+    );
+    return (summary) => release?.(summary);
+  }
+
+  it('the fetch fires on done-observation (the background cadence) and the sheet shows the animated loading state while pending, swapping to the summary when it lands', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    const release = deferHardMatch();
+
+    await renderPage();
+    // the background fetch started at done-observation — before any open
+    expect(mockedApi.hardMatch).toHaveBeenCalledTimes(1);
+    expect(mockedApi.hardMatch).toHaveBeenCalledWith(ROOM, ME, '0xa');
+    // the auto-opened sheet reads the cache: nothing there yet → the
+    // animated loading state, no ring, no checklist
+    expect(screen.getByText(ru['chat.summary.loading'])).toBeTruthy();
+    expect(document.querySelector('.loading .dot')).toBeTruthy();
+    expect(document.querySelector('.ring')).toBeNull();
+
+    // the fetch lands while the sheet is open → the content swaps in
+    release(summaryFixture(66));
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+    expect(screen.queryByText(ru['chat.summary.loading'])).toBeNull();
+    // still exactly one background fetch
+    expect(mockedApi.hardMatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('cache hit on re-open: a re-mount shows the cached Summary instantly — no second hardMatch, no loading row', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    await renderPage();
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+    expect(mockedApi.hardMatch).toHaveBeenCalledTimes(1);
+
+    cleanup();
+    render(Page, { props: {} }); // re-enter the same finished chat
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeTruthy());
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 2000 });
+    expect(screen.queryByText(ru['chat.summary.loading'])).toBeNull();
+    expect(mockedApi.hardMatch).toHaveBeenCalledTimes(1); // the session cache answered
+  });
+
+  it('the manual summarization button never forces a second request — it opens the sheet over the pending state (no double-post)', async () => {
+    withMessages(message('tx1', '0xa', 'Прощальный ответ агентов.', 60));
+    fixture.chat = { ...baseChat(), done: true };
+    const release = deferHardMatch();
+    await renderPage();
+    expect(mockedApi.hardMatch).toHaveBeenCalledTimes(1);
+
+    await (document.querySelector('[role="dialog"] .close') as HTMLButtonElement).click();
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
+
+    // the footer button opens the sheet over the still-pending background
+    // fetch — the loading state shows, and NO second request is posted
+    await (document.querySelector('.summary-open') as HTMLButtonElement).click();
+    await waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeTruthy());
+    expect(screen.getByText(ru['chat.summary.loading'])).toBeTruthy();
+    expect(mockedApi.hardMatch).toHaveBeenCalledTimes(1);
+
+    release(summaryFixture(66));
+    await screen.findByText(ru['chat.summary.checklist'], undefined, { timeout: 4000 });
+    expect(mockedApi.hardMatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('the animated loading state respects reduced motion (the delay zeroing covers the dots)', async () => {
+    // source-level contract (jsdom resolves no component CSS): the dots'
+    // staggered delays collapse under prefers-reduced-motion, and the
+    // animation is transform/opacity only (§4.6)
+    expect(SHEET_SOURCE).toContain('animation: loading-pulse 1.2s steps(2, jump-none) infinite');
+    expect(SHEET_SOURCE).toMatch(/@keyframes loading-pulse\s*\{[\s\S]*?opacity: 0\.25/);
+    expect(SHEET_SOURCE).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.loading \.dot\s*\{[\s\S]*?animation-delay: 0ms/
+    );
   });
 });
 

@@ -98,7 +98,9 @@
     user: User | null;
     /** The hard-match Summary (null while loading / failed). */
     summary?: Summary | null;
-    /** Page-driven hardMatch pending state (loading row, no stale data). */
+    /** Page-driven hardMatch pending state (the animated loading row, no
+     * stale data — §4.15.3.3: the fetch runs in the background, the sheet
+     * shows this until the Summary lands). */
     loading?: boolean;
     /** Inline failure state with a retry affordance (no crash). */
     error?: 'network' | 'api' | null;
@@ -353,8 +355,17 @@
     </header>
 
     {#if loading}
-      <!-- hardMatch pending: a quiet loading row, no fake data. -->
-      <p class="loading cascade" style:--cascade-i="1" role="status">{loadingText}</p>
+      <!-- §4.15.3.3 hardMatch pending (the background fetch): an animated
+           arcade loading row — three pixel dots step under the status text
+           while the summary is awaited; no fake data. Reduced motion
+           collapses the loop (the base.css catch-all + the sheet's delay
+           zeroing below). -->
+      <p class="loading cascade" style:--cascade-i="1" role="status">
+        {loadingText}
+        <span class="loading-dots" aria-hidden="true">
+          <i class="dot d1"></i><i class="dot d2"></i><i class="dot d3"></i>
+        </span>
+      </p>
     {:else if error}
       <!-- Inline failure + retry affordance; the sheet stays open. -->
       <p class="error cascade" style:--cascade-i="1" role="alert" aria-live="polite">
@@ -1192,6 +1203,42 @@
     margin: 0;
     color: var(--sheet-ink);
     font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    align-self: flex-start;
+  }
+  /* §4.15.3.3 animated loading: three square pixel dots step through a
+   * 1.2s loop (steps(2) — the arcade cadence, transform/opacity only),
+   * staggered 120ms so the row reads as a marching beat while the
+   * background fetch is pending. */
+  .loading-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .dot {
+    width: 6px;
+    height: 6px;
+    background: var(--sheet-yellow);
+    animation: loading-pulse 1.2s steps(2, jump-none) infinite;
+  }
+  .dot.d2 {
+    animation-delay: 120ms;
+  }
+  .dot.d3 {
+    animation-delay: 240ms;
+  }
+  @keyframes loading-pulse {
+    0%,
+    100% {
+      opacity: 0.25;
+      transform: translateY(0);
+    }
+    50% {
+      opacity: 1;
+      transform: translateY(-3px);
+    }
   }
   .error {
     margin: 0;
@@ -1304,7 +1351,8 @@
     .tier-low .mover .avatar-frame,
     .checkpoint.closed .box,
     .checkpoint.closed .box::after,
-    .checkpoint.closed .check {
+    .checkpoint.closed .check,
+    .loading .dot {
       animation-delay: 0ms;
     }
   }
