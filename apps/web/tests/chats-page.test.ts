@@ -3,10 +3,11 @@
  * me), the v2.4 item content — theme chips REMOVED, last-message preview
  * (fetched per chat from the listChatMessages endpoint into the
  * lastMessages cache, muted + single-line ellipsis truncation) + the last
- * message's time — the v3.4 COLOR DOT (DESIGN §4.15.2.2: the §4.11.7
- * status marks and the §10.1.7-era rotated-dots loading indicator are
- * REMOVED; one state-agnostic dot in the interlocutor's Deepa hue
- * replaces them; the §4.13.4 circular loader stays), derived from the
+ * message's time — the v3.4 COLOR DOT (DESIGN §4.15.2.2, owner-corrected:
+ * the §4.11.7 status marks and the §10.1.7-era rotated-dots loading
+ * indicator are REMOVED; a dot in the interlocutor's Deepa hue renders on
+ * FINISHED cards only — an unfinished item shows NO dot, only the
+ * §4.13.4 circular loader; the two never coexist), derived from the
  * AUTHORITATIVE Chat.done (CONCEPT §13 R2 / DESIGN §4.13.2), «+N»,
  * empty state CTA → /people,
  * skeletons, in-place poll updates (removed chats disappear), the §4.12.2
@@ -247,46 +248,47 @@ describe('/chats — cards (§3.4 as amended by §4.11.5–7, §4.12.2)', () => 
     expect(preview.getAttribute('title')).toBe('х'.repeat(255));
   });
 
-  it('color dot: one state-agnostic dot in the interlocutor\'s hue replaces the status marks (§4.15.2.2)', async () => {
+  it('color dot on FINISHED cards only (owner correction): an unfinished item shows NO dot — the loading circle only; finished → the dot in the interlocutor\'s hue (§4.15.2.2)', async () => {
     await renderPage();
+    // UNFINISHED (default: Chat.done missing/undefined → active): no dot
     const link = screen.getByRole('link', {
       name: ru['chats.card.aria']
         .replace('{name}', 'Алиса')
         .replace('{status}', ru['chats.status.active'])
     });
-    const dot = link.querySelector('.dot');
-    expect(dot).toBeTruthy();
-    // state-agnostic: no per-state icon classes on the dot anymore
-    expect(dot?.classList.contains('active')).toBe(false);
-    expect(dot?.classList.contains('finished')).toBe(false);
-    // the §4.12.2 treatment carries over: the dot wears the interlocutor's hue
-    expect(dot?.classList.contains(codeHue('0xa'))).toBe(true);
-    // the glyphs are gone from the card (no svg marks inside the dot)
-    expect(dot?.querySelector('svg')).toBeNull();
+    expect(link.querySelector('.dot')).toBeNull();
+    // …the §4.13.4 loading circle carries the unfinished state instead
+    expect(link.querySelector('.loader')).toBeTruthy();
     expect(link.querySelector('.status')).toBeNull();
+
+    // FINISHED: the dot renders in the interlocutor's Deepa hue (the
+    // poll flips the card within the 4 s cadence)
+    fixture.chats = [{ ...chat('0xchat1', [ME, '0xa'], 5), done: true }];
+    const finishedLink = await waitFor(
+      () =>
+        screen.getByRole('link', {
+          name: ru['chats.card.aria']
+            .replace('{name}', 'Алиса')
+            .replace('{status}', ru['chats.status.finished'])
+        }),
+      { timeout: 6000 }
+    );
+    const dot = finishedLink.querySelector('.dot');
+    expect(dot).toBeTruthy();
+    expect(dot?.classList.contains(codeHue('0xa'))).toBe(true);
+    // no glyph marks and no spinner on the finished card (never coexist)
+    expect(dot?.querySelector('svg')).toBeNull();
+    expect(finishedLink.querySelector('.loader')).toBeNull();
+    expect(finishedLink.querySelector('.status')).toBeNull();
     // the dot is decoration: the accessible name carries the status
     expect(dot?.getAttribute('aria-hidden')).toBe('true');
   });
 
-  it('color dot per Chat.done (§4.13.2): done → the SAME dot (state-agnostic), no override passed', async () => {
-    // The AUTHORITATIVE signal flows straight from the polled payload —
-    // the route passes no presentation override.
-    fixture.chats = [{ ...chat('0xchat1', [ME, '0xa'], 5), done: true }];
-    await renderPage();
-    const link = screen.getByRole('link', {
-      name: ru['chats.card.aria']
-        .replace('{name}', 'Алиса')
-        .replace('{status}', ru['chats.status.finished'])
-    });
-    const dot = link.querySelector('.dot');
-    expect(dot).toBeTruthy();
-    expect(dot?.classList.contains(codeHue('0xa'))).toBe(true);
-  });
-
-  it('color dot per Chat.done (§4.13.2): the SAME dot follows a poll flip (aria wording flips, the dot does not change shape)', async () => {
+  it('color dot per Chat.done (§4.13.2): the dot appears only while done; the poll flip swaps dot ↔ spinner', async () => {
     await renderPage();
     const link = () => screen.getByRole('link', { name: /Диалог с Алиса/ });
-    expect(link().querySelector('.dot')).toBeTruthy();
+    expect(link().querySelector('.dot')).toBeNull();
+    expect(link().querySelector('.loader')).toBeTruthy();
     const activeAria = ru['chats.card.aria']
       .replace('{name}', 'Алиса')
       .replace('{status}', ru['chats.status.active']);
@@ -294,21 +296,24 @@ describe('/chats — cards (§3.4 as amended by §4.11.5–7, §4.12.2)', () => 
       .replace('{name}', 'Алиса')
       .replace('{status}', ru['chats.status.finished']);
     expect(screen.getByRole('link', { name: activeAria })).toBeTruthy();
-    // kickoff reset semantics server-side: done flips true → the aria
-    // wording flips; the dot stays (state-agnostic marker)
+    // kickoff reset semantics server-side: done flips true → the dot
+    // appears and the spinner goes away
     fixture.chats = [{ ...chat('0xchat1', [ME, '0xa'], 4), done: true }];
     await waitFor(
       () => expect(screen.getByRole('link', { name: finishedAria })).toBeTruthy(),
       { timeout: 6000 }
     );
     expect(link().querySelector('.dot')).toBeTruthy();
-    // …and back (a kickoff reset the false field server-side)
+    expect(link().querySelector('.loader')).toBeNull();
+    // …and back (a kickoff reset the false field server-side): the dot
+    // leaves, the spinner returns — the two never coexist
     fixture.chats = [{ ...chat('0xchat1', [ME, '0xa'], 4), done: false }];
     await waitFor(
       () => expect(screen.getByRole('link', { name: activeAria })).toBeTruthy(),
       { timeout: 6000 }
     );
-    expect(link().querySelector('.dot')).toBeTruthy();
+    expect(link().querySelector('.dot')).toBeNull();
+    expect(link().querySelector('.loader')).toBeTruthy();
   }, 20_000);
 
   it('counterpart derived from participants minus me; a ≠2 chat shows first counterpart + «+N» (AC 2)', async () => {
@@ -321,7 +326,9 @@ describe('/chats — cards (§3.4 as amended by §4.11.5–7, §4.12.2)', () => 
     expect(screen.getByText('+2')).toBeTruthy();
   });
 
-  it('§4.12.2 neutral list role: the card drops the Deepa background; the INTERLOCUTOR\'S hue (fnv1a % 5) moves to the color dot and stays stable across polls', async () => {
+  it('§4.12.2 neutral list role: the card drops the Deepa background; the INTERLOCUTOR\'S hue (fnv1a % 5) moves to the color dot (finished cards) and stays stable across polls', async () => {
+    // the dot renders on finished cards only (§4.15.2.2 owner correction)
+    fixture.chats = [{ ...chat('0xchat1', [ME, '0xa'], 5), done: true }];
     await renderPage();
     // the address-hash contract: fnv1a(counterpart address) % 5 → the hue
     expect(codeHue('0xa')).toBe(CODE_HUES[fnv1a('0xa') % CODE_HUES.length]);
@@ -329,14 +336,15 @@ describe('/chats — cards (§3.4 as amended by §4.11.5–7, §4.12.2)', () => 
     // neutral LIST surface (§4.12.2 / Concept §11.1.2): no hue class on the
     // card itself — the Deepa background left with §4.11.5
     expect(link.className).not.toMatch(/deepa-[1-5]/);
-    // the chat's message color lives on the color dot instead (§4.15.2.2)
+    // the chat's message color lives on the color dot instead (§4.15.2.2,
+    // owner correction: finished cards only — this fixture is done)
     const dot = link.querySelector('.dot');
     expect(dot?.classList.contains(codeHue('0xa'))).toBe(true);
     // the avatar carries the color-coding like /people: plain PixelAvatar,
     // no extra hue wrapper around it
     expect(link.querySelectorAll('.deepa-1, .deepa-2, .deepa-3, .deepa-4, .deepa-5')).toHaveLength(1);
     // cross-visit determinism: a fresh poll (new snapshot) keeps the hue
-    fixture.chats = [chat('0xchat1', [ME, '0xa'], 4)];
+    fixture.chats = [{ ...chat('0xchat1', [ME, '0xa'], 4), done: true }];
     await waitFor(() =>
       expect(
         screen
@@ -460,11 +468,11 @@ describe('/chats — badge + poller (§1.2, §2.2)', () => {
   });
 });
 
-describe('ChatCard — color dot per state (§4.15.2.2; the card directly, the route derives)', () => {
+describe('ChatCard — color dot on finished cards only (§4.15.2.2; the card directly, the route derives)', () => {
   const cardChat = chat('0xchat1', [ME, '0xa'], 5);
   const entry = { owner: ME, content: 'привет', from: '0xa', created_at: minutesAgo(2) };
 
-  it('Chat.done drives the aria without an override (§4.13.2); the dot is STATE-AGNOSTIC (both states)', async () => {
+  it('Chat.done drives the marker without an override (§4.13.2): done → the DOT (no loader); missing/false → NO dot, the loader only', async () => {
     render(ChatCard, {
       props: {
         chat: { ...cardChat, done: true },
@@ -474,6 +482,7 @@ describe('ChatCard — color dot per state (§4.15.2.2; the card directly, the r
       }
     });
     expect(document.querySelector('.dot')).toBeTruthy();
+    expect(document.querySelector('.loader')).toBeNull();
     const aria = ru['chats.card.aria']
       .replace('{name}', 'Алиса')
       .replace('{status}', ru['chats.status.finished']);
@@ -488,7 +497,9 @@ describe('ChatCard — color dot per state (§4.15.2.2; the card directly, the r
         lastMessage: entry
       }
     });
-    expect(document.querySelector('.dot')).toBeTruthy();
+    // owner correction: unfinished → NO dot, the circle spinner only
+    expect(document.querySelector('.dot')).toBeNull();
+    expect(document.querySelector('.loader')).toBeTruthy();
     const activeAria = ru['chats.card.aria']
       .replace('{name}', 'Алиса')
       .replace('{status}', ru['chats.status.active']);
@@ -504,17 +515,17 @@ describe('ChatCard — color dot per state (§4.15.2.2; the card directly, the r
         lastMessage: entry
       }
     });
-    expect(document.querySelector('.dot')).toBeTruthy();
+    expect(document.querySelector('.dot')).toBeNull();
+    expect(document.querySelector('.loader')).toBeTruthy();
   });
 
   it('the dot carries the interlocutor\'s hue and no glyph; the old marks/rotated-dots loader are gone (§4.15.2.2)', async () => {
     render(ChatCard, {
       props: {
-        chat: cardChat,
+        chat: { ...cardChat, done: true },
         counterpart: person('0xa', 'Алиса', 10),
         counterpartAddress: '0xa',
-        lastMessage: entry,
-        status: 'active'
+        lastMessage: entry
       }
     });
     const dot = document.querySelector('.dot');
@@ -529,27 +540,26 @@ describe('ChatCard — color dot per state (§4.15.2.2; the card directly, the r
       'utf8'
     );
     expect(cardSource).not.toMatch(/chat-status-spin/);
-    // the §4.13.4 circle spinner stays on the unfinished card
-    expect(document.querySelector('.loader')).toBeTruthy();
+    // finished → no spinner either (the dot and the circle never coexist)
+    expect(document.querySelector('.loader')).toBeNull();
     cleanup();
 
     render(ChatCard, {
       props: {
-        chat: cardChat,
+        chat: { ...cardChat, done: false },
         counterpart: person('0xa', 'Алиса', 10),
         counterpartAddress: '0xa',
         lastMessage: entry,
-        status: 'finished'
+        status: 'active'
       }
     });
-    const finishedDot = document.querySelector('.dot');
-    expect(finishedDot?.classList.contains(codeHue('0xa'))).toBe(true);
-    expect(finishedDot?.querySelector('svg')).toBeNull();
+    // unfinished: NO dot, the circle spinner stays exactly as landed
+    expect(document.querySelector('.dot')).toBeNull();
+    expect(document.querySelector('.loader')).toBeTruthy();
     const aria = ru['chats.card.aria']
       .replace('{name}', 'Алиса')
-      .replace('{status}', ru['chats.status.finished']);
+      .replace('{status}', ru['chats.status.active']);
     const link = screen.getByRole('link', { name: aria });
-    expect(link.querySelector('.dot')).toBeTruthy();
     // the card itself stays neutral (no Deepa background class)
     expect(link.className).not.toMatch(/deepa-[1-5]/);
   });

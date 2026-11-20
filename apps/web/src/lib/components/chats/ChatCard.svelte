@@ -23,12 +23,11 @@
    *
    * §4.15.2.2 (owner microchange, Concept §17.2+17.3): the right-side
    * STATUS MARKS (the finished reminder glyph / the active loading icon,
-   * §4.11.7 lineage) are REMOVED and replaced by a COLOR DOT — one small
-   * dot per card, right side, STATE-AGNOSTIC (no icon difference between
-   * the finished and active states; both states render the same dot).
-   * The §10.1.7-era ROTATED-DOTS loading indicator (the animated
-   * `status-active` glyph spin) went away with the marks; the newer
-   * unfinished-dialog CIRCULAR LOADER (§4.13.4) stays untouched.
+   * §4.11.7 lineage) are REMOVED and replaced by a COLOR DOT rendered on
+   * FINISHED dialogs only (owner correction: an UNFINISHED item shows NO
+   * dot — only the §4.13.4 loading circle; the dot and the spinner never
+   * coexist). The §10.1.7-era ROTATED-DOTS loading indicator (the animated
+   * `status-active` glyph spin) went away with the marks.
    *
    * §4.12.2 / Concept §11.1.2 (owner change request, 2026-11-18) — the LIST
    * role of the Deepa coding is amended (DIALOG bubbles keep their colors):
@@ -130,14 +129,17 @@
     </div>
     <!-- §4.13.4: the unfinished dialog's circular loader is decoration too
          (the accessible name already carries the ACTIVE status) -->
-    {#if state === 'active'}
+    {#if state === 'finished'}
+      <!-- §4.15.2.2 (owner correction, Concept §17.2): the COLOR DOT
+           renders on FINISHED dialogs only; an UNFINISHED item shows NO
+           dot — only the §4.13.4 loading circle below. The dot and the
+           spinner never coexist. Decoration: the accessible name carries
+           the status (§4.11.7; the aria-hidden pattern matches the
+           retired marks). -->
+      <span class="dot {hueClass}" aria-hidden="true" title={statusLabel}></span>
+    {:else}
       <span class="loader" aria-hidden="true"></span>
     {/if}
-    <!-- §4.15.2.2: the COLOR DOT replaces the status marks — one small
-         state-agnostic dot (both states render the same dot; no icon
-         difference). Decoration: the accessible name carries the status
-         (§4.11.7; the aria-hidden pattern matches the retired marks). -->
-    <span class="dot {hueClass}" aria-hidden="true" title={statusLabel}></span>
   </a>
 </li>
 
@@ -212,11 +214,12 @@
     font-size: 14px;
     color: var(--color-text-muted);
   }
-  /* §4.15.2.2: the color dot renders in the CHAT'S MESSAGE COLOR — the
+  /* §4.15.2.2 (owner correction): the color dot renders on FINISHED
+   * dialogs only — it renders in the CHAT'S MESSAGE COLOR, the
    * interlocutor's Deepa hue (`--color-deepa-<n>` via codeHue), the
-   * lineage of the retired reminder marks. The dot is state-agnostic:
-   * one size, one shape for both states (no icon difference). Declared
-   * after the base so the hue wins. */
+   * lineage of the retired reminder marks. Unfinished items show NO dot
+   * (the §4.13.4 loader circle instead) — the two never coexist.
+   * Declared after the base so the hue wins. */
   .dot {
     flex-shrink: 0;
     width: 8px;
