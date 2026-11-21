@@ -7,12 +7,19 @@
    * THAT room (identity restore, no re-creation); a dead/stale entry
    * surfaces its error honestly on the row and the entry stays
    * (append-only vault). Each row is marked "Return / Вернуться".
+   *
+   * Concept §30 (DESIGN §4.19): the screen mounts the SHARED FormShell —
+   * header (fixed): app icon + language switch; middle (the ONLY
+   * scrollable region): the title, the subtitle and the picker rows (the
+   * resume-session main interactive element — top-anchored, text ≤ 75%);
+   * footer (fixed): the back action. Existing row styles reused.
    */
   import { locale, translate } from '#lib/i18n/locale';
   import { relativeTime } from '#lib/people/view';
   import type { VaultEntry } from '#lib/stores/tokenVault';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
+  import FormShell from './FormShell.svelte';
 
   interface Props {
     entries: VaultEntry[];
@@ -32,58 +39,62 @@
   const returnBadge = $derived(translate($locale, 'join.import.return'));
 </script>
 
-<div class="step">
-  <h2>{translate($locale, 'join.import.title')}</h2>
-  <p class="muted">{subtitle}</p>
+<FormShell>
+  <div class="body">
+    <h2>{translate($locale, 'join.import.title')}</h2>
+    <p class="muted">{subtitle}</p>
 
-  {#if loading}
-    <p class="muted" role="status">{translate($locale, 'common.loading')}</p>
-  {:else if entries.length === 0}
-    <p class="muted">{emptyLabel}</p>
-  {:else}
-    <ul class="rows">
-      {#each entries as entry (entry.roomAddress + entry.userAddress)}
-        <li>
-          <button
-            type="button"
-            class="row"
-            class:dead={dead?.address === entry.userAddress}
-            aria-label={translate($locale, 'join.import.row_aria', {
-              name: entry.name ?? entry.userAddress
-            })}
-            onclick={() => onpick?.(entry)}
-          >
-            <PixelAvatar address={entry.userAddress} size={44} />
-            <span class="texts">
-              <span class="name">{entry.name ?? entry.userAddress}</span>
-              <span class="muted">
-                {translate($locale, 'join.import.saved_at', {
-                  date: relativeTime(entry.savedAt, nowMs, $locale)
-                })}
+    {#if loading}
+      <p class="muted" role="status">{translate($locale, 'common.loading')}</p>
+    {:else if entries.length === 0}
+      <p class="muted">{emptyLabel}</p>
+    {:else}
+      <ul class="rows">
+        {#each entries as entry (entry.roomAddress + entry.userAddress)}
+          <li>
+            <button
+              type="button"
+              class="row"
+              class:dead={dead?.address === entry.userAddress}
+              aria-label={translate($locale, 'join.import.row_aria', {
+                name: entry.name ?? entry.userAddress
+              })}
+              onclick={() => onpick?.(entry)}
+            >
+              <PixelAvatar address={entry.userAddress} size={44} />
+              <span class="texts">
+                <span class="name">{entry.name ?? entry.userAddress}</span>
+                <span class="muted">
+                  {translate($locale, 'join.import.saved_at', {
+                    date: relativeTime(entry.savedAt, nowMs, $locale)
+                  })}
+                </span>
               </span>
-            </span>
-            <span class="badge">{returnBadge}</span>
-            <PixelIcon name="key" size={16} />
-          </button>
-          {#if dead?.address === entry.userAddress}
-            <!-- Dead-entry state (§3.1): the entry stays listed; server
-                 text appended muted when present (401/403 variant). -->
-            <p class="dead-note" role="alert" aria-live="polite">
-              {translate($locale, 'join.import.dead')}
-              {#if dead.text}<span class="muted"> — {dead.text}</span>{/if}
-            </p>
-          {/if}
-        </li>
-      {/each}
-    </ul>
-  {/if}
-  <button type="button" class="link" onclick={() => onback?.()}>
-    {backLabel}
-  </button>
-</div>
+              <span class="badge">{returnBadge}</span>
+              <PixelIcon name="key" size={16} />
+            </button>
+            {#if dead?.address === entry.userAddress}
+              <!-- Dead-entry state (§3.1): the entry stays listed; server
+                   text appended muted when present (401/403 variant). -->
+              <p class="dead-note" role="alert" aria-live="polite">
+                {translate($locale, 'join.import.dead')}
+                {#if dead.text}<span class="muted"> — {dead.text}</span>{/if}
+              </p>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </div>
+  {#snippet footer()}
+    <button type="button" class="link" onclick={() => onback?.()}>
+      {backLabel}
+    </button>
+  {/snippet}
+</FormShell>
 
 <style>
-  .step {
+  .body {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);

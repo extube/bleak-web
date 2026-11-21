@@ -1,17 +1,26 @@
 <script lang="ts">
   /**
    * Step 1 — code entry card (DESIGN §3.1, §4.12.1 item 6): DigitInput (six
- * cells capped at 56px, flexible at phone widths),
-   * CTA enabled at 6 digits, inline 404/400 errors with a single shake,
-   * scan entry (QrScanner context *a* is mounted by the parent JoinFlow),
-   * locale control in the card footer.
+   * cells capped at 56px, flexible at phone widths), inline 404/400 errors
+   * with a single shake, scan entry (QrScanner context *a* is mounted by
+   * the parent JoinFlow).
+   *
+   * Concept §30 (DESIGN §4.19) — the reference three-block instantiation:
+   * the form mounts the SHARED FormShell — header (fixed): the app icon
+   * left + the language switch right; middle (the ONLY scrollable region):
+   * the mascot, the "Join the Event" title, the subtitle text, the 6-digit
+   * input and the scan-QR / return-to-event links (top-anchored, text
+   * ≤ 75% of the form width); footer (fixed): the single primary enter
+   * action ("Enter the room" — existing .cta styles, reused). The <form>
+   * still wraps the whole shell, so the footer button keeps its native
+   * submit semantics (Enter in a cell submits, as before).
    */
   import { locale, translate } from '#lib/i18n/locale';
   import { isValidInviteCode } from '#lib/join';
   import BleakMascot from '#lib/components/BleakMascot.svelte';
   import DigitInput from '#lib/components/DigitInput.svelte';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
-  import LocaleControl from './LocaleControl.svelte';
+  import FormShell from './FormShell.svelte';
 
   interface Props {
     code?: string;
@@ -64,56 +73,68 @@
 </script>
 
 <form class="step" onsubmit={submit}>
-  <!-- §23.1 item 2: mascot-at-top header order — mascot → title → content.
-       Centered in the .step column (no new overflow surface; the §12 phone
-       full-screen contract holds). -->
-  <div class="mascot-row">
-    <BleakMascot size={96} idle />
-  </div>
-  <h1>{translate($locale, 'join.title')}</h1>
-  <p class="subtitle">{translate($locale, 'join.subtitle')}</p>
+  <FormShell>
+    <div class="body">
+      <!-- §23.1 item 2 content order (now the §30 MIDDLE block): mascot
+           → title → text → the 6-digit input → the scan/return links. -->
+      <div class="mascot-row">
+        <BleakMascot size={96} idle />
+      </div>
+      <h1>{translate($locale, 'join.title')}</h1>
+      <p class="subtitle">{translate($locale, 'join.subtitle')}</p>
 
-  <div class="cells" bind:this={cellsWrap} class:shaking>
-    <DigitInput bind:value={code} {disabled} />
-  </div>
+      <div class="cells" bind:this={cellsWrap} class:shaking>
+        <DigitInput bind:value={code} {disabled} />
+      </div>
 
-  {#if error}
-    <p class="field-error" role="alert" aria-live="polite">
-      {error === 'not_found'
-        ? translate($locale, 'join.error.unknown')
-        : translate($locale, 'join.code.malformed')}
-    </p>
-  {/if}
+      {#if error}
+        <p class="field-error" role="alert" aria-live="polite">
+          {error === 'not_found'
+            ? translate($locale, 'join.error.unknown')
+            : translate($locale, 'join.code.malformed')}
+        </p>
+      {/if}
 
-  <button type="submit" class="cta" disabled={disabled || !complete}>
-    {#if disabled}<span class="spinner" aria-hidden="true"></span>{/if}
-    {translate($locale, 'join.enter')}
-  </button>
+      <div class="divider" aria-hidden="true"></div>
+      <button type="button" class="scan" onclick={() => onscan?.()}>
+        <PixelIcon name="scan" size={16} />
+        {translate($locale, 'join.scan.open')}
+      </button>
 
-  <div class="divider" aria-hidden="true"></div>
-  <button type="button" class="scan" onclick={() => onscan?.()}>
-    <PixelIcon name="scan" size={16} />
-    {translate($locale, 'join.scan.open')}
-  </button>
-
-  {#if onreturn}
-    <!-- Return-to-event entry (§4.11.1): the vault screen is the path BACK. -->
-    <button type="button" class="scan" onclick={() => onreturn?.()}>
-      <PixelIcon name="key" size={16} />
-      {translate($locale, 'join.import.title')}
-    </button>
-  {/if}
-
-  <div class="footer">
-    <LocaleControl />
-  </div>
+      {#if onreturn}
+        <!-- Return-to-event entry (§4.11.1): the vault screen is the path BACK. -->
+        <button type="button" class="scan" onclick={() => onreturn?.()}>
+          <PixelIcon name="key" size={16} />
+          {translate($locale, 'join.import.title')}
+        </button>
+      {/if}
+    </div>
+    {#snippet footer()}
+      <!-- §30 footer (the reference instantiation: ONE action here): the
+           primary enter button — native type=submit inside the <form>. -->
+      <button type="submit" class="cta" disabled={disabled || !complete}>
+        {#if disabled}<span class="spinner" aria-hidden="true"></span>{/if}
+        {translate($locale, 'join.enter')}
+      </button>
+    {/snippet}
+  </FormShell>
 </form>
 
 <style>
   .step {
+    /* §30: the form fills the bounded card — the FormShell inside carries
+     * the three-region geometry (header/footer fixed, middle scrolling). */
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+  }
+  .body {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
+    min-width: 0;
   }
   h1 {
     font-size: 32px;
@@ -199,8 +220,5 @@
   }
   .scan:hover {
     color: var(--color-text);
-  }
-  .footer {
-    display: flex;
   }
 </style>

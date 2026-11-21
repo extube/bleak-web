@@ -101,17 +101,19 @@ describe('BleakMascot', () => {
     expect(css).not.toMatch(/prefers-reduced-motion/);
   });
 
-  it('§23.1 item 2 mount: the code-entry form carries mascot-at-top — mascot, then the title, then the rest', () => {
+  it('§23.1 item 2 mount (now the §30 MIDDLE block): the code-entry form carries mascot-at-top — mascot, then the title, then the rest', () => {
     const { container } = render(CodeEntry, { props: {} });
     const row = container.querySelector('.mascot-row');
     expect(row).toBeTruthy();
     const svg = row?.querySelector('svg');
     expect(svg?.getAttribute('viewBox')).toBe('0 0 12 12');
     expect(row?.querySelector('.mascot')?.classList.contains('idle')).toBe(true);
-    // header order: the mascot row is the FIRST child, the title (h1)
-    // follows it, then the subtitle and the digit cells
-    const step = container.querySelector('.step') as HTMLElement;
-    const children = Array.from(step.children);
+    // Concept §30 (DESIGN §4.19): the content order lives inside the
+    // shell's middle block (.shell-middle .content) — the mascot row is
+    // the FIRST content child, the title (h1) follows it, then the
+    // subtitle and the digit cells (top-anchored, in flow order).
+    const body = container.querySelector('.shell-middle .body') as HTMLElement;
+    const children = Array.from(body.children);
     expect(children[0]).toBe(row);
     const titleIndex = children.findIndex((el) => el.tagName === 'H1');
     expect(titleIndex).toBeGreaterThan(0);
@@ -121,7 +123,7 @@ describe('BleakMascot', () => {
     );
   });
 
-  it('§23.1 item 3 mount: the room form (create-profile / join choice) carries the same mascot-at-top order', () => {
+  it('§23.1 item 3 mount (now the §30 MIDDLE block): the room form (create-profile / join choice) carries the same mascot-at-top order', () => {
     const room = {
       address: '0xroom123',
       name: 'Хостел «Пиксель»',
@@ -137,8 +139,10 @@ describe('BleakMascot', () => {
     });
     const row = container.querySelector('.mascot-row');
     expect(row).toBeTruthy();
-    const step = container.querySelector('.step') as HTMLElement;
-    const children = Array.from(step.children);
+    // Concept §30 (DESIGN §4.19): the content order lives inside the
+    // shell's middle block (.shell-middle .content).
+    const body = container.querySelector('.shell-middle .body') as HTMLElement;
+    const children = Array.from(body.children);
     expect(children[0]).toBe(row);
     const title = container.querySelector('.room-name');
     expect(title).toBeTruthy();

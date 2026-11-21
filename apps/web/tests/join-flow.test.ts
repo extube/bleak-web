@@ -827,8 +827,12 @@ describe('JoinFlow — phone full-screen forms (Concept §12, DESIGN §4.12.1 it
       // chat is mounted (the :has(> .persona-step) gate; the other join
       // steps keep their content-driven wrapper geometry). It is exempt
       // from the phone-only chrome check below by design.
+      // Concept §30 (DESIGN §4.19): the SAME conduit exists for the
+      // non-chat join forms — the :has(> .form-shell) gate (the §29
+      // viewport rule on the code/room/vault steps). Both step gates are
+      // exempt from the phone-only chrome check by design.
       css = css.replace(
-        /:global\(\.app-shell > \.join:has\(> \.persona-step\)\)\s*\{[^}]*\}/,
+        /:global\(\.app-shell > \.join:has\(> \.[\w-]+\)\)\s*\{[^}]*\}/g,
         ''
       );
       // The desktop block is intact.
@@ -990,12 +994,14 @@ describe('JoinFlow — creation-chat geometry (tz11-06 bug round, task 107 + Con
     expect(css).toMatch(
       /:global\(\.app-shell > \.join:has\(> \.persona-step\)\)\s*\{[^}]*min-height:\s*0[^}]*\}/
     );
-    // The gate never leaks to the wrapper's base state: exactly ONE
-    // wrapper rule exists and it is keyed on the persona step, not on
-    // `.join` unconditionally.
+    // The gate never leaks to the wrapper's base state: the wrapper rules
+    // exist ONLY as :has()-keyed step gates — the §24–§29 persona gate
+    // (Concept §25 conduit) and the §30 form-shell gate (the non-chat
+    // join forms; DESIGN §4.19) — never on `.join` unconditionally.
     const wrapperRules = css.match(/:global\(\.app-shell > \.join[^{]*\{/g) ?? [];
-    expect(wrapperRules).toHaveLength(1);
-    expect(wrapperRules[0]).toContain(':has(> .persona-step)');
+    expect(wrapperRules).toHaveLength(2);
+    expect(wrapperRules.some((rule) => rule.includes(':has(> .persona-step)'))).toBe(true);
+    expect(wrapperRules.some((rule) => rule.includes(':has(> .form-step)'))).toBe(true);
   });
 
   it('desktop (Concept §25 / DESIGN §4.17): a 750–850px centered column spanning the FULL screen height; the other join steps untouched', () => {
@@ -1157,8 +1163,8 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
     render(JoinFlow, { props: {}, target: wrapper });
 
     // GATE, off-state: at the code step the wrapper does not match the
-    // persona gate (the other join steps keep their content-driven
-    // geometry — no min-height: 0). The REAL code-step markup is captured
+    // PERSONA gate — the code step is bounded by the §30 form-shell gate
+    // instead (asserted below). The REAL code-step markup is captured
     // now; its computed off-state proof runs below, after the drive (the
     // fixtures are attached only once every screen query is done — an
     // attached fixture would duplicate the flow's UI for the screen*).
@@ -1201,16 +1207,21 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
       parsedFixtures.push(fixture);
       return fixture.children[0] as HTMLElement;
     }
-    // Off-state: the code-step markup — the gate is off and the wrapper
-    // keeps its content-driven geometry (min-height unset).
+    // Off-state: the code-step markup — the PERSONA gate is off (the
+    // creation chat keeps its own gate), and — Concept §30 (DESIGN
+    // §4.19) — the code step IS a form-shell step: the wrapper is bounded
+    // by the §30 form-shell gate instead (min-height: 0 + the definite
+    // 100dvh viewport height; the §29 viewport rule now covers every
+    // join-surface form, not just the creation chat).
     const offShell = parsedShellOf(offHtml);
     const offWrap = offShell.children[0] as HTMLElement;
     expect(offWrap.matches('.app-shell > .join:has(> .persona-step)')).toBe(false);
-    expect(isZeroMin(getComputedStyle(offWrap).minHeight)).toBe(false);
-    // tz11-10: the definite screen height is persona-gated too — the
-    // other join steps keep the content-driven wrapper height (no
-    // declared height at all; happy-dom computes unset height as '').
-    expect(getComputedStyle(offWrap).height).toBe('');
+    expect(isZeroMin(getComputedStyle(offWrap).minHeight)).toBe(true);
+    // The definite screen height is step-gated (the §30 form-shell gate
+    // on the code step): the wrapper resolves a definite viewport height
+    // — a px length in the cascade (happy-dom against its window; a real
+    // browser against dvh).
+    expect(getComputedStyle(offWrap).height).toMatch(/px/);
     // On-state: the persona-step markup — the gate is on, the wrapper is
     // a bounded, full-width, gutter-free conduit.
     const pShell = parsedShellOf((shell as HTMLElement).outerHTML);
@@ -1623,5 +1634,339 @@ describe('JoinFlow — viewport-bounded main block (tz11-13, task 114, Concept �
     expect(getComputedStyle((tallShell.children[0] as HTMLElement)).height).toBe(
       getComputedStyle((shortShell.children[0] as HTMLElement)).height
     );
+  });
+});
+
+describe('JoinFlow — unified three-block form shell (Concept §30, DESIGN §4.19)', () => {
+  /**
+   * The non-chat join-surface forms ("Join the Event" enter-code, "Room
+   * intro" create-profile/change-code, the return-to-event resume picker)
+   * adopt the SAME three-block structure as the §28/§29 creation dialog:
+   * header (NOT scrollable): the app icon LEFT + the language switch
+   * RIGHT; footer (NOT scrollable): the form's action buttons (1..n);
+   * middle (the ONLY scrollable region): title + text (≤ 75% of the form
+   * width) + the main interactive element. The form is strictly
+   * viewport-bounded (the §29 rule — the keyboard/visualViewport dvh
+   * chain). Owner refinements folded in: the middle content is
+   * TOP-ANCHORED (starts at the top, flows top-to-bottom with paddings,
+   * horizontal centering only — NEVER vertically centered) and the
+   * footer is a 1..n action region (Room intro carries BOTH buttons).
+   *
+   * happy-dom runs no layout engine — the geometry is pinned the
+   * established way: source pins + the REAL-GEOMETRY parsed cascade (the
+   * outerHTML round-trip — the documented :has() quirk workaround).
+   */
+  const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
+    ? process.cwd()
+    : join(process.cwd(), 'apps', 'web');
+  function source(relativePath: string): string {
+    return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
+  }
+  function styleBlock(relativePath: string): string {
+    const match = source(relativePath).match(/<style[^>]*>([\s\S]*)<\/style>/);
+    expect(match, `<style> block not found in ${relativePath}`).toBeTruthy();
+    return match?.[1] ?? '';
+  }
+  /** Svelte's :global(X) → X (raw injection needs unscoped selectors). */
+  function unscope(css: string): string {
+    let out = '';
+    let i = 0;
+    for (;;) {
+      const at = css.indexOf(':global(', i);
+      if (at === -1) return out + css.slice(i);
+      out += css.slice(i, at);
+      let depth = 1;
+      let j = at + ':global('.length;
+      while (j < css.length && depth > 0) {
+        if (css[j] === '(') depth += 1;
+        else if (css[j] === ')') depth -= 1;
+        j += 1;
+      }
+      out += css.slice(at + ':global('.length, j - 1);
+      i = j;
+    }
+  }
+
+  const injected30: HTMLStyleElement[] = [];
+  let shell30: HTMLElement | null = null;
+  const parsedFixtures30: HTMLElement[] = [];
+
+  afterEach(() => {
+    for (const style of injected30) style.remove();
+    injected30.length = 0;
+    if (shell30) shell30.remove();
+    shell30 = null;
+    for (const fixture of parsedFixtures30) fixture.remove();
+    parsedFixtures30.length = 0;
+  });
+
+  it('source pins: the FormShell is the three-block shell — fixed header/footer, the middle the ONLY scroll region, top-anchored content, text ≤ 75%', () => {
+    const css = source('src/lib/components/join/FormShell.svelte');
+    // Header + footer are FIXED regions (never scroll).
+    expect(css).toMatch(/\.shell-header\s*\{[^}]*flex:\s*none/);
+    expect(css).toMatch(/\.shell-footer\s*\{[^}]*flex:\s*none/);
+    // The middle is the ONLY scrollable region (flex: 1 + min-height: 0
+    // + its own scroll-port — the §28/§29 geometry).
+    expect(css).toMatch(/\.shell-middle\s*\{[^}]*flex:\s*1/);
+    expect(css).toMatch(/\.shell-middle\s*\{[^}]*min-height:\s*0/);
+    expect(css).toMatch(/\.shell-middle\s*\{[^}]*overflow-y:\s*auto/);
+    // Top-anchored content (owner refinement): paddings present, NO
+    // vertical centering (the column axis never centers) — long content
+    // starts at the top of the scroll region.
+    const content = css.match(/\.content\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(content).toMatch(/padding:/);
+    expect(content).not.toMatch(/justify-content:\s*(center|flex-end)/);
+    expect(content).not.toMatch(/align-items:\s*center/);
+    // §30: the middle text fills no more than 75% of the form width.
+    expect(css).toMatch(/\.content :global\(p\)\s*\{[^}]*max-width:\s*75%/);
+    // Header-LEFT: the web-app icon (the shipped PWA mark — no hex in
+    // source); header-RIGHT: the language switch (LocaleControl).
+    expect(css).toMatch(/<img class="app-icon" src="\/icons\/icon\.svg"/);
+    expect(css).toMatch(/import LocaleControl from '\.\/LocaleControl\.svelte'/);
+    // Footer: a 1..n action region (the rendered footer snippet).
+    expect(css).toMatch(/@render footer\?\.\(\)/);
+    // Token discipline: no raw hex.
+    expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  it('source pins: every covered join form mounts the shell with its own regions', () => {
+    // Enter-code (the reference instantiation): the form still wraps the
+    // shell (native submit semantics); mascot → title → digits → links
+    // in the middle; the single enter action in the footer; no second
+    // locale switch in the form (the shell header carries it).
+    const entry = source('src/lib/components/join/CodeEntry.svelte');
+    expect(entry).toMatch(/import FormShell from '\.\/FormShell\.svelte'/);
+    expect(entry).toMatch(/<FormShell>/);
+    expect(entry).toMatch(/<form class="step" onsubmit=\{submit\}>/);
+    expect(entry).not.toMatch(/LocaleControl/);
+    const entryFooter = entry.slice(entry.indexOf('{#snippet footer()}'));
+    expect(entryFooter).toMatch(/type="submit"/);
+    expect(entryFooter).toMatch(/join\.enter/);
+    const entryOrder =
+      entry.indexOf('mascot-row') < entry.indexOf('<h1>') &&
+      entry.indexOf('<h1>') < entry.indexOf('class="cells"') &&
+      entry.indexOf('class="cells"') < entry.indexOf('join.scan.open');
+    expect(entryOrder).toBe(true);
+
+    // Room intro: footer holds BOTH create-profile and change-code (the
+    // multi-button footer case).
+    const preview = source('src/lib/components/join/RoomPreview.svelte');
+    expect(preview).toMatch(/import FormShell from '\.\/FormShell\.svelte'/);
+    expect(preview).toMatch(/<FormShell>/);
+    const previewFooter = preview.slice(preview.indexOf('{#snippet footer()}'));
+    expect(previewFooter.indexOf('join.create_persona')).toBeGreaterThan(-1);
+    expect(previewFooter.indexOf('join.change_code')).toBeGreaterThan(
+      previewFooter.indexOf('join.create_persona')
+    );
+
+    // Return-to-event (resume): rows in the middle, back in the footer.
+    const vault = source('src/lib/components/join/VaultList.svelte');
+    expect(vault).toMatch(/import FormShell from '\.\/FormShell\.svelte'/);
+    expect(vault).toMatch(/<FormShell>\s*\n\s*<div class="body">/);
+    const vaultFooter = vault.slice(vault.indexOf('{#snippet footer()}'));
+    expect(vaultFooter).toMatch(/backLabel/);
+  });
+
+  it('the §29 viewport rule on the join forms: the form-shell gates mirror the proven persona gate (definite 100dvh + no-scroll clip + app-shell lock)', () => {
+    const css = source('src/lib/components/join/JoinFlow.svelte');
+    // (a) The route-wrapper gate: bounded, full-width, gutter-free
+    // conduit with the no-scroll clip — the persona gate's geometry.
+    const gate = css.match(/:global\(\.app-shell > \.join:has\(> \.form-step\)\)\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(gate).toBeTruthy();
+    expect(gate).toMatch(/min-height:\s*0/);
+    expect(gate).toMatch(/max-width:\s*none/);
+    expect(gate).toMatch(/padding:\s*0/);
+    expect(gate).toMatch(/overflow-x:\s*hidden/);
+    expect(gate).toMatch(/overflow-y:\s*hidden/);
+    // The dvh refinement comes AFTER the vh fallback (the later
+    // supported declaration wins; dvh = the dynamic viewport — the
+    // visible area after the keyboard, no measuring JS).
+    expect(gate.indexOf('height: 100vh')).toBeGreaterThanOrEqual(0);
+    expect(gate.indexOf('height: 100vh')).toBeLessThan(gate.indexOf('height: 100dvh'));
+    // (b) The app-shell is height-locked while a form step is mounted.
+    const shellLock =
+      css.match(/:global\(\.app-shell:has\(> \.join > \.form-step\)\)\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(shellLock).toBeTruthy();
+    expect(shellLock).toMatch(/height:\s*100vh/);
+    expect(shellLock).toMatch(/height:\s*100dvh/);
+    // (c) The bounded chain: the card + stage fill the definite height
+    // (flex: 1 + min-height: 0) and the JoinFlow root link is bounded.
+    expect(css).toMatch(/\.card\.form-card\s*\{[^}]*flex:\s*1[^}]*min-height:\s*0/);
+    expect(css).toMatch(/\.card\.form-card \.stage\s*\{[^}]*flex:\s*1[^}]*min-height:\s*0/);
+    expect(css).toMatch(/\.join\.form-step\s*\{[^}]*min-height:\s*0/);
+    // (d) The §24–§29 creation-dialog contracts stay untouched: the
+    // persona gate + composer-card rules remain as they were.
+    expect(css).toMatch(/class:persona-step=\{flow\.step === 'persona'\}/);
+    expect(css).toMatch(/:global\(\.app-shell > \.join:has\(> \.persona-step\)\)/);
+    expect(css).toMatch(/\.card\.composer-card\s*\{[^}]*flex:\s*1[^}]*min-height:\s*0/);
+  });
+
+  it('behavior (enter-code, the reference instantiation): header = app icon + language switch; middle = mascot → title → digits → links (top-anchored); footer = the single enter action', async () => {
+    const { container } = render(JoinFlow, { props: {} });
+    // HEADER (fixed): app icon LEFT, language switch RIGHT.
+    const header = container.querySelector('.shell-header') as HTMLElement;
+    expect(header).toBeTruthy();
+    expect(header.querySelector('img.app-icon')).toBeTruthy();
+    expect(header.querySelector('[role="radiogroup"]')?.getAttribute('aria-label')).toBe(
+      ru['common.locale']
+    );
+    // MIDDLE (the scroll region): mascot, title, the 6-digit input, the
+    // scan-QR link — in flow order, starting at the top.
+    const middle = container.querySelector('.shell-middle') as HTMLElement;
+    expect(middle).toBeTruthy();
+    expect(middle.querySelector('.mascot-row')).toBeTruthy();
+    expect(middle.querySelector('h1')?.textContent).toBe(ru['join.title']);
+    expect(middle.querySelector('.digit-input')?.querySelectorAll('input')).toHaveLength(6);
+    expect(middle.querySelector('button.scan')?.textContent).toContain(ru['join.scan.open']);
+    // FOOTER (fixed): the single primary enter action.
+    const footer = container.querySelector('.shell-footer') as HTMLElement;
+    expect(footer).toBeTruthy();
+    const footerButtons = footer.querySelectorAll('button');
+    expect(footerButtons).toHaveLength(1);
+    expect(footerButtons[0]!.classList.contains('cta')).toBe(true);
+    expect(footerButtons[0]!.textContent).toContain(ru['join.enter']);
+    // The regions never cross: no form content in the header, no digit
+    // input or shell chrome inside the footer.
+    expect(header.querySelector('.digit-input')).toBeNull();
+    expect(footer.querySelector('.digit-input')).toBeNull();
+    expect(middle.querySelector('.shell-header')).toBeNull();
+    expect(middle.querySelector('.shell-footer')).toBeNull();
+  });
+
+  it('behavior (room intro): the footer holds BOTH create-profile and change-code actions (the 1..n footer region), the header carries the language switch', async () => {
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
+    mockedApi.getRoom.mockResolvedValue(room);
+    mockedApi.listRoomUsers.mockResolvedValue([]);
+    const { container } = render(JoinFlow, { props: {} });
+    pasteCode('123456');
+    await submitViaCta();
+    await screen.findByText(room.name);
+    // The 1..n footer: create profile FIRST, change code second.
+    const footer = container.querySelector('.shell-footer') as HTMLElement;
+    const buttons = Array.from(footer.querySelectorAll('button'));
+    expect(buttons).toHaveLength(2);
+    expect(buttons[0]!.textContent).toContain(ru['join.create_persona']);
+    expect(buttons[1]!.textContent).toContain(ru['join.change_code']);
+    // Header + middle intact: the language switch and the mascot/title.
+    expect(container.querySelector('.shell-header [role="radiogroup"]')).toBeTruthy();
+    expect(container.querySelector('.shell-middle .mascot-row')).toBeTruthy();
+    expect(container.querySelector('.shell-middle .room-name')?.textContent).toBe(room.name);
+  });
+
+  it('behavior (return-to-event resume): the picker rows live in the middle, the back action in the footer', async () => {
+    localStorage.setItem(
+      'bleak.tokenVault',
+      JSON.stringify([
+        {
+          roomAddress: '0xoldroom',
+          userAddress: '0xold',
+          token: 'stored-vault-token',
+          name: 'Старая персона',
+          savedAt: '2026-11-14T10:00:00Z'
+        }
+      ])
+    );
+    render(JoinFlow, { props: {} });
+    await screen.getByRole('button', { name: ru['join.import.title'] }).click();
+    await screen.findByText(ru['join.import.subtitle']);
+    // The resume rows (the main interactive element) are in the middle.
+    const middle = document.querySelector('.shell-middle') as HTMLElement;
+    expect(middle.querySelector('.rows')).toBeTruthy();
+    // The back action is the footer's button.
+    const footer = document.querySelector('.shell-footer') as HTMLElement;
+    expect(footer.querySelector('button')?.textContent).toContain(ru['common.back']);
+    // The language switch is in the header.
+    expect(document.querySelector('.shell-header [role="radiogroup"]')).toBeTruthy();
+  });
+
+  it('real-geometry parsed cascade (code step): the form is viewport-bounded and the shell middle is the ONLY scroll region — header/footer fixed, content top-anchored', async () => {
+    // The REAL <style> blocks of the rendered chain, injected raw
+    // (unscoped) — the same strongest-layout-capable contract as the
+    // persona cascade tests above (no new deps, no headless browser).
+    for (const file of [
+      'src/routes/+layout.svelte',
+      'src/routes/+page.svelte',
+      'src/lib/components/join/JoinFlow.svelte',
+      'src/lib/components/join/FormShell.svelte',
+      'src/lib/components/join/CodeEntry.svelte'
+    ]) {
+      const style = document.createElement('style');
+      style.setAttribute('data-cascade-contract-30', file);
+      style.textContent = unscope(styleBlock(file));
+      document.head.appendChild(style);
+      injected30.push(style);
+    }
+    shell30 = document.createElement('div');
+    shell30.className = 'app-shell';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'join';
+    shell30.appendChild(wrapper);
+    document.body.appendChild(shell30);
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
+    mockedApi.getRoom.mockResolvedValue(room);
+    mockedApi.listRoomUsers.mockResolvedValue([]);
+    render(JoinFlow, { props: {}, target: wrapper });
+    await screen.findByText(ru['join.enter']);
+    // THE PARSED-CASCADE PROOF: the SAME markup, round-tripped through
+    // the HTML parser (the documented :has() quirk workaround).
+    const fixture = document.createElement('div');
+    fixture.innerHTML = (shell30 as HTMLElement).outerHTML;
+    document.body.appendChild(fixture);
+    parsedFixtures30.push(fixture);
+    const pShell = fixture.children[0] as HTMLElement;
+    const pWrap = pShell.children[0] as HTMLElement;
+    // The wrapper matches the §30 form-shell gate: bounded (definite
+    // viewport height), full-width, gutter-free, no-scroll clip.
+    expect(pWrap.matches('.app-shell > .join:has(> .form-step)')).toBe(true);
+    const wrapCs = getComputedStyle(pWrap);
+    expect(wrapCs.minHeight).toBe('0');
+    expect(wrapCs.maxWidth).toBe('none');
+    expect(wrapCs.height).toMatch(/px/);
+    expect(wrapCs.overflowX).toBe('hidden');
+    expect(wrapCs.overflowY).toBe('hidden');
+    // THE BOUNDED CHAIN: every flex-item link from the shell up to
+    // (exclusive) the app-shell is a flex column with min-height: 0.
+    const pForm = pShell.querySelector('.form-shell') as HTMLElement;
+    expect(pForm).toBeTruthy();
+    const bounded: HTMLElement[] = [];
+    for (let el = pForm.parentElement; el && el !== pShell; el = el.parentElement) {
+      bounded.push(el);
+    }
+    expect(bounded.length).toBeGreaterThanOrEqual(5); // step→stage→card→join→wrapper
+    for (const el of bounded) {
+      const cs = getComputedStyle(el);
+      expect(cs.display, `${el.className} display`).toBe('flex');
+      expect(cs.flexDirection, `${el.className} direction`).toBe('column');
+      expect(cs.minHeight, `${el.className} min-height`).toBe('0');
+    }
+    // THE THREE REGIONS: header (flexGrow 0) first, the middle (flexGrow
+    // 1 + min-height: 0 + its own scroll-port) between, footer (flexGrow
+    // 0) last — the middle is the shell's ONLY scrollable element.
+    const pHeader = pShell.querySelector('.shell-header') as HTMLElement;
+    const pMiddle = pShell.querySelector('.shell-middle') as HTMLElement;
+    const pFooter = pShell.querySelector('.shell-footer') as HTMLElement;
+    expect(pForm.contains(pHeader)).toBe(true);
+    expect(pForm.contains(pFooter)).toBe(true);
+    expect(pHeader.nextElementSibling).toBe(pMiddle);
+    expect(getComputedStyle(pHeader).flexGrow).toBe('0');
+    expect(getComputedStyle(pFooter).flexGrow).toBe('0');
+    const middleCs = getComputedStyle(pMiddle);
+    expect(middleCs.flexGrow).toBe('1');
+    expect(['0', '0px']).toContain(middleCs.minHeight);
+    expect(middleCs.overflowY).toBe('auto');
+    // The middle is the ONLY scrollable element on the whole screen.
+    const scrollers = Array.from(pShell.querySelectorAll<HTMLElement>('*')).filter(
+      (el) => getComputedStyle(el).overflowY === 'auto'
+    );
+    expect(scrollers).toEqual([pMiddle]);
+    // TOP-ANCHORED content (owner refinement): the content block carries
+    // paddings and is NEVER vertically centered (no center/flex-end on
+    // the column axis) — long content starts at the top of the region.
+    const pContent = pMiddle.querySelector('.content') as HTMLElement;
+    expect(pContent).toBeTruthy();
+    const contentCs = getComputedStyle(pContent);
+    expect(contentCs.paddingTop).not.toBe('0px');
+    expect(['normal', 'flex-start', '']).toContain(contentCs.justifyContent);
+    expect(['stretch', 'normal', '']).toContain(contentCs.alignItems);
   });
 });

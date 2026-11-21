@@ -969,10 +969,13 @@ describe('CreationWizard — tz11-12 (task 113, Concept §28 / DESIGN §4.17.1):
     // shrink into the two inner regions is clipped, not scrolled.
     expect(gate).toMatch(/overflow-x:\s*hidden/);
     expect(gate).toMatch(/overflow-y:\s*hidden/);
-    // The clip stays persona-gated: exactly once in the file, inside the
-    // gate (the other join steps keep their content-driven geometry).
-    expect(flowCss.match(/overflow-x:\s*hidden/g)).toHaveLength(1);
-    expect(flowCss.match(/overflow-y:\s*hidden/g)).toHaveLength(1);
+    // The clip stays step-gated (never unconditional, never on the
+    // composer): it appears exactly TWICE in the file — inside the
+    // §24–§29 persona gate AND (Concept §30, DESIGN §4.19) inside the
+    // form-step gate that generalizes the same viewport-bounded geometry
+    // to the non-chat join forms. Both gates carry the identical clip.
+    expect(flowCss.match(/overflow-x:\s*hidden/g)).toHaveLength(2);
+    expect(flowCss.match(/overflow-y:\s*hidden/g)).toHaveLength(2);
     const css = source('src/lib/components/join/CreationWizard.svelte');
     // REGION 1 — the messenger: the single scroll-port (flex: 1 +
     // min-height: 0 + overflow-y: auto; the ONLY scrollable element).

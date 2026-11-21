@@ -314,7 +314,15 @@
   }
 </script>
 
-<div class="join" class:persona-step={flow.step === 'persona'}>
+<!-- Concept §30 (DESIGN §4.19): the non-chat join forms (code/room/vault)
+     mount the three-block FormShell — the root carries the form-step key
+     that engages the §29 viewport-bounded wrapper gate below (the
+     persona gate above stays the §24–§29 contract). -->
+<div
+  class="join"
+  class:persona-step={flow.step === 'persona'}
+  class:form-step={flow.step !== 'persona'}
+>
   {#if gone}
     <section class="card pixel-corners gone-card">
       <h2>{translate($locale, 'join.error.gone')}</h2>
@@ -342,6 +350,7 @@
     <section
       class="card pixel-corners"
       class:composer-card={flow.step === 'persona'}
+      class:form-card={flow.step !== 'persona'}
       class:leaving={enteringRoom}
     >
       <!-- §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the card content
@@ -426,6 +435,14 @@
   .join.persona-step {
     min-height: 0;
   }
+  /* Concept §30 (DESIGN §4.19): the non-chat join forms (code/room/vault)
+   * are viewport-bounded too — the JoinFlow root is the flex link between
+   * the definite-height route wrapper and the form card; min-height: 0
+   * keeps its automatic minimum size from growing with the form's
+   * content (the task-107 lesson, applied to the §30 steps). */
+  .join.form-step {
+    min-height: 0;
+  }
   /* tz11-08 (task 109, bug round 2 — the task-107 RECURRENCE): task 107
    * bounded this component's own flex links (above), but the real rendered
    * app has ONE more flex item above this component: routes/+page.svelte
@@ -508,6 +525,30 @@
     height: 100vh;
     height: 100dvh;
   }
+  /* Concept §30 (DESIGN §4.19): the §29 viewport rule generalized to the
+   * non-chat join forms — the SAME wrapper gate geometry as the persona
+   * gate above, keyed on the form-step (code/room/vault): the
+   * route wrapper carries the DEFINITE viewport height (100vh fallback +
+   * 100dvh — the dynamic viewport, i.e. the keyboard/visualViewport
+   * handling), the no-scroll clip, and the full-width gutter-free
+   * conduit; the app-shell is height-locked while a form step is
+   * mounted. The form never overlays beyond the area between the top of
+   * the screen and the bottom/keyboard and never grows content-driven —
+   * the FormShell middle is the ONLY scroll region inside the bounded
+   * card. The persona gate above stays the untouched §24–§29 contract. */
+  :global(.app-shell > .join:has(> .form-step)) {
+    min-height: 0;
+    max-width: none;
+    padding: 0;
+    height: 100vh;
+    height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: hidden;
+  }
+  :global(.app-shell:has(> .join > .form-step)) {
+    height: 100vh;
+    height: 100dvh;
+  }
   /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the card content
    * mounts fresh on every join-step swap (code ⇄ preview ⇄ wizard ⇄
    * vault) and replays the ONE fade treatment — 400ms opacity-only
@@ -558,6 +599,22 @@
    * the wizard — the chat log scrolls and the composer pins to the card
    * bottom exactly as before the wrapper existed. */
   .card.composer-card .stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  /* Concept §30 (DESIGN §4.19): the form steps fill the bounded card the
+   * same way the composer-card does (flex: 1 + min-height: 0) — the
+   * FormShell inside is then a three-region flex column: fixed header,
+   * the middle as the only scroll-port, fixed footer. */
+  .card.form-card {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .card.form-card .stage {
     flex: 1;
     display: flex;
     flex-direction: column;

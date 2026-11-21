@@ -3016,6 +3016,42 @@ clip).
    and input inside it 100% visible without scrolling the outer page.
 4. **Preserve styles:** colors, button designs, spacing, visual styling
    untouched.
+
+### 4.19 v3.13 feature round (2026-11-21, owner-approved Concept §30)
+
+**Unified form UX structure:** the non-chat forms — **"Join the Event"**
+(enter-code), **"Room intro"** (create-profile / change-code choice),
+and the other join-surface forms — adopt the **same three-block
+structure** as the §28/§29 creation dialog:
+
+1. **Header (NOT scrollable):** app icon on the left, language switching
+   on the right.
+2. **Footer (NOT scrollable):** the form's action buttons.
+3. **Middle block (scrollable):** the content — title and text (text
+   fills **no more than 75% of the form width**) — plus the form's main
+   interactive element (6-digit input / scan-QR link / resume session).
+
+**Viewport constraint (the §29 rule):** the form is strictly
+viewport-bounded (never overlays beyond the area between the top of the
+screen and the bottom/keyboard), never content-driven in height.
+Implementation: a shared form-shell (component or structural pattern)
+with header/footer as `flex:none` fixed regions and the middle block as
+`flex:1 min-height:0` — the ONLY scrollable region — mirroring the
+proven §28/§29 creation-dialog geometry; keyboard handling reuses the
+existing visualViewport approach. The header language switch works on
+these forms (RU/EN parity). Existing visual styles preserved; the
+creation-dialog contracts (§24–§29) remain untouched and green.
+**Landed (task 115, worker `29c8a30d`):** the shared shell is the
+`FormShell.svelte` component (Svelte 5 snippets: default = middle,
+`footer` = the 1..n action region); middle is top-anchored, paragraphs
+max-width 75%; the enter-code instantiation carries mascot → title →
+6-digit input → scan-QR + return links in the middle and the single
+primary "Enter the room" button in the footer; the Room intro exercises
+the multi-button footer (create profile + change code); the resume
+surface (VaultList) mounts in the shell; the forms' own locale switch
+moved into the shell header.
+
+## 5. Design-decision rationale (short)
 5. **Auto-scroll root cause (task 107, folded):** the wizard-chat
    "stuck at top" bug was a geometry break — `.join`'s automatic minimum
    size grew with content, so the log's flex/overflow never engaged and
