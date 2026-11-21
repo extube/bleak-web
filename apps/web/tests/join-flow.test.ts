@@ -1012,7 +1012,7 @@ describe('JoinFlow — creation-chat geometry (tz11-06 bug round, task 107 + Con
     await screen.findByText(ru['join.wizard.intro.title']);
     await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
     await screen.findByText(ru['join.wizard.name.question']);
-    const log = document.querySelector('ul.log') as HTMLElement;
+    const log = document.querySelector('div.log') as HTMLElement;
     const composer = document.querySelector('.composer') as HTMLElement;
     expect(log).toBeTruthy();
     expect(composer).toBeTruthy();
@@ -1127,7 +1127,7 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
     parsedFixtures.length = 0;
   });
 
-  it('the computed chain from ul.log to the app-shell is a bounded flex column ending in the log as the single scroll container', async () => {
+  it('the computed chain from div.log to the app-shell is a bounded flex column ending in the log as the single scroll container', async () => {
     injectCascadeFixtureCss();
     const wrapper = seedShellAndWrapper();
     mockedResolve.mockResolvedValue({ roomAddress: room.address });
@@ -1157,7 +1157,7 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
     await screen.findByText(ru['join.wizard.intro.title']);
     await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
     await screen.findByText(ru['join.wizard.name.question']);
-    const log = document.querySelector('ul.log') as HTMLElement;
+    const log = document.querySelector('div.log') as HTMLElement;
     expect(log).toBeTruthy();
 
     // GATE, on-state on the LIVE rendered tree: the wrapper matches the
@@ -1193,7 +1193,7 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
     const pShell = parsedShellOf((shell as HTMLElement).outerHTML);
     // The wrapper is the shell's only element child on `/` (no TabBar).
     const pWrap = pShell.children[0] as HTMLElement;
-    const pLog = pShell.querySelector('ul.log') as HTMLElement;
+    const pLog = pShell.querySelector('div.log') as HTMLElement;
     expect(pWrap).toBeTruthy();
     expect(pLog).toBeTruthy();
     expect(pWrap.className).toContain('join');

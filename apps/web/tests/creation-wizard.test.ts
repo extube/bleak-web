@@ -19,6 +19,7 @@ import { join, sep } from 'node:path';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import CreationWizard from '../src/lib/components/join/CreationWizard.svelte';
+import { codeHue } from '../src/lib/avatar/traits';
 import { ru } from '../src/lib/i18n/ru';
 import type { PersonaDraft, PersonaError } from '../src/lib/join';
 
@@ -38,6 +39,13 @@ function raw(key: keyof typeof ru, params?: Record<string, string>): string {
     text = text.replaceAll(`{${name}}`, value);
   }
   return text;
+}
+
+/** The shared transcript scroller (the wizard's bounded .log wrapper). */
+function logElement(container: HTMLElement): HTMLElement {
+  const log = container.querySelector('div.log') as HTMLElement;
+  expect(log).toBeTruthy();
+  return log;
 }
 
 /**
@@ -60,16 +68,17 @@ function submitComposer(): void {
   fireEvent.submit(form);
 }
 
-/** Agent (interviewer) bubble texts in transcript order. */
+/** Agent (interviewer) bubble texts in transcript order — the shared
+ * MessageBubble renders agent lines as `li.row` (theirs), mine as `li.row.mine`. */
 function agentLines(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('li.agent .content')].map(
+  return [...container.querySelectorAll('li.row:not(.mine) .content')].map(
     (el) => (el as HTMLElement).textContent ?? ''
   );
 }
 
 /** Mine (answer) bubble texts in transcript order. */
 function myLines(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('li.me .content')].map(
+  return [...container.querySelectorAll('li.row.mine .content')].map(
     (el) => (el as HTMLElement).textContent ?? ''
   );
 }
@@ -377,15 +386,32 @@ describe('CreationWizard — the auto-chat interview', () => {
     expect(myLines(container)).toEqual(['Я', ru['join.wizard.contact.skip']]);
   });
 
-  it('the mascot bubbles carry the Deepa hue coding (the MessageBubble pattern, deterministic per mascot id)', () => {
-    const css = source('src/lib/components/join/WizardBubble.svelte');
-    expect(css).toMatch(/\.bubble\.mine\s*\{[^}]*background:\s*var\(--color-surface-elevated\)/);
-    expect(css).toMatch(/\.bubble\.theirs\s*\{[^}]*background:\s*var\(--color-surface\)/);
-    expect(css).toMatch(/\.bubble\.deepa-1\s*\{[^}]*background:\s*var\(--color-deepa-1\)/);
-    expect(css).toMatch(/\.bubble\.deepa-1\s*\{[^}]*color:\s*var\(--color-deepa-ink-1\)/);
-    expect(css).toContain("WIZARD_MASCOT_ID = 'bleak-mascot'");
-    expect(css).toContain('codeHue(WIZARD_MASCOT_ID)');
-    expect(css).toContain('BleakMascot');
+  it('the mascot bubbles carry the Deepa hue coding via the SHARED MessageBubble (the MessageBubble pattern, deterministic per mascot id — tz11-09: no replica)', async () => {
+    const container = await startWizard();
+    // The agent (theirs) bubble carries the mascot's hue class and the
+    // avatar row — rendered by the shared MessageBubble.
+    const agentRow = container.querySelector('li.row:not(.mine)');
+    const agentBubble = agentRow?.querySelector('.bubble');
+    expect(agentBubble?.classList.contains(codeHue('bleak-mascot'))).toBe(true);
+    expect(agentRow?.querySelector('.avatar svg')).toBeTruthy();
+    // Mine never take a hue (the transcript rule) and carry no avatar —
+    // asserted on the first sent answer once a mine row exists.
+    await typeAndSend('Аня');
+    await screen.findByText(ru['join.wizard.public.question']);
+    const mineRow = container.querySelector('li.row.mine');
+    expect(mineRow).toBeTruthy();
+    const mineBubble = mineRow?.querySelector('.bubble');
+    expect(
+      [...(mineBubble?.classList ?? [])].some((c) => c.startsWith('deepa-'))
+    ).toBe(false);
+    expect(mineRow?.querySelector('.avatar')).toBeNull();
+    // The wizard has NO hand-rolled bubble replica of its own: no Deepa
+    // CSS, no WizardBubble import — the styling lives in the shared
+    // chats component. The mascot hue seed stays a stable wizard const.
+    const src = source('src/lib/components/join/CreationWizard.svelte');
+    expect(src).not.toMatch(/deepa-1/);
+    expect(src).not.toMatch(/WizardBubble/);
+    expect(src).toContain("WIZARD_MASCOT_ID = 'bleak-mascot'");
   });
 
   it('back navigation revisits the previous question with the answer preserved', async () => {
@@ -605,28 +631,43 @@ describe('CreationWizard — §24 second batch (Concept §24, DESIGN §4.16.1)',
     expect(document.querySelectorAll('.back-right')).toHaveLength(1);
   });
 
-  it('item 12 (tz11-06 bug round, task 107; re-pinned for bug round 2, task 109): smooth auto-scroll re-pins the newest message above the composer on every line AND step swap, with a bounded settled-layout re-assert; the log is the real scroll container (source pin)', () => {
+  it('item 12 (tz11-09, DESIGN §4.18): the autoscroll IS the shared main-room machinery — the wizard drives ChatTranscript (smooth pin + composer pinKey), the shared source carries the proven pin; the bounded chain stays in JoinFlow', () => {
     const src = source('src/lib/components/join/CreationWizard.svelte');
-    const effect = src.slice(src.indexOf('§24 item 12'));
-    expect(effect).toMatch(/void transcript\.length/);
-    expect(effect).toMatch(/void wizard\.step/);
-    // SMOOTH scroll to the bottom (instant under prefers-reduced-motion) —
-    // one bottom-pin per content change...
-    expect(effect).toMatch(
-      /el\.scrollTo\(\{\s*top: el\.scrollHeight,\s*behavior: reducedMotion \? 'auto' : 'smooth'\s*\}\)/
+    // The wizard no longer simulates the chat: the interview log mounts
+    // the SHARED ChatTranscript, fed the transcript lines and bound to
+    // the wizard's scroller, in smooth mode keyed on the composer step.
+    expect(src).toMatch(/import ChatTranscript/);
+    expect(src).toMatch(
+      /<ChatTranscript\s*\n\s*lines=\{transcript\}\s*\n\s*scroller=\{logEl\}\s*\n\s*smooth\s*\n\s*pinKey=\{wizard\.step\}/
     );
-    // ...plus a bounded settled-layout re-assert: one more pin two rAFs
-    // later (the keyed composer swap remounts the panel and late font
-    // metrics reflow the bubbles AFTER the first pin), cancelled on the
-    // effect's re-run/unmount and skipped under reduced motion.
-    expect(effect).toMatch(/requestAnimationFrame\(\(\) => \{/);
-    expect(effect).toMatch(/if \(el\.isConnected\) pinToBottom\(el\)/);
-    expect(effect).toMatch(/return \(\) => \{\s*try \{\s*cancelAnimationFrame\(frame\)/);
-    expect(effect).toMatch(/if \(reducedMotion\) return;/);
+    // No local pin code left in the wizard source (the replica is gone).
+    expect(src).not.toMatch(/pinToBottom|requestAnimationFrame/);
     // §4.17 item 3 + bug-report bottom padding: the composer keeps its
-    // full fixed height (flex: none) and the log carries BOTTOM PADDING.
+    // full fixed height (flex: none) and the log carries BOTTOM PADDING
+    // (the task-107/109 container infrastructure).
     expect(src).toMatch(/\.composer\s*\{[^}]*flex:\s*none/);
     expect(src).toMatch(/\.log\s*\{[^}]*padding:\s*0 0 var\(--space-2\)/);
+    // The proven pin itself lives in the SHARED component (extracted
+    // from the main room): the smooth bottom pin — instant under
+    // prefers-reduced-motion — re-run on every new line AND pinKey
+    // (the composer step swap), plus a bounded settled-layout
+    // re-assert: one more pin two rAFs later (the keyed composer swap
+    // remounts the panel and late font metrics reflow the bubbles
+    // AFTER the first pin), cancelled on the effect's re-run/unmount
+    // and skipped under reduced motion.
+    const shared = source('src/lib/components/chats/ChatTranscript.svelte');
+    expect(shared).toMatch(/void lines;/);
+    expect(shared).toMatch(/void pinKey;/);
+    expect(shared).toMatch(
+      /el\.scrollTo\(\{\s*top: el\.scrollHeight,\s*behavior: reducedMotion \? 'auto' : 'smooth'\s*\}\)/
+    );
+    expect(shared).toMatch(/requestAnimationFrame\(\(\) => \{/);
+    expect(shared).toMatch(/if \(el\.isConnected\) pinToBottom\(el\)/);
+    expect(shared).toMatch(/return \(\) => \{\s*try \{\s*cancelAnimationFrame\(frame\)/);
+    expect(shared).toMatch(/if \(reducedMotion\) return;/);
+    // The main room's stick contract is on the same machinery (extracted
+    // verbatim from routes/chats/[address]).
+    expect(shared).toMatch(/isNearBottom/);
     // The bounded height chain lives in JoinFlow — INCLUDING the
     // page-level .join wrapper ABOVE the component (routes/+page.svelte
     // renders JoinFlow inside its own wrapper; tz11-08 root cause: with
@@ -650,19 +691,14 @@ describe('CreationWizard — §24 second batch (Concept §24, DESIGN §4.16.1)',
   });
 });
 
-describe('CreationWizard — item 12 auto-scroll (tz11-06 bug round, task 107; owner report docs/bugs/wizard-autoscroll-1.log)', () => {
+describe('CreationWizard — item 12 auto-scroll via the SHARED transcript (tz11-06 task 107 + tz11-08 task 109; tz11-09: the machinery is ChatTranscript now)', () => {
   /**
    * happy-dom runs no layout engine, so the scroll contracts are verified
-   * behaviorally by spying on the log element's scrollTo (the effect's
-   * real call) — the geometry itself (the log being the actual scroll
-   * container, the composer below it) is pinned structurally here and in
-   * join-flow.test.ts.
+   * behaviorally by spying on the scroller's scrollTo (the shared
+   * component's real call — ChatTranscript pins the CALLER'S scroller);
+   * the geometry itself (the log being the actual scroll container, the
+   * composer below it) is pinned structurally here and in join-flow.test.ts.
    */
-  function logElement(container: HTMLElement): HTMLElement {
-    const log = container.querySelector('ul.log') as HTMLElement;
-    expect(log).toBeTruthy();
-    return log;
-  }
 
   it('auto-scrolls to the log bottom SMOOTHLY when the chat opens', async () => {
     const spy = vi.spyOn(HTMLElement.prototype, 'scrollTo').mockImplementation(() => {});
@@ -705,7 +741,7 @@ describe('CreationWizard — item 12 auto-scroll (tz11-06 bug round, task 107; o
   it('structure: the composer sits BELOW the log as a flex sibling — the newest message can never be cut off behind the input bar', async () => {
     const container = await startWizard();
     const stage = container.querySelector('div.stage') as HTMLElement;
-    const log = container.querySelector('ul.log') as HTMLElement;
+    const log = logElement(container);
     const composer = container.querySelector('.composer') as HTMLElement;
     expect(stage).toBeTruthy();
     // The composer is NOT inside the scrolled area — no sticky overlay of
@@ -750,7 +786,7 @@ describe('CreationWizard — item 12 REAL-GEOMETRY cascade contract (tz11-08, ta
     document.head.appendChild(style);
     try {
       await startWizard();
-      const log = document.querySelector('ul.log') as HTMLElement;
+      const log = document.querySelector('div.log') as HTMLElement;
       const composer = document.querySelector('.composer') as HTMLElement;
       expect(log).toBeTruthy();
       // The log IS a scroll container in the computed cascade...
@@ -803,7 +839,7 @@ describe('CreationWizard — item 12 REAL-GEOMETRY cascade contract (tz11-08, ta
     let spy: ReturnType<typeof vi.spyOn> | null = null;
     try {
       const container = await startWizard();
-      const log = container.querySelector('ul.log') as HTMLElement;
+      const log = container.querySelector('div.log') as HTMLElement;
       spy = vi.spyOn(log, 'scrollTo').mockImplementation(() => {});
       // One send: the synchronous pin ran in the effect (the mount effect
       // scheduled a frame that the send's effect re-run cancelled).

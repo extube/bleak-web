@@ -1,10 +1,20 @@
 <script lang="ts">
   /**
    * CreationWizard (Concept §22.3 item 2, DESIGN §4.16.2; §23.2 amendments
-   * 5.1–5.9): the multi-step CHAT-style creation wizard replacing the old
-   * single form. The BleakMascot (tz11-01) asks every question in a dialog
-   * bubble (WizardBubble: the MessageBubble styling incl. the Deepa hue
-   * coding); the pure machine lives in lib/join.ts (reduceWizard).
+   * 5.1–5.9; §4.18 owner order — Concept §26): the multi-step CHAT-style
+   * creation wizard. The chat itself is NOT simulated here: the interview
+   * log IS the real main-room chat machinery — the shared ChatTranscript
+   * (lib/components/chats, extracted from /chats/[address]) renders the
+   * message list and owns the proven scrolling/autoscroll behavior
+   * (smooth §24-item-12 pin, tasks 107/109); the bubbles are the shared
+   * MessageBubble (the mascot's Deepa hue coding + avatar row). The
+   * wizard is the DRIVER: its pure machine (lib/join.ts reduceWizard)
+   * produces the events and this component FEEDS the mascot's questions,
+   * the sent answers (incl. the theme/interest picks), the placeholders
+   * and the step flow into the shared chat. The §24/§25 composer
+   * contracts (revert arrow ⇄ send swap, clear x, counter, suggestions
+   * above the input, fixed-height composer, fade transitions) live in
+   * the wizard's composer below the chat — untouched.
    *
    * Steps: intro → name (required) → public bio → private bio → contact
    * (TYPE first: phone / email / NICKNAME — §23.2 5.4: the messenger is a
@@ -52,7 +62,7 @@
    * - 10: the device-storage footer note is removed.
    * - 11: after a send the next input is auto-focused.
    * - 12: auto-scroll keeps the newest message pinned right above the
-   *   composer.
+   *   composer — via the SHARED transcript's smooth pin (tz11-09).
    * - 13: non-standard sub-steps (contact type, themes, topics) keep a
    *   RIGHT-aligned back button.
    *
@@ -75,6 +85,8 @@
     type WizardEvent,
     type WizardState
   } from '#lib/join';
+  import { bubbleAriaLabel } from '#lib/chats/view';
+  import ChatTranscript, { type ChatLine } from '#lib/components/chats/ChatTranscript.svelte';
   import {
     INTEREST_CATALOG,
     INTEREST_GROUPS,
@@ -84,7 +96,14 @@
   import { MAX_CONTACT_CARD } from '#lib/stores/contactCard';
   import { MAX_INTERESTS } from '#lib/stores/interests';
   import BleakMascot from '#lib/components/BleakMascot.svelte';
-  import WizardBubble from './WizardBubble.svelte';
+
+  /**
+   * The wizard interviewer's stable identity: the Deepa hue coding needs a
+   * deterministic seed — the mascot always renders with the same hue,
+   * everywhere the wizard runs (codeHue's fnv1a % 5 is stable per string).
+   * The seed feeds the SHARED MessageBubble hue coding (no replica).
+   */
+  const WIZARD_MASCOT_ID = 'bleak-mascot';
 
   interface Props {
     /** Server-side error mapping while the creation POST runs. */
@@ -178,23 +197,32 @@
     return t('join.wizard.counter', { n: String(value.length), max: String(max) });
   });
 
-  interface ChatLine {
-    who: 'agent' | 'me';
-    text: string;
-  }
-
   /**
-   * The visible transcript, derived from the machine state + the §24
-   * history trackers: every question EVER reached (item 3 — nothing is
-   * un-asked by going back) as an agent bubble, each SENT answer as a
-   * mine bubble (item 1 — snapshots, never the live input value), skip
-   * copy for skipped questions and the finished-theme summaries as the
-   * user's picks (item 3).
+   * The visible transcript — the wizard DRIVES the shared chat (§4.18):
+   * derived from the machine state + the §24 history trackers, mapped
+   * onto the shared ChatLine model. Every question EVER reached (item 3
+   * — nothing is un-asked by going back) is an agent line (the mascot's
+   * Deepa hue + avatar via the shared MessageBubble), each SENT answer
+   * is a mine line (item 1 — snapshots, never the live input value),
+   * skip copy for skipped questions and the finished-theme summaries as
+   * the user's picks (item 3).
    */
   const transcript = $derived.by(() => {
     const loc = get(locale);
     const tr = (key: MessageKey, params?: Record<string, string>): string =>
       translate(loc, key, params);
+    const speaker = translate(loc, 'join.wizard.agent.name');
+    /** The interviewer's line: the mascot hue + avatar, no meta. */
+    const agent = (text: string): ChatLine => ({
+      who: 'agent',
+      text,
+      hueSeed: WIZARD_MASCOT_ID,
+      mascot: true,
+      label: bubbleAriaLabel(speaker, text)
+    });
+    /** The user's sent answer (right-aligned muted; no speaker name yet
+     *  — the row announces its content, no redundant aria-label). */
+    const mine = (text: string): ChatLine => ({ who: 'me', text });
     /** The step was asked at least once (the question stays in the log). */
     const asked = (idx: number): boolean => reached >= idx;
     /** The step was completed at least once (the answer is sent). */
@@ -202,40 +230,38 @@
     const lines: ChatLine[] = [];
     // name
     if (asked(1)) {
-      lines.push({ who: 'agent', text: tr('join.wizard.name.question') });
+      lines.push(agent(tr('join.wizard.name.question')));
       if (done(1) && sentName !== '') {
-        lines.push({ who: 'me', text: sentName });
-        lines.push({ who: 'agent', text: tr('join.wizard.name.answer', { name: sentName }) });
+        lines.push(mine(sentName));
+        lines.push(agent(tr('join.wizard.name.answer', { name: sentName })));
       }
     }
     // public bio
     if (asked(2)) {
-      lines.push({ who: 'agent', text: tr('join.wizard.public.question') });
-      if (done(2) && sentPublic !== '') lines.push({ who: 'me', text: sentPublic });
+      lines.push(agent(tr('join.wizard.public.question')));
+      if (done(2) && sentPublic !== '') lines.push(mine(sentPublic));
     }
     // private bio
     if (asked(3)) {
-      lines.push({ who: 'agent', text: tr('join.wizard.private.question') });
-      if (done(3) && sentPrivate !== '') lines.push({ who: 'me', text: sentPrivate });
+      lines.push(agent(tr('join.wizard.private.question')));
+      if (done(3) && sentPrivate !== '') lines.push(mine(sentPrivate));
     }
     // contact: type first, then the value (§14.1.3 — local-only, skippable)
     if (asked(4)) {
-      lines.push({ who: 'agent', text: tr('join.wizard.contact.question') });
+      lines.push(agent(tr('join.wizard.contact.question')));
       if (done(4) && sentKind !== undefined) {
-        lines.push({
-          who: 'me',
-          text: sentKind === null ? tr('join.wizard.contact.skip') : kindLabelOf(sentKind)
-        });
+        lines.push(
+          mine(sentKind === null ? tr('join.wizard.contact.skip') : kindLabelOf(sentKind))
+        );
       }
     }
     if (asked(5) && sentKind !== null && sentKind !== undefined) {
-      lines.push({ who: 'agent', text: tr('join.wizard.contact.enter', { kind: kindLabelOf(sentKind) }) });
+      lines.push(agent(tr('join.wizard.contact.enter', { kind: kindLabelOf(sentKind) })));
       if (done(5)) {
         // A value was sent, or the value step was left via skip.
-        lines.push({
-          who: 'me',
-          text: sentContactText !== '' ? sentContactText : tr('join.wizard.contact.skip')
-        });
+        lines.push(
+          mine(sentContactText !== '' ? sentContactText : tr('join.wizard.contact.skip'))
+        );
       }
     }
     // themes (§23.2 5.5/5.7): the badges question stays; each theme the
@@ -244,94 +270,37 @@
     // line (the picks as the user's messages, item 3); an explicit skip
     // without any picks logs the skip copy.
     if (asked(6)) {
-      lines.push({ who: 'agent', text: tr('join.wizard.interests.question') });
+      lines.push(agent(tr('join.wizard.interests.question')));
       for (const round of pickRounds) {
-        lines.push({
-          who: 'agent',
-          text: tr('join.wizard.interests.pick_question', { group: groupTitle(round.group, loc) })
-        });
+        lines.push(
+          agent(tr('join.wizard.interests.pick_question', { group: groupTitle(round.group, loc) }))
+        );
         if (round.answered) {
           const theme = finishedThemes.find((t) => t.group === round.group);
           if (theme) {
             const picked = INTEREST_CATALOG.filter((entry) => theme.keys.includes(entry.key));
-            lines.push({
-              who: 'me',
-              text: `${groupTitle(theme.group, loc)}: ${picked.map((e) => interestTitle(e, loc)).join(' · ')}`
-            });
+            lines.push(
+              mine(
+                `${groupTitle(theme.group, loc)}: ${picked.map((e) => interestTitle(e, loc)).join(' · ')}`
+              )
+            );
           }
         }
       }
       if (themesSkipped && finishedThemes.length === 0) {
-        lines.push({ who: 'me', text: tr('join.wizard.interests.skip') });
+        lines.push(mine(tr('join.wizard.interests.skip')));
       }
     }
     return lines;
   });
 
-  // §24 item 12 (tz11-06 bug round, task 107; re-fixed in bug round 2,
-  // task 109): keep the newest message pinned right above the composer —
-  // re-run on every new line AND every step swap (the composer height).
-  // SMOOTH scrolling (owner report); instant under prefers-reduced-motion
-  // (the base.css catch-all only covers CSS animations, not JS scrolling).
-  // The log IS the scroll container and the whole §25 height chain is
-  // bounded — JoinFlow bounds the persona card to the viewport height
-  // (.join.persona-step / .card.composer-card min-height: 0) AND, since
-  // bug round 2, the page-level .join wrapper above JoinFlow (the
-  // recurrence root cause: with the wrapper's automatic minimum size
-  // unbounded, the shell grew with the transcript, the PAGE was the
-  // scroll container and this scroll was a visual no-op). The composer
-  // sits BELOW the log in normal flex flow, so the newest message can
-  // never be cut off behind the input bar.
-  const reducedMotion =
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  /** One bottom-pin scroll — the effect's real call (spied in tests). */
-  function pinToBottom(el: HTMLElement): void {
-    try {
-      el.scrollTo({
-        top: el.scrollHeight,
-        behavior: reducedMotion ? 'auto' : 'smooth'
-      });
-    } catch {
-      /* no scroll available (tests) — visual nicety only */
-    }
-  }
-
-  $effect(() => {
-    void transcript.length;
-    void wizard.step;
-    const el = logEl;
-    if (!el) return;
-    pinToBottom(el);
-    if (reducedMotion) return;
-    // Re-assert after the layout settles (two rAFs): a smooth scroll
-    // started in this effect can land short when the DOM keeps moving
-    // after it — the keyed composer swap remounts the panel, and late
-    // font/metric shifts reflow the bubbles after the first pin. Bounded
-    // re-assert: one more pin two frames later, cancelled when this
-    // effect re-runs (every content change re-pins immediately anyway)
-    // or the component unmounts; it fires within ~2 frames of the
-    // content change, before a human scroll can compete with it.
-    let frame = 0;
-    try {
-      frame = requestAnimationFrame(() => {
-        frame = requestAnimationFrame(() => {
-          if (el.isConnected) pinToBottom(el);
-        });
-      });
-    } catch {
-      /* no rAF available (tests) — the synchronous pin above already ran */
-    }
-    return () => {
-      try {
-        cancelAnimationFrame(frame);
-      } catch {
-        /* no rAF available (tests) */
-      }
-    };
-  });
+  // §24 item 12: the auto-scroll is the SHARED transcript's proven pin
+  // (tz11-09, DESIGN §4.18) — the wizard passes its `.log` scroller to
+  // ChatTranscript with `smooth` (tasks 107/109: the smooth bottom pin +
+  // the bounded settled-layout re-assert, instant under reduced motion)
+  // and `pinKey` (every composer step swap). The bounded §25 height
+  // chain (JoinFlow persona-step → card → this stage → .log) stays as
+  // the container infrastructure the real chat mounts into.
 
   const themeTopics = $derived(
     wizard.interestGroup === null
@@ -660,13 +629,24 @@
          ONE fading unit — it mounts fresh at every branch boundary
          (intro ⇄ chat, creating ⇄ chat) and replays the fade there. -->
     <div class="stage">
-      <!-- The interview log: the mascot asks in chat bubbles, the answers
-           land as mine bubbles; new lines are announced (role=log). -->
-      <ul class="log" bind:this={logEl} role="log" aria-live="polite" aria-label={t('join.wizard.log')}>
-        {#each transcript as line, i (i)}
-          <WizardBubble who={line.who} text={line.text} />
-        {/each}
-      </ul>
+      <!-- The interview log: the SHARED main-room chat (§4.18, tz11-09) —
+           ChatTranscript renders the message list and owns the proven
+           smooth autoscroll; the wrapper is the bounded scroller the
+           component pins (role=log announces new lines). -->
+      <div
+        class="log"
+        bind:this={logEl}
+        role="log"
+        aria-live="polite"
+        aria-label={t('join.wizard.log')}
+      >
+        <ChatTranscript
+          lines={transcript}
+          scroller={logEl}
+          smooth
+          pinKey={wizard.step}
+        />
+      </div>
 
       <!-- §23.2 5.2: the composer is fixed at the bottom of the card; the
            log above scrolls when it overflows. -->
@@ -850,8 +830,17 @@
     font-size: 14px;
     max-width: 40ch;
   }
+  /* The interview log: the bounded scroller the SHARED ChatTranscript
+   * pins (§4.18, tz11-09). The list styling + the bubble rendering live
+   * in the shared component; the wrapper keeps the task-107/109
+   * container contract (the log is the ONE scroll container, flex: 1 +
+   * min-height: 0, bottom padding so the newest bubble never touches
+   * the composer edge) and hands the transcript its tighter rhythm via
+   * the --transcript-gap custom property. */
   .log {
-    list-style: none;
+    /* §23.2 5.2: the chat content scrolls when it overflows; the tighter
+     * creation-chat rhythm rides to the shared list via --transcript-gap. */
+    --transcript-gap: var(--space-2);
     margin: 0;
     /* tz11-06 (task 107): bottom padding — the newest bubble never touches
      * the composer edge (the fixed input + suggestion badges sit below
@@ -859,8 +848,6 @@
     padding: 0 0 var(--space-2);
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
-    /* §23.2 5.2: the chat content scrolls when it overflows. */
     flex: 1;
     min-height: 0;
     overflow-y: auto;

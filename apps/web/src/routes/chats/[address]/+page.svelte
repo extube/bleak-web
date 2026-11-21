@@ -47,11 +47,16 @@
     chatStatus,
     isChatDone,
     isMyMessage,
-    isNearBottom,
     mergeMessages,
     messageTime,
     speakerName
   } from '#lib/chats/view';
+  // §4.18 (tz11-09): the transcript core — the message list rendering +
+  // the scrolling/autoscroll machinery + the jump chip — is the SHARED
+  // ChatTranscript (the same machinery the creation chat drives). The
+  // page keeps its own .scroll/.column chrome (page-owned geometry, the
+  // §4.14.4 sheet width contract) and the states around the transcript.
+  import ChatTranscript, { type ChatLine } from '#lib/components/chats/ChatTranscript.svelte';
   import { locale, translate } from '#lib/i18n/locale';
   import { counterpartAddress } from '#lib/room/relationships';
   import {
@@ -61,7 +66,6 @@
   } from '#lib/stores/contactCard';
   import { ensureSummary, summaries, type SummaryRequest } from '#lib/stores/summaryCache';
   import SummarySheet from '#lib/components/SummarySheet.svelte';
-  import MessageBubble from '#lib/components/chats/MessageBubble.svelte';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import Chip from '#lib/components/Chip.svelte';
@@ -82,10 +86,11 @@
   let notFound = $state(false);
   let banner = $state<null | { kind: 'network' | 'api'; message: string | null }>(null);
 
-  // --- transcript scroll state (§3.5) --------------------------------------
+  // --- transcript scroll container (§3.5) -----------------------------------
+  // The element is BOUND by the page (the .scroll chrome stays page-owned)
+  // and handed to the shared ChatTranscript, which owns the stick/autoscroll
+  // machinery on it (§4.18).
   let scrollEl: HTMLElement | null = $state(null);
-  /** Near the bottom ⇒ auto-scroll on new messages; else the chip shows. */
-  let stick = $state(true);
   /** aria-live announcement for newly polled messages. */
   let announcedName = $state<string | null>(null);
 
@@ -239,7 +244,6 @@
     loading = true;
     notFound = false;
     banner = null;
-    stick = true;
     (async () => {
       try {
         await syncChat();
@@ -315,25 +319,9 @@
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   });
 
-  // --- auto-scroll (AC 3) ---------------------------------------------------
-  function onScroll(): void {
-    const el = scrollEl;
-    if (!el) return;
-    stick = isNearBottom(el.scrollTop, el.clientHeight, el.scrollHeight);
-  }
-  $effect(() => {
-    const el = scrollEl;
-    if (!el) return;
-    void messages; // dependency: auto-scroll when new messages land
-    if (stick) el.scrollTop = el.scrollHeight;
-  });
-
-  function jumpToBottom(): void {
-    const el = scrollEl;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-    stick = true;
-  }
+  // --- transcript rendering: the shared ChatTranscript (§4.18) ------------
+  // The stick/autoscroll machinery (isNearBottom, the instant bottom pin,
+  // the jump chip) lives in the shared component, wired onto scrollEl.
 
   // --- back control (§1.3): history back, fallback /chats --------------------
   function goBack(): void {
@@ -347,7 +335,6 @@
   // --- derived presentation ---------------------------------------------------
   const nameOf = $derived((addr: string): string => speakerName(addr, users));
   const warmingUp = $derived(!loading && !notFound && messages.length === 0);
-  const showChip = $derived(!stick && messages.length > 0);
 
   /** hh:mm message time (Concept §8.1.8) — absolute, active locale. */
   function timeOf(iso: string): string {
@@ -357,6 +344,28 @@
   /** Locale day+month date label above the first message (Concept §8.1.8). */
   const dateLabel = $derived(
     messages[0] ? chatDateLabel(messages[0].created_at, $locale) : null
+  );
+
+  /**
+   * The transcript lines, mapped onto the shared ChatLine model (§4.18):
+   * mine → right-aligned muted; theirs → the speaker's Deepa hue with
+   * the speaker + hh:mm meta row and the «speaker: text» accessible
+   * name — exactly the rendering the page owned before the extraction.
+   */
+  const chatLines = $derived.by(
+    (): ChatLine[] =>
+      messages.map((message) => {
+        const speaker = nameOf(message.from);
+        return {
+          key: message.tx_id,
+          who:
+            me !== null && isMyMessage(message, me.userAddress) ? ('me' as const) : ('agent' as const),
+          text: message.content,
+          hueSeed: message.from,
+          meta: { speaker, time: timeOf(message.created_at) },
+          label: bubbleAriaLabel(speaker, message.content)
+        };
+      })
   );
 
   // --- contact share (§4.13.3 → §4.15.B / Concept §15.2 cutover) ------------
@@ -591,7 +600,7 @@
       </div>
     {/if}
 
-    <main class="scroll" bind:this={scrollEl} onscroll={onScroll}>
+    <main class="scroll" bind:this={scrollEl}>
       <div class="column">
         {#if notFound}
           <div class="not-found">
@@ -610,40 +619,25 @@
               </li>
             {/each}
           </ul>
+        {:else if warmingUp}
+          <div class="warming" role="status">
+            <span class="warming-glyph"><PixelIcon name="dialog-lines" size={16} /></span>
+            <p>{translate($locale, 'chat.warming_up')}</p>
+          </div>
         {:else}
-          {#if warmingUp}
-            <div class="warming" role="status">
-              <span class="warming-glyph"><PixelIcon name="dialog-lines" size={16} /></span>
-              <p>{translate($locale, 'chat.warming_up')}</p>
-            </div>
-          {:else}
-            {#if dateLabel !== null}
-              <!-- Concept §8.1.8: the locale date label sits centered at the
-                   top of the transcript, above the first message. -->
-              <p class="date-label">{dateLabel}</p>
-            {/if}
-            <ol class="transcript">
-              {#each messages as message (message.tx_id)}
-                {@const mine = me !== null && isMyMessage(message, me.userAddress)}
-                {@const speaker = nameOf(message.from)}
-                <MessageBubble
-                  {message}
-                  {mine}
-                  speaker={speaker}
-                  time={timeOf(message.created_at)}
-                  label={bubbleAriaLabel(speaker, message.content)}
-                />
-              {/each}
-            </ol>
-          {/if}
+          <!-- §4.18 (tz11-09): the shared transcript core — the date label,
+               the message list and the jump chip render here; the stick/
+               autoscroll machinery is wired onto THIS page's .scroll
+               container (behavior-neutral: the same DOM the page rendered
+               before the extraction). -->
+          <ChatTranscript
+            lines={chatLines}
+            scroller={scrollEl}
+            dateLabel={dateLabel}
+            resetKey={address}
+          />
         {/if}
       </div>
-      {#if showChip}
-        <button type="button" class="jump-chip" onclick={jumpToBottom}>
-          <PixelIcon name="back" size={16} />
-          {translate($locale, 'chat.scroll_bottom')}
-        </button>
-      {/if}
     </main>
 
     <footer class="footer">
@@ -826,6 +820,9 @@
     margin: 0 auto;
     width: 100%;
   }
+  /* The skeleton transcript list (§3.5 states): the real transcript
+   * styling lives in the shared ChatTranscript (§4.18); this rule only
+   * dresses the skeleton's placeholder list while loading. */
   .transcript {
     list-style: none;
     margin: 0;
@@ -833,12 +830,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-  }
-  .date-label {
-    margin: 0 0 var(--space-3);
-    text-align: center;
-    font-size: 12px;
-    color: var(--color-text-muted);
   }
   .warming {
     flex: 1;
@@ -894,23 +885,6 @@
     padding: 0 var(--space-5);
     font-weight: 600;
     font-size: 14px;
-    transition: opacity 120ms ease-out;
-  }
-  .jump-chip {
-    position: sticky;
-    bottom: var(--space-2);
-    align-self: center;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    min-height: 40px;
-    padding: 0 var(--space-4);
-    background: var(--color-surface-elevated);
-    border: 1px solid var(--color-text-disabled-strong);
-    color: var(--color-text);
-    border-radius: var(--radius-pill);
-    font-size: 14px;
-    font-weight: 600;
     transition: opacity 120ms ease-out;
   }
   .footer {
