@@ -459,9 +459,26 @@
      * the messages area becomes the ONLY scrollable region with its own
      * scroll-port, and the form area (flex: none) sits fixed at the
      * bottom of that area — geometry from the layout itself, no
-     * measuring JS. */
+     * measuring JS.
+     *
+     * tz11-12 (task 113 — Concept §28, DESIGN §4.17.1): this wrapper IS
+     * the MAIN BLOCK (the space between the bottom/keyboard and the
+     * header — nothing sits above it on the creation screen): a
+     * fixed-height flex container holding EXACTLY two inner blocks —
+     * the MESSENGER (the log: flex: 1 + min-height: 0, the single
+     * scroll-port) and the USER-INPUT-FORM BLOCK (the composer:
+     * flex: none, pinned at the block's bottom; ALL step-specific
+     * forms — answer input, contact choices, theme badges, topic
+     * chips — live in it, so SWITCHING STEPS NEVER SCROLLS THE MAIN).
+     * The overflow clip below closes the last hand-off path: content
+     * that cannot shrink into the two inner regions (the messenger
+     * absorbs the growth; the form block keeps its height — it cannot
+     * scroll) is CLIPPED at the main block instead of growing the shell
+     * and handing scrolling back to the PAGE. */
     height: 100vh;
     height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: hidden;
   }
   /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the card content
    * mounts fresh on every join-step swap (code ⇄ preview ⇄ wizard ⇄

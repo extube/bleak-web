@@ -2960,6 +2960,30 @@ styles) untouched:
    edge of the screen; the message area above it expands to fill all
    remaining vertical space.
 4. Per-item and color styling unchanged — size/layout proportions only.
+
+### 4.17.1 owner refinement (2026-11-21, owner-approved Concept §28)
+
+**Main block never scrolls:** the creation-dialog screen structure is
+refined — the **main block** = the space between the **bottom (or
+keyboard)** and the **header**; it NEVER scrolls itself (no main/page
+scrolling at all). Inside the main block exactly two blocks:
+1. **Messenger** (messages area) — the ONLY scrollable element (its own
+   internal scroll per §27).
+2. **User-input-form block** — answer input, **theme choosing**,
+   **contacts form**, and all step-specific form UI — CANNOT scroll,
+   fixed at the bottom of the main block.
+Header and keyboard area stay fixed; only the messenger block scrolls;
+visual styles unchanged (§25 item 4). Implementation: the outer main
+block is a fixed-height flex container (header outside it), with the
+messenger as `flex:1 min-height:0` (the single scroll-port) and the form
+block as `flex:none` pinned at the main block's bottom; step forms (theme
+choosing, contacts) live in the form block, so switching steps never
+scrolls the main. **Owner refinement follow-up (task 113, landed):** the
+main block additionally clips (`overflow-x/y: hidden`) — content that
+cannot shrink into the two inner regions is clipped at the main block
+instead of growing the shell and handing scrolling back to the page;
+the step forms were verified already inside the `.composer` form block
+(the task-111 layout held), so the clip is the only code change.
 5. **Auto-scroll root cause (task 107, folded):** the wizard-chat
    "stuck at top" bug was a geometry break — `.join`'s automatic minimum
    size grew with content, so the log's flex/overflow never engaged and

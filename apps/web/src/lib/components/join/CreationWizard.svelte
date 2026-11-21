@@ -28,6 +28,20 @@
    * The definite-height root of the chain lives in JoinFlow (the
    * persona-gated wrapper height: 100dvh).
    *
+   * tz11-12 (task 113 — Concept §28, DESIGN §4.17.1 owner refinement):
+   * the two-region stage IS the main block's interior. The MAIN BLOCK
+   * (the space between the bottom/keyboard and the header — the
+   * persona-gated wrapper in JoinFlow) NEVER SCROLLS ITSELF — no
+   * main/page scrolling at all; it holds EXACTLY two blocks: REGION 1
+   * the MESSENGER (the only scrollable element — its own internal
+   * scroll) and REGION 2 the USER-INPUT-FORM BLOCK (fixed at the main
+   * block's bottom, cannot scroll) — and EVERY step-specific form UI
+   * (the messenger prefixes, the answer input, the CONTACT choices,
+   * the THEME badges, the topic chips) lives in that form block, so
+   * SWITCHING STEPS swaps the panel INSIDE the form block and never
+   * scrolls the main. The main-block no-scroll root (definite height +
+   * overflow clip) lives in JoinFlow's persona gate.
+   *
    * Steps: intro → name (required) → public bio → private bio → contact
    * (TYPE first: phone / email / NICKNAME — §23.2 5.4: the messenger is a
    * nickname field with suggested prefixes tg:@ / signal:@ / inst:@;
@@ -671,7 +685,11 @@
       <!-- REGION 2 — the USER-FORM AREA (§23.2 5.2): suggestion badges,
            input, counter, send/revert — a flex: none region fixed at the
            bottom of the stage, OUTSIDE the messages scroll-port; the
-           last message always sits strictly above it. -->
+           last message always sits strictly above it. tz11-12 (task
+           113, DESIGN §4.17.1): the USER-INPUT-FORM BLOCK — every
+           step-specific form (answer input, prefixes, contact choices,
+           theme badges, topic chips) swaps INSIDE this block, so
+           switching steps never scrolls the main. -->
       <div class="composer">
       {#key wizard.step}
         <div class="panel">
@@ -885,7 +903,11 @@
    * creating ⇄ chat) and replays the same fade treatment. tz11-10
    * (Concept §27): the stage is the TWO-REGION layout itself — the
    * messages region (flex: 1, its own scroll-port) above, the user-form
-   * region (flex: none) pinned at its bottom, no visible boundary. */
+   * region (flex: none) pinned at its bottom, no visible boundary.
+   * tz11-12 (task 113 — Concept §28, DESIGN §4.17.1): the stage is the
+   * main block's interior — EXACTLY these two regions, nothing else:
+   * the messenger (the single scroll-port) and the user-input-form
+   * block (pinned, cannot scroll). */
   .stage {
     animation: fade-in 400ms ease-out;
     display: flex;
@@ -895,15 +917,23 @@
     min-height: 0;
     min-width: 0;
   }
+  /* REGION 2 — the USER-FORM AREA (tz11-10, Concept §27; §23.2 5.2):
+   * fixed at the bottom of the available screen as a flex: none region
+   * OUTSIDE the messages scroll-port — the last message always sits
+   * strictly above it (Concept §25 item 3: the message area above
+   * expands to fill all remaining vertical space). The sticky overlay
+   * fallback of the pre-two-region rounds is GONE: the form is pinned
+   * by the layout geometry itself (flex: none below the flex: 1
+   * region), never overlaying scroll content.
+   * tz11-12 (task 113 — Concept §28, DESIGN §4.17.1): this is THE
+   * USER-INPUT-FORM BLOCK of the main block — it holds EVERY
+   * step-specific form (the {#key} panel swaps inside it: answer
+   * input, messenger prefixes, CONTACT choices, THEME badges, topic
+   * chips), it CANNOT scroll (no overflow of its own — it keeps its
+   * full fixed height, flex: none) and it stays pinned at the main
+   * block's bottom ACROSS STEPS: switching steps never scrolls the
+   * main. */
   .composer {
-    /* REGION 2 — the USER-FORM AREA (tz11-10, Concept §27; §23.2 5.2):
-     * fixed at the bottom of the available screen as a flex: none region
-     * OUTSIDE the messages scroll-port — the last message always sits
-     * strictly above it (Concept §25 item 3: the message area above
-     * expands to fill all remaining vertical space). The sticky overlay
-     * fallback of the pre-two-region rounds is GONE: the form is pinned
-     * by the layout geometry itself (flex: none below the flex: 1
-     * region), never overlaying scroll content. */
     flex: none;
     background: var(--color-surface);
     padding-top: var(--space-2);

@@ -940,6 +940,105 @@ describe('CreationWizard — item 12 REAL-GEOMETRY cascade contract (tz11-08, ta
   });
 });
 
+describe('CreationWizard — tz11-12 (task 113, Concept §28 / DESIGN §4.17.1): the MAIN BLOCK never scrolls; the step forms live in the pinned form block', () => {
+  const WEB_ROOT = process.cwd().endsWith(sep + 'apps' + sep + 'web')
+    ? process.cwd()
+    : join(process.cwd(), 'apps', 'web');
+  function localStyleBlock(relativePath: string): string {
+    const match = readFileSync(join(WEB_ROOT, relativePath), 'utf8').match(
+      /<style[^>]*>([\s\S]*)<\/style>/
+    );
+    expect(match, `<style> block not found in ${relativePath}`).toBeTruthy();
+    return match?.[1] ?? '';
+  }
+
+  it('source pins: the main block root is a definite-height flex container with the §4.17.1 overflow clip; the messenger is the single scroll-port and the form block is flex:none and CANNOT scroll', () => {
+    // The MAIN BLOCK root is the persona-gated page wrapper (JoinFlow's
+    // stylesheet — Concept §27/§28: the space between the bottom/keyboard
+    // and the header; nothing sits above it on the creation screen).
+    const flowCss = source('src/lib/components/join/JoinFlow.svelte');
+    const gate = flowCss.match(
+      /:global\(\.app-shell > \.join:has\(> \.persona-step\)\)\s*\{[^}]*\}/
+    )?.[0];
+    expect(gate).toBeTruthy();
+    // Fixed height — the definite main block.
+    expect(gate).toMatch(/height:\s*100vh/);
+    expect(gate).toMatch(/height:\s*100dvh/);
+    // THE NO-SCROLL CLIP (§4.17.1): the main block never scrolls itself
+    // and never hands scrolling back to the page — content that cannot
+    // shrink into the two inner regions is clipped, not scrolled.
+    expect(gate).toMatch(/overflow-x:\s*hidden/);
+    expect(gate).toMatch(/overflow-y:\s*hidden/);
+    // The clip stays persona-gated: exactly once in the file, inside the
+    // gate (the other join steps keep their content-driven geometry).
+    expect(flowCss.match(/overflow-x:\s*hidden/g)).toHaveLength(1);
+    expect(flowCss.match(/overflow-y:\s*hidden/g)).toHaveLength(1);
+    const css = source('src/lib/components/join/CreationWizard.svelte');
+    // REGION 1 — the messenger: the single scroll-port (flex: 1 +
+    // min-height: 0 + overflow-y: auto; the ONLY scrollable element).
+    expect(css).toMatch(/\.log\s*\{[^}]*flex:\s*1/);
+    expect(css).toMatch(/\.log\s*\{[^}]*min-height:\s*0/);
+    expect(css).toMatch(/\.log\s*\{[^}]*overflow-y:\s*auto/);
+    // REGION 2 — the USER-INPUT-FORM BLOCK: flex: none (keeps its full
+    // fixed height, pinned by flow at the main block's bottom) and it
+    // CANNOT scroll — no overflow declaration of its own (the clip lives
+    // on the main block root only; the form never scrolls).
+    expect(css).toMatch(/\.composer\s*\{[^}]*flex:\s*none/);
+    expect(css).not.toMatch(/\.composer\s*\{[^}]*overflow/);
+  });
+
+  it('computed cascade ACROSS STEPS: the form block stays pinned (the stage keeps EXACTLY the two blocks) and the messenger is the ONLY scrollable element at the name / contact-type / themes / topic steps alike', async () => {
+    const style = document.createElement('style');
+    style.setAttribute('data-cascade-contract', 'creation-wizard-4171');
+    style.textContent = localStyleBlock('src/lib/components/join/CreationWizard.svelte');
+    document.head.appendChild(style);
+    try {
+      const container = await startWizard();
+      /** The §4.17.1 contract at ONE step: exactly two blocks — the
+       * messenger first, the form block last (pinned at the main
+       * block's bottom); the active step form lives INSIDE the form
+       * block (never in the log area); the messenger is the ONLY
+       * scrollable element in the whole rendered wizard; every
+       * main-block link reports NO scroll (scrollHeight ==
+       * clientHeight — happy-dom computes no layout and reports 0, the
+       * documented environment caveat; the real-browser evidence is
+       * the main-block overflow clip + the source pins). */
+      const assertPinned = (formSelector: string): void => {
+        const stage = container.querySelector('div.stage') as HTMLElement;
+        const log = logElement(container);
+        const composer = container.querySelector('.composer') as HTMLElement;
+        expect(stage).toBeTruthy();
+        expect([...stage.children]).toEqual([log, composer]);
+        expect(log.contains(composer)).toBe(false);
+        expect(composer.querySelector(formSelector)).toBeTruthy();
+        expect(log.querySelector(formSelector)).toBeNull();
+        const scrollers = [
+          ...container.querySelectorAll<HTMLElement>('.wizard, .wizard *')
+        ].filter((el) => getComputedStyle(el).overflowY === 'auto');
+        expect(scrollers).toEqual([log]);
+        for (const el of [stage, composer]) {
+          expect(el.scrollHeight).toBe(el.clientHeight);
+        }
+      };
+
+      assertPinned('form.input-row'); // name — the answer input form
+      await answerName('Я');
+      await typeAndSend(''); // public bio (empty allowed)
+      await screen.findByText(ru['join.wizard.private.question']);
+      await typeAndSend(''); // private bio (empty allowed)
+      await screen.findByText(ru['join.wizard.contact.question']);
+      assertPinned('.choices'); // the CONTACT form (type choices)
+      await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
+      await screen.findByText(ru['join.wizard.interests.question']);
+      assertPinned('.badges'); // THEME CHOOSING (the badges)
+      await openSportTopics();
+      assertPinned('.toggle-chip'); // the topic chips
+    } finally {
+      style.remove();
+    }
+  });
+});
+
 describe('CreationWizard — the creating step (§23.2 5.8)', () => {
   it('animates the SummarySheet pixel-dots beat: five staggered steps(2) dots over the status text', async () => {
     const onsubmit = vi.fn();

@@ -1274,4 +1274,108 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
     // (position/no-sticky is source-pinned; happy-dom resolves no
     // computed `position`.)
   });
+
+  it('tz11-12 (task 113, Concept §28 / DESIGN §4.17.1): the MAIN BLOCK never scrolls — the overflow-clipped fixed-height main block, the form block pinned ACROSS STEPS, the messenger the single scroll-port', async () => {
+    injectCascadeFixtureCss();
+    const wrapper = seedShellAndWrapper();
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
+    mockedApi.getRoom.mockResolvedValue(room);
+    mockedApi.listRoomUsers.mockResolvedValue([]);
+    render(JoinFlow, { props: {}, target: wrapper });
+    pasteCode('123456');
+    await submitViaCta();
+    await screen.findByText(room.name);
+    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
+    await screen.findByText(ru['join.wizard.intro.title']);
+    await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
+    await screen.findByText(ru['join.wizard.name.question']);
+
+    /** LIVE structure at one step: EXACTLY two blocks — the messenger
+     * first, the form block last (pinned at the main block's bottom);
+     * the active step form lives INSIDE the form block. */
+    function assertLivePinned(formSelector: string): void {
+      const log = document.querySelector('div.log') as HTMLElement;
+      const composer = document.querySelector('.composer') as HTMLElement;
+      expect(log).toBeTruthy();
+      expect(composer).toBeTruthy();
+      const stage = log.parentElement as HTMLElement;
+      expect([...stage.children]).toEqual([log, composer]);
+      expect(log.contains(composer)).toBe(false);
+      expect(composer.querySelector(formSelector)).toBeTruthy();
+      expect(log.querySelector(formSelector)).toBeNull();
+    }
+
+    // Capture the step markup now; the parsed-cascade proof runs at the
+    // END (attached fixtures would duplicate the flow's UI for the
+    // screen* queries driving the steps — see the test above).
+    const snapshots: { label: string; html: string; form: string }[] = [];
+    function capture(label: string, form: string): void {
+      snapshots.push({ label, html: (shell as HTMLElement).outerHTML, form });
+      assertLivePinned(form);
+    }
+
+    /** An EMPTY composer input shows the revert arrow (no send button) —
+     * an empty bio is sent via Enter (the composer form submit). */
+    function submitComposer(): void {
+      fireEvent.submit(document.querySelector('form.input-row') as HTMLFormElement);
+    }
+
+    capture('name', 'form.input-row');
+    const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
+    fireEvent.input(nameInput, { target: { value: 'Я' } });
+    await tick();
+    await tick();
+    await screen.getByRole('button', { name: ru['join.wizard.send'] }).click();
+    await screen.findByText(ru['join.wizard.public.question']);
+    submitComposer(); // public (empty allowed)
+    await screen.findByText(ru['join.wizard.private.question']);
+    submitComposer(); // private (empty allowed)
+    await screen.findByText(ru['join.wizard.contact.question']);
+    capture('contact-type', '.choices');
+    await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
+    await screen.findByText(ru['join.wizard.interests.question']);
+    capture('themes', '.badges');
+    await screen.getByRole('radio', { name: ru['interests.group.1'] }).click();
+    await screen.findByText(
+      ru['join.wizard.interests.pick_question'].replace('{group}', ru['interests.group.1'])
+    );
+    capture('topics', '.toggle-chip');
+
+    // THE PARSED-CASCADE PROOF across all four steps: the main block
+    // root is the definite-height overflow-clipped flex container (it
+    // never scrolls itself and never hands scrolling to the page), the
+    // form block is pinned at its bottom (the last block, outside the
+    // scroll-port, holding the step form) and the messenger is the ONLY
+    // scroll container on the whole screen.
+    for (const { label, html, form } of snapshots) {
+      const fixture = document.createElement('div');
+      fixture.innerHTML = html;
+      document.body.appendChild(fixture);
+      parsedFixtures.push(fixture);
+      const pShell = fixture.children[0] as HTMLElement;
+      const pWrap = pShell.children[0] as HTMLElement;
+      const pLog = pShell.querySelector('div.log') as HTMLElement;
+      const pComposer = pShell.querySelector('.composer') as HTMLElement;
+      expect(pWrap.matches('.app-shell > .join:has(> .persona-step)'), label).toBe(true);
+      const wrapCs = getComputedStyle(pWrap);
+      // Fixed height + THE NO-SCROLL CLIP (§4.17.1).
+      expect(wrapCs.height, label).toMatch(/px/);
+      expect(wrapCs.overflowX, label).toBe('hidden');
+      expect(wrapCs.overflowY, label).toBe('hidden');
+      // Main-block no-scroll: scrollHeight == clientHeight (happy-dom
+      // computes no layout and reports 0 — the documented caveat; the
+      // real-browser evidence is the clip + the cascade pins).
+      expect(pWrap.scrollHeight, label).toBe(pWrap.clientHeight);
+      // EXACTLY two blocks: messenger first, form block last (pinned).
+      const pStage = pLog.parentElement as HTMLElement;
+      expect([...pStage.children], label).toEqual([pLog, pComposer]);
+      expect(pLog.contains(pComposer), label).toBe(false);
+      expect(pComposer.querySelector(form), label).toBeTruthy();
+      // The messenger is the ONLY scrollable element on the whole screen.
+      const scrollers = Array.from(pShell.querySelectorAll<HTMLElement>('*')).filter(
+        (el) => getComputedStyle(el).overflowY === 'auto'
+      );
+      expect(scrollers, label).toEqual([pLog]);
+    }
+  });
 });
