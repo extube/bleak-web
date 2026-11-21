@@ -430,7 +430,7 @@ describe('leave room (AC 7, moved from /profile; Concept §11.1.1 local-only exi
     expect(mockedApi.deleteRoomUser).not.toHaveBeenCalled();
   });
 
-  it('confirms, clears identity + the one-time mutual code, and navigates to / — purely local, NO server delete (Concept §11.1.1)', async () => {
+  it('confirms, clears identity + the one-time mutual code, and navigates to the join entry /income (tz12-02) — purely local, NO server delete (Concept §11.1.1)', async () => {
     localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
     mutualCode.set({ userAddress: ME, code: 'LIVE' });
     await renderPage();
@@ -445,7 +445,7 @@ describe('leave room (AC 7, moved from /profile; Concept §11.1.1 local-only exi
     await waitFor(() => expect(localStorage.getItem('bleak.mutualCode')).toBeNull());
     expect(get(mutualCode)).toBeNull();
     const { goto } = await import('$app/navigation');
-    await waitFor(() => expect(goto).toHaveBeenCalledWith('/'));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income'));
   });
 
   it('owner round-trip (§11.1.1 + §10.1.1): the vault entry survives the leave; the return-to-event pick validates the stored token and restores the identity', async () => {

@@ -1,10 +1,13 @@
 <script lang="ts">
   /**
-   * JoinFlow (TZ-03 + TZ2-06 Part B) — the Step 1 → 3a/3b state machine for
-   * `/` (DESIGN §3.1 rev. 3). The route page passes deep-link values; this
-   * component owns the steps, the mount-time API calls (NO Poller on `/`,
-   * §2.2), the scanner mount point (context *a*, QrScanner public API only)
-   * and every §3.1 interaction state.
+   * JoinFlow (TZ-03 + TZ2-06 Part B) — the Step 1 → 3a/3b state machine
+   * for the join flow (DESIGN §3.1 rev. 3; tz12-02 re-homing, Concept
+   * §31: the entry steps run on `/income`, the persona (wizard) step on
+   * `/income/[room]/create` — seeded via `roomParam`). The route page
+   * passes deep-link values; this
+   * component owns the steps, the mount-time API calls (NO Poller,
+   * §2.2), the scanner mount point (context *a*, QrScanner public API
+   * only) and every §3.1 interaction state.
    *
    * v2 (Concept §6.2 / ARCHITECTURE §10.6): persona creation generates the
    * client-side token and sends `invite_code` + the raw token in the body
@@ -33,6 +36,14 @@
    * fade treatment covers EVERY step boundary of the creation path — the
    * join card's content fades in on every flow-step swap (form → wizard
    * intro included) and fades out into /room after the creation 2xx.
+   *
+   * tz12-02 route re-homing (Concept §31): the creation process lives
+   * under its own route — `/income/[room]/create`. The entry flow (this
+   * component on `/income`) navigates there when "Create profile" is
+   * chosen; the route page mounts this same component with `roomParam`
+   * (the room context via the route param) + the `?code=` query, seeding
+   * the flow directly into the persona (wizard) step. The forms and the
+   * machine (lib/join.ts) are unchanged — only the routing wiring moved.
    */
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -60,6 +71,7 @@
     type PersonaDraft,
     type PersonaError
   } from '#lib/join';
+  import type { Room } from '@bleak/api-client';
   import ErrorBanner from '#lib/components/ErrorBanner.svelte';
   import QrScanner from '#lib/components/QrScanner.svelte';
   import CodeEntry from './CodeEntry.svelte';
@@ -68,18 +80,43 @@
   import VaultList from './VaultList.svelte';
 
   interface Props {
-    /** ?code=NNNNNN deep link (invite QR / link): prefill + auto-submit. */
+    /** ?code=NNNNNN deep link (invite QR / link): prefill + auto-submit.
+     * On the create route it is ALSO the seeded invite code. */
     deepLinkCode?: string | null;
+    /** /income/[room]/create route param (tz12-02): seed the flow
+     * directly into the persona (wizard) step — the room context rides
+     * the URL; the invite code comes from deepLinkCode (?code=). */
+    roomParam?: string | null;
   }
 
-  let { deepLinkCode = null }: Props = $props();
+  let { deepLinkCode = null, roomParam = null }: Props = $props();
 
   // Deep-link prefill (?code=NNNNNN): captured once — the auto-submit runs
   // exactly once (the effect below guards it).
   const initialCode: string =
     deepLinkCode !== null && isValidInviteCode(deepLinkCode) ? deepLinkCode : '';
 
-  let flow: JoinState = $state({ ...initialJoinState, code: initialCode });
+  // Seeded entry (tz12-02): mounted at /income/[room]/create — the flow
+  // starts AT the creation wizard step. The room stub carries only the
+  // address the persona submit needs (the full preview lives on /income);
+  // seeded mode never resolves the code and never shows the entry steps.
+  const seeded: boolean = typeof roomParam === 'string' && roomParam !== '';
+  const seededRoom: Room = {
+    address: roomParam ?? '',
+    name: '',
+    description: '',
+    language: '',
+    max_user: 0,
+    created_at: '',
+    updated_at: '',
+    deleted_at: null
+  };
+
+  let flow: JoinState = $state(
+    seeded
+      ? { ...initialJoinState, step: 'persona', code: initialCode, room: seededRoom }
+      : { ...initialJoinState, code: initialCode }
+  );
 
   let resolving = $state(false);
   let creating = $state(false);
@@ -113,6 +150,12 @@
   }
 
   function backToStep1(): void {
+    if (seeded) {
+      // The gone card on the create route: back to the ENTRY page (the
+      // code is dead — Step 1 opens empty there).
+      void goto(resolve('/income'));
+      return;
+    }
     gone = false;
     banner = null;
     codeError = null;
@@ -175,8 +218,27 @@
   // --- Step 2: room options -------------------------------------------------
 
   function chooseCreate(): void {
+    const room = flow.room;
+    if (!room) return;
     personaError = null;
-    flow = reduce(flow, { type: 'choose-create' });
+    // tz12-02 re-homing (Concept §31): the creation process lives under
+    // /income/[room]/create — the room address rides the route param, the
+    // entered code the ?code= query (the create route's seed).
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    void goto(`${resolve('/income/[room]/create', { room: room.address })}?code=${flow.code}`);
+  }
+
+  /** Wizard back: on the create route the room intro is re-reached via
+   * the ENTRY page with the code preserved (the ?code= prefill +
+   * auto-submit re-resolves the room preview); inline (unseeded) the
+   * machine's own back step applies. */
+  function wizardBack(): void {
+    if (seeded) {
+      // eslint-disable-next-line svelte/no-navigation-without-resolve
+      void goto(`${resolve('/income')}?code=${flow.code}`);
+      return;
+    }
+    flow = reduce(flow, { type: 'back' });
   }
 
   // --- The return screen (Step 1 entry point, Concept §10.1.1) --------------
@@ -382,7 +444,7 @@
             error={personaError}
             pending={creating}
             onsubmit={(draft) => void submitPersona(draft)}
-            onback={() => (flow = reduce(flow, { type: 'back' }))}
+            onback={wizardBack}
           />
         {:else if flow.step === 'vault'}
           <VaultList

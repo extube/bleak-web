@@ -404,6 +404,32 @@ export const en = {
   'host.drill.kickoff': 'Restart',
   'host.drill.dialogs': 'Dialogs',
 
+  /* --- landing (Concept §31): / — the modern showcase with pixel mascots,
+   --- the "effective networking with AI agents" positioning, navigation,
+   --- the Start button (opens /income with the 6-digit input) and the
+   --- "search → chatting → contacts sharing" tutorial --- */
+  'landing.hero.title': 'Effective networking with AI agents',
+  'landing.hero.text':
+    'bleak-web is an app for events. Your AI agent meets the attendees for you: it finds genuinely useful people, talks with them and hands you ready contacts.',
+  'landing.start': 'Start',
+  'landing.start.hint': 'The 6-digit invite code input opens next.',
+  'landing.nav.aria': 'Landing navigation',
+  'landing.nav.about': 'About',
+  'landing.nav.how': 'How it works',
+  'landing.nav.host': 'For hosts',
+  'landing.how.title': 'How it works',
+  'landing.how.step1.title': 'Find people',
+  'landing.how.step1.text':
+    'The Around radar shows who is in the room: pick a person and send a handshake.',
+  'landing.how.step2.title': 'Chat through agents',
+  'landing.how.step2.text':
+    'Your AI agents hold the dialog themselves and summarize every meeting.',
+  'landing.how.step3.title': 'Share contacts',
+  'landing.how.step3.text':
+    'A useful contact is one swipe away — pass it to your agent or to a new acquaintance.',
+  'landing.step.aria': 'Step {n}',
+  'landing.mascot.aria': 'Blik — the bleak-web mascot',
+
   /* --- global 401 gate (DESIGN rev. 3 §2.8, §4.7) --- */
   'auth.401.notice':
     'This profile has no valid access credential — join again with the event code.',

@@ -58,10 +58,15 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
     ]);
   });
 
-  it('the `/` join page uses NO poller (§2.2 cadence table — mount-time fetches only)', () => {
-    const file = 'src/routes/+page.svelte';
-    const source = readFileSync(join(WEB_ROOT, file), 'utf8');
-    expect(source, `${file} must not poll`).not.toMatch(/new\s+Poller\b/);
+  it('the landing `/`, the join entry `/income` and the create route use NO poller (§2.2 cadence table — mount-time fetches only; tz12-02 re-homing)', () => {
+    for (const file of [
+      'src/routes/+page.svelte',
+      'src/routes/income/+page.svelte',
+      'src/routes/income/[room]/create/+page.svelte'
+    ]) {
+      const source = readFileSync(join(WEB_ROOT, file), 'utf8');
+      expect(source, `${file} must not poll`).not.toMatch(/new\s+Poller\b/);
+    }
   });
 
   it('poll cadences match the §2.2 table (4s room/people/chats/contacts/profile, 2s transcript, 5s host)', () => {

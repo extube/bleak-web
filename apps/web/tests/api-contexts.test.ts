@@ -351,10 +351,12 @@ describe('global 401 gate (attendee)', () => {
     // identity + one-time mutual code cleared (store + storage)
     expect(localStorage.getItem('bleak.identity')).toBeNull();
     expect(localStorage.getItem('bleak.mutualCode')).toBeNull();
-    // the notice flag is set and navigation to `/` is queued
+    // the notice flag is set and navigation to the join entry is queued
+    // (tz12-02 re-homing: the §2.8 notice + the 6-digit entry live on
+    // /income now)
     expect(sessionStorage.getItem(AUTH_NOTICE_KEY)).toBe('1');
     expect(goto).toHaveBeenCalledTimes(1);
-    expect(goto).toHaveBeenCalledWith('/');
+    expect(goto).toHaveBeenCalledWith('/income');
   });
 
   it('403 does NOT fire the attendee gate (identity kept, no notice)', async () => {

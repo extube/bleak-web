@@ -199,7 +199,7 @@
 
   function exitNotFound(): void {
     clearIdentity();
-    void goto(resolve('/'));
+    void goto(resolve('/income'));
   }
 
   // --- derived labels ----------------------------------------------------------

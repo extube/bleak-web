@@ -280,7 +280,9 @@
     if (!me) return;
     clearIdentity();
     leaveOpen = false;
-    void goto(resolve('/'));
+    // tz12-02 re-homing: the return-to-event entry (the vault) lives on
+    // the join entry page now.
+    void goto(resolve('/income'));
   }
 
   // --- back control (§1.3): history back, fallback /profile --------------------

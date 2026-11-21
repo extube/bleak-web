@@ -613,11 +613,11 @@ describe('/room — scanner mount (AC 13) + identity guard', () => {
     );
   });
 
-  it('without an identity the guard redirects to / and renders nothing', async () => {
+  it('without an identity the guard redirects to the join entry /income (tz12-02) and renders nothing', async () => {
     localStorage.clear();
     identity.set(null);
     render(RoomPage, { props: {} });
-    await waitFor(() => expect(goto).toHaveBeenCalledWith('/'));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income'));
     expect(screen.queryByText(room.name)).toBeNull();
   });
 });

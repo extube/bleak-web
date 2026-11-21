@@ -236,7 +236,7 @@ describe('creation gate + create + share kit', () => {
     await waitFor(() => expect(screen.getByText('123456')).toBeTruthy());
     expect(mockedCreate).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('link', { name: ru['host.join_attendee'] }).getAttribute('href')).toBe(
-      '/?code=123456'
+      '/income?code=123456'
     );
   });
 

@@ -165,7 +165,9 @@ async function personaGate<T>(run: () => Promise<T>): Promise<T> {
     if (cause instanceof ApiError && cause.status === 401) {
       clearIdentity(); // also clears the one-time mutual code (§10.4)
       setFlag(AUTH_NOTICE_KEY);
-      await goto(resolve('/')); // navigation queued; the error is rethrown below
+      // tz12-02 re-homing: the notice card + the 6-digit entry live on
+      // /income now (the §2.8 gate lands on the join entry).
+      await goto(resolve('/income')); // navigation queued; the error is rethrown below
     }
     throw cause;
   }

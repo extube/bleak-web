@@ -222,14 +222,14 @@ describe('/contacts — unseen marker on visit (§4.14.2, §1.2 dot)', () => {
 });
 
 describe('/contacts — guard (TZ-03)', () => {
-  it('no identity → redirect to / and no data fetch', async () => {
+  it('no identity → redirect to the join entry /income (tz12-02) and no data fetch', async () => {
     const { goto } = await import('$app/navigation');
     identity.set(null);
     localStorage.removeItem('bleak.identity');
     render(Page, { props: {} });
     await tick();
     await tick();
-    expect(goto).toHaveBeenCalledWith('/');
+    expect(goto).toHaveBeenCalledWith('/income');
     expect(mockedApi.listContactsSharedWith).not.toHaveBeenCalled();
   });
 

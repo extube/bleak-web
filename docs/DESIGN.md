@@ -3050,6 +3050,14 @@ primary "Enter the room" button in the footer; the Room intro exercises
 the multi-button footer (create profile + change code); the resume
 surface (VaultList) mounts in the shell; the forms' own locale switch
 moved into the shell header.
+**Landed (task 117, worker `07e82628`):** the landing page at `/`
+(pixel mascots, the AI-networking positioning, nav, Start → /income,
+the 3-step tutorial: search → chatting → contacts sharing;
+mobile-first); `/income` = the entry page (the previous `/` join
+surface moved verbatim); `/income/[room]/create` = the wizard (the
+same JoinFlow seeded into the persona step, the room context via the
+route param); deep links forwarded; the tab bar hidden on all three
+pre-room routes.
 
 ## 5. Design-decision rationale (short)
 5. **Auto-scroll root cause (task 107, folded):** the wizard-chat

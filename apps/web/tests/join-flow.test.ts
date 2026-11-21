@@ -64,6 +64,15 @@ const room: Room = {
   deleted_at: null
 };
 
+/**
+ * tz12-02 route re-homing (Concept §31): the creation process lives
+ * under /income/[room]/create — the room intro's "Create profile"
+ * navigates there; the wizard tests render the flow SEEDED (roomParam +
+ * ?code=) exactly as the create route mounts it. The entry tests keep
+ * driving the /income surfaces (code entry → preview → vault).
+ */
+const SEEDED = { roomParam: room.address, deepLinkCode: '123456' };
+
 function user(address: string, name: string, privateBio = ''): User {
   return {
     address,
@@ -177,6 +186,51 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
 
 });
 
+describe('JoinFlow — route re-homing (tz12-02, Concept §31)', () => {
+  /**
+   * The creation process lives under /income/[room]/create: the room
+   * intro's "Create profile" navigates there (room param + ?code=), the
+   * create route seeds the same flow directly into the wizard step, and
+   * the wizard's back re-enters /income with the code (the prefill +
+   * auto-submit re-resolves the room preview).
+   */
+  it('"Create profile" on the room intro navigates to /income/[room]/create?code=…', async () => {
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
+    mockedApi.getRoom.mockResolvedValue(room);
+    mockedApi.listRoomUsers.mockResolvedValue([]);
+    render(JoinFlow, { props: {} });
+    pasteCode('123456');
+    await submitViaCta();
+    await screen.findByText(room.name);
+    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
+    await waitFor(() =>
+      expect(goto).toHaveBeenCalledWith('/income/[room]/create?code=123456')
+    );
+    // The wizard does NOT render inline anymore — the route owns it.
+    expect(screen.queryByText(ru['join.wizard.intro.title'])).toBeNull();
+  });
+
+  it('the create route seed: the flow opens directly in the wizard step with the ?code= invite code', async () => {
+    render(JoinFlow, { props: SEEDED });
+    await screen.findByText(ru['join.wizard.intro.title']);
+    // The entry steps never rendered: no digit cells, no resolution.
+    expect(screen.queryByRole('group', { name: ru['join.code.label'] })).toBeNull();
+    expect(mockedResolve).not.toHaveBeenCalled();
+    // The seeded code is carried into the persona submit (AC 8 asserts
+    // the exact body with invite_code '123456' through this same seed).
+    await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
+    await screen.findByText(ru['join.wizard.name.question']);
+  });
+
+  it('wizard back on the create route re-enters /income with the code (the room preview re-resolves there)', async () => {
+    render(JoinFlow, { props: SEEDED });
+    await screen.findByText(ru['join.wizard.intro.title']);
+    // The intro's revert arrow (the back control, §24 item 2).
+    await screen.getByRole('button', { name: ru['common.back'] }).click();
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income?code=123456'));
+  });
+});
+
 describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 amendments, token in the body)', () => {
   /**
    * v3.9 (Concept §22.3 item 2, DESIGN §4.16.2; §23.2 5.1–5.9): the single
@@ -197,14 +251,9 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
   }
 
   async function openWizard(): Promise<void> {
-    mockedResolve.mockResolvedValue({ roomAddress: room.address });
-    mockedApi.getRoom.mockResolvedValue(room);
-    mockedApi.listRoomUsers.mockResolvedValue([]);
-    render(JoinFlow, { props: {} });
-    pasteCode('123456');
-    await submitViaCta();
-    await screen.findByText(room.name);
-    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
+    // Seeded render (tz12-02): the flow mounts at /income/[room]/create
+    // directly IN the wizard step — the room param + the ?code= seed.
+    render(JoinFlow, { props: SEEDED });
     await screen.findByText(ru['join.wizard.intro.title']);
     await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
     await screen.findByText(ru['join.wizard.name.question']);
@@ -809,7 +858,9 @@ describe('JoinFlow — phone full-screen forms (Concept §12, DESIGN §4.12.1 it
   });
 
   it('the resume card (the same join screen) carries the identical treatment', () => {
-    const phone = phoneBlock(source('src/routes/+page.svelte'));
+    // tz12-02: the join entry (the resume card + JoinFlow) lives on
+    // /income — the route file re-homed from routes/+page.svelte.
+    const phone = phoneBlock(source('src/routes/income/+page.svelte'));
     expect(phone).toMatch(/\.join\s*\{[^}]*max-width:\s*none/);
     expect(phone).toMatch(/\.join\s*\{[^}]*padding:\s*0/);
     expect(phone).toMatch(/\.resume\s*\{[^}]*border-radius:\s*0/);
@@ -821,7 +872,9 @@ describe('JoinFlow — phone full-screen forms (Concept §12, DESIGN §4.12.1 it
   it('desktop is untouched: the overrides exist only inside the phone query', () => {
     for (const file of [
       'src/lib/components/join/JoinFlow.svelte',
-      'src/routes/+page.svelte'
+      // tz12-02: the join entry (the resume card + JoinFlow) lives on
+      // /income — the route file re-homed from routes/+page.svelte.
+      'src/routes/income/+page.svelte'
     ]) {
       let css = source(file);
       // tz11-08 (task 109): the persona-scoped :global wrapper rule is the
@@ -899,14 +952,9 @@ describe('JoinFlow — §23.2 5.9 fade on every creation step boundary (owner am
 
   it('behavior: after the creation 2xx the card takes the leaving fade, then the flow enters /room', async () => {
     mockedApi.createRoomUser.mockResolvedValue(user('0xme', 'Я'));
-    mockedResolve.mockResolvedValue({ roomAddress: room.address });
-    mockedApi.getRoom.mockResolvedValue(room);
-    mockedApi.listRoomUsers.mockResolvedValue([]);
-    render(JoinFlow, { props: {} });
-    pasteCode('123456');
-    await submitViaCta();
-    await screen.findByText(room.name);
-    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
+    // Seeded mount (tz12-02): the create route opens the flow IN the
+    // persona step (room param + ?code=).
+    render(JoinFlow, { props: SEEDED });
     await screen.findByText(ru['join.wizard.intro.title']);
     await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
     await screen.findByText(ru['join.wizard.name.question']);
@@ -987,7 +1035,8 @@ describe('JoinFlow — creation-chat geometry (tz11-06 bug round, task 107 + Con
 
   it('tz11-08 (task 109, bug round 2): the page-level .join wrapper link ABOVE JoinFlow is bounded for the persona step — the task-107 recurrence root cause', () => {
     const css = source('src/lib/components/join/JoinFlow.svelte');
-    // Task 107 bounded this component's own links; routes/+page.svelte
+    // Task 107 bounded this component's own links; the join route page
+    // (routes/income/+page.svelte — tz12-02 re-homing of routes/+page.svelte)
     // still renders JoinFlow inside its own padded 480px <div class="join">
     // wrapper whose automatic minimum size grew with the transcript — the
     // shell then outgrew the viewport, the PAGE scrolled and logEl.scrollTo
@@ -1038,14 +1087,9 @@ describe('JoinFlow — creation-chat geometry (tz11-06 bug round, task 107 + Con
   });
 
   it('structure: in the rendered persona step the composer follows the log — the input bar cannot cover the newest message', async () => {
-    mockedResolve.mockResolvedValue({ roomAddress: room.address });
-    mockedApi.getRoom.mockResolvedValue(room);
-    mockedApi.listRoomUsers.mockResolvedValue([]);
-    render(JoinFlow, { props: {} });
-    pasteCode('123456');
-    await submitViaCta();
-    await screen.findByText(room.name);
-    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
+    // Seeded mount (tz12-02): the create route opens the flow IN the
+    // persona step (room param + ?code=).
+    render(JoinFlow, { props: SEEDED });
     await screen.findByText(ru['join.wizard.intro.title']);
     await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
     await screen.findByText(ru['join.wizard.name.question']);
@@ -1075,9 +1119,11 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
    *   1. the components' REAL <style> blocks are read from source at test
    *      time (no transcription) and injected into the document;
    *   2. the REAL app-shell + page-level .join wrapper structure is seeded
-   *      exactly as routes/+layout.svelte + routes/+page.svelte render it;
-   *   3. the real JoinFlow is mounted into that fixture and driven to the
-   *      persona step;
+   *      exactly as routes/+layout.svelte + routes/income/+page.svelte
+   *      (tz12-02: the join entry route) render it;
+   *   3. the real JoinFlow is mounted into that fixture — the persona
+   *      step via the /income/[room]/create seed (the entry steps via the
+   *      unseeded /income mount);
    *   4. the COMPUTED cascade of the actual rendered chain is asserted
    *      (happy-dom resolves stylesheet cascade incl. :has()).
    *
@@ -1127,7 +1173,7 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
   function injectCascadeFixtureCss(): void {
     for (const file of [
       'src/routes/+layout.svelte',
-      'src/routes/+page.svelte',
+      'src/routes/income/+page.svelte',
       'src/lib/components/join/JoinFlow.svelte',
       'src/lib/components/join/CreationWizard.svelte'
     ]) {
@@ -1140,8 +1186,9 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
   }
 
   function seedShellAndWrapper(): HTMLElement {
-    // The exact rendered ancestor chain of JoinFlow on `/`
-    // (routes/+layout.svelte → routes/+page.svelte → JoinFlow).
+    // The exact rendered ancestor chain of JoinFlow on /income and
+    // /income/[room]/create (tz12-02 re-homing)
+    // (routes/+layout.svelte → routes/income/+page.svelte → JoinFlow).
     shell = document.createElement('div');
     shell.className = 'app-shell';
     const wrapper = document.createElement('div');
@@ -1166,18 +1213,19 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
 
   it('the computed chain from div.log to the app-shell is a bounded flex column ending in the log as the single scroll container (tz11-10: the two-region root is the DEFINITE 100dvh wrapper height)', async () => {
     injectCascadeFixtureCss();
+    // TWO MOUNTS (tz12-02): the off-state (the code step on /income) and
+    // the on-state (the persona step seeded on /income/[room]/create) —
+    // the room intro's "Create profile" navigates to the create route, so
+    // one mount can no longer hold both steps.
     const wrapper = seedShellAndWrapper();
-    mockedResolve.mockResolvedValue({ roomAddress: room.address });
-    mockedApi.getRoom.mockResolvedValue(room);
-    mockedApi.listRoomUsers.mockResolvedValue([]);
     // Svelte mount options: mount INTO the seeded wrapper (the page-level
-    // .join wrapper is JoinFlow's real DOM parent on `/`).
+    // .join wrapper is JoinFlow's real DOM parent on /income).
     render(JoinFlow, { props: {}, target: wrapper });
 
     // GATE, off-state: at the code step the wrapper does not match the
     // PERSONA gate — the code step is bounded by the §30 form-shell gate
     // instead (asserted below). The REAL code-step markup is captured
-    // now; its computed off-state proof runs below, after the drive (the
+    // now; its computed off-state proof runs below (the
     // fixtures are attached only once every screen query is done — an
     // attached fixture would duplicate the flow's UI for the screen*).
     await screen.findByText(ru['join.enter']);
@@ -1185,12 +1233,13 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
     expect(wrap).toBeTruthy();
     expect(wrap.matches('.app-shell > .join:has(> .persona-step)')).toBe(false);
     const offHtml = (shell as HTMLElement).outerHTML;
+    cleanup();
+    (shell as HTMLElement).remove();
 
-    // Drive to the persona step (the creation chat).
-    pasteCode('123456');
-    await submitViaCta();
-    await screen.findByText(room.name);
-    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
+    // ON-state mount: the create route's seed (room param + ?code=) opens
+    // the flow IN the persona step (the creation chat).
+    seedShellAndWrapper();
+    render(JoinFlow, { props: SEEDED, target: shell!.querySelector('.join') as HTMLElement });
     await screen.findByText(ru['join.wizard.intro.title']);
     await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
     await screen.findByText(ru['join.wizard.name.question']);
@@ -1199,7 +1248,8 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
 
     // GATE, on-state on the LIVE rendered tree: the wrapper matches the
     // :has gate once the persona step is mounted.
-    expect(wrap.matches('.app-shell > .join:has(> .persona-step)')).toBe(true);
+    const wrap2 = document.querySelector('.app-shell > .join') as HTMLElement;
+    expect(wrap2.matches('.app-shell > .join:has(> .persona-step)')).toBe(true);
 
     // THE COMPUTED CASCADE runs on the REAL rendered markup round-tripped
     // through the HTML parser (shell.outerHTML → fresh tree). Reason: the
@@ -1301,14 +1351,9 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
   it('tz11-12 (task 113, Concept §28 / DESIGN §4.17.1): the MAIN BLOCK never scrolls — the overflow-clipped fixed-height main block, the form block pinned ACROSS STEPS, the messenger the single scroll-port', async () => {
     injectCascadeFixtureCss();
     const wrapper = seedShellAndWrapper();
-    mockedResolve.mockResolvedValue({ roomAddress: room.address });
-    mockedApi.getRoom.mockResolvedValue(room);
-    mockedApi.listRoomUsers.mockResolvedValue([]);
-    render(JoinFlow, { props: {}, target: wrapper });
-    pasteCode('123456');
-    await submitViaCta();
-    await screen.findByText(room.name);
-    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
+    // Seeded mount (tz12-02): the create route opens the flow IN the
+    // persona step (room param + ?code=).
+    render(JoinFlow, { props: SEEDED, target: wrapper });
     await screen.findByText(ru['join.wizard.intro.title']);
     await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
     await screen.findByText(ru['join.wizard.name.question']);
@@ -1462,7 +1507,7 @@ describe('JoinFlow — viewport-bounded main block (tz11-13, task 114, Concept �
   function injectCascadeFixtureCss(): void {
     for (const file of [
       'src/routes/+layout.svelte',
-      'src/routes/+page.svelte',
+      'src/routes/income/+page.svelte',
       'src/lib/components/join/JoinFlow.svelte',
       'src/lib/components/join/CreationWizard.svelte'
     ]) {
@@ -1533,17 +1578,12 @@ describe('JoinFlow — viewport-bounded main block (tz11-13, task 114, Concept �
     wrapper.className = 'join';
     shell.appendChild(wrapper);
     document.body.appendChild(shell);
-    mockedResolve.mockResolvedValue({ roomAddress: room.address });
-    mockedApi.getRoom.mockResolvedValue(room);
-    mockedApi.listRoomUsers.mockResolvedValue([]);
-    render(JoinFlow, { props: {}, target: wrapper });
+    // Seeded mount (tz12-02): the create route opens the flow IN the
+    // persona step (room param + ?code=).
+    render(JoinFlow, { props: SEEDED, target: wrapper });
 
     // Drive to the THEMES step — the real tall multi-button form
     // (8 theme badges + Ready + back live in the form block).
-    pasteCode('123456');
-    await submitViaCta();
-    await screen.findByText(room.name);
-    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
     await screen.findByText(ru['join.wizard.intro.title']);
     await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
     await screen.findByText(ru['join.wizard.name.question']);
@@ -1954,7 +1994,7 @@ describe('JoinFlow — unified three-block form shell (Concept §30, DESIGN §4.
     // persona cascade tests above (no new deps, no headless browser).
     for (const file of [
       'src/routes/+layout.svelte',
-      'src/routes/+page.svelte',
+      'src/routes/income/+page.svelte',
       'src/lib/components/join/JoinFlow.svelte',
       'src/lib/components/join/FormShell.svelte',
       'src/lib/components/join/CodeEntry.svelte'
