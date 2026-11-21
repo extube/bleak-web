@@ -2984,6 +2984,38 @@ cannot shrink into the two inner regions is clipped at the main block
 instead of growing the shell and handing scrolling back to the page;
 the step forms were verified already inside the `.composer` form block
 (the task-111 layout held), so the clip is the only code change.
+**Owner refinement (task 114, landed, Concept §29):** the whole chain is
+**viewport-bounded** — the persona-gated app-shell is height-locked
+(`100vh` then `100dvh`, later-supported wins; dvh = the keyboard/
+visualViewport handling) only while the creation chat is mounted; a tall
+form grows upward content-sized from the bottom edge while the messenger
+shrinks (`flex:1 min-height:0`) and scrolls internally; the form block is
+never clipped at its bottom (excess cuts at the top via the main-block
+clip).
+
+### 4.17.2 owner refinement (2026-11-21, owner-approved Concept §29)
+
+**Viewport-bounded main block:**
+1. **Lock outer & main container to the viewport:** the root page
+   wrapper and the MAIN BLOCK are strictly bounded by the visible
+   browser window height (below the fixed header down to the bottom
+   edge of the screen or virtual keyboard). The MAIN BLOCK must never
+   grow taller than the visible screen space — a viewport-unit-based
+   bounded height (e.g. `100dvh`-derived flex column incl. the
+   keyboard/visualViewport handling), never content-driven growth.
+2. **Messenger shrinks, form grows upward:** when a TALL user-input-form
+   block appears (multi-button choice forms, contact forms), the form
+   block sits completely inside the visible bottom area, growing upward
+   from the bottom edge; the messenger block above it shrinks in height
+   and scrolls internally to fit the remaining space (form block =
+   flex:none / content-sized, messenger = flex:1 min-height:0 — the
+   form's content sizes the form block, the messenger absorbs the
+   remainder).
+3. **Never clip the form block:** the form block's bottom edge is flush
+   with the visible viewport bottom (or the keyboard top); every button
+   and input inside it 100% visible without scrolling the outer page.
+4. **Preserve styles:** colors, button designs, spacing, visual styling
+   untouched.
 5. **Auto-scroll root cause (task 107, folded):** the wizard-chat
    "stuck at top" bug was a geometry break — `.join`'s automatic minimum
    size grew with content, so the log's flex/overflow never engaged and

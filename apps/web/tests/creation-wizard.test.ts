@@ -1039,6 +1039,100 @@ describe('CreationWizard — tz11-12 (task 113, Concept §28 / DESIGN §4.17.1):
   });
 });
 
+describe('CreationWizard — tz11-13 (task 114, Concept §29 / DESIGN §4.17.2): the VIEWPORT-BOUNDED main block — the form block grows upward content-sized, the messenger shrinks into the remainder', () => {
+  const WEB_ROOT_114 = process.cwd().endsWith(sep + 'apps' + sep + 'web')
+    ? process.cwd()
+    : join(process.cwd(), 'apps', 'web');
+  function localStyleBlock(relativePath: string): string {
+    const match = readFileSync(join(WEB_ROOT_114, relativePath), 'utf8').match(
+      /<style[^>]*>([\s\S]*)<\/style>/
+    );
+    expect(match, `<style> block not found in ${relativePath}`).toBeTruthy();
+    return match?.[1] ?? '';
+  }
+  function isZeroMin(min: string): boolean {
+    return min === '0' || min === '0px';
+  }
+  /**
+   * The owner refinement: with a TALL user-input form (multi-button
+   * choice forms, contact forms) the form block sits completely inside
+   * the visible bottom area growing UPWARD from the bottom edge
+   * (content-sized, flex: none — never clipped at its bottom, never
+   * internally scrolled) while the messenger above it SHRINKS
+   * (flex: 1 + min-height: 0) and scrolls internally. The stage packs
+   * its two regions at the END (justify-content: flex-end): a no-op
+   * while the messenger absorbs the free space, and the overflow
+   * direction lever when a form is taller than the whole main block —
+   * the excess goes UP (the form's bottom edge stays flush with the
+   * viewport bottom / keyboard top) and the JoinFlow main-block clip
+   * cuts it at the top (the messenger has collapsed to its minimum —
+   * the stated beyond-the-bound behavior). happy-dom computes no
+   * layout — the cascade contract is pinned the established way
+   * (source reads + the real <style> injected over the live tree).
+   */
+  it('source pins: the stage packs flex-end; the form block is flex:none with no overflow of its own; the messenger is the flex:1 min-height:0 scroll-port', () => {
+    const css = source('src/lib/components/join/CreationWizard.svelte');
+    // The two regions pack at the END — the form block grows upward.
+    expect(css).toMatch(/\.stage\s*\{[^}]*justify-content:\s*flex-end/);
+    // REGION 1 — the messenger: the shrink absorber, the single
+    // scroll-port (flex: 1 + min-height: 0 + overflow-y: auto).
+    expect(css).toMatch(/\.log\s*\{[^}]*flex:\s*1/);
+    expect(css).toMatch(/\.log\s*\{[^}]*min-height:\s*0/);
+    expect(css).toMatch(/\.log\s*\{[^}]*overflow-y:\s*auto/);
+    // REGION 2 — the form block: flex: none (content-sized, pinned by
+    // flow at the main block's bottom) and it CANNOT scroll — no
+    // overflow of its own, so it is never clipped internally either.
+    expect(css).toMatch(/\.composer\s*\{[^}]*flex:\s*none/);
+    expect(css).not.toMatch(/\.composer\s*\{[^}]*overflow/);
+    // Styles preserved: no color/hex overrides anywhere in the file.
+    expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  it('computed cascade at the THEMES step (the tall multi-button form): the stage packs flex-end, the form block keeps its content size (flex none / shrink 0 / no internal scroll) and the messenger is the flex:1 shrink absorber and the ONLY scroll container', async () => {
+    const style = document.createElement('style');
+    style.setAttribute('data-cascade-contract', 'creation-wizard-4172');
+    style.textContent = localStyleBlock('src/lib/components/join/CreationWizard.svelte');
+    document.head.appendChild(style);
+    try {
+      const container = await driveToThemes();
+      const stage = container.querySelector('div.stage') as HTMLElement;
+      const log = logElement(container);
+      const composer = container.querySelector('.composer') as HTMLElement;
+      // The tall form lives in the form block: 8 theme badges + Ready +
+      // back — the multi-button choice form the refinement targets.
+      expect(composer.querySelectorAll('.badges .choice').length).toBeGreaterThanOrEqual(8);
+      // The stage packs the two regions at the END: while the messenger
+      // absorbs the free space this is a no-op; when the form is taller
+      // than the whole main block, the overflow goes UP — the form's
+      // bottom edge stays flush with the viewport bottom / keyboard top
+      // and the main-block clip cuts the excess at the top.
+      expect(getComputedStyle(stage).justifyContent).toBe('flex-end');
+      // The form block keeps its full content height (flex none,
+      // shrink 0 — it grows upward, never shrunk away) and never
+      // scrolls or clips internally (no overflow of its own; happy-dom
+      // computes unset overflow as '' — the visible default).
+      const composerCs = getComputedStyle(composer);
+      expect(composerCs.flexGrow).toBe('0');
+      expect(composerCs.flexShrink).toBe('0');
+      expect(['', 'visible']).toContain(composerCs.overflowY);
+      // The messenger absorbs the remainder: flex: 1 + min-height: 0 +
+      // its own scroll-port — it shrinks as the form grows and stays
+      // internally scrollable.
+      const logCs = getComputedStyle(log);
+      expect(logCs.flexGrow).toBe('1');
+      expect(isZeroMin(logCs.minHeight)).toBe(true);
+      expect(logCs.overflowY).toBe('auto');
+      // The messenger is the ONLY scrollable element in the whole wizard.
+      const scrollers = [
+        ...container.querySelectorAll<HTMLElement>('.wizard, .wizard *')
+      ].filter((el) => getComputedStyle(el).overflowY === 'auto');
+      expect(scrollers).toEqual([log]);
+    } finally {
+      style.remove();
+    }
+  });
+});
+
 describe('CreationWizard — the creating step (§23.2 5.8)', () => {
   it('animates the SummarySheet pixel-dots beat: five staggered steps(2) dots over the status text', async () => {
     const onsubmit = vi.fn();

@@ -42,6 +42,20 @@
    * scrolls the main. The main-block no-scroll root (definite height +
    * overflow clip) lives in JoinFlow's persona gate.
    *
+   * tz11-13 (task 114 — Concept §29, DESIGN §4.17.2 owner refinement):
+   * the main block is VIEWPORT-BOUNDED (JoinFlow's persona gate locks
+   * the root page wrapper + the main block to 100dvh — the dynamic
+   * viewport, i.e. the keyboard/visualViewport handling). The stage
+   * packs its two regions at the END (justify-content: flex-end): the
+   * form block is flex: none / content-sized and grows UPWARD from the
+   * bottom edge (flush with the viewport bottom — never clipped at its
+   * bottom, never internally scrolled), the messenger above it SHRINKS
+   * (flex: 1 + min-height: 0 — it absorbs the remainder and scrolls
+   * internally). A form taller than the whole main block overflows
+   * UPWARD: its bottom edge stays flush and the main-block clip cuts
+   * the excess at the top (the messenger has collapsed to its minimum
+   * — the stated beyond-the-bound behavior). Visual styles untouched.
+   *
    * Steps: intro → name (required) → public bio → private bio → contact
    * (TYPE first: phone / email / NICKNAME — §23.2 5.4: the messenger is a
    * nickname field with suggested prefixes tg:@ / signal:@ / inst:@;
@@ -916,6 +930,22 @@
     flex: 1;
     min-height: 0;
     min-width: 0;
+    /* tz11-13 (task 114 — Concept §29, DESIGN §4.17.2 item 2/3): the two
+     * regions pack at the END. In the normal case this is a no-op — the
+     * messenger (flex: 1) absorbs ALL the free space, so nothing shifts.
+     * It matters when the USER-INPUT-FORM BLOCK is TALL (multi-button
+     * choice forms, contact forms): the form block is flex: none — it
+     * keeps its full content height and grows UPWARD from the bottom
+     * edge; the messenger above it shrinks (min-height: 0) and scrolls
+     * internally to fit the remainder. Should a form be taller than the
+     * whole main block, the negative free space overflows at the START
+     * (the top): the form block's bottom edge stays FLUSH with the main
+     * block's bottom (the viewport bottom / keyboard top — every button
+     * and input in it stays 100% visible, never clipped at its bottom)
+     * and the JoinFlow main-block clip cuts the excess at the top
+     * instead (the messenger has already collapsed to its minimum — the
+     * stated beyond-the-bound behavior). */
+    justify-content: flex-end;
   }
   /* REGION 2 — the USER-FORM AREA (tz11-10, Concept §27; §23.2 5.2):
    * fixed at the bottom of the available screen as a flex: none region

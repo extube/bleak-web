@@ -1379,3 +1379,249 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
     }
   });
 });
+
+describe('JoinFlow — viewport-bounded main block (tz11-13, task 114, Concept §29 / DESIGN §4.17.2)', () => {
+  /**
+   * The owner refinement: the root page wrapper AND the main block are
+   * strictly bounded by the visible browser window (below the fixed
+   * header down to the screen bottom / virtual keyboard) — never
+   * content-driven growth. With a TALL user-input form (multi-button
+   * choice forms, contact forms) the form block grows UPWARD from the
+   * bottom edge, content-sized (flex: none), and the messenger above it
+   * SHRINKS (flex: 1 + min-height: 0) and scrolls internally; the form
+   * block is never clipped at its bottom and never scrolls. The
+   * task-113 clip stays as the outer guard: a form taller than the
+   * whole main block overflows UPWARD (the stage packs flex-end — see
+   * CreationWizard) so its bottom edge stays flush and the excess is
+   * cut at the main block's top (the messenger has already collapsed to
+   * its minimum — the stated beyond-the-bound behavior).
+   *
+   * happy-dom runs no layout engine (no box metrics) — the contract is
+   * pinned the established way: source pins + the REAL-GEOMETRY parsed
+   * cascade (the outerHTML round-trip — the documented :has() quirk
+   * workaround) over a SHORT and an INFLATED (tall-form) fixture.
+   */
+  const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
+    ? process.cwd()
+    : join(process.cwd(), 'apps', 'web');
+  function source(relativePath: string): string {
+    return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
+  }
+  function styleBlock(relativePath: string): string {
+    const match = source(relativePath).match(/<style[^>]*>([\s\S]*)<\/style>/);
+    expect(match, `<style> block not found in ${relativePath}`).toBeTruthy();
+    return match?.[1] ?? '';
+  }
+  /** Svelte's :global(X) → X (raw injection needs unscoped selectors). */
+  function unscope(css: string): string {
+    let out = '';
+    let i = 0;
+    for (;;) {
+      const at = css.indexOf(':global(', i);
+      if (at === -1) return out + css.slice(i);
+      out += css.slice(i, at);
+      let depth = 1;
+      let j = at + ':global('.length;
+      while (j < css.length && depth > 0) {
+        if (css[j] === '(') depth += 1;
+        else if (css[j] === ')') depth -= 1;
+        j += 1;
+      }
+      out += css.slice(at + ':global('.length, j - 1);
+      i = j;
+    }
+  }
+
+  const injected: HTMLStyleElement[] = [];
+  let shell: HTMLElement | null = null;
+  const parsedFixtures: HTMLElement[] = [];
+
+  function injectCascadeFixtureCss(): void {
+    for (const file of [
+      'src/routes/+layout.svelte',
+      'src/routes/+page.svelte',
+      'src/lib/components/join/JoinFlow.svelte',
+      'src/lib/components/join/CreationWizard.svelte'
+    ]) {
+      const style = document.createElement('style');
+      style.setAttribute('data-cascade-contract-114', file);
+      style.textContent = unscope(styleBlock(file));
+      document.head.appendChild(style);
+      injected.push(style);
+    }
+  }
+
+  afterEach(() => {
+    for (const style of injected) style.remove();
+    injected.length = 0;
+    if (shell) shell.remove();
+    shell = null;
+    for (const fixture of parsedFixtures) fixture.remove();
+    parsedFixtures.length = 0;
+  });
+
+  it('source pins: the root page wrapper AND the main block are locked to the viewport (100vh fallback + 100dvh — the keyboard/visualViewport handling), persona-gated', () => {
+    const css = source('src/lib/components/join/JoinFlow.svelte');
+    // (a) The ROOT PAGE WRAPPER (the app-shell) is height-locked while
+    // the creation chat is mounted — its min-height alone left it
+    // content-growable in principle; the definite height closes the
+    // path. /chats, /room and the other join steps are untouched.
+    const shellLock =
+      css.match(/:global\(\.app-shell:has\(> \.join > \.persona-step\)\)\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(shellLock).toBeTruthy();
+    expect(shellLock).toMatch(/height:\s*100vh/);
+    expect(shellLock).toMatch(/height:\s*100dvh/);
+    // The dvh refinement comes AFTER the vh fallback (the later
+    // supported declaration wins; dvh = the dynamic viewport — the
+    // visible area after the keyboard, no measuring JS).
+    expect(shellLock.indexOf('height: 100vh')).toBeGreaterThanOrEqual(0);
+    expect(shellLock.indexOf('height: 100vh')).toBeLessThan(
+      shellLock.indexOf('height: 100dvh')
+    );
+    // (b) The MAIN BLOCK keeps the task-113 definite viewport height +
+    // the no-scroll clip (unchanged — the outer guard).
+    const gate = css.match(
+      /:global\(\.app-shell > \.join:has\(> \.persona-step\)\)\s*\{[^}]*\}/
+    )?.[0];
+    expect(gate).toBeTruthy();
+    expect(gate).toMatch(/height:\s*100vh/);
+    expect(gate).toMatch(/height:\s*100dvh/);
+    expect(gate).toMatch(/overflow-x:\s*hidden/);
+    expect(gate).toMatch(/overflow-y:\s*hidden/);
+    // (c) The FORM BLOCK side (CreationWizard): the stage packs flex-end
+    // (the tall form overflows UPWARD — its bottom edge stays flush),
+    // the form block is flex:none, has no overflow of its own (it never
+    // scrolls / is never clipped internally) and the messenger is the
+    // flex:1 shrink absorber with its own scroll-port.
+    const wizardCss = source('src/lib/components/join/CreationWizard.svelte');
+    expect(wizardCss).toMatch(/\.stage\s*\{[^}]*justify-content:\s*flex-end/);
+    expect(wizardCss).toMatch(/\.composer\s*\{[^}]*flex:\s*none/);
+    expect(wizardCss).not.toMatch(/\.composer\s*\{[^}]*overflow/);
+    expect(wizardCss).toMatch(/\.log\s*\{[^}]*flex:\s*1/);
+    expect(wizardCss).toMatch(/\.log\s*\{[^}]*min-height:\s*0/);
+    expect(wizardCss).toMatch(/\.log\s*\{[^}]*overflow-y:\s*auto/);
+  });
+
+  it('tall-form fixture: the main block height is the same definite viewport bound regardless of content; the form block stays content-sized (flex none, no internal scroll) with its bottom flush (flex-end packing) and the messenger absorbs the remainder as the single scroll-port', async () => {
+    injectCascadeFixtureCss();
+    shell = document.createElement('div');
+    shell.className = 'app-shell';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'join';
+    shell.appendChild(wrapper);
+    document.body.appendChild(shell);
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
+    mockedApi.getRoom.mockResolvedValue(room);
+    mockedApi.listRoomUsers.mockResolvedValue([]);
+    render(JoinFlow, { props: {}, target: wrapper });
+
+    // Drive to the THEMES step — the real tall multi-button form
+    // (8 theme badges + Ready + back live in the form block).
+    pasteCode('123456');
+    await submitViaCta();
+    await screen.findByText(room.name);
+    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
+    await screen.findByText(ru['join.wizard.intro.title']);
+    await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
+    await screen.findByText(ru['join.wizard.name.question']);
+    const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
+    fireEvent.input(nameInput, { target: { value: 'Я' } });
+    await tick();
+    await tick();
+    await screen.getByRole('button', { name: ru['join.wizard.send'] }).click();
+    await screen.findByText(ru['join.wizard.public.question']);
+    fireEvent.submit(document.querySelector('form.input-row') as HTMLFormElement); // public (empty)
+    await screen.findByText(ru['join.wizard.private.question']);
+    fireEvent.submit(document.querySelector('form.input-row') as HTMLFormElement); // private (empty)
+    await screen.findByText(ru['join.wizard.contact.question']);
+    await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
+    await screen.findByText(ru['join.wizard.interests.question']);
+
+    // LIVE structure at the tall form: the form block is the stage's
+    // LAST child (pinned at the main block's bottom — flush-bottom
+    // structure) and holds the multi-button form; the log holds none.
+    const liveLog = document.querySelector('div.log') as HTMLElement;
+    const liveComposer = document.querySelector('.composer') as HTMLElement;
+    const liveStage = liveLog.parentElement as HTMLElement;
+    expect([...liveStage.children]).toEqual([liveLog, liveComposer]);
+    expect(liveComposer.querySelector('.badges')).toBeTruthy();
+    expect(liveComposer.querySelectorAll('.badges .choice').length).toBeGreaterThanOrEqual(8);
+    expect(liveLog.querySelector('.badges')).toBeNull();
+
+    // The parsed-cascade proof: the SAME markup as a short fixture and a
+    // TALL fixture (the form block inflated far beyond the main block).
+    const html = (shell as HTMLElement).outerHTML;
+    function parsedShellOf(inflate: boolean): HTMLElement {
+      const fixture = document.createElement('div');
+      fixture.innerHTML = html;
+      document.body.appendChild(fixture);
+      parsedFixtures.push(fixture);
+      const pShell = fixture.children[0] as HTMLElement;
+      if (inflate) {
+        // A form block taller than the whole main block (the beyond-
+        // the-bound case the clip guards).
+        const panel = pShell.querySelector('.composer .panel') as HTMLElement;
+        expect(panel).toBeTruthy();
+        for (let i = 0; i < 60; i += 1) {
+          const extra = document.createElement('button');
+          extra.type = 'button';
+          extra.className = 'choice badge';
+          extra.textContent = `extra choice ${i}`;
+          panel.appendChild(extra);
+        }
+      }
+      return pShell;
+    }
+    const shortShell = parsedShellOf(false);
+    const tallShell = parsedShellOf(true);
+
+    for (const [label, pShell] of [
+      ['short form', shortShell],
+      ['tall form', tallShell]
+    ] as const) {
+      const pWrap = pShell.children[0] as HTMLElement;
+      const wrapCs = getComputedStyle(pWrap);
+      // The main block resolves to a definite viewport height and keeps
+      // the no-scroll clip (§4.17.1) — whatever the form's content.
+      expect(wrapCs.height, label).toMatch(/px/);
+      expect(wrapCs.overflowX, label).toBe('hidden');
+      expect(wrapCs.overflowY, label).toBe('hidden');
+      const pLog = pShell.querySelector('div.log') as HTMLElement;
+      const pComposer = pShell.querySelector('.composer') as HTMLElement;
+      const pStage = pLog.parentElement as HTMLElement;
+      // EXACTLY two blocks: the messenger first, the form block last.
+      expect([...pStage.children], label).toEqual([pLog, pComposer]);
+      expect(pLog.contains(pComposer), label).toBe(false);
+      expect(pComposer.querySelector('.badges'), label).toBeTruthy();
+      // MESSENGER SHRINKS: the form block is flex:none (keeps its full
+      // content height — grows upward from the bottom edge) and the
+      // messenger is the flex:1 shrink absorber with min-height: 0.
+      expect(getComputedStyle(pComposer).flexGrow, label).toBe('0');
+      expect(getComputedStyle(pComposer).flexShrink, label).toBe('0');
+      // NEVER CLIP THE FORM: the form block has NO overflow of its own —
+      // it never scrolls and is never clipped internally (happy-dom
+      // computes unset overflow as ''; a real browser resolves the
+      // visible default); the flex-end packing keeps its bottom edge
+      // flush (excess overflows upward, the clip cuts it at the main
+      // block's top).
+      expect(['', 'visible'], label).toContain(getComputedStyle(pComposer).overflowY);
+      expect(getComputedStyle(pStage).justifyContent, label).toBe('flex-end');
+      // ...and the messenger stays internally scrollable.
+      const logCs = getComputedStyle(pLog);
+      expect(logCs.flexGrow, label).toBe('1');
+      expect(['0', '0px'], label).toContain(logCs.minHeight);
+      expect(logCs.overflowY, label).toBe('auto');
+      // The messenger is the ONLY scrollable element on the whole screen.
+      const scrollers = Array.from(pShell.querySelectorAll<HTMLElement>('*')).filter(
+        (el) => getComputedStyle(el).overflowY === 'auto'
+      );
+      expect(scrollers, label).toEqual([pLog]);
+    }
+    // BOUNDED REGARDLESS OF CONTENT: the tall form's main block height
+    // is the SAME definite viewport bound as the short form's — the
+    // height never grows with the content.
+    expect(getComputedStyle((tallShell.children[0] as HTMLElement)).height).toBe(
+      getComputedStyle((shortShell.children[0] as HTMLElement)).height
+    );
+  });
+});

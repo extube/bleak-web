@@ -474,11 +474,39 @@
      * that cannot shrink into the two inner regions (the messenger
      * absorbs the growth; the form block keeps its height — it cannot
      * scroll) is CLIPPED at the main block instead of growing the shell
-     * and handing scrolling back to the PAGE. */
+     * and handing scrolling back to the PAGE.
+     *
+     * tz11-13 (task 114 — Concept §29, DESIGN §4.17.2, the clip
+     * reconciliation): the clip stays as the outer GUARD only. The form
+     * block (the composer, flex: none below) keeps its full content
+     * height — the messenger (flex: 1, min-height: 0) absorbs ALL the
+     * shrinkage first, and the wizard's stage packs its two regions at
+     * the END, so a form block taller than the stage overflows UPWARD:
+     * the form's bottom edge stays flush with the main block's bottom
+     * (the viewport bottom / the keyboard top — see the shell lock
+     * below) and the clip cuts the excess at the main block's TOP,
+     * never at the form block's bottom edge. The form block itself is
+     * never clipped at its bottom and never scrolls (no overflow of its
+     * own). */
     height: 100vh;
     height: 100dvh;
     overflow-x: hidden;
     overflow-y: hidden;
+  }
+  /* tz11-13 (task 114 — Concept §29, DESIGN §4.17.2 item 1): the ROOT
+   * PAGE WRAPPER is locked to the viewport too, while the creation chat
+   * is mounted — the app-shell's min-height alone leaves it
+   * content-growable in principle; a definite height closes that path.
+   * Same 100vh fallback + 100dvh pair as the main block above: dvh IS
+   * the keyboard/visualViewport handling — the dynamic viewport unit
+   * tracks the visible screen area (below the fixed header, above the
+   * virtual keyboard when it is open), so the bound follows the
+   * keyboard without any measuring JS (the later supported declaration
+   * wins). :has-gated on the persona step: /chats, /room and the other
+   * join steps keep the content-driven shell. */
+  :global(.app-shell:has(> .join > .persona-step)) {
+    height: 100vh;
+    height: 100dvh;
   }
   /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the card content
    * mounts fresh on every join-step swap (code ⇄ preview ⇄ wizard ⇄
