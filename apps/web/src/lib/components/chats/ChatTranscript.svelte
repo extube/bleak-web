@@ -60,7 +60,12 @@
    *   composer with a SMOOTH scroll (instant under
    *   prefers-reduced-motion) plus the bounded settled-layout
    *   re-assert (one more pin two rAFs later, cancelled on re-run or
-   *   unmount); no stick tracking, no chip.
+   *   unmount); no stick tracking, no chip. tz11-10 (Concept §27): the
+   *   smooth mode ALSO re-asserts the pin whenever the scroll-port's
+   *   OWN box height changes (the keyboard opening/closing over the
+   *   100dvh messages area, late font metrics) — a ResizeObserver on
+   *   the caller's scroller, smooth mode ONLY, so the main room's
+   *   stick-tracking contract is untouched.
    */
   import MessageBubble from './MessageBubble.svelte';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
@@ -175,6 +180,37 @@
       };
     }
     if (stick) el.scrollTop = el.scrollHeight;
+  });
+
+  // tz11-10 (Concept §27): the height-change re-assert — the smooth mode
+  // re-pins whenever the messages area's OWN box height changes (the
+  // keyboard opening/closing over the 100dvh region, late font metrics,
+  // a composer panel swap changing the form area's height). Observing the
+  // scroll-port itself (border-box only) can never loop: a scrollTop pin
+  // does not resize the box. Smooth mode ONLY — the main room keeps its
+  // stick-tracking contract (§3.5 AC 3) untouched. Guarded: no observer
+  // support (or none in the environment) → the append/step/open pins
+  // above already cover the contract.
+  $effect(() => {
+    if (!smooth) return;
+    const el = scroller;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    let observer: ResizeObserver | null = null;
+    try {
+      observer = new ResizeObserver(() => {
+        if (el.isConnected) pinToBottom(el);
+      });
+      observer.observe(el);
+    } catch {
+      return; // no observer support — the effect pins above already ran
+    }
+    return () => {
+      try {
+        observer?.disconnect();
+      } catch {
+        /* no observer support */
+      }
+    };
   });
 
   function jumpToBottom(): void {

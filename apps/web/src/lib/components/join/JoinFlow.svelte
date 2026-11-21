@@ -445,6 +445,23 @@
     min-height: 0;
     max-width: none;
     padding: 0;
+    /* tz11-10 (bug round 3, task 111 — Concept §27, THE STRUCTURAL ORDER):
+     * the owner's TWO FIXED AREAS need the region geometry to resolve
+     * against the available screen area ITSELF — min-height: 0 above still
+     * left the wrapper's main size content-driven (a min-height alone
+     * never makes a flex chain definite), so a transcript taller than the
+     * screen could still grow the shell and hand scrolling back to the
+     * PAGE. The wrapper (the creation-chat screen root) now carries the
+     * DEFINITE viewport height — `100dvh`, the dynamic viewport (the
+     * area left after the keyboard), with the `100vh` fallback for
+     * engines without dvh (the later supported declaration wins):
+     * every flex: 1 link below it resolves against a definite height,
+     * the messages area becomes the ONLY scrollable region with its own
+     * scroll-port, and the form area (flex: none) sits fixed at the
+     * bottom of that area — geometry from the layout itself, no
+     * measuring JS. */
+    height: 100vh;
+    height: 100dvh;
   }
   /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the card content
    * mounts fresh on every join-step swap (code ⇄ preview ⇄ wizard ⇄

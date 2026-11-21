@@ -956,6 +956,25 @@ describe('JoinFlow — creation-chat geometry (tz11-06 bug round, task 107 + Con
     // composer then sits below the log in normal flow.
     expect(css).toMatch(/\.card\.composer-card\s*\{[^}]*flex:\s*1/);
     expect(css).toMatch(/\.card\.composer-card\s*\{[^}]*min-height:\s*0/);
+    // tz11-10 (Concept §27): the TWO-REGION root — the page-level .join
+    // wrapper carries the DEFINITE viewport height while the persona chat
+    // is mounted: `100vh` fallback + `100dvh` (the dynamic viewport — the
+    // available screen area after the keyboard; the later supported
+    // declaration wins). Every flex:1 link below it resolves against a
+    // definite height and the messages area is the only scroll-port
+    // (geometry from the layout itself, not measured JS).
+    const gate = css.match(
+      /:global\(\.app-shell > \.join:has\(> \.persona-step\)\)\s*\{[^}]*\}/
+    );
+    const gateText = gate?.[0] ?? '';
+    expect(gateText).toMatch(/height:\s*100vh/);
+    expect(gateText).toMatch(/height:\s*100dvh/);
+    // The dvh refinement comes AFTER the vh fallback (later supported
+    // declaration wins in a real browser).
+    expect(gateText.indexOf('height: 100vh')).toBeGreaterThan(-1);
+    expect(gateText.indexOf('height: 100vh')).toBeLessThan(
+      gateText.indexOf('height: 100dvh')
+    );
   });
 
   it('tz11-08 (task 109, bug round 2): the page-level .join wrapper link ABOVE JoinFlow is bounded for the persona step — the task-107 recurrence root cause', () => {
@@ -1127,7 +1146,7 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
     parsedFixtures.length = 0;
   });
 
-  it('the computed chain from div.log to the app-shell is a bounded flex column ending in the log as the single scroll container', async () => {
+  it('the computed chain from div.log to the app-shell is a bounded flex column ending in the log as the single scroll container (tz11-10: the two-region root is the DEFINITE 100dvh wrapper height)', async () => {
     injectCascadeFixtureCss();
     const wrapper = seedShellAndWrapper();
     mockedResolve.mockResolvedValue({ roomAddress: room.address });
@@ -1188,6 +1207,10 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
     const offWrap = offShell.children[0] as HTMLElement;
     expect(offWrap.matches('.app-shell > .join:has(> .persona-step)')).toBe(false);
     expect(isZeroMin(getComputedStyle(offWrap).minHeight)).toBe(false);
+    // tz11-10: the definite screen height is persona-gated too — the
+    // other join steps keep the content-driven wrapper height (no
+    // declared height at all; happy-dom computes unset height as '').
+    expect(getComputedStyle(offWrap).height).toBe('');
     // On-state: the persona-step markup — the gate is on, the wrapper is
     // a bounded, full-width, gutter-free conduit.
     const pShell = parsedShellOf((shell as HTMLElement).outerHTML);
@@ -1200,6 +1223,15 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
     expect(pWrap.matches('.app-shell > .join:has(> .persona-step)')).toBe(true);
     expect(getComputedStyle(pWrap).minHeight).toBe('0');
     expect(getComputedStyle(pWrap).maxWidth).toBe('none');
+    // tz11-10 (Concept §27): the wrapper IS the creation-chat screen
+    // root — the DEFINITE available screen height (100vh fallback +
+    // 100dvh; the dynamic viewport = the area left after the keyboard).
+    // A definite height resolves to a px length in the cascade (happy-dom
+    // against its window; a real browser against dvh) — unlike the
+    // off-state wrapper above. Every flex:1 link below resolves against
+    // this definite height (geometry from the layout itself, not
+    // measured JS).
+    expect(getComputedStyle(pWrap).height).toMatch(/px/);
 
     // THE CHAIN: every flex-item link from the log up to (exclusive) the
     // shell is a flex column with min-height: 0 — one unbounded link is
@@ -1228,5 +1260,18 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
       pShell.querySelectorAll<HTMLElement>('*')
     ).filter((el) => getComputedStyle(el).overflowY === 'auto');
     expect(scrollers).toEqual([pLog]);
+
+    // tz11-10 (Concept §27): the TWO REGIONS in the parsed chain — the
+    // messages area (the scroll-port, above) and the user-form area
+    // (flex: none, position static: OUTSIDE the scroll-port, fixed at
+    // the bottom by the layout — never overlaying the newest message).
+    const pComposer = pShell.querySelector('.composer') as HTMLElement;
+    expect(pComposer).toBeTruthy();
+    expect(pLog.contains(pComposer)).toBe(false);
+    const pStage = pLog.parentElement as HTMLElement;
+    expect([...pStage.children]).toEqual([pLog, pComposer]);
+    expect(getComputedStyle(pComposer).flexGrow).toBe('0');
+    // (position/no-sticky is source-pinned; happy-dom resolves no
+    // computed `position`.)
   });
 });

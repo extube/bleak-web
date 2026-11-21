@@ -16,6 +16,18 @@
    * above the input, fixed-height composer, fade transitions) live in
    * the wizard's composer below the chat — untouched.
    *
+   * tz11-10 (bug round 3, task 111 — Concept §27, owner structural
+   * order): the chat stage is a real TWO-REGION layout with INDEPENDENT
+   * overflow — REGION 1 the MESSAGES AREA (top, flex: 1 + min-height: 0
+   * + overflow-y: auto: the ONLY scrollable region with its own
+   * scroll-port; scrolls WITHIN the bounded area and autoscrolls to the
+   * bottom OF THAT AREA), REGION 2 the USER-FORM AREA (bottom: badges,
+   * input, counter, send/revert — flex: none, OUTSIDE the scroll-port,
+   * fixed at the bottom of the available screen). No visible boundary —
+   * layout geometry only, all visual styles untouched (§25 item 4).
+   * The definite-height root of the chain lives in JoinFlow (the
+   * persona-gated wrapper height: 100dvh).
+   *
    * Steps: intro → name (required) → public bio → private bio → contact
    * (TYPE first: phone / email / NICKNAME — §23.2 5.4: the messenger is a
    * nickname field with suggested prefixes tg:@ / signal:@ / inst:@;
@@ -295,12 +307,14 @@
   });
 
   // §24 item 12: the auto-scroll is the SHARED transcript's proven pin
-  // (tz11-09, DESIGN §4.18) — the wizard passes its `.log` scroller to
-  // ChatTranscript with `smooth` (tasks 107/109: the smooth bottom pin +
-  // the bounded settled-layout re-assert, instant under reduced motion)
-  // and `pinKey` (every composer step swap). The bounded §25 height
-  // chain (JoinFlow persona-step → card → this stage → .log) stays as
-  // the container infrastructure the real chat mounts into.
+  // (tz11-09, DESIGN §4.18) — the wizard passes its messages-area
+  // scroller to ChatTranscript with `smooth` (tasks 107/109/111: the
+  // smooth bottom pin on the area's OWN scroll-port + the bounded
+  // settled-layout re-assert + the height-change re-assert, instant
+  // under reduced motion) and `pinKey` (every composer step swap). The
+  // tz11-10 two-region height chain (JoinFlow persona-step → card →
+  // this stage → the messages area) stays as the container
+  // infrastructure the real chat mounts into.
 
   const themeTopics = $derived(
     wizard.interestGroup === null
@@ -628,11 +642,17 @@
     <!-- §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the chat stage is
          ONE fading unit — it mounts fresh at every branch boundary
          (intro ⇄ chat, creating ⇄ chat) and replays the fade there. -->
+    <!-- tz11-10 (Concept §27): the stage is the TWO-REGION layout —
+         REGION 1 (below): the MESSAGES AREA, the ONLY scrollable region
+         with its own scroll-port (flex: 1 + min-height: 0 + overflow-y:
+         auto); REGION 2 (after it): the USER-FORM AREA, a flex: none
+         region OUTSIDE the scroll-port, fixed at the bottom of the
+         available screen. No visible boundary — layout geometry only. -->
     <div class="stage">
-      <!-- The interview log: the SHARED main-room chat (§4.18, tz11-09) —
-           ChatTranscript renders the message list and owns the proven
-           smooth autoscroll; the wrapper is the bounded scroller the
-           component pins (role=log announces new lines). -->
+      <!-- REGION 1 — the MESSAGES AREA: the bounded scroll-port the
+           SHARED ChatTranscript pins (§4.18, tz11-09); the list scrolls
+           WITHIN this area when it overflows it and autoscrolls to the
+           bottom OF THAT AREA (role=log announces new lines). -->
       <div
         class="log"
         bind:this={logEl}
@@ -648,8 +668,10 @@
         />
       </div>
 
-      <!-- §23.2 5.2: the composer is fixed at the bottom of the card; the
-           log above scrolls when it overflows. -->
+      <!-- REGION 2 — the USER-FORM AREA (§23.2 5.2): suggestion badges,
+           input, counter, send/revert — a flex: none region fixed at the
+           bottom of the stage, OUTSIDE the messages scroll-port; the
+           last message always sits strictly above it. -->
       <div class="composer">
       {#key wizard.step}
         <div class="panel">
@@ -830,13 +852,15 @@
     font-size: 14px;
     max-width: 40ch;
   }
-  /* The interview log: the bounded scroller the SHARED ChatTranscript
-   * pins (§4.18, tz11-09). The list styling + the bubble rendering live
-   * in the shared component; the wrapper keeps the task-107/109
-   * container contract (the log is the ONE scroll container, flex: 1 +
-   * min-height: 0, bottom padding so the newest bubble never touches
-   * the composer edge) and hands the transcript its tighter rhythm via
-   * the --transcript-gap custom property. */
+  /* REGION 1 — the MESSAGES AREA (tz11-10, Concept §27): the bounded
+   * scroll-port the SHARED ChatTranscript pins (§4.18, tz11-09). The list
+   * styling + the bubble rendering live in the shared component; the area
+   * keeps the container contract (the ONE scroll container, flex: 1 +
+   * min-height: 0 + overflow-y: auto — it scrolls WITHIN the bounded area
+   * when the messages overflow it; overscroll containment keeps the flick
+   * INSIDE the area instead of chaining to the page) and hands the
+   * transcript its tighter rhythm via the --transcript-gap custom
+   * property. */
   .log {
     /* §23.2 5.2: the chat content scrolls when it overflows; the tighter
      * creation-chat rhythm rides to the shared list via --transcript-gap. */
@@ -851,12 +875,17 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    /* tz11-10 (Concept §27): bounded scroll — the area's scroll-port is
+     * the ONLY scrollable region, so an edge flick never chains to the
+     * page (layout geometry, not a visual style). */
+    overscroll-behavior: contain;
   }
   /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the chat stage is ONE
    * fading unit — it mounts fresh at every branch boundary (intro ⇄ chat,
-   * creating ⇄ chat) and replays the same fade treatment. The flex column
-   * carries the old .wizard layout (log scrolls, composer pins to the
-   * bottom) unchanged. */
+   * creating ⇄ chat) and replays the same fade treatment. tz11-10
+   * (Concept §27): the stage is the TWO-REGION layout itself — the
+   * messages region (flex: 1, its own scroll-port) above, the user-form
+   * region (flex: none) pinned at its bottom, no visible boundary. */
   .stage {
     animation: fade-in 400ms ease-out;
     display: flex;
@@ -867,15 +896,14 @@
     min-width: 0;
   }
   .composer {
-    /* §23.2 5.2: fixed at the bottom of the card (sticky pins it while
-     * the log scrolls; mobile visual viewports rise with the keyboard).
-     * tz11-06 (task 107): flex: none — the composer keeps its full fixed
-     * height at the card's bottom edge and the message area above it
-     * (the log, flex: 1) expands to fill all remaining vertical space
-     * (Concept §25 item 3); the sticky pin is a no-op fallback, the
-     * composer is not inside the log's scrollport. */
-    position: sticky;
-    bottom: 0;
+    /* REGION 2 — the USER-FORM AREA (tz11-10, Concept §27; §23.2 5.2):
+     * fixed at the bottom of the available screen as a flex: none region
+     * OUTSIDE the messages scroll-port — the last message always sits
+     * strictly above it (Concept §25 item 3: the message area above
+     * expands to fill all remaining vertical space). The sticky overlay
+     * fallback of the pre-two-region rounds is GONE: the form is pinned
+     * by the layout geometry itself (flex: none below the flex: 1
+     * region), never overlaying scroll content. */
     flex: none;
     background: var(--color-surface);
     padding-top: var(--space-2);

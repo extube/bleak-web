@@ -276,15 +276,22 @@ describe('CreationWizard — the §23.2 5.1/5.2 composer', () => {
     expect(document.activeElement).toBe(input);
   });
 
-  it('§23.2 5.2 + §24 items 2/4/9/13 layout contract: sticky composer, scrolling log, no bottom back, counter below, prefixes above, right back on non-standard forms (source pins)', () => {
+  it('§23.2 5.2 + §24 items 2/4/9/13 + tz11-10 (Concept §27) two-region layout contract: messages scroll-port above, flex:none form area below (no sticky overlay), no bottom back, counter below, prefixes above, right back on non-standard forms (source pins)', () => {
     const css = source('src/lib/components/join/CreationWizard.svelte');
     // No "Next" CTA exists anywhere in the wizard source.
     expect(css).not.toContain('join.wizard.next');
-    // The composer pins to the card bottom; the log is the scroll area.
-    expect(css).toMatch(/\.composer\s*\{[^}]*position:\s*sticky/);
-    expect(css).toMatch(/\.composer\s*\{[^}]*bottom:\s*0/);
+    // tz11-10 (Concept §27): REGION 1/REGION 2 — the composer is a
+    // flex:none region OUTSIDE the scroll-port (the sticky overlay
+    // fallback of the pre-two-region rounds is gone); the log is the
+    // bounded scroll area with independent overflow.
+    expect(css).toMatch(/\.composer\s*\{[^}]*flex:\s*none/);
+    expect(css).not.toMatch(/\.composer\s*\{[^}]*position:\s*sticky/);
+    expect(css).not.toMatch(/\.composer\s*\{[^}]*bottom:\s*0/);
     expect(css).toMatch(/\.log\s*\{[^}]*flex:\s*1/);
+    expect(css).toMatch(/\.log\s*\{[^}]*min-height:\s*0/);
     expect(css).toMatch(/\.log\s*\{[^}]*overflow-y:\s*auto/);
+    // tz11-10: bounded scroll — an edge flick never chains to the page.
+    expect(css).toMatch(/\.log\s*\{[^}]*overscroll-behavior:\s*contain/);
     // §24 item 2: the bottom back button is GONE (no .back class, no
     // back button after the composer block).
     expect(css).not.toMatch(/\.back\s*\{/);
@@ -748,7 +755,10 @@ describe('CreationWizard — item 12 auto-scroll via the SHARED transcript (tz11
     // log content is possible (the old partial-cutoff bug).
     expect(log.contains(composer)).toBe(false);
     // In flow: the log first (it expands), the composer last (pinned at
-    // the bottom edge, Concept §25 item 3).
+    // the bottom edge, Concept §25 item 3). tz11-10 (Concept §27): the
+    // stage partitions into EXACTLY the TWO regions — messages area,
+    // user-form area.
+    expect(stage.children).toHaveLength(2);
     expect(stage.firstElementChild).toBe(log);
     expect(stage.lastElementChild).toBe(composer);
   });
@@ -778,7 +788,7 @@ describe('CreationWizard — item 12 REAL-GEOMETRY cascade contract (tz11-08, ta
     return min === '0' || min === '0px';
   }
 
-  it('the computed chat-stage cascade: the log is the SINGLE scroll container, bounded flex columns above it, the composer pinned below', async () => {
+  it('the computed chat-stage cascade (tz11-10, Concept §27): TWO REGIONS — the log is the SINGLE scroll container (the messages area) and the ONLY scrollable element, the composer is the flex:none form area OUTSIDE the scroll-port, bounded flex columns above', async () => {
     // The wizard's source has no :global selectors — inject as-is.
     const style = document.createElement('style');
     style.setAttribute('data-cascade-contract', 'creation-wizard');
@@ -810,11 +820,26 @@ describe('CreationWizard — item 12 REAL-GEOMETRY cascade contract (tz11-08, ta
         expect(cs.flexDirection).toBe('column');
         expect(isZeroMin(cs.minHeight)).toBe(true);
       }
-      // The composer: pinned below the log (flex: none — no growth; the
-      // sticky pin is a fallback, it is NOT inside the scrollport).
+      // THE TWO REGIONS (Concept §27): the stage partitions into EXACTLY
+      // two regions — the messages area first (the scroll-port), the
+      // user-form area last (outside the scroll-port, fixed at the
+      // bottom); no third region, no boundary element between them.
       expect(composer.parentElement).toBe(stage);
+      expect(stage.children).toHaveLength(2);
+      expect(stage.firstElementChild).toBe(log);
+      expect(stage.lastElementChild).toBe(composer);
+      // REGION 1 — the messages area: the scroll-port grows to fill the
+      // bounded height (flex-grow 1) and never scrolls its PARENT.
+      expect(getComputedStyle(log).flexGrow).toBe('1');
+      // REGION 2 — the form area: flex: none (no growth; it keeps its
+      // full fixed height at the bottom edge) and POSITION STATIC — the
+      // sticky overlay fallback is gone, the composer can never
+      // overlay/cover the newest message (it is outside the scroll-port
+      // by flow, not by pinning).
       expect(getComputedStyle(composer).flexGrow).toBe('0');
-      expect(getComputedStyle(composer).position).toBe('sticky');
+      expect(getComputedStyle(composer).flexShrink).toBe('0');
+      // (The no-sticky form-area contract is source-pinned above —
+      // happy-dom resolves no computed `position`.)
     } finally {
       style.remove();
     }
@@ -862,6 +887,55 @@ describe('CreationWizard — item 12 REAL-GEOMETRY cascade contract (tz11-08, ta
     } finally {
       vi.unstubAllGlobals();
       spy?.mockRestore();
+    }
+  });
+
+  it('tz11-10 (Concept §27): the pin RE-ASSERTS when the messages-area height changes (keyboard open/close over the 100dvh area, late metrics) — a ResizeObserver on the scroll-port itself, disconnected on unmount', async () => {
+    /**
+     * The owner guidance: autoscroll on every append and on open,
+     * RE-ASSERTED when the area's height changes. The observer is part of
+     * the shared transcript's smooth machinery (smooth mode only — the
+     * main room untouched) and watches the CALLER'S scroll-port itself;
+     * a scrollTop pin never resizes the border box, so it cannot loop.
+     * happy-dom never fires observer callbacks, so the re-assert is
+     * driven deterministically through the stub (the same pattern as the
+     * rAF re-assert test above).
+     */
+    class ROStub {
+      static instances: ROStub[] = [];
+      readonly observe = vi.fn();
+      readonly disconnect = vi.fn();
+      constructor(private readonly cb: ResizeObserverCallback) {
+        ROStub.instances.push(this);
+      }
+      fire(): void {
+        this.cb([], this as unknown as ResizeObserver);
+      }
+    }
+    vi.stubGlobal('ResizeObserver', ROStub);
+    let spy: ReturnType<typeof vi.spyOn> | null = null;
+    try {
+      const container = await startWizard();
+      const log = container.querySelector('div.log') as HTMLElement;
+      // The scroll-port itself is observed (the messages area's OWN box).
+      const ro = ROStub.instances.find((o) =>
+        o.observe.mock.calls.some((call) => call[0] === log)
+      );
+      expect(ro).toBeTruthy();
+      // A height change re-pins the bottom OF THAT AREA — same smooth
+      // bottom target as every append/open pin.
+      spy = vi.spyOn(log, 'scrollTo').mockImplementation(() => {});
+      ro?.fire();
+      expect(spy.mock.calls.at(-1)).toEqual([
+        { top: log.scrollHeight, behavior: 'smooth' }
+      ]);
+      // Unmount disconnects the observer (no leak).
+      cleanup();
+      expect(ro?.disconnect).toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+      spy?.mockRestore();
+      ROStub.instances.length = 0;
     }
   });
 });
