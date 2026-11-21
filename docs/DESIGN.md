@@ -2889,7 +2889,10 @@ keeps its muted look as DIMMED CONTENT** — name, preview and time at
 reduced opacity, the spinner stays, the common block background is
 untouched, **no per-item background panel** (the old opacity-on-panel
 treatment is re-expressed on the content); finished items render at full
-emphasis.
+emphasis. **Owner edge-case decision (2026-11-20, recorded in Concept
+§27):** the creation chat applies the same rule **structurally** — the
+two-region fixed layout (§4.17) with dimmed content on unfinished items
+re-expressed in ChatCard; verified in `verification-v312.md`.
 
 ### 4.16 v3.9 feature round (2026-11-20, owner-approved Concept §22.3; lean protocol per §22.2)
 
@@ -2964,6 +2967,25 @@ styles) untouched:
    chain (`min-height: 0`, log = scroll container, composer below in
    normal flow) — smooth scroll on open and every new message, bottom
    padding so the newest message clears the composer.
+
+### 4.18 v3.12 owner order (2026-11-21, Concept §26): creation chat = the real main-room chat
+
+**The wizard's hand-rolled (simulated) chat implementation is removed.**
+The creation chat **reuses the real chat machinery from the main room**
+(`/chats`: message-list rendering, scrolling/autoscroll, input bar,
+composer — extracted/shared into a common component if needed) so the
+creation dialog inherits the **proven chat behavior (including
+autoscroll)** instead of a simulated replica. The wizard becomes a
+**driver** over the real chat component: it feeds the mascot's messages,
+the user's answers (including theme/interest picks), placeholders/
+suggestions, and the step flow into it. The task-107/109 geometry work
+(bounded persona-step chain, §25 desktop layout) remains as the
+container infrastructure the real chat mounts into. /chats behavior
+must stay unchanged (shared-component changes behavior-neutral for the
+main room — its contracts stay green). No happy-dom simulation of the
+chat geometry; no new dependencies.
+
+## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)
 
