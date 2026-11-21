@@ -2858,6 +2858,13 @@ per chat; the ink pairing follows §4.10). All other sheet spec details
    e.g. a scrim chip behind it or the dark-ink color for light hues like
    yellow/cyan), with a hover/press state consistent with the pixel
    press effect; visible on every Deepa hue.
+4. **Fade transitions extended (2026-11-20, owner amendment in Concept
+   §23.2.5.9):** the fade treatment applies to **EVERY step boundary of
+   the whole creation path** — form → intro theme → chat (interview) →
+   "creating your profile" loading → app main page — not just between
+   the chat steps: one fade treatment used consistently across all
+   wizard step boundaries, including into the loading step and from it
+   into the app main page.
 
 ### 4.15.7 v3.7 addendum (2026-11-20, owner-approved Concept §20)
 
@@ -2883,6 +2890,56 @@ reduced opacity, the spinner stays, the common block background is
 untouched, **no per-item background panel** (the old opacity-on-panel
 treatment is re-expressed on the content); finished items render at full
 emphasis.
+
+### 4.16 v3.9 feature round (2026-11-20, owner-approved Concept §22.3; lean protocol per §22.2)
+
+1. **Bleak mascot on the enter-invite-code form (tz11-01):** a chunky
+   pixel-art mascot portrait (same design system §4 register as the
+   avatar art) rendered on the code-entry form; lightweight — static or
+   2-frame CSS idle animation, no new dependencies; a reusable component
+   so the creation wizard can mount it too.
+2. **Step-by-step user creation wizard (tz11-02, P1):** the single-form
+   persona creation is replaced by a **multi-step chat-style wizard**
+   entered after the invite code resolves: (1) intro theme step;
+   (2) "enter your name"; (3) **auto-chat interview** — the mascot/agent
+   asks in chat bubbles (existing dialog bubble styling incl. Deepa
+   coding) with smooth step transitions: **public bio → private bio →
+   contact info** (type choice: phone / email / messenger nickname) →
+   **interests** (group first, then that group's items, multi-select);
+   (4) a **"creating your profile" loading step** while the persona is
+   created via the EXISTING API request shape (invite_code + token +
+   interests per §13.1.1 — no backend changes). RU/EN parity for all
+   copy; the join machines/tests updated to the wizard flow.
+   **§23 amendments (2026-11-20, owner design review — Concept §23):**
+   wizard: iOS-Messages send button + counter (no send on input taps),
+   no "Next" (fixed bottom input, scrollable chat, centered back below
+   input), example placeholders per case, nickname field with
+   `tg:@/signal:@/inst:@` prefixes, themes model (8 themes × 6 topics,
+   `theme:topic_key` titles on the numeric server contract), interests
+   creation-only, multi-theme loop to "Ready", arcade-sheet loading
+   animation, fade transitions, intro bubble un-plated. Mascot: NO
+   background (the pixel figure sits directly on the page), mascot-at-top
+   ordering (mascot → title → content) on the enter-code form and the
+   room/create-profile-choice form.
+
+### 4.16.1 v3.10 second batch (2026-11-21, owner-approved Concept §24 — all items amend the creation wizard, tz11-02 lineage)
+
+1. **No echo:** the chat never repeats the user's typed text as a message (no live echo bubble; answers snapshot into `sent*` state on forward moves only — the transcript renders snapshots).
+2. **Revert arrow replaces "back":** the bottom back button is removed; a **revert arrow sits in the input form, shown when the input is empty**; when typing starts the **send button appears in its place** (arrow ⇄ send swap, identical 48px geometry).
+3. **Full chat history:** everything the mascot sends AND the user's answers are kept in the chat — including **theme/interest picks rendered as the user's messages** (a monotonic `reached` cursor: back never rewinds the transcript; per-theme pick rounds render their answered summaries).
+4. **Counter position:** the symbol counter is **centered below the button** (below the input row).
+5. **Slower fades:** the step fade duration increases (200ms → **400ms** across stage/panel/creating/leaving).
+6. **Calm intro:** the mascot intro form is **calm and friendly** — calming the user, preparing them for a simple dialog, giving the necessary context before the interview (agent role + no-rush framing).
+7. **Pixel greeting:** "Hi! I'm Bleak" uses the **pixel font** (not the body font).
+7b. **Desktop dimensions:** the creation chat has the **same dimensions as the room chats on /chats** (not full-width; `.persona-step` max-width 640px ≥720px).
+8. **Clear button:** an **"x" on the right in the input form** quickly clears the input (clears + refocuses).
+9. **Strongly fixed input height** above the keyboard/bottom (no height jitter — `height: var(--touch-target)`); **suggestions (e.g. messenger prefixes) sit ABOVE the input**, never below (source-order pinned).
+10. **Footer note removed:** "stored on your device. Shared when you slide to share" is gone from the chat (`contact_hint` retired).
+11. **Autofocus after send:** after Enter, the input is auto-focused again (effect on every text step).
+12. **Latest message pinned:** the last message sits automatically **strictly above the input form + suggestion badges** — auto-scroll keeps it pinned right above the input area (effect reads transcript length + wizard step).
+13. **Right back kept on non-standard forms** (theme choosing, contact choosing, etc.); the stage-level intro/creating back links are intentionally kept (room-preview return / navigation).
+
+Reconciliation (owner note): the bottom back button is removed everywhere (item 2); the **right back button stays on non-standard sub-steps** (item 13); the **revert arrow in the input** replaces it on standard steps (item 2).
 
 ## 5. Design-decision rationale (short)
 
