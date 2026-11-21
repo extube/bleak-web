@@ -1,5 +1,32 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.14 ROUND NOTE (tz12-02 landing page + route re-homing, Concept §31 —
+> appended by the process 2026-11-21, post-round three-gate run GREEN: lint
+> clean · 870 tests total (49 api-client + 8 helper + 813 web, 52 files) ·
+> build 0 errors, dev `12bb11b`):**
+> (1) **Landing page at `/`** (task 117, worker `07e82628`): pixel mascots
+> (BleakMascot reuse, no background), the AI-networking positioning story,
+> labelled nav (section anchors + /host), Start → /income, the 3-step
+> tutorial (search → chatting → contacts sharing); mobile-first, tokens
+> only, RU/EN via the FormShell-style header switcher; 14 tests in
+> `landing-page.test.ts`.
+> (2) **Route re-homing:** `/income` = the room-income (entry) page (the
+> previous `/` join surface moved verbatim — resume card, §2.8 notice,
+> deep-link handshake, JoinFlow entry steps); `/income/[room]/create` =
+> the creation process (the same JoinFlow seeded into the persona step
+> via the `roomParam` prop, the invite code rides `?code=`; Room intro's
+> Create-profile navigates there; wizard back returns to
+> `/income?code=…`). Deep links (`?code=`/`?u=…`) forwarded from the
+> landing to `/income`; the layout `isJoin` covers `/` + `/income*`
+> (no tab bar on all three pre-room routes); nav links (guard
+> defaultRedirect, global 401 gate, profile leave, ShareKit invite links)
+> re-pointed from `/` to `/income`. No form-behavior changes;
+> `creation-wizard.test.ts`/`join-machine.test.ts` needed zero changes.
+> Manual checks for the owner: the landing on phone + desktop (mascots,
+> tutorial figures, RU/EN switch), Start → /income with the 6-digit input,
+> a persona-QR deep link round-trip, the create-profile path through
+> /income/[room]/create.
+
 > **v3.9/§23 ROUND NOTE (tz11-01/02 + §23 design-review batch + the
 > fade-every-boundary extension — appended by the process 2026-11-20,
 > post-round three-gate run GREEN: lint clean · 865 tests total
