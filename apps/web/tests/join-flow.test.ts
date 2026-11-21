@@ -270,8 +270,9 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
       token: 'generated-raw-token',
       name: 'Я'
     });
-    // §23.2 5.9: goto follows the card's fade-out (the boundary into /room).
-    await waitFor(() => expect(goto).toHaveBeenCalledWith('/room'));
+    // §23.2 5.9: goto follows the card's fade-out (the boundary into
+    // /room) — the fade is 1.5s (§24 item 5), so the wait allows for it.
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/room'), { timeout: 2500 });
   });
 
   it('creation rejected over the invite code shows the §2.9 copy inline at the loading step, writes no identity/vault (AC 9)', async () => {    mockedApi.createRoomUser.mockRejectedValue(
@@ -422,8 +423,9 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
     // The 201 FULL list is mirrored per room|user.
     const mirror = JSON.parse(localStorage.getItem('bleak.interests') ?? '{}');
     expect(mirror[`${room.address}|0xme`]).toEqual(full);
-    // §23.2 5.9: goto follows the card's fade-out (the boundary into /room).
-    await waitFor(() => expect(goto).toHaveBeenCalledWith('/room'));
+    // §23.2 5.9: goto follows the card's fade-out (the boundary into
+    // /room) — the fade is 1.5s (§24 item 5), so the wait allows for it.
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/room'), { timeout: 2500 });
     // The createPersona body stays unchanged (interests ride separately).
     expect(mockedApi.createRoomUser.mock.calls[0]?.[1]).not.toHaveProperty('interests');
   });
@@ -456,8 +458,9 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
       userAddress: '0xme'
     });
     expect(localStorage.getItem('bleak.interests')).toBeNull();
-    // §23.2 5.9: goto follows the card's fade-out (the boundary into /room).
-    await waitFor(() => expect(goto).toHaveBeenCalledWith('/room'));
+    // §23.2 5.9: goto follows the card's fade-out (the boundary into
+    // /room) — the fade is 1.5s (§24 item 5), so the wait allows for it.
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/room'), { timeout: 2500 });
   });
 });
 
@@ -858,7 +861,8 @@ describe('JoinFlow — §23.2 5.9 fade on every creation step boundary (owner am
    * the whole creation path — form → intro theme → chat (interview) →
    * "creating your profile" loading → app main page — one opacity-only
    * treatment everywhere (the sheets' established fade); §24 item 5
-   * slows it to 400ms.
+   * slows it — the owner amendment's concrete value is exactly 1.5s
+   * (recorded in Concept §24 item 5).
    */
   const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
     ? process.cwd()
@@ -873,7 +877,7 @@ describe('JoinFlow — §23.2 5.9 fade on every creation step boundary (owner am
     // stage — covering the code ⇄ preview ⇄ wizard ⇄ vault swaps.
     expect(css).toMatch(/\{#key flow\.step\}/);
     expect(css).toMatch(/<div class="stage">/);
-    expect(css).toMatch(/\.stage\s*\{[^}]*animation:\s*fade-in\s+400ms\s+ease-out/);
+    expect(css).toMatch(/\.stage\s*\{[^}]*animation:\s*fade-in\s+1\.5s\s+ease-out/);
     expect(css).toMatch(/@keyframes fade-in\s*\{[\s\S]*?opacity:\s*0[\s\S]*?opacity:\s*1/);
     // The composer-card flex chain survives the wrapper (log scrolls,
     // composer pins to the bottom).
@@ -885,7 +889,7 @@ describe('JoinFlow — §23.2 5.9 fade on every creation step boundary (owner am
   it('the loading → /room boundary: the card fades OUT (same treatment) before the route hand-off, skipped under reduced motion', () => {
     const css = source('src/lib/components/join/JoinFlow.svelte');
     expect(css).toMatch(/class:leaving=\{enteringRoom\}/);
-    expect(css).toMatch(/\.card\.leaving\s*\{[^}]*animation:\s*fade-out\s+400ms\s+ease-out/);
+    expect(css).toMatch(/\.card\.leaving\s*\{[^}]*animation:\s*fade-out\s+1\.5s\s+ease-out/);
     expect(css).toMatch(/@keyframes fade-out\s*\{[\s\S]*?opacity:\s*1[\s\S]*?opacity:\s*0/);
     // The goto waits out the fade; prefers-reduced-motion navigates
     // immediately (the base.css catch-all collapses the animation).
@@ -925,8 +929,8 @@ describe('JoinFlow — §23.2 5.9 fade on every creation step boundary (owner am
     await waitFor(() =>
       expect(document.querySelector('section.card')?.className).toMatch(/leaving/)
     );
-    // ...then the route hand-off into /room.
-    await waitFor(() => expect(goto).toHaveBeenCalledWith('/room'));
+    // ...then the route hand-off into /room (after the 1.5s fade).
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/room'), { timeout: 2500 });
   });
 });
 
@@ -1004,23 +1008,31 @@ describe('JoinFlow — creation-chat geometry (tz11-06 bug round, task 107 + Con
     expect(wrapperRules.some((rule) => rule.includes(':has(> .form-step)'))).toBe(true);
   });
 
-  it('desktop (Concept §25 / DESIGN §4.17): a 750–850px centered column spanning the FULL screen height; the other join steps untouched', () => {
+  it('desktop (Concept §30 geometry unification): the creation chat + mascot intro adopt the SHARED FormShell container geometry — the same width/centering as the unified forms, full screen height', () => {
     const css = source('src/lib/components/join/JoinFlow.svelte');
     const desktop = css.slice(css.indexOf('@media (min-width: 720px)'));
     const phoneStart = desktop.indexOf('@media (max-width: 719px)');
     const desktopOnly = phoneStart === -1 ? desktop : desktop.slice(0, phoneStart);
-    // Explicit width target (supersedes the 640px §24 7b approximation).
-    const match = desktopOnly.match(/\.join\.persona-step\s*\{[^}]*max-width:\s*(\d+)px/);
-    expect(match).toBeTruthy();
-    const width = Number(match?.[1]);
-    expect(width).toBeGreaterThanOrEqual(750);
-    expect(width).toBeLessThanOrEqual(850);
+    // The canonical width lives on the SHARED FormShell (the §30
+    // geometry standard) — the §25 750–850px approximation is superseded.
+    const shell = source('src/lib/components/join/FormShell.svelte');
+    expect(shell).toMatch(/--form-shell-max-width:\s*480px/);
+    // The persona step (the creation chat AND the mascot intro inside it)
+    // consumes the SAME shared constant — no wizard-specific container
+    // metrics, dimensions and position identical to the unified forms.
+    expect(desktopOnly).toMatch(
+      /\.join\.persona-step\s*\{[^}]*max-width:\s*var\(--form-shell-max-width\)/
+    );
     // Full screen height: no vertical gutter around the chat box (the
     // base .join padding is dropped on the persona step — the box reaches
     // the window's top and bottom edges).
     expect(desktopOnly).toMatch(/\.join\.persona-step\s*\{[^}]*padding:\s*0/);
-    // The other join steps keep the narrow centered card (untouched).
-    expect(desktopOnly).toMatch(/\.join\s*\{[^}]*max-width:\s*480px/);
+    // The unified forms consume the same shared constant.
+    expect(desktopOnly).toMatch(/\.join\s*\{[^}]*max-width:\s*var\(--form-shell-max-width\)/);
+    // The mascot intro is a persona-step screen — no separate width of
+    // its own in the wizard (the FormShell fills the persona card).
+    const wizard = source('src/lib/components/join/CreationWizard.svelte');
+    expect(wizard).not.toMatch(/\.wizard\s*\{[^}]*max-width/);
     // Size/proportions only: no color/hex overrides anywhere in the file.
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
@@ -1719,10 +1731,33 @@ describe('JoinFlow — unified three-block form shell (Concept §30, DESIGN §4.
     expect(content).not.toMatch(/align-items:\s*center/);
     // §30: the middle text fills no more than 75% of the form width.
     expect(css).toMatch(/\.content :global\(p\)\s*\{[^}]*max-width:\s*75%/);
-    // Header-LEFT: the web-app icon (the shipped PWA mark — no hex in
-    // source); header-RIGHT: the language switch (LocaleControl).
-    expect(css).toMatch(/<img class="app-icon" src="\/icons\/icon\.svg"/);
+    // Header-LEFT: the web-app icon — the shipped PWA mark's graphic
+    // WITHOUT its background plate (owner amendment: transparent against
+    // the header background, token fills, no hex); header-RIGHT: the
+    // language switch (LocaleControl).
+    expect(css).toMatch(/<svg\s+class="app-icon"/);
+    expect(css).toMatch(/viewBox="0 0 64 64"/);
+    // NO background plate: the icon style declares the transparent reset
+    // (and no other background value), and the mark carries no full-bleed
+    // background rect.
+    const iconRule = css.match(/\.app-icon\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(iconRule).toMatch(/background:\s*transparent/);
+    const iconSvg = css.match(/<svg\s+class="app-icon"[\s\S]*?<\/svg>/)?.[0] ?? '';
+    expect(iconSvg).not.toMatch(/<rect width="64" height="64"/);
+    expect(iconSvg).toMatch(/fill="var\(--color-accent\)"/);
+    expect(iconSvg).toMatch(/fill="var\(--color-bg\)"/);
     expect(css).toMatch(/import LocaleControl from '\.\/LocaleControl\.svelte'/);
+    // Owner amendment (§30 item 1) — header sizing: the icon is a little
+    // bigger (40px) and the switcher's height EQUALS the icon's height
+    // (a 40px .locale row; the shared SegmentedControl sized down ONLY
+    // under .locale: 36px buttons + 2px track padding = 40px — the
+    // profile settings control stays untouched at 48px).
+    expect(iconSvg).toMatch(/width="40"/);
+    expect(iconSvg).toMatch(/height="40"/);
+    expect(css).toMatch(/\.locale\s*\{[^}]*height:\s*40px/);
+    expect(css).toMatch(/\.locale :global\(\.segmented\)\s*\{[^}]*padding:\s*2px/);
+    expect(css).toMatch(/\.locale :global\(\.segmented button\)\s*\{[^}]*min-height:\s*36px/);
+    expect(css).toMatch(/\.locale\s*\{[^}]*align-items:\s*center/);
     // Footer: a 1..n action region (the rendered footer snippet).
     expect(css).toMatch(/@render footer\?\.\(\)/);
     // Token discipline: no raw hex.
@@ -1731,17 +1766,25 @@ describe('JoinFlow — unified three-block form shell (Concept §30, DESIGN §4.
 
   it('source pins: every covered join form mounts the shell with its own regions', () => {
     // Enter-code (the reference instantiation): the form still wraps the
-    // shell (native submit semantics); mascot → title → digits → links
-    // in the middle; the single enter action in the footer; no second
-    // locale switch in the form (the shell header carries it).
+    // shell (native submit semantics); mascot → title → digits → the
+    // QR-scan link ONLY in the middle; the footer holds the enter action
+    // with the return-to-event entry STACKED BELOW it (owner amendment);
+    // no second locale switch in the form (the shell header carries it).
     const entry = source('src/lib/components/join/CodeEntry.svelte');
     expect(entry).toMatch(/import FormShell from '\.\/FormShell\.svelte'/);
     expect(entry).toMatch(/<FormShell>/);
     expect(entry).toMatch(/<form class="step" onsubmit=\{submit\}>/);
     expect(entry).not.toMatch(/LocaleControl/);
-    const entryFooter = entry.slice(entry.indexOf('{#snippet footer()}'));
+    const entryFooterAt = entry.indexOf('{#snippet footer()}');
+    const entryFooter = entry.slice(entryFooterAt);
     expect(entryFooter).toMatch(/type="submit"/);
-    expect(entryFooter).toMatch(/join\.enter/);
+    expect(entryFooter.indexOf('join.enter')).toBeGreaterThan(-1);
+    // The return-to-event entry lives ONLY in the footer, BELOW the
+    // enter button (the middle block carries the QR-scan link ONLY).
+    expect(entryFooter.indexOf('join.import.title')).toBeGreaterThan(
+      entryFooter.indexOf('join.enter')
+    );
+    expect(entry.slice(0, entryFooterAt)).not.toMatch(/join\.import\.title/);
     const entryOrder =
       entry.indexOf('mascot-row') < entry.indexOf('<h1>') &&
       entry.indexOf('<h1>') < entry.indexOf('class="cells"') &&
@@ -1801,30 +1844,53 @@ describe('JoinFlow — unified three-block form shell (Concept §30, DESIGN §4.
     expect(css).toMatch(/\.card\.composer-card\s*\{[^}]*flex:\s*1[^}]*min-height:\s*0/);
   });
 
-  it('behavior (enter-code, the reference instantiation): header = app icon + language switch; middle = mascot → title → digits → links (top-anchored); footer = the single enter action', async () => {
+  it('behavior (enter-code, the reference instantiation): header = app icon + language switch; middle = mascot → title → digits → the QR-scan link ONLY (top-anchored); footer = enter on top, return-to-event stacked below', async () => {
+    // The Step-1 return entry exists only with a non-empty device vault.
+    localStorage.setItem(
+      'bleak.tokenVault',
+      JSON.stringify([
+        {
+          roomAddress: '0xoldroom',
+          userAddress: '0xold',
+          token: 'stored-vault-token',
+          name: 'Старая персона',
+          savedAt: '2026-11-14T10:00:00Z'
+        }
+      ])
+    );
     const { container } = render(JoinFlow, { props: {} });
-    // HEADER (fixed): app icon LEFT, language switch RIGHT.
+    // HEADER (fixed): app icon LEFT (40px, no background plate), language
+    // switch RIGHT (the .locale row's height equals the icon's — owner
+    // amendment §30.1).
     const header = container.querySelector('.shell-header') as HTMLElement;
     expect(header).toBeTruthy();
-    expect(header.querySelector('img.app-icon')).toBeTruthy();
+    const headerIcon = header.querySelector('svg.app-icon') as HTMLElement;
+    expect(headerIcon).toBeTruthy();
+    expect(headerIcon.getAttribute('height')).toBe('40');
+    // No inline plate; the transparent rule is pinned at source level.
+    expect(headerIcon.getAttribute('style')).toBeFalsy();
     expect(header.querySelector('[role="radiogroup"]')?.getAttribute('aria-label')).toBe(
       ru['common.locale']
     );
-    // MIDDLE (the scroll region): mascot, title, the 6-digit input, the
-    // scan-QR link — in flow order, starting at the top.
+    // MIDDLE (the scroll region): mascot, title, the 6-digit input and
+    // the QR-scan link ONLY — the return-to-event entry is NOT here.
     const middle = container.querySelector('.shell-middle') as HTMLElement;
     expect(middle).toBeTruthy();
     expect(middle.querySelector('.mascot-row')).toBeTruthy();
     expect(middle.querySelector('h1')?.textContent).toBe(ru['join.title']);
     expect(middle.querySelector('.digit-input')?.querySelectorAll('input')).toHaveLength(6);
-    expect(middle.querySelector('button.scan')?.textContent).toContain(ru['join.scan.open']);
-    // FOOTER (fixed): the single primary enter action.
+    const middleScan = middle.querySelectorAll('button.scan');
+    expect(middleScan).toHaveLength(1);
+    expect(middleScan[0]!.textContent).toContain(ru['join.scan.open']);
+    expect(middle.textContent).not.toContain(ru['join.import.title']);
+    // FOOTER (fixed): TWO STACKED buttons — enter on top, return below.
     const footer = container.querySelector('.shell-footer') as HTMLElement;
     expect(footer).toBeTruthy();
     const footerButtons = footer.querySelectorAll('button');
-    expect(footerButtons).toHaveLength(1);
+    expect(footerButtons).toHaveLength(2);
     expect(footerButtons[0]!.classList.contains('cta')).toBe(true);
     expect(footerButtons[0]!.textContent).toContain(ru['join.enter']);
+    expect(footerButtons[1]!.textContent).toContain(ru['join.import.title']);
     // The regions never cross: no form content in the header, no digit
     // input or shell chrome inside the footer.
     expect(header.querySelector('.digit-input')).toBeNull();
@@ -1950,6 +2016,15 @@ describe('JoinFlow — unified three-block form shell (Concept §30, DESIGN §4.
     expect(pHeader.nextElementSibling).toBe(pMiddle);
     expect(getComputedStyle(pHeader).flexGrow).toBe('0');
     expect(getComputedStyle(pFooter).flexGrow).toBe('0');
+    // Owner amendment (§30 item 1) — header alignment: the switcher row's
+    // height equals the app icon's height (40px), both centered in the
+    // header (the .locale resolved height + the icon's 40px attribute).
+    const pLocale = pHeader.querySelector('.locale') as HTMLElement;
+    const pIcon = pHeader.querySelector('svg.app-icon') as HTMLElement;
+    expect(pLocale).toBeTruthy();
+    expect(pIcon).toBeTruthy();
+    expect(getComputedStyle(pLocale).height).toBe('40px');
+    expect(pIcon.getAttribute('height')).toBe('40');
     const middleCs = getComputedStyle(pMiddle);
     expect(middleCs.flexGrow).toBe('1');
     expect(['0', '0px']).toContain(middleCs.minHeight);

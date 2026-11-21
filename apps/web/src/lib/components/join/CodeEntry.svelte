@@ -5,15 +5,16 @@
    * with a single shake, scan entry (QrScanner context *a* is mounted by
    * the parent JoinFlow).
    *
-   * Concept §30 (DESIGN §4.19) — the reference three-block instantiation:
-   * the form mounts the SHARED FormShell — header (fixed): the app icon
-   * left + the language switch right; middle (the ONLY scrollable region):
-   * the mascot, the "Join the Event" title, the subtitle text, the 6-digit
-   * input and the scan-QR / return-to-event links (top-anchored, text
-   * ≤ 75% of the form width); footer (fixed): the single primary enter
-   * action ("Enter the room" — existing .cta styles, reused). The <form>
-   * still wraps the whole shell, so the footer button keeps its native
-   * submit semantics (Enter in a cell submits, as before).
+   * Concept §30 (DESIGN §4.19 + owner amendment) — the reference
+   * three-block instantiation: the form mounts the SHARED FormShell —
+   * header (fixed): the app icon left + the language switch right;
+   * middle (the ONLY scrollable region): the mascot, the "Join the
+   * Event" title, the subtitle text and the 6-digit input plus the
+   * QR-scan link ONLY; footer (fixed, the 1..n stacked case): the
+   * primary enter action ("Enter the room" — existing .cta styles) and,
+   * BELOW it, the "Return to event" entry (§4.11.1, same link styles).
+   * The <form> still wraps the whole shell, so the footer enter button
+   * keeps its native submit semantics (Enter in a cell submits).
    */
   import { locale, translate } from '#lib/i18n/locale';
   import { isValidInviteCode } from '#lib/join';
@@ -76,7 +77,9 @@
   <FormShell>
     <div class="body">
       <!-- §23.1 item 2 content order (now the §30 MIDDLE block): mascot
-           → title → text → the 6-digit input → the scan/return links. -->
+           → title → text → the 6-digit input → the QR-scan link ONLY
+           (owner amendment: the return-to-event entry moved to the
+           footer, stacked below the enter action). -->
       <div class="mascot-row">
         <BleakMascot size={96} idle />
       </div>
@@ -100,22 +103,22 @@
         <PixelIcon name="scan" size={16} />
         {translate($locale, 'join.scan.open')}
       </button>
-
+    </div>
+    {#snippet footer()}
+      <!-- §30 footer (the 1..n stacked case, owner amendment): the
+           primary enter button (native type=submit inside the <form>)
+           and, BELOW it, the return-to-event entry (§4.11.1) — same
+           link styles, always fully visible. -->
+      <button type="submit" class="cta" disabled={disabled || !complete}>
+        {#if disabled}<span class="spinner" aria-hidden="true"></span>{/if}
+        {translate($locale, 'join.enter')}
+      </button>
       {#if onreturn}
-        <!-- Return-to-event entry (§4.11.1): the vault screen is the path BACK. -->
         <button type="button" class="scan" onclick={() => onreturn?.()}>
           <PixelIcon name="key" size={16} />
           {translate($locale, 'join.import.title')}
         </button>
       {/if}
-    </div>
-    {#snippet footer()}
-      <!-- §30 footer (the reference instantiation: ONE action here): the
-           primary enter button — native type=submit inside the <form>. -->
-      <button type="submit" class="cta" disabled={disabled || !complete}>
-        {#if disabled}<span class="spinner" aria-hidden="true"></span>{/if}
-        {translate($locale, 'join.enter')}
-      </button>
     {/snippet}
   </FormShell>
 </form>

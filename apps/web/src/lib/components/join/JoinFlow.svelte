@@ -97,9 +97,10 @@
   // the route hand-off into /room. The /room page mount itself is outside
   // this card's scope; the fade-out IS the join-side treatment.
   let enteringRoom = $state(false);
-  // §24 item 5: the step fades run slower (the 400ms opacity treatment —
-  // the goto waits out the fade so the boundary stays one motion).
-  const FADE_MS = 400;
+  // §24 item 5: the step fades run slower (the 1.5s opacity treatment —
+  // owner amendment recorded in Concept §24 item 5; the goto waits out
+  // the fade so the boundary stays one motion).
+  const FADE_MS = 1500;
   const reducedMotion =
     typeof window !== 'undefined' &&
     typeof window.matchMedia === 'function' &&
@@ -278,7 +279,7 @@
         }
       }
       // §23.2 5.9: the loading → /room boundary — the card fades out with
-      // the SAME 400ms opacity treatment (§24 item 5), then the route
+      // the SAME 1.5s opacity treatment (§24 item 5), then the route
       // hands off into
       // /room. Under prefers-reduced-motion the base.css catch-all
       // collapses the fade, so the navigation is immediate.
@@ -418,7 +419,9 @@
     gap: var(--space-5);
     padding: var(--space-7) var(--space-5) var(--space-6);
     width: 100%;
-    max-width: 480px;
+    /* Concept §30 geometry unification (owner amendment): the width is
+     * the SHARED FormShell constant (the canonical container geometry). */
+    max-width: var(--form-shell-max-width);
     margin: 0 auto;
   }
   .card {
@@ -551,19 +554,19 @@
   }
   /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the card content
    * mounts fresh on every join-step swap (code ⇄ preview ⇄ wizard ⇄
-   * vault) and replays the ONE fade treatment — 400ms opacity-only
-   * (§24 item 5), the sheets' established fade (base.css reduced-motion
-   * catch-all). */
+   * vault) and replays the ONE fade treatment — 1.5s opacity-only
+   * (§24 item 5, owner amendment: the concrete slower-fade value), the
+   * sheets' established fade (base.css reduced-motion catch-all). */
   .stage {
-    animation: fade-in 400ms ease-out;
+    animation: fade-in 1.5s ease-out;
     min-width: 0;
   }
   /* §23.2 5.9: the boundary OUT of the loading step — the card fades out
-   * with the same 400ms opacity treatment before the route hand-off into
+   * with the same 1.5s opacity treatment before the route hand-off into
    * /room (JoinFlow delays the goto by the fade duration; reduced motion
    * navigates immediately — see submitPersona). */
   .card.leaving {
-    animation: fade-out 400ms ease-out forwards;
+    animation: fade-out 1.5s ease-out forwards;
   }
   @keyframes fade-in {
     from {
@@ -642,18 +645,25 @@
   @media (min-width: 720px) {
     .join {
       justify-content: center;
-      max-width: 480px;
+      /* Concept §30 geometry unification (owner amendment): the width is
+       * the SHARED FormShell constant — every screen in the join/intro/
+       * creation flow is dimensioned and positioned identically. */
+      max-width: var(--form-shell-max-width);
     }
-    /* §24 item 7b superseded by Concept §25 / DESIGN §4.17 (2026-11-21):
-     * the creation chat on desktop is an EXPLICIT 750–850px centered
-     * column (not the room-chat approximation) and spans the FULL screen
-     * height — the box reaches the window's top and bottom edges (no
-     * vertical gutter, no centering; the flex: 1 card fills the bounded
+    /* §24 item 7b → §25 → Concept §30 geometry unification (owner
+     * amendment, 2026-11-21): the persona desktop width is NO LONGER its
+     * own 750–850px rule — the creation chat and the mascot intro adopt
+     * the SHARED FormShell container geometry (the same width, centering
+     * and viewport bounding as the unified forms; the exact geometry is
+     * whatever the shared shell defines). It still spans the FULL screen
+     * height (no vertical gutter; the flex: 1 card fills the bounded
      * height and the composer anchors at the bottom edge). Phone (<720px)
      * keeps the §12 full-screen treatment; size/proportions only — every
-     * visual style is untouched. */
+     * visual style is untouched. The §24–§29 INTERNAL layout contracts
+     * (two fixed areas, main block, messenger-only scroll, viewport
+     * rule, 1.5s fades) are unchanged. */
     .join.persona-step {
-      max-width: 800px;
+      max-width: var(--form-shell-max-width);
       padding: 0;
     }
   }

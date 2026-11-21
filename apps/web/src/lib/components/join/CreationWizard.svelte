@@ -78,7 +78,8 @@
    * - 5.9: fade transitions — the owner amendment (Concept §23.2.5.9,
    *   DESIGN §4.15.6.4) extends them to EVERY step boundary of the whole
    *   creation path; one opacity-only treatment everywhere. §24 item 5:
-   *   the step fades run slower — 400ms.
+   *   the step fades run slower — 1.5s (owner amendment recorded in
+   *   Concept §24 item 5: the concrete slower-fade value).
    * - §23.1 item 4: the intro copy is plain page text (no bubble
    *   background).
    *
@@ -93,7 +94,7 @@
    *   (incl. the theme/interest picks as mine lines) remains in the log,
    *   even after going back.
    * - 4: the counter is centered BELOW the input row.
-   * - 5: the step fades run slower (400ms).
+   * - 5: the step fades run slower (1.5s).
    * - 6/7: the intro is calm + contextual; "Hi! I'm Bleak" renders in
    *   the pixel font.
    * - 8: an "x" on the right inside the input pill clears it quickly.
@@ -136,6 +137,9 @@
   import { MAX_CONTACT_CARD } from '#lib/stores/contactCard';
   import { MAX_INTERESTS } from '#lib/stores/interests';
   import BleakMascot from '#lib/components/BleakMascot.svelte';
+  // Concept §30 (owner scope extension): the intro page mounts the same
+  // shared three-block FormShell as the other join-surface forms.
+  import FormShell from './FormShell.svelte';
 
   /**
    * The wizard interviewer's stable identity: the Deepa hue coding needs a
@@ -655,17 +659,28 @@
       <button type="button" class="link" onclick={back}>{t('common.back')}</button>
     </div>
   {:else if wizard.step === 'intro'}
-    <!-- §23.1 item 4: the intro copy is plain page text — no bubble
-         background (the same no-plate treatment as the mascot). -->
-    <div class="creating-stage">
-      <div class="mascot-row">
-        <BleakMascot size={112} idle label={t('join.wizard.agent.name')} />
+    <!-- Concept §30 (owner scope extension): the intro page adopts the
+         SHARED FormShell — fixed header (app icon + language switch),
+         the middle (the ONLY scrollable region): the mascot and the calm
+         greeting content, fixed footer: the action buttons. All §24
+         intro content contracts stay (plain page text, no bubble
+         background, pixel-font greeting); the step flow is untouched —
+         this is structural chrome only. -->
+    <FormShell>
+      <div class="creating-stage">
+        <div class="mascot-row">
+          <BleakMascot size={112} idle label={t('join.wizard.agent.name')} />
+        </div>
+        <!-- §23.1 item 4: the intro copy is plain page text — no bubble
+             background (the same no-plate treatment as the mascot). -->
+        <p class="intro-title">{t('join.wizard.intro.title')}</p>
+        <p class="intro-line">{t('join.wizard.intro.line')}</p>
       </div>
-      <p class="intro-title">{t('join.wizard.intro.title')}</p>
-      <p class="intro-line">{t('join.wizard.intro.line')}</p>
-      <button type="button" class="cta" onclick={start}>{t('join.wizard.intro.start')}</button>
-      <button type="button" class="link" onclick={back}>{t('common.back')}</button>
-    </div>
+      {#snippet footer()}
+        <button type="button" class="cta" onclick={start}>{t('join.wizard.intro.start')}</button>
+        <button type="button" class="link" onclick={back}>{t('common.back')}</button>
+      {/snippet}
+    </FormShell>
   {:else}
     <!-- §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the chat stage is
          ONE fading unit — it mounts fresh at every branch boundary
@@ -856,9 +871,9 @@
     /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the intro and the
      * loading stage mount fresh at their boundaries (form → intro,
      * chat → creating, and every way back) — the ONE fade treatment
-     * (§24 item 5: 400ms, opacity-only; base.css reduced-motion
-     * catch-all). */
-    animation: fade-in 400ms ease-out;
+     * (§24 item 5: 1.5s, opacity-only — owner amendment recorded in
+     * Concept §24 item 5; base.css reduced-motion catch-all). */
+    animation: fade-in 1.5s ease-out;
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
@@ -923,7 +938,7 @@
    * the messenger (the single scroll-port) and the user-input-form
    * block (pinned, cannot scroll). */
   .stage {
-    animation: fade-in 400ms ease-out;
+    animation: fade-in 1.5s ease-out;
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
@@ -970,9 +985,9 @@
   }
   .panel {
     /* §23.2 5.9: fade transitions between the creation-chat steps
-     * (§24 item 5: 400ms, opacity only; the base.css reduced-motion
-     * catch-all collapses it). */
-    animation: fade-in 400ms ease-out;
+     * (§24 item 5: 1.5s, opacity only — the owner amendment's concrete
+     * value; the base.css reduced-motion catch-all collapses it). */
+    animation: fade-in 1.5s ease-out;
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
@@ -1205,7 +1220,7 @@
   }
   /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the ONE fade treatment
    * for EVERY wizard step boundary — the opacity-only fade the sheets use
-   * (§24 item 5: 400ms); transform untouched. */
+   * (§24 item 5: 1.5s); transform untouched. */
   @keyframes fade-in {
     from {
       opacity: 0;

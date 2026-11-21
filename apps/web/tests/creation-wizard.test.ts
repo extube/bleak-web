@@ -11,7 +11,8 @@
  * input (tg:/signal:/inst:), the multi-theme loop returning to the
  * badges until Ready, NO live echo of the typed text, the full kept
  * history, the SummarySheet pixel-dots loading beat and the slower
- * 400ms fade step transitions.
+ * 1.5s fade step transitions (§24 item 5 owner amendment — the exact
+ * value recorded in Concept §24 item 5).
  * @testing-library/svelte over happy-dom. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -320,16 +321,23 @@ describe('CreationWizard — the §23.2 5.1/5.2 composer', () => {
     expect(flowCss).toMatch(/\.card\.composer-card\s*\{[^}]*display:\s*flex/);
   });
 
-  it('§24 item 7b superseded by Concept §25 / DESIGN §4.17: the persona card is the explicit 750–850px desktop column in JoinFlow', () => {
+  it('Concept §30 geometry unification: the persona card consumes the SHARED FormShell container geometry (no wizard-specific width; §25 750–850px superseded)', () => {
     const flowCss = source('src/lib/components/join/JoinFlow.svelte');
     expect(flowCss).toMatch(/class:persona-step=\{flow\.step === 'persona'\}/);
     const desktop = flowCss.slice(flowCss.indexOf('@media (min-width: 720px)'));
-    const match = desktop.match(/\.join\.persona-step\s*\{[^}]*max-width:\s*(\d+)px/);
-    expect(match).toBeTruthy();
-    // The explicit owner target: roughly 750–850px (800px chosen).
-    const width = Number(match?.[1]);
-    expect(width).toBeGreaterThanOrEqual(750);
-    expect(width).toBeLessThanOrEqual(850);
+    // The persona desktop width is the SHARED FormShell constant — the
+    // creation chat and the mascot intro are dimensioned/positioned
+    // IDENTICALLY to the unified forms (the §25 750–850px approximation
+    // is superseded by the §30 geometry unification).
+    expect(desktop).toMatch(
+      /\.join\.persona-step\s*\{[^}]*max-width:\s*var\(--form-shell-max-width\)/
+    );
+    const shell = source('src/lib/components/join/FormShell.svelte');
+    expect(shell).toMatch(/--form-shell-max-width:\s*480px/);
+    // The wizard itself carries no container metrics (the FormShell fills
+    // the persona card).
+    const wizard = source('src/lib/components/join/CreationWizard.svelte');
+    expect(wizard).not.toMatch(/\.wizard\s*\{[^}]*max-width/);
     // The narrow 640px room-chat approximation is gone.
     expect(desktop).not.toMatch(/max-width:\s*640px/);
   });
@@ -350,15 +358,16 @@ describe('CreationWizard — the §23.2 5.1/5.2 composer', () => {
     expect(enSrc).not.toContain('Stored on this device only');
   });
 
-  it('§23.2 5.9 (owner amendment, DESIGN §4.15.6.4) + §24 item 5: EVERY wizard step boundary uses the ONE fade treatment — slower now (400ms)', () => {
+  it('§23.2 5.9 (owner amendment, DESIGN §4.15.6.4) + §24 item 5: EVERY wizard step boundary uses the ONE fade treatment — slower now (1.5s, the owner amendment\'s concrete value)', () => {
     const css = source('src/lib/components/join/CreationWizard.svelte');
     // One treatment everywhere: the opacity-only fade-in, on the composer
     // panel (chat-step swaps), the chat stage (intro ⇄ chat, creating ⇄
     // chat branch swaps) and the intro/creating stage (form → intro,
-    // chat → creating). §24 item 5: the fade takes MORE time (400ms).
-    expect(css).toMatch(/\.panel\s*\{[^}]*animation:\s*fade-in\s+400ms\s+ease-out/);
-    expect(css).toMatch(/\.stage\s*\{[^}]*animation:\s*fade-in\s+400ms\s+ease-out/);
-    expect(css).toMatch(/\.creating-stage\s*\{[^}]*animation:\s*fade-in\s+400ms\s+ease-out/);
+    // chat → creating). §24 item 5: the fade takes MORE time (exactly
+    // 1.5s — recorded in Concept §24 item 5).
+    expect(css).toMatch(/\.panel\s*\{[^}]*animation:\s*fade-in\s+1\.5s\s+ease-out/);
+    expect(css).toMatch(/\.stage\s*\{[^}]*animation:\s*fade-in\s+1\.5s\s+ease-out/);
+    expect(css).toMatch(/\.creating-stage\s*\{[^}]*animation:\s*fade-in\s+1\.5s\s+ease-out/);
     expect(css).not.toMatch(/fade-in\s+200ms/);
     expect(css).toMatch(/@keyframes fade-in\s*\{[\s\S]*?opacity:\s*0[\s\S]*?opacity:\s*1/);
     // Opacity only — no slide/translate in the step transition (the bubble
@@ -1195,5 +1204,85 @@ describe('CreationWizard — the creating step (§23.2 5.8)', () => {
     expect(status.parentElement?.querySelector('.loading-dots')).toBeTruthy();
     await waitFor(() => expect(onsubmit).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole('button', { name: ru['common.retry'] })).toBeNull();
+  });
+});
+
+describe('CreationWizard — the intro page adopts the shared form shell (Concept §30, owner scope extension)', () => {
+  /**
+   * The "Hi! I'm Bleak" intro page mounts the SAME three-block FormShell
+   * as the other join-surface forms: fixed header (app icon left, 40px +
+   * no background plate; language switch right, height = icon height),
+   * the middle (the ONLY scrollable region) holding the mascot and the
+   * calm greeting content (§24 items 6–7: plain page text, pixel-font
+   * greeting, no bubble background), and a fixed footer with the action
+   * buttons (start on top, back below). Viewport-bounded per the §29
+   * rule via the persona gate (the intro IS a persona step — the
+   * definite 100dvh wrapper chain is pinned in join-flow.test.ts).
+   */
+  it('behavior: fixed header (app icon + language switch), middle = mascot + greeting with NO action buttons, footer = start + back (1..n)', async () => {
+    const { container } = render(CreationWizard, { props: {} });
+    await screen.findByText(ru['join.wizard.intro.title']);
+    // HEADER (fixed): app icon LEFT (40px, no plate), switcher RIGHT.
+    const header = container.querySelector('.shell-header') as HTMLElement;
+    expect(header).toBeTruthy();
+    const icon = header.querySelector('svg.app-icon') as HTMLElement;
+    expect(icon).toBeTruthy();
+    expect(icon.getAttribute('height')).toBe('40');
+    // No inline plate; the transparent rule is pinned at source level.
+    expect(icon.getAttribute('style')).toBeFalsy();
+    expect(header.querySelector('[role="radiogroup"]')?.getAttribute('aria-label')).toBe(
+      ru['common.locale']
+    );
+    // MIDDLE (the scroll region): mascot + the greeting content; the
+    // action buttons live in the footer, NOT here.
+    const middle = container.querySelector('.shell-middle') as HTMLElement;
+    expect(middle.querySelector('.mascot-row')).toBeTruthy();
+    expect(middle.querySelector('.intro-title')?.textContent).toBe(
+      ru['join.wizard.intro.title']
+    );
+    expect(middle.querySelector('.intro-line')?.textContent).toBe(ru['join.wizard.intro.line']);
+    expect(middle.querySelector('button')).toBeNull();
+    // §23.1 item 4 stays: the intro copy sits directly on the page.
+    expect(middle.querySelector('.intro-title')?.closest('.bubble')).toBeNull();
+    // FOOTER (fixed): the start CTA on top, the back link below (1..n).
+    const footer = container.querySelector('.shell-footer') as HTMLElement;
+    const buttons = Array.from(footer.querySelectorAll('button'));
+    expect(buttons).toHaveLength(2);
+    expect(buttons[0]!.classList.contains('cta')).toBe(true);
+    expect(buttons[0]!.textContent).toContain(ru['join.wizard.intro.start']);
+    expect(buttons[1]!.textContent).toContain(ru['common.back']);
+    // The step flow is untouched: starting shows the name question.
+    await buttons[0]!.click();
+    await screen.findByText(ru['join.wizard.name.question']);
+  });
+
+  it('source pins: the intro branch mounts the FormShell with the buttons ONLY in the footer; the §24 greeting + fade contracts stay', () => {
+    const css = source('src/lib/components/join/CreationWizard.svelte');
+    expect(css).toMatch(/import FormShell from '\.\/FormShell\.svelte'/);
+    // The intro TEMPLATE branch (only) mounts the shell — the search
+    // starts after the script (the script has its own
+    // `wizard.step === 'intro'` check in back()).
+    const templateAt = css.indexOf('</script>');
+    const branchStart = css.indexOf("wizard.step === 'intro'", templateAt);
+    const branchEnd = css.indexOf('{:else}', branchStart);
+    const introBranch = css.slice(branchStart, branchEnd);
+    expect(introBranch).toMatch(/<FormShell>/);
+    const footerAt = introBranch.indexOf('{#snippet footer()}');
+    expect(footerAt).toBeGreaterThan(-1);
+    // The action buttons live ONLY in the footer: start first, back below.
+    expect(introBranch.slice(0, footerAt)).not.toMatch(/onclick=\{start\}/);
+    expect(introBranch.slice(0, footerAt)).not.toMatch(/onclick=\{back\}/);
+    const footer = introBranch.slice(footerAt);
+    expect(footer.indexOf('join.wizard.intro.start')).toBeGreaterThan(-1);
+    expect(footer.indexOf("t('common.back')")).toBeGreaterThan(
+      footer.indexOf('join.wizard.intro.start')
+    );
+    // §24 item 7: the greeting keeps its pixel font.
+    expect(css).toMatch(/\.intro-title\s*\{[^}]*font-family:\s*var\(--font-pixel\)/);
+    // §23.2 5.9: the intro stage keeps its fresh-mount fade (1.5s —
+    // §24 item 5 owner amendment).
+    expect(css).toMatch(/\.creating-stage\s*\{[^}]*animation:\s*fade-in\s+1\.5s\s+ease-out/);
+    // Token discipline.
+    expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 });
