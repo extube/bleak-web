@@ -915,3 +915,81 @@ describe('JoinFlow — §23.2 5.9 fade on every creation step boundary (owner am
     await waitFor(() => expect(goto).toHaveBeenCalledWith('/room'));
   });
 });
+
+describe('JoinFlow — creation-chat geometry (tz11-06 bug round, task 107 + Concept §25 / DESIGN §4.17)', () => {
+  /**
+   * Owner bug report (docs/bugs/wizard-autoscroll-1.log): the creation
+   * chat stayed scrolled to the TOP and the newest message was partially
+   * cut off behind the input bar. Root cause: the height chain was broken
+   * — `.join` (a flex item of the min-height:100dvh app-shell) grew with
+   * the chat's content via its automatic minimum size, so the card was
+   * content-sized, the log's flex:1 never engaged (logEl.scrollTo was a
+   * no-op — the PAGE was the scroll container) and the sticky composer
+   * overlayed the log's bottom. happy-dom runs no layout engine, so the
+   * geometry is pinned the established way — source reads + the rendered
+   * DOM structure.
+   */
+  const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
+    ? process.cwd()
+    : join(process.cwd(), 'apps', 'web');
+  function source(relativePath: string): string {
+    return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
+  }
+
+  it('the persona step bounds the height chain so the LOG scrolls, not the page (source pins)', () => {
+    const css = source('src/lib/components/join/JoinFlow.svelte');
+    // `.join` must not grow with the chat's content (flex-item auto
+    // minimum size) — scoped to the persona step only: the other join
+    // steps keep their content-driven block layout.
+    expect(css).toMatch(/\.join\.persona-step\s*\{[^}]*min-height:\s*0/);
+    // The card fills the bounded height (flex: 1, min-height: 0) — the
+    // composer then sits below the log in normal flow.
+    expect(css).toMatch(/\.card\.composer-card\s*\{[^}]*flex:\s*1/);
+    expect(css).toMatch(/\.card\.composer-card\s*\{[^}]*min-height:\s*0/);
+  });
+
+  it('desktop (Concept §25 / DESIGN §4.17): a 750–850px centered column spanning the FULL screen height; the other join steps untouched', () => {
+    const css = source('src/lib/components/join/JoinFlow.svelte');
+    const desktop = css.slice(css.indexOf('@media (min-width: 720px)'));
+    const phoneStart = desktop.indexOf('@media (max-width: 719px)');
+    const desktopOnly = phoneStart === -1 ? desktop : desktop.slice(0, phoneStart);
+    // Explicit width target (supersedes the 640px §24 7b approximation).
+    const match = desktopOnly.match(/\.join\.persona-step\s*\{[^}]*max-width:\s*(\d+)px/);
+    expect(match).toBeTruthy();
+    const width = Number(match?.[1]);
+    expect(width).toBeGreaterThanOrEqual(750);
+    expect(width).toBeLessThanOrEqual(850);
+    // Full screen height: no vertical gutter around the chat box (the
+    // base .join padding is dropped on the persona step — the box reaches
+    // the window's top and bottom edges).
+    expect(desktopOnly).toMatch(/\.join\.persona-step\s*\{[^}]*padding:\s*0/);
+    // The other join steps keep the narrow centered card (untouched).
+    expect(desktopOnly).toMatch(/\.join\s*\{[^}]*max-width:\s*480px/);
+    // Size/proportions only: no color/hex overrides anywhere in the file.
+    expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+
+  it('structure: in the rendered persona step the composer follows the log — the input bar cannot cover the newest message', async () => {
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
+    mockedApi.getRoom.mockResolvedValue(room);
+    mockedApi.listRoomUsers.mockResolvedValue([]);
+    render(JoinFlow, { props: {} });
+    pasteCode('123456');
+    await submitViaCta();
+    await screen.findByText(room.name);
+    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
+    await screen.findByText(ru['join.wizard.intro.title']);
+    await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
+    await screen.findByText(ru['join.wizard.name.question']);
+    const log = document.querySelector('ul.log') as HTMLElement;
+    const composer = document.querySelector('.composer') as HTMLElement;
+    expect(log).toBeTruthy();
+    expect(composer).toBeTruthy();
+    // Not inside the scrollport — no overlay of log content is possible;
+    // after the log in the flex column (composer at the bottom edge).
+    expect(log.contains(composer)).toBe(false);
+    expect(log.parentElement).toBe(composer.parentElement);
+    expect(log.parentElement?.firstElementChild).toBe(log);
+    expect(log.parentElement?.lastElementChild).toBe(composer);
+  });
+});

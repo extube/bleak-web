@@ -304,11 +304,18 @@ describe('CreationWizard — the §23.2 5.1/5.2 composer', () => {
     expect(flowCss).toMatch(/\.card\.composer-card\s*\{[^}]*display:\s*flex/);
   });
 
-  it('§24 item 7b (DESIGN §4.16.1): the persona card is scoped for the desktop 640px room-chat width in JoinFlow', () => {
+  it('§24 item 7b superseded by Concept §25 / DESIGN §4.17: the persona card is the explicit 750–850px desktop column in JoinFlow', () => {
     const flowCss = source('src/lib/components/join/JoinFlow.svelte');
     expect(flowCss).toMatch(/class:persona-step=\{flow\.step === 'persona'\}/);
     const desktop = flowCss.slice(flowCss.indexOf('@media (min-width: 720px)'));
-    expect(desktop).toMatch(/\.join\.persona-step\s*\{[^}]*max-width:\s*640px/);
+    const match = desktop.match(/\.join\.persona-step\s*\{[^}]*max-width:\s*(\d+)px/);
+    expect(match).toBeTruthy();
+    // The explicit owner target: roughly 750–850px (800px chosen).
+    const width = Number(match?.[1]);
+    expect(width).toBeGreaterThanOrEqual(750);
+    expect(width).toBeLessThanOrEqual(850);
+    // The narrow 640px room-chat approximation is gone.
+    expect(desktop).not.toMatch(/max-width:\s*640px/);
   });
 
   it('§24 item 7: the intro greeting renders in the pixel font (not the body font)', () => {
@@ -598,12 +605,25 @@ describe('CreationWizard — §24 second batch (Concept §24, DESIGN §4.16.1)',
     expect(document.querySelectorAll('.back-right')).toHaveLength(1);
   });
 
-  it('item 12: auto-scroll re-pins the newest message above the composer on every line AND step swap (source pin)', () => {
+  it('item 12 (tz11-06 bug round, task 107): smooth auto-scroll re-pins the newest message above the composer on every line AND step swap; the log is the real scroll container (source pin)', () => {
     const src = source('src/lib/components/join/CreationWizard.svelte');
     const effect = src.slice(src.indexOf('§24 item 12'));
     expect(effect).toMatch(/void transcript\.length/);
     expect(effect).toMatch(/void wizard\.step/);
-    expect(effect).toMatch(/scrollTo\(\{ top: logEl\.scrollHeight \}\)/);
+    // SMOOTH scroll to the bottom (instant under prefers-reduced-motion).
+    expect(effect).toMatch(
+      /scrollTo\(\{\s*top: el\.scrollHeight,\s*behavior: reducedMotion \? 'auto' : 'smooth'\s*\}\)/
+    );
+    // §4.17 item 3 + bug-report bottom padding: the composer keeps its
+    // full fixed height (flex: none) and the log carries BOTTOM PADDING.
+    expect(src).toMatch(/\.composer\s*\{[^}]*flex:\s*none/);
+    expect(src).toMatch(/\.log\s*\{[^}]*padding:\s*0 0 var\(--space-2\)/);
+    // The bounded height chain lives in JoinFlow (the log's flex:1 +
+    // overflow-y must ENGAGE — the old bug: the page scrolled instead).
+    const flowCss = source('src/lib/components/join/JoinFlow.svelte');
+    expect(flowCss).toMatch(/\.join\.persona-step\s*\{[^}]*min-height:\s*0/);
+    expect(flowCss).toMatch(/\.card\.composer-card\s*\{[^}]*flex:\s*1/);
+    expect(flowCss).toMatch(/\.card\.composer-card\s*\{[^}]*min-height:\s*0/);
   });
 
   it('item 6 + 7: the calm intro copy is in place and the greeting keeps its plain no-plate treatment', async () => {
@@ -612,6 +632,74 @@ describe('CreationWizard — §24 second batch (Concept §24, DESIGN §4.16.1)',
     expect(screen.getByText(ru['join.wizard.intro.line'])).toBeTruthy();
     expect(container.querySelector('.intro-title')?.closest('.bubble')).toBeNull();
     expect(screen.getByRole('button', { name: ru['join.wizard.intro.start'] })).toBeTruthy();
+  });
+});
+
+describe('CreationWizard — item 12 auto-scroll (tz11-06 bug round, task 107; owner report docs/bugs/wizard-autoscroll-1.log)', () => {
+  /**
+   * happy-dom runs no layout engine, so the scroll contracts are verified
+   * behaviorally by spying on the log element's scrollTo (the effect's
+   * real call) — the geometry itself (the log being the actual scroll
+   * container, the composer below it) is pinned structurally here and in
+   * join-flow.test.ts.
+   */
+  function logElement(container: HTMLElement): HTMLElement {
+    const log = container.querySelector('ul.log') as HTMLElement;
+    expect(log).toBeTruthy();
+    return log;
+  }
+
+  it('auto-scrolls to the log bottom SMOOTHLY when the chat opens', async () => {
+    const spy = vi.spyOn(HTMLElement.prototype, 'scrollTo').mockImplementation(() => {});
+    try {
+      render(CreationWizard, { props: {} });
+      await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
+      await screen.findByText(ru['join.wizard.name.question']);
+      const log = logElement(document.body as HTMLElement);
+      // The scroll ran against THE LOG (the scroll container), to its
+      // (growing) bottom, with the smooth behavior.
+      expect(spy.mock.contexts.at(-1)).toBe(log);
+      expect(spy.mock.calls.at(-1)).toEqual([
+        { top: log.scrollHeight, behavior: 'smooth' }
+      ]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('re-pins the newest message on every sent line (smooth scroll to the bottom)', async () => {
+    const container = await startWizard();
+    const log = logElement(container);
+    const spy = vi.spyOn(log, 'scrollTo').mockImplementation(() => {});
+    try {
+      await typeAndSend('Аня'); // the answer lands as a mine bubble
+      await screen.findByText(ru['join.wizard.public.question']);
+      await typeAndSend('Писатель'); // the public-bio answer
+      await screen.findByText(ru['join.wizard.private.question']);
+      // Every send flushed a scroll run — each one re-pinned the log to
+      // its (growing) bottom, smoothly.
+      expect(spy.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(spy.mock.calls.at(-1)).toEqual([
+        { top: log.scrollHeight, behavior: 'smooth' }
+      ]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('structure: the composer sits BELOW the log as a flex sibling — the newest message can never be cut off behind the input bar', async () => {
+    const container = await startWizard();
+    const stage = container.querySelector('div.stage') as HTMLElement;
+    const log = container.querySelector('ul.log') as HTMLElement;
+    const composer = container.querySelector('.composer') as HTMLElement;
+    expect(stage).toBeTruthy();
+    // The composer is NOT inside the scrolled area — no sticky overlay of
+    // log content is possible (the old partial-cutoff bug).
+    expect(log.contains(composer)).toBe(false);
+    // In flow: the log first (it expands), the composer last (pinned at
+    // the bottom edge, Concept §25 item 3).
+    expect(stage.firstElementChild).toBe(log);
+    expect(stage.lastElementChild).toBe(composer);
   });
 });
 

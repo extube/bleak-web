@@ -268,14 +268,31 @@
     return lines;
   });
 
-  // §24 item 12: keep the newest message pinned right above the composer
-  // (the log scrolls; the composer + suggestion badges stay visible) —
-  // re-run on every new line AND every step swap (the composer height).
+  // §24 item 12 (tz11-06 bug round, task 107): keep the newest message
+  // pinned right above the composer — re-run on every new line AND every
+  // step swap (the composer height). SMOOTH scrolling (owner report);
+  // instant under prefers-reduced-motion (the base.css catch-all only
+  // covers CSS animations, not JS scrolling). The log IS the scroll
+  // container now: JoinFlow bounds the persona card to the viewport
+  // height (.join.persona-step / .card.composer-card min-height: 0), so
+  // the log's flex:1 + overflow-y engage and this actually reaches the
+  // bottom — and the composer sits BELOW the log in normal flex flow, so
+  // the newest message can never be cut off behind the input bar.
+  const reducedMotion =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   $effect(() => {
     void transcript.length;
     void wizard.step;
+    const el = logEl;
+    if (!el) return;
     try {
-      logEl?.scrollTo({ top: logEl.scrollHeight });
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: reducedMotion ? 'auto' : 'smooth'
+      });
     } catch {
       /* no scroll available (tests) — visual nicety only */
     }
@@ -801,7 +818,10 @@
   .log {
     list-style: none;
     margin: 0;
-    padding: 0;
+    /* tz11-06 (task 107): bottom padding — the newest bubble never touches
+     * the composer edge (the fixed input + suggestion badges sit below
+     * the log in normal flow; this is the breathing room above them). */
+    padding: 0 0 var(--space-2);
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
@@ -826,9 +846,15 @@
   }
   .composer {
     /* §23.2 5.2: fixed at the bottom of the card (sticky pins it while
-     * the log scrolls; mobile visual viewports rise with the keyboard). */
+     * the log scrolls; mobile visual viewports rise with the keyboard).
+     * tz11-06 (task 107): flex: none — the composer keeps its full fixed
+     * height at the card's bottom edge and the message area above it
+     * (the log, flex: 1) expands to fill all remaining vertical space
+     * (Concept §25 item 3); the sticky pin is a no-op fallback, the
+     * composer is not inside the log's scrollport. */
     position: sticky;
     bottom: 0;
+    flex: none;
     background: var(--color-surface);
     padding-top: var(--space-2);
   }

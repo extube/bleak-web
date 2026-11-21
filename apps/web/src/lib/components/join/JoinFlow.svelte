@@ -416,6 +416,16 @@
     width: 100%;
     padding: var(--space-5);
   }
+  /* tz11-06 bug round (task 107, DESIGN §4.16.1 item 12): the persona chat
+   * bounds its height to the viewport. `.join` is a flex item of the
+   * min-height:100dvh app-shell — without min-height: 0 its automatic
+   * minimum size grows with the chat's content, so the PAGE scrolled (the
+   * log's flex:1 never engaged, logEl.scrollTo was a no-op) and the sticky
+   * composer overlayed the newest bubble. Scoped to the persona step only:
+   * the other join steps keep their content-driven block layout. */
+  .join.persona-step {
+    min-height: 0;
+  }
   /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the card content
    * mounts fresh on every join-step swap (code ⇄ preview ⇄ wizard ⇄
    * vault) and replays the ONE fade treatment — 400ms opacity-only
@@ -451,10 +461,16 @@
   /* §23.2 5.2: the wizard's card is a flex column — the CreationWizard
    * fills it (flex: 1), the chat log scrolls and the composer sticks to
    * the bottom. Only the persona step gets the treatment (the other join
-   * steps keep their content-driven block layout). */
+   * steps keep their content-driven block layout). tz11-06 (task 107):
+   * flex: 1 + min-height: 0 — the card FILLS the viewport height the
+   * bounded .join gives it instead of growing with the transcript, so the
+   * log (not the page) scrolls and the composer sits BELOW it in normal
+   * flow (never overlaying the newest bubble). */
   .card.composer-card {
     display: flex;
     flex-direction: column;
+    flex: 1;
+    min-height: 0;
   }
   /* §23.2 5.2: the §23.2 5.9 stage wrapper carries the flex column into
    * the wizard — the chat log scrolls and the composer pins to the card
@@ -489,11 +505,17 @@
       justify-content: center;
       max-width: 480px;
     }
-    /* §24 item 7b: on a computer screen the creation chat has the same
-     * dimensions as the room chats on /chats (the 640px column), not the
-     * narrow join card — and never full-width. */
+    /* §24 item 7b superseded by Concept §25 / DESIGN §4.17 (2026-11-21):
+     * the creation chat on desktop is an EXPLICIT 750–850px centered
+     * column (not the room-chat approximation) and spans the FULL screen
+     * height — the box reaches the window's top and bottom edges (no
+     * vertical gutter, no centering; the flex: 1 card fills the bounded
+     * height and the composer anchors at the bottom edge). Phone (<720px)
+     * keeps the §12 full-screen treatment; size/proportions only — every
+     * visual style is untouched. */
     .join.persona-step {
-      max-width: 640px;
+      max-width: 800px;
+      padding: 0;
     }
   }
   /* v2.6 (Concept §12, DESIGN §4.12.1 item 5): phone (<720px) full-screen
