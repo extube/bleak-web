@@ -36,14 +36,18 @@ export const ru: Record<MessageKey, string> = {
   // §4.14.3 поле контакта в форме создания (Concept §14.1.3): только
   // локально, отправится лишь при жесте «поделиться».
   'join.form.contact': 'Ваш контакт',
-  'join.form.contact_hint': 'Хранится только на этом устройстве. Отправится, когда вы поделитесь.',
+  // §24 item 10: the device-storage footer note removed from the chat
+  // (the old `join.form.contact_hint` key is deleted from BOTH
+  // dictionaries — RU/EN parity kept).
   // §4.16.2 мастер создания (Concept §22.3 item 2): копия авто-чат-интервью
   // — маскот задаёт каждый вопрос в облачке диалога.
   'join.wizard.agent.name': 'Блик',
   'join.wizard.log': 'Интервью профиля',
   'join.wizard.intro.title': 'Привет! Я Блик.',
+  // §24 item 6: calm and friendly — the agent explains its role (the
+  // necessary context) and prepares the user for a simple dialog.
   'join.wizard.intro.line':
-    'Я ваш агент. Соберём ваш профиль за несколько шагов — я буду спрашивать прямо здесь.',
+    'Я ваш агент — представлю вас в комнате и пообщаюсь с другими участниками за вас. Спокойно ответим на несколько коротких вопросов — необязательные можно пропустить.',
   'join.wizard.intro.start': 'Начать',
   'join.wizard.name.question': 'Как вас зовут?',
   'join.wizard.name.answer': 'Приятно познакомиться, {name}!',
@@ -67,6 +71,8 @@ export const ru: Record<MessageKey, string> = {
   // Messages); счётчик «текущее/максимум» у каждого поля.
   'join.wizard.send': 'Отправить',
   'join.wizard.counter': '{n}/{max}',
+  // §24 item 8: the quick-clear "x" in the input pill.
+  'join.wizard.clear': 'Очистить',
   // §23.2 5.3: подсказка-пример для каждого поля ввода.
   'join.wizard.placeholder.name': 'Например: Аня',
   'join.wizard.placeholder.public': 'Я бэкенд-разработчик',

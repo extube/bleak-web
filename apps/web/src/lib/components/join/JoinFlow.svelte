@@ -93,11 +93,13 @@
   let vaultDead = $state<{ address: string; text: string | null } | null>(null);
   let scannerOpen = $state(false);
   // §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the boundary OUT of the
-  // loading step — the card fades out (the same 200ms opacity treatment)
-  // before the route hand-off into /room. The /room page mount itself is
-  // outside this card's scope; the fade-out IS the join-side treatment.
+  // loading step — the card fades out (the same opacity treatment) before
+  // the route hand-off into /room. The /room page mount itself is outside
+  // this card's scope; the fade-out IS the join-side treatment.
   let enteringRoom = $state(false);
-  const FADE_MS = 200;
+  // §24 item 5: the step fades run slower (the 400ms opacity treatment —
+  // the goto waits out the fade so the boundary stays one motion).
+  const FADE_MS = 400;
   const reducedMotion =
     typeof window !== 'undefined' &&
     typeof window.matchMedia === 'function' &&
@@ -276,7 +278,8 @@
         }
       }
       // §23.2 5.9: the loading → /room boundary — the card fades out with
-      // the SAME 200ms opacity treatment, then the route hands off into
+      // the SAME 400ms opacity treatment (§24 item 5), then the route
+      // hands off into
       // /room. Under prefers-reduced-motion the base.css catch-all
       // collapses the fade, so the navigation is immediate.
       enteringRoom = true;
@@ -311,7 +314,7 @@
   }
 </script>
 
-<div class="join">
+<div class="join" class:persona-step={flow.step === 'persona'}>
   {#if gone}
     <section class="card pixel-corners gone-card">
       <h2>{translate($locale, 'join.error.gone')}</h2>
@@ -415,18 +418,19 @@
   }
   /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the card content
    * mounts fresh on every join-step swap (code ⇄ preview ⇄ wizard ⇄
-   * vault) and replays the ONE fade treatment — 200ms opacity-only, the
-   * sheets' established fade (base.css reduced-motion catch-all). */
+   * vault) and replays the ONE fade treatment — 400ms opacity-only
+   * (§24 item 5), the sheets' established fade (base.css reduced-motion
+   * catch-all). */
   .stage {
-    animation: fade-in 200ms ease-out;
+    animation: fade-in 400ms ease-out;
     min-width: 0;
   }
   /* §23.2 5.9: the boundary OUT of the loading step — the card fades out
-   * with the same 200ms opacity treatment before the route hand-off into
+   * with the same 400ms opacity treatment before the route hand-off into
    * /room (JoinFlow delays the goto by the fade duration; reduced motion
    * navigates immediately — see submitPersona). */
   .card.leaving {
-    animation: fade-out 200ms ease-out forwards;
+    animation: fade-out 400ms ease-out forwards;
   }
   @keyframes fade-in {
     from {
@@ -484,6 +488,12 @@
     .join {
       justify-content: center;
       max-width: 480px;
+    }
+    /* §24 item 7b: on a computer screen the creation chat has the same
+     * dimensions as the room chats on /chats (the 640px column), not the
+     * narrow join card — and never full-width. */
+    .join.persona-step {
+      max-width: 640px;
     }
   }
   /* v2.6 (Concept §12, DESIGN §4.12.1 item 5): phone (<720px) full-screen

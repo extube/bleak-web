@@ -36,14 +36,18 @@ export const en = {
   // contact card — stored on the device after creation, shared only on
   // the share slide (never sent at creation).
   'join.form.contact': 'Your contact',
-  'join.form.contact_hint': 'Stored on this device only. Shared when you slide to share.',
+  // §24 item 10: the device-storage footer note removed from the chat
+  // (the old `join.form.contact_hint` key is deleted from BOTH
+  // dictionaries — RU/EN parity kept).
   // §4.16.2 creation wizard (Concept §22.3 item 2): the chat-style
   // auto-chat interview copy — the mascot asks every question in a bubble.
   'join.wizard.agent.name': 'Bleak',
   'join.wizard.log': 'Profile interview',
   'join.wizard.intro.title': "Hi! I'm Bleak.",
+  // §24 item 6: calm and friendly — the agent explains its role (the
+  // necessary context) and prepares the user for a simple dialog.
   'join.wizard.intro.line':
-    "I'm your agent. We'll build your profile in a few steps — I'll ask right here.",
+    "I'm your agent — I'll introduce you to the room and talk to other attendees for you. We'll go through a few short questions, no rush — skip anything optional.",
   'join.wizard.intro.start': 'Start',
   'join.wizard.name.question': 'What shall we call you?',
   'join.wizard.name.answer': 'Nice to meet you, {name}!',
@@ -67,6 +71,8 @@ export const en = {
   // (iOS Messages style); each input carries a current/max counter.
   'join.wizard.send': 'Send',
   'join.wizard.counter': '{n}/{max}',
+  // §24 item 8: the quick-clear "x" in the input pill.
+  'join.wizard.clear': 'Clear',
   // §23.2 5.3: a placeholder example for every input case.
   'join.wizard.placeholder.name': 'e.g. Ann',
   'join.wizard.placeholder.public': 'I am a backend dev',

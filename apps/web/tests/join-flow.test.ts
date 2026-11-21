@@ -189,6 +189,13 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
    */
   const send = (): HTMLElement => screen.getByRole('button', { name: ru['join.wizard.send'] });
 
+  /** §24 item 2: an EMPTY composer input shows the revert arrow (no send
+   * button) — an empty bio is sent via Enter (the composer form submit). */
+  function submitComposer(): void {
+    const form = document.querySelector<HTMLFormElement>('.input-row')!;
+    fireEvent.submit(form);
+  }
+
   async function openWizard(): Promise<void> {
     mockedResolve.mockResolvedValue({ roomAddress: room.address });
     mockedApi.getRoom.mockResolvedValue(room);
@@ -206,15 +213,18 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
   async function answerName(value: string): Promise<void> {
     const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
     fireEvent.input(nameInput, { target: { value } });
+    await tick();
+    await tick(); // the send button only exists once the typed value is in state
     await send().click();
     await screen.findByText(ru['join.wizard.public.question']);
   }
 
-  /** Walk bios empty (send) + skip contact + Ready → the creating step. */
+  /** Walk bios empty (Enter — the swap slot holds the arrow when empty)
+   * + skip contact + Ready → the creating step. */
   async function skipToInterviewEnd(): Promise<void> {
-    await send().click(); // public bio (empty allowed)
+    submitComposer(); // public bio (empty allowed)
     await screen.findByText(ru['join.wizard.private.question']);
-    await send().click(); // private bio (empty allowed)
+    submitComposer(); // private bio (empty allowed)
     await screen.findByText(ru['join.wizard.contact.question']);
     await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
     await screen.findByText(ru['join.wizard.interests.question']);
@@ -224,7 +234,8 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
 
   it('blocks the empty-name submit client-side with the field error (AC 7)', async () => {
     await openWizard();
-    await send().click();
+    submitComposer(); // empty name — Enter still submits (the arrow occupies the swap slot)
+    await tick();
     await tick();
     expect(screen.getByText(ru['join.error.name_required'])).toBeTruthy();
     expect(mockedApi.createRoomUser).not.toHaveBeenCalled();
@@ -291,20 +302,19 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
     expect(mockedApi.createRoomUser.mock.calls[1]?.[1]).toMatchObject({ name: 'Дубль' });
   });
 
-  // §4.14.3 (Concept §14.1.3): the contact question — client-LOCAL data,
-  // persisted to bleak.contactCard AFTER the persona 2xx, never sent.
-  it('the contact value input carries the §14.1.3 hint and nothing contact-bearing is stored before the 2xx (§4.14.3)', async () => {
+  it('the contact value input is local-only and nothing contact-bearing is stored before the 2xx (§4.14.3; §24 item 10 — the hint is gone)', async () => {
     await openWizard();
     await answerName('Я');
-    await send().click(); // public
+    submitComposer(); // public
     await screen.findByText(ru['join.wizard.private.question']);
-    await send().click(); // private
+    submitComposer(); // private
     await screen.findByText(ru['join.wizard.contact.question']);
     // Choose the TYPE first (phone), then enter the value.
     await screen.getByRole('radio', { name: ru['join.wizard.contact.phone'] }).click();
     const valueInput = screen.getByLabelText(ru['join.wizard.contact.phone']) as HTMLInputElement;
     expect(valueInput.value).toBe('');
-    expect(screen.getByText(ru['join.form.contact_hint'])).toBeTruthy();
+    // §24 item 10: the device-storage footer note is removed from the chat.
+    expect(screen.queryByText(/Хранится только на этом устройстве/)).toBeNull();
     // Nothing contact-bearing typed yet → the store is untouched.
     expect(localStorage.getItem('bleak.contactCard')).toBeNull();
   });
@@ -313,13 +323,15 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
     mockedApi.createRoomUser.mockResolvedValue(user('0xme', 'Я'));
     await openWizard();
     await answerName('Я');
-    await send().click(); // public
+    submitComposer(); // public
     await screen.findByText(ru['join.wizard.private.question']);
-    await send().click(); // private
+    submitComposer(); // private
     await screen.findByText(ru['join.wizard.contact.question']);
     await screen.getByRole('radio', { name: ru['join.wizard.contact.phone'] }).click();
     const valueInput = screen.getByLabelText(ru['join.wizard.contact.phone']) as HTMLInputElement;
     fireEvent.input(valueInput, { target: { value: '  +7 999 123-45-67  ' } });
+    await tick();
+    await tick(); // the send button only exists once the typed value is in state
     await send().click();
     await screen.findByText(ru['join.wizard.interests.question']);
     await screen.getByRole('button', { name: ru['join.wizard.themes.ready'] }).click();
@@ -352,13 +364,15 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
     );
     await openWizard();
     await answerName('Я');
-    await send().click(); // public
+    submitComposer(); // public
     await screen.findByText(ru['join.wizard.private.question']);
-    await send().click(); // private
+    submitComposer(); // private
     await screen.findByText(ru['join.wizard.contact.question']);
     await screen.getByRole('radio', { name: ru['join.wizard.contact.phone'] }).click();
     const valueInput = screen.getByLabelText(ru['join.wizard.contact.phone']) as HTMLInputElement;
     fireEvent.input(valueInput, { target: { value: '+7 999' } });
+    await tick();
+    await tick(); // the send button only exists once the typed value is in state
     await send().click();
     await screen.findByText(ru['join.wizard.interests.question']);
     await screen.getByRole('button', { name: ru['join.wizard.themes.ready'] }).click();
@@ -379,9 +393,9 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
     mockedApi.addUserInterests.mockResolvedValue(full as never);
     await openWizard();
     await answerName('Я');
-    await send().click(); // public
+    submitComposer(); // public
     await screen.findByText(ru['join.wizard.private.question']);
-    await send().click(); // private
+    submitComposer(); // private
     await screen.findByText(ru['join.wizard.contact.question']);
     await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
     await screen.findByText(ru['join.wizard.interests.question']);
@@ -419,9 +433,9 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
     mockedApi.addUserInterests.mockRejectedValue(new ApiError(500, '/api/interest', 'boom'));
     await openWizard();
     await answerName('Я');
-    await send().click();
+    submitComposer(); // public (empty)
     await screen.findByText(ru['join.wizard.private.question']);
-    await send().click();
+    submitComposer(); // private (empty)
     await screen.findByText(ru['join.wizard.contact.question']);
     await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
     await screen.findByText(ru['join.wizard.interests.question']);
@@ -828,8 +842,9 @@ describe('JoinFlow — §23.2 5.9 fade on every creation step boundary (owner am
    * the established way — source reads (the kit's CSS-contract pattern).
    * The owner amendment: the fade treatment covers EVERY step boundary of
    * the whole creation path — form → intro theme → chat (interview) →
-   * "creating your profile" loading → app main page — one 200ms
-   * opacity-only treatment everywhere (the sheets' established fade).
+   * "creating your profile" loading → app main page — one opacity-only
+   * treatment everywhere (the sheets' established fade); §24 item 5
+   * slows it to 400ms.
    */
   const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
     ? process.cwd()
@@ -844,7 +859,7 @@ describe('JoinFlow — §23.2 5.9 fade on every creation step boundary (owner am
     // stage — covering the code ⇄ preview ⇄ wizard ⇄ vault swaps.
     expect(css).toMatch(/\{#key flow\.step\}/);
     expect(css).toMatch(/<div class="stage">/);
-    expect(css).toMatch(/\.stage\s*\{[^}]*animation:\s*fade-in\s+200ms\s+ease-out/);
+    expect(css).toMatch(/\.stage\s*\{[^}]*animation:\s*fade-in\s+400ms\s+ease-out/);
     expect(css).toMatch(/@keyframes fade-in\s*\{[\s\S]*?opacity:\s*0[\s\S]*?opacity:\s*1/);
     // The composer-card flex chain survives the wrapper (log scrolls,
     // composer pins to the bottom).
@@ -856,7 +871,7 @@ describe('JoinFlow — §23.2 5.9 fade on every creation step boundary (owner am
   it('the loading → /room boundary: the card fades OUT (same treatment) before the route hand-off, skipped under reduced motion', () => {
     const css = source('src/lib/components/join/JoinFlow.svelte');
     expect(css).toMatch(/class:leaving=\{enteringRoom\}/);
-    expect(css).toMatch(/\.card\.leaving\s*\{[^}]*animation:\s*fade-out\s+200ms\s+ease-out/);
+    expect(css).toMatch(/\.card\.leaving\s*\{[^}]*animation:\s*fade-out\s+400ms\s+ease-out/);
     expect(css).toMatch(/@keyframes fade-out\s*\{[\s\S]*?opacity:\s*1[\s\S]*?opacity:\s*0/);
     // The goto waits out the fade; prefers-reduced-motion navigates
     // immediately (the base.css catch-all collapses the animation).
@@ -879,11 +894,13 @@ describe('JoinFlow — §23.2 5.9 fade on every creation step boundary (owner am
     await screen.findByText(ru['join.wizard.name.question']);
     const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
     fireEvent.input(nameInput, { target: { value: 'Я' } });
+    await tick();
+    await tick(); // the send button only exists once the typed value is in state
     await screen.getByRole('button', { name: ru['join.wizard.send'] }).click();
     await screen.findByText(ru['join.wizard.public.question']);
-    await screen.getByRole('button', { name: ru['join.wizard.send'] }).click(); // public
+    fireEvent.submit(document.querySelector('form.input-row') as HTMLFormElement); // public (empty)
     await screen.findByText(ru['join.wizard.private.question']);
-    await screen.getByRole('button', { name: ru['join.wizard.send'] }).click(); // private
+    fireEvent.submit(document.querySelector('form.input-row') as HTMLFormElement); // private (empty)
     await screen.findByText(ru['join.wizard.contact.question']);
     await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
     await screen.findByText(ru['join.wizard.interests.question']);

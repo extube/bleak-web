@@ -21,15 +21,40 @@
    *   tapping a suggestion never sends.
    * - 5.2: no "Next" buttons — the composer form is fixed at the bottom
    *   (sticky; the visual viewport rises with the keyboard), the chat log
-   *   scrolls, the back button sits below the input, centered.
+   *   scrolls.
    * - 5.3: every input case carries an example placeholder.
    * - 5.8: the loading step animates the SummarySheet pixel-dots beat
    *   (steps(2), transform/opacity only — reduced motion via base.css).
    * - 5.9: fade transitions — the owner amendment (Concept §23.2.5.9,
    *   DESIGN §4.15.6.4) extends them to EVERY step boundary of the whole
-   *   creation path; one 200ms opacity-only treatment everywhere.
+   *   creation path; one opacity-only treatment everywhere. §24 item 5:
+   *   the step fades run slower — 400ms.
    * - §23.1 item 4: the intro copy is plain page text (no bubble
    *   background).
+   *
+   * §24 second-batch amendments (Concept §24, DESIGN §4.16.1):
+   * - 1: NO echo — the chat never repeats the typed text while it is
+   *   being written; answers land as mine bubbles only after they are
+   *   SENT (snapshots taken when a step is left forward).
+   * - 2: the bottom back button is gone; a REVERT ARROW sits in the
+   *   input form while the input is empty and swaps to the send button
+   *   the moment typing starts (arrow ⇄ send, same slot).
+   * - 3: ALL history stays — every asked question and every sent answer
+   *   (incl. the theme/interest picks as mine lines) remains in the log,
+   *   even after going back.
+   * - 4: the counter is centered BELOW the input row.
+   * - 5: the step fades run slower (400ms).
+   * - 6/7: the intro is calm + contextual; "Hi! I'm Bleak" renders in
+   *   the pixel font.
+   * - 8: an "x" on the right inside the input pill clears it quickly.
+   * - 9: the composer height is strongly fixed; suggestions (messenger
+   *   prefixes) sit ABOVE the input, never below.
+   * - 10: the device-storage footer note is removed.
+   * - 11: after a send the next input is auto-focused.
+   * - 12: auto-scroll keeps the newest message pinned right above the
+   *   composer.
+   * - 13: non-standard sub-steps (contact type, themes, topics) keep a
+   *   RIGHT-aligned back button.
    *
    * Interests decision (§13.1.1): the interview records the selected
    * topic KEYS in the draft; JoinFlow flushes them through one bulk
@@ -47,6 +72,7 @@
     type ContactKind,
     type PersonaDraft,
     type PersonaError,
+    type WizardEvent,
     type WizardState
   } from '#lib/join';
   import {
@@ -77,6 +103,24 @@
   // Themes already finished in the §23.2 5.7 loop (their Q/A stay in the
   // chat as mine lines; the machine state only knows the current theme).
   let finishedThemes = $state<{ group: number; keys: number[] }[]>([]);
+  // §24 item 3: how far the interview has EVER gotten (monotonic — back
+  // navigation never rewinds it, so the whole asked/sent history stays
+  // in the log while earlier steps are revisited).
+  let reached = $state(0);
+  // §24 item 1: sent answers are SNAPSHOTTED the moment a step is left
+  // forward — the live input value never becomes a chat line (no echo).
+  let sentName = $state('');
+  let sentPublic = $state('');
+  let sentPrivate = $state('');
+  /** `undefined` = the contact question was never answered; `null` = skipped. */
+  let sentKind = $state<ContactKind | null | undefined>(undefined);
+  let sentContactText = $state('');
+  /** The themes phase was left via the explicit skip (no picks logged). */
+  let themesSkipped = $state(false);
+  /** §24 item 3: every theme the user opened stays in the history — the
+   * pick question is asked once per opened theme; `answered` flips when
+   * the theme is finished (its summary lands as the user's message). */
+  let pickRounds = $state<{ group: number; answered: boolean }[]>([]);
   // The draft is submitted exactly once per 'creating' entry: every path
   // that lands on the loading step (Ready, skip) funnels through the
   // effect below. Going back out of the loading step re-arms it.
@@ -96,14 +140,21 @@
 
   const kindLabel = $derived.by(() => {
     const kind = wizard.contactKind;
-    return kind === null ? '' : translate(get(locale), KIND_KEYS[kind]);
+    return kind === null ? '' : kindLabelOf(kind);
   });
 
-  const contactText = $derived.by(() => {
-    const value = wizard.contactValue.trim();
-    if (wizard.contactKind === null || value === '') return '';
-    return `${kindLabel}: ${value}`;
-  });
+  function kindLabelOf(kind: ContactKind): string {
+    return translate(get(locale), KIND_KEYS[kind]);
+  }
+
+  /** The composed local-only contact text (`"<kind label>: <value>"`). */
+  function contactTextOf(state: WizardState): string {
+    const value = state.contactValue.trim();
+    if (state.contactKind === null || value === '') return '';
+    return `${kindLabelOf(state.contactKind)}: ${value}`;
+  }
+
+  const contactText = $derived(contactTextOf(wizard));
 
   /** The input caps for the §23.2 5.1 counter (current/max). */
   const INPUT_MAX: Record<string, number> = {
@@ -133,87 +184,96 @@
   }
 
   /**
-   * The visible transcript, derived from the machine state (+ the finished
-   * themes of the §23.2 5.7 loop): every reached question (including the
-   * one being asked) as an agent bubble, each answer as a mine bubble —
-   * skip answers log the skip copy.
+   * The visible transcript, derived from the machine state + the §24
+   * history trackers: every question EVER reached (item 3 — nothing is
+   * un-asked by going back) as an agent bubble, each SENT answer as a
+   * mine bubble (item 1 — snapshots, never the live input value), skip
+   * copy for skipped questions and the finished-theme summaries as the
+   * user's picks (item 3).
    */
   const transcript = $derived.by(() => {
     const loc = get(locale);
     const tr = (key: MessageKey, params?: Record<string, string>): string =>
       translate(loc, key, params);
-    const current = wizardOrderIndex(wizard.step);
-    const past = (step: WizardState['step']): boolean => wizardOrderIndex(step) < current;
+    /** The step was asked at least once (the question stays in the log). */
+    const asked = (idx: number): boolean => reached >= idx;
+    /** The step was completed at least once (the answer is sent). */
+    const done = (idx: number): boolean => reached > idx;
     const lines: ChatLine[] = [];
     // name
-    if (current >= 1) {
+    if (asked(1)) {
       lines.push({ who: 'agent', text: tr('join.wizard.name.question') });
-      if (wizard.name.trim() !== '') lines.push({ who: 'me', text: wizard.name });
-      if (current > 1 && wizard.name.trim() !== '') {
-        lines.push({ who: 'agent', text: tr('join.wizard.name.answer', { name: wizard.name.trim() }) });
+      if (done(1) && sentName !== '') {
+        lines.push({ who: 'me', text: sentName });
+        lines.push({ who: 'agent', text: tr('join.wizard.name.answer', { name: sentName }) });
       }
     }
     // public bio
-    if (current >= 2) {
+    if (asked(2)) {
       lines.push({ who: 'agent', text: tr('join.wizard.public.question') });
-      if (wizard.publicBio.trim() !== '') lines.push({ who: 'me', text: wizard.publicBio });
+      if (done(2) && sentPublic !== '') lines.push({ who: 'me', text: sentPublic });
     }
     // private bio
-    if (current >= 3) {
+    if (asked(3)) {
       lines.push({ who: 'agent', text: tr('join.wizard.private.question') });
-      if (wizard.privateBio.trim() !== '') lines.push({ who: 'me', text: wizard.privateBio });
+      if (done(3) && sentPrivate !== '') lines.push({ who: 'me', text: sentPrivate });
     }
     // contact: type first, then the value (§14.1.3 — local-only, skippable)
-    if (current >= 4) {
+    if (asked(4)) {
       lines.push({ who: 'agent', text: tr('join.wizard.contact.question') });
-      if (past('contact_type') && wizard.contactKind === null) {
-        lines.push({ who: 'me', text: tr('join.wizard.contact.skip') });
-      } else if (wizard.contactKind !== null) {
-        lines.push({ who: 'me', text: kindLabel });
-      }
-    }
-    if (current >= 5 && wizard.contactKind !== null) {
-      lines.push({ who: 'agent', text: tr('join.wizard.contact.enter', { kind: kindLabel }) });
-      if (contactText !== '') lines.push({ who: 'me', text: contactText });
-    }
-    // themes (§23.2 5.5/5.7): the badges question stays; every finished
-    // theme logs one summary line; the in-progress theme asks its topics.
-    if (current >= 6) {
-      lines.push({ who: 'agent', text: tr('join.wizard.interests.question') });
-      if (past('themes') && wizard.interestGroup === null && finishedThemes.length === 0) {
-        lines.push({ who: 'me', text: tr('join.wizard.interests.skip') });
-      }
-      for (const theme of finishedThemes) {
-        const picked = INTEREST_CATALOG.filter((entry) => theme.keys.includes(entry.key));
+      if (done(4) && sentKind !== undefined) {
         lines.push({
           who: 'me',
-          text: `${groupTitle(theme.group, loc)}: ${picked.map((e) => interestTitle(e, loc)).join(' · ')}`
+          text: sentKind === null ? tr('join.wizard.contact.skip') : kindLabelOf(sentKind)
         });
       }
-      if (wizard.interestGroup !== null) {
+    }
+    if (asked(5) && sentKind !== null && sentKind !== undefined) {
+      lines.push({ who: 'agent', text: tr('join.wizard.contact.enter', { kind: kindLabelOf(sentKind) }) });
+      if (done(5)) {
+        // A value was sent, or the value step was left via skip.
+        lines.push({
+          who: 'me',
+          text: sentContactText !== '' ? sentContactText : tr('join.wizard.contact.skip')
+        });
+      }
+    }
+    // themes (§23.2 5.5/5.7): the badges question stays; each theme the
+    // user opened asks its pick question in order (item 3 — the mascot's
+    // questions stay in the history), a finished theme logs one summary
+    // line (the picks as the user's messages, item 3); an explicit skip
+    // without any picks logs the skip copy.
+    if (asked(6)) {
+      lines.push({ who: 'agent', text: tr('join.wizard.interests.question') });
+      for (const round of pickRounds) {
         lines.push({
           who: 'agent',
-          text: tr('join.wizard.interests.pick_question', {
-            group: groupTitle(wizard.interestGroup, loc)
-          })
+          text: tr('join.wizard.interests.pick_question', { group: groupTitle(round.group, loc) })
         });
-        const picked = INTEREST_CATALOG.filter((entry) =>
-          wizard.interestKeys.includes(entry.key) && entry.group === wizard.interestGroup
-        );
-        if (picked.length > 0) {
-          lines.push({
-            who: 'me',
-            text: picked.map((entry) => interestTitle(entry, loc)).join(' · ')
-          });
+        if (round.answered) {
+          const theme = finishedThemes.find((t) => t.group === round.group);
+          if (theme) {
+            const picked = INTEREST_CATALOG.filter((entry) => theme.keys.includes(entry.key));
+            lines.push({
+              who: 'me',
+              text: `${groupTitle(theme.group, loc)}: ${picked.map((e) => interestTitle(e, loc)).join(' · ')}`
+            });
+          }
         }
+      }
+      if (themesSkipped && finishedThemes.length === 0) {
+        lines.push({ who: 'me', text: tr('join.wizard.interests.skip') });
       }
     }
     return lines;
   });
 
-  // Keep the newest bubbles visible (the log scrolls; the composer stays).
+  // §24 item 12: keep the newest message pinned right above the composer
+  // (the log scrolls; the composer + suggestion badges stay visible) —
+  // re-run on every new line AND every step swap (the composer height).
   $effect(() => {
     void transcript.length;
+    void wizard.step;
     try {
       logEl?.scrollTo({ top: logEl.scrollHeight });
     } catch {
@@ -244,22 +304,87 @@
   }
 
   function dispatch(...events: Parameters<typeof reduceWizard>[1][]): void {
-    for (const event of events) wizard = reduceWizard(wizard, event);
+    for (const event of events) {
+      const before = wizard.step;
+      wizard = reduceWizard(wizard, event);
+      snapshotForward(before, event);
+    }
+  }
+
+  /**
+   * §24 items 1+3: moving FORWARD past a step snapshots its answer (the
+   * mine bubbles never track the live input — no echo) and advances the
+   * monotonic history cursor; back/lateral moves leave both untouched.
+   */
+  function snapshotForward(before: WizardState['step'], event: WizardEvent): void {
+    const from = wizardOrderIndex(before);
+    const to = wizardOrderIndex(wizard.step);
+    if (to > reached) reached = to;
+    if (to <= from) return;
+    switch (before) {
+      case 'name':
+        sentName = wizard.name.trim();
+        break;
+      case 'public_bio':
+        sentPublic = wizard.publicBio.trim();
+        break;
+      case 'private_bio':
+        sentPrivate = wizard.privateBio.trim();
+        break;
+      case 'contact_type':
+        // 'contact-kind' carries the chosen kind; 'skip' lands null.
+        sentKind = wizard.contactKind;
+        break;
+      case 'contact_value':
+        sentContactText = contactTextOf(wizard);
+        break;
+      case 'themes':
+        // §24 item 3: an opened theme asks its pick question (kept in
+        // the history as the mascot's line); an explicit skip out of
+        // the badges (or the topics) logs the skip copy.
+        if (event.type === 'interest-group') {
+          pickRounds = [...pickRounds, { group: event.group, answered: false }];
+        }
+        if (event.type === 'skip') themesSkipped = true;
+        break;
+      case 'topics':
+        if (event.type === 'skip') themesSkipped = true;
+        break;
+      default:
+        break;
+    }
   }
 
   function start(): void {
     dispatch({ type: 'start' });
   }
 
-  /** §23.2 5.1: send = Enter or the send button (the composer form); the
-   * name step keeps its required-validation gate (§3.1 AC 7). */
+  /** §23.2 5.1 + §24 item 11: send = Enter or the send button (the
+   * composer form); the name step keeps its required-validation gate
+   * (§3.1 AC 7). The next input is auto-focused by the step effect
+   * below (after the keyed remount). */
   function send(): void {
     if (wizard.step === 'name' && wizard.name.trim() === '') {
       nameError = true;
       return;
     }
+    nameError = false;
     dispatch({ type: 'next' });
   }
+
+  /** §24 item 11: the active composer input is auto-focused — after a
+   * send (any step swap into a text step) the fresh input takes focus
+   * (no-op where there is no text input, silent where focus doesn't run). */
+  $effect(() => {
+    if (!isTextStep) return;
+    void wizard.step;
+    try {
+      const el = document.getElementById(inputId);
+      if (el instanceof HTMLElement) el.focus();
+    } catch {
+      /* no document focus in tests/SSR — visual nicety only */
+    }
+  });
 
   function back(): void {
     if (wizard.step === 'intro') {
@@ -284,6 +409,16 @@
     ).map((entry) => entry.key);
     if (keys.length > 0 && !finishedThemes.some((theme) => theme.group === group)) {
       finishedThemes = [...finishedThemes, { group, keys }];
+    }
+    // §24 item 3: the open pick round gets its answer (the summary mine
+    // line) — the newest unanswered round for this group.
+    for (let i = pickRounds.length - 1; i >= 0; i -= 1) {
+      if (pickRounds[i]?.group === group && !pickRounds[i]?.answered) {
+        pickRounds = pickRounds.map((round, idx) =>
+          idx === i ? { ...round, answered: true } : round
+        );
+        break;
+      }
     }
     dispatch({ type: 'theme-done' });
   }
@@ -399,6 +534,31 @@
     }
   }
 
+  /** §24 item 8: the "x" empties the input block quickly (and returns
+   * the swap slot to the revert arrow). */
+  function clearInput(): void {
+    nameError = false;
+    switch (wizard.step) {
+      case 'name':
+        dispatch({ type: 'name', name: '' });
+        break;
+      case 'public_bio':
+        dispatch({ type: 'public-bio', value: '' });
+        break;
+      case 'private_bio':
+        dispatch({ type: 'private-bio', value: '' });
+        break;
+      default:
+        dispatch({ type: 'contact-value', value: '' });
+    }
+    try {
+      const el = document.getElementById(inputId);
+      if (el instanceof HTMLElement) el.focus();
+    } catch {
+      /* no document focus in tests/SSR — visual nicety only */
+    }
+  }
+
   /** The theme badge emoji — the theme's first topic icon (the badges
    * re-use the catalog's own iconography). */
   function groupBadgeEmoji(group: number): string {
@@ -462,31 +622,12 @@
       {#key wizard.step}
         <div class="panel">
           {#if isTextStep}
-            <!-- §23.2 5.1: iOS Messages composer — input + send on the
-                 right; send on Enter or the button; §23.2 5.3: the
-                 example placeholder; the current/max counter below. -->
-            <form class="input-row" onsubmit={(e) => { e.preventDefault(); send(); }}>
-              <input
-                id={inputId}
-                type="text"
-                maxlength={INPUT_MAX[wizard.step]}
-                autocomplete="off"
-                placeholder={inputPlaceholder}
-                aria-label={inputLabel}
-                value={inputValue}
-                class:invalid={wizard.step === 'name' && errorMessage !== null}
-                oninput={(e) => inputInput(e.currentTarget.value)}
-              />
-              <button type="submit" class="send" aria-label={t('join.wizard.send')}>↑</button>
-            </form>
-            <div class="meta-row">
-              {#if wizard.step === 'contact_value'}
-                <span class="hint">{t('join.form.contact_hint')}</span>
-              {/if}
-              {#if counter}
-                <span class="counter">{counter}</span>
-              {/if}
-            </div>
+            <!-- §24 items 1/2/4/8/9: the messenger-prefix suggestions sit
+                 ABOVE the input (item 9); the revert arrow ⇄ send swap
+                 share one slot right of the input (item 2 — arrow while
+                 empty, send the moment typing starts); an "x" on the
+                 right inside the pill clears quickly (item 8); the
+                 counter is centered below the row (item 4). -->
             {#if wizard.step === 'contact_value' && wizard.contactKind === 'nickname'}
               <!-- §23.2 5.4: suggested messenger prefixes, appendable
                    (tapping replaces the prefix in front of the nickname). -->
@@ -503,6 +644,44 @@
                 {/each}
               </div>
             {/if}
+            <form class="input-row" onsubmit={(e) => { e.preventDefault(); send(); }}>
+              <div class="field">
+                <input
+                  id={inputId}
+                  type="text"
+                  maxlength={INPUT_MAX[wizard.step]}
+                  autocomplete="off"
+                  placeholder={inputPlaceholder}
+                  aria-label={inputLabel}
+                  value={inputValue}
+                  class:invalid={wizard.step === 'name' && errorMessage !== null}
+                  class:with-clear={inputValue !== ''}
+                  oninput={(e) => inputInput(e.currentTarget.value)}
+                />
+                {#if inputValue !== ''}
+                  <!-- §24 item 8: the quick-clear "x" on the right. -->
+                  <button
+                    type="button"
+                    class="clear"
+                    aria-label={t('join.wizard.clear')}
+                    onclick={clearInput}
+                  >×</button>
+                {/if}
+              </div>
+              {#if inputValue === ''}
+                <!-- §24 item 2: the revert arrow while the input is empty. -->
+                <button type="button" class="swap revert" aria-label={t('common.back')} onclick={back}>←</button>
+              {:else}
+                <!-- §23.2 5.1: the send button appears in the arrow's slot
+                     the moment typing starts. -->
+                <button type="submit" class="swap send" aria-label={t('join.wizard.send')}>↑</button>
+              {/if}
+            </form>
+            <div class="meta-row">
+              {#if counter}
+                <span class="counter">{counter}</span>
+              {/if}
+            </div>
             {#if wizard.step === 'name' && errorMessage}
               <p class="field-error" role="alert" aria-live="polite">{errorMessage}</p>
             {/if}
@@ -521,6 +700,8 @@
               {/each}
             </div>
             <button type="button" class="link" onclick={skip}>{t('join.wizard.contact.skip')}</button>
+            <!-- §24 item 13: the right back button on non-standard forms. -->
+            <button type="button" class="link back-right" onclick={back}>{t('common.back')}</button>
           {:else if wizard.step === 'themes'}
             <!-- §23.2 5.5: theme badges (emoji + text); §23.2 5.7: the
                  loop returns here until Ready. -->
@@ -541,6 +722,8 @@
             <button type="button" class="cta" onclick={ready}>
               {t('join.wizard.themes.ready')}
             </button>
+            <!-- §24 item 13: the right back button on non-standard forms. -->
+            <button type="button" class="link back-right" onclick={back}>{t('common.back')}</button>
           {:else if wizard.step === 'topics'}
             <div class="badges" aria-label={groupTitle(wizard.interestGroup ?? 0, $locale)}>
               {#each themeTopics as entry (entry.key)}
@@ -561,13 +744,12 @@
             <button type="button" class="cta" onclick={finishTheme}>
               {t('join.wizard.interests.done')}
             </button>
+            <!-- §24 item 13: the right back button on non-standard forms. -->
+            <button type="button" class="link back-right" onclick={back}>{t('common.back')}</button>
           {/if}
         </div>
       {/key}
     </div>
-
-      <!-- §23.2 5.2: the back button sits below the input, centered. -->
-      <button type="button" class="link back" onclick={back}>{t('common.back')}</button>
     </div>
   {/if}
 </div>
@@ -588,8 +770,9 @@
     /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the intro and the
      * loading stage mount fresh at their boundaries (form → intro,
      * chat → creating, and every way back) — the ONE fade treatment
-     * (200ms opacity-only; base.css reduced-motion catch-all). */
-    animation: fade-in 200ms ease-out;
+     * (§24 item 5: 400ms, opacity-only; base.css reduced-motion
+     * catch-all). */
+    animation: fade-in 400ms ease-out;
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
@@ -602,7 +785,11 @@
   }
   .intro-title {
     margin: 0;
-    font-size: 24px;
+    /* §24 item 7: the "Hi! I'm Bleak" greeting renders in the pixel font
+     * (the h1/h2/h3 base.css treatment — Handjet, not the body font). */
+    font-family: var(--font-pixel);
+    font-size: 26px;
+    letter-spacing: 0.04em;
     overflow-wrap: anywhere;
   }
   .intro-line {
@@ -629,7 +816,7 @@
    * carries the old .wizard layout (log scrolls, composer pins to the
    * bottom) unchanged. */
   .stage {
-    animation: fade-in 200ms ease-out;
+    animation: fade-in 400ms ease-out;
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
@@ -647,8 +834,9 @@
   }
   .panel {
     /* §23.2 5.9: fade transitions between the creation-chat steps
-     * (opacity only; the base.css reduced-motion catch-all collapses it). */
-    animation: fade-in 200ms ease-out;
+     * (§24 item 5: 400ms, opacity only; the base.css reduced-motion
+     * catch-all collapses it). */
+    animation: fade-in 400ms ease-out;
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
@@ -660,17 +848,32 @@
     align-items: center;
     min-width: 0;
   }
+  /* §24 item 8: the input pill + the clear "x" inside it (the pill box
+   * never changes size — the x is absolutely positioned over the right
+   * padding, so the composer height is strongly fixed, item 9). */
+  .field {
+    position: relative;
+    display: flex;
+    flex: 1;
+    min-width: 0;
+  }
   .input-row input {
     flex: 1;
     min-width: 0;
+    /* §24 item 9: strongly fixed height — the input never grows/shrinks
+     * with its content or the buttons around it. */
+    height: var(--touch-target);
     background: var(--color-surface-elevated);
     color: var(--color-text);
     border: 1px solid var(--color-text-disabled-strong);
     border-radius: var(--radius-pill);
-    min-height: var(--touch-target);
     padding: 0 var(--space-4);
     font-size: 16px;
     transition: border-color 120ms ease-out;
+  }
+  /* Room for the clear "x" when it is shown (item 8). */
+  .input-row input.with-clear {
+    padding-right: calc(var(--space-4) + var(--space-6));
   }
   .input-row input::placeholder {
     color: var(--color-text-muted);
@@ -678,16 +881,35 @@
   .input-row input.invalid {
     border-color: var(--color-accent);
   }
-  /* §23.2 5.1: the send button sits right of the input (iOS Messages
-   * style) — accent only while interactive (§4.1 accent discipline). */
-  .send {
+  .clear {
+    position: absolute;
+    right: var(--space-2);
+    top: 50%;
+    transform: translateY(-50%);
+    width: var(--space-6);
+    height: var(--space-6);
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 18px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .clear:active {
+    opacity: 0.7;
+  }
+  /* §24 item 2: the arrow ⇄ send swap — ONE slot right of the input.
+   * The revert arrow (empty input) and the send button (typing started)
+   * share the same geometry, so the swap never shifts the composer. */
+  .swap {
     flex: none;
     width: var(--touch-target);
     height: var(--touch-target);
-    border: none;
     border-radius: 50%;
-    background: var(--color-accent);
-    color: var(--color-accent-ink);
     font-size: 20px;
     line-height: 1;
     display: inline-flex;
@@ -695,25 +917,31 @@
     justify-content: center;
     transition: opacity 120ms ease-out;
   }
-  .send:active {
+  .swap:active {
     opacity: 0.8;
   }
-  .meta-row {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-3);
-    min-height: 18px;
+  /* §23.2 5.1: the send button — accent only while interactive (§4.1
+   * accent discipline). */
+  .swap.send {
+    border: none;
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
   }
-  .hint {
+  .swap.revert {
+    background: transparent;
+    border: 1px solid var(--color-text-disabled-strong);
     color: var(--color-text-muted);
-    font-size: 12px;
-    flex: 1;
-    min-width: 0;
+  }
+  .meta-row {
+    /* §24 item 4: the counter is centered below the input row. */
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    min-height: 18px;
   }
   .counter {
     color: var(--color-text-muted);
     font-size: 12px;
-    margin-left: auto;
     flex: none;
   }
   .prefixes {
@@ -834,13 +1062,14 @@
     font-size: 14px;
     flex: none;
   }
-  .back {
-    /* §23.2 5.2: below the input, centered. */
-    margin-top: var(--space-1);
+  /* §24 item 13: the right-aligned back button on non-standard forms
+   * (contact type, themes, topics). */
+  .back-right {
+    align-self: flex-end;
   }
   /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the ONE fade treatment
-   * for EVERY wizard step boundary — the same 200ms opacity-only fade the
-   * sheets use (HandshakeSheet/SummarySheet); transform untouched. */
+   * for EVERY wizard step boundary — the opacity-only fade the sheets use
+   * (§24 item 5: 400ms); transform untouched. */
   @keyframes fade-in {
     from {
       opacity: 0;

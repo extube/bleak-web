@@ -1,12 +1,17 @@
 /** CreationWizard component tests (Concept §22.3 item 2, DESIGN §4.16.2 +
- * the §23.2 design-review amendments 5.1–5.9): the chat-style creation
- * wizard — the mascot intro (plain-text intro copy, no bubble background),
- * the interview ORDER (name → public bio → private bio → contact type →
- * value → themes ⇄ topics loop), the iOS-Messages composer (send on Enter
- * or the right-side button, current/max counter, example placeholders, no
- * Next buttons), the nickname field with suggested prefixes (tg:/signal:/
- * inst:), the multi-theme loop returning to the badges until Ready, the
- * SummarySheet pixel-dots loading beat, and fade step transitions.
+ * the §23.2 design-review amendments 5.1–5.9 + the §24 second batch,
+ * DESIGN §4.16.1): the chat-style creation wizard — the mascot intro
+ * (plain-text intro copy, no bubble background, pixel-font greeting,
+ * calm contextual copy), the interview ORDER (name → public bio →
+ * private bio → contact type → value → themes ⇄ topics loop), the
+ * iOS-Messages composer (send on Enter or the right-side button, the
+ * revert-arrow ⇄ send swap while empty/typing, the quick-clear "x",
+ * current/max counter centered below the row, example placeholders, no
+ * Next buttons), the nickname field with suggested prefixes ABOVE the
+ * input (tg:/signal:/inst:), the multi-theme loop returning to the
+ * badges until Ready, NO live echo of the typed text, the full kept
+ * history, the SummarySheet pixel-dots loading beat and the slower
+ * 400ms fade step transitions.
  * @testing-library/svelte over happy-dom. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -35,9 +40,24 @@ function raw(key: keyof typeof ru, params?: Record<string, string>): string {
   return text;
 }
 
+/**
+ * §24 item 2: while the input is EMPTY the swap slot shows the revert
+ * arrow (labelled like back); typing swaps it to the send button.
+ */
+function revertArrow(): HTMLElement {
+  return screen.getByRole('button', { name: ru['common.back'] });
+}
+
 /** §23.2 5.1: the iOS-Messages send button (right of the input). */
 function sendButton(): HTMLElement {
   return screen.getByRole('button', { name: ru['join.wizard.send'] });
+}
+
+/** §24 item 2: Enter always submits the composer form (the arrow sits in
+ * the swap slot while the input is empty — the send button is absent). */
+function submitComposer(): void {
+  const form = document.querySelector<HTMLFormElement>('.input-row')!;
+  fireEvent.submit(form);
 }
 
 /** Agent (interviewer) bubble texts in transcript order. */
@@ -64,16 +84,22 @@ async function startWizard(onsubmit?: (draft: PersonaDraft) => void): Promise<HT
 async function answerName(name: string): Promise<void> {
   const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
   fireEvent.input(nameInput, { target: { value: name } });
+  await tick();
+  await tick(); // the send button only exists once the typed value is in state
   await sendButton().click();
   await screen.findByText(ru['join.wizard.public.question']);
 }
 
-/** Type into the active composer input and send (Enter or the button). */
+/** Type into the active composer input and send (Enter via the form when
+ * the value is empty — the swap slot shows the arrow then; the button
+ * when typing started). */
 async function typeAndSend(value: string, viaEnter = false): Promise<void> {
   const input = document.querySelector<HTMLInputElement>('.input-row input')!;
   fireEvent.input(input, { target: { value } });
-  if (viaEnter) {
-    fireEvent.submit(input.form as HTMLFormElement);
+  await tick();
+  await tick(); // the send button only exists once the typed value is in state
+  if (viaEnter || value === '') {
+    submitComposer();
   } else {
     await sendButton().click();
   }
@@ -134,7 +160,11 @@ describe('CreationWizard — intro + name gate', () => {
     fireEvent.click(input);
     fireEvent.focus(input);
     expect(onsubmit).not.toHaveBeenCalled();
-    await sendButton().click();
+    // §24 item 2: the input is empty — the swap slot holds the revert
+    // arrow; the send happens via Enter (the composer form submit).
+    submitComposer();
+    await tick();
+    await tick();
     expect(screen.getByText(ru['join.error.name_required'])).toBeTruthy();
     expect(onsubmit).not.toHaveBeenCalled();
     // Still at the name step: the question is the last agent bubble.
@@ -179,11 +209,65 @@ describe('CreationWizard — the §23.2 5.1/5.2 composer', () => {
     await startWizard();
     await typeAndSend('Аня', true); // Enter submits the composer form
     await screen.findByText(ru['join.wizard.public.question']);
-    await typeAndSend('', false); // the button submits too
+    await typeAndSend('Я бэкенд-разработчик', false); // typing → the button submits too
     await screen.findByText(ru['join.wizard.private.question']);
   });
 
-  it('§23.2 5.2 layout contract: the composer is sticky at the bottom, the log scrolls, back sits below the input (source pins)', () => {
+  it('§24 item 2: the revert arrow sits in the swap slot while the input is empty and swaps to send on typing', async () => {
+    await startWizard();
+    // Empty input: the arrow is there, the send button is not.
+    expect(revertArrow()).toBeTruthy();
+    expect(screen.queryByRole('button', { name: ru['join.wizard.send'] })).toBeNull();
+    // Typing starts → the send button appears in the arrow's place.
+    const input = document.querySelector<HTMLInputElement>('.input-row input')!;
+    fireEvent.input(input, { target: { value: 'Аня' } });
+    await tick();
+    await tick();
+    expect(sendButton()).toBeTruthy();
+    expect(screen.queryByRole('button', { name: ru['common.back'] })).toBeNull();
+    // Clearing the input swaps the send button back to the arrow.
+    fireEvent.input(input, { target: { value: '' } });
+    await tick();
+    await tick();
+    expect(revertArrow()).toBeTruthy();
+    expect(screen.queryByRole('button', { name: ru['join.wizard.send'] })).toBeNull();
+  });
+
+  it('§24 item 2: the revert arrow navigates BACK (the bottom back button is gone)', async () => {
+    await startWizard();
+    await answerName('Я');
+    // The empty public-bio input shows the arrow; clicking it goes back.
+    await revertArrow().click();
+    await screen.findByText(ru['join.wizard.name.question']);
+  });
+
+  it('§24 item 8: the "x" inside the pill clears the input quickly', async () => {
+    await startWizard();
+    const input = document.querySelector<HTMLInputElement>('.input-row input')!;
+    fireEvent.input(input, { target: { value: 'Аня' } });
+    await tick();
+    await tick();
+    const clear = screen.getByRole('button', { name: ru['join.wizard.clear'] });
+    await clear.click();
+    await tick();
+    await tick();
+    expect(input.value).toBe('');
+    // The composer keeps focus and the swap slot returns to the arrow.
+    expect(document.activeElement).toBe(input);
+    expect(revertArrow()).toBeTruthy();
+    // Clearing is never a send.
+    expect(screen.getByText(ru['join.wizard.name.question'])).toBeTruthy();
+  });
+
+  it('§24 item 11: after a send the next input is auto-focused again', async () => {
+    await startWizard();
+    await answerName('Аня');
+    await tick();
+    const input = document.querySelector<HTMLInputElement>('.input-row input')!;
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('§23.2 5.2 + §24 items 2/4/9/13 layout contract: sticky composer, scrolling log, no bottom back, counter below, prefixes above, right back on non-standard forms (source pins)', () => {
     const css = source('src/lib/components/join/CreationWizard.svelte');
     // No "Next" CTA exists anywhere in the wizard source.
     expect(css).not.toContain('join.wizard.next');
@@ -192,30 +276,73 @@ describe('CreationWizard — the §23.2 5.1/5.2 composer', () => {
     expect(css).toMatch(/\.composer\s*\{[^}]*bottom:\s*0/);
     expect(css).toMatch(/\.log\s*\{[^}]*flex:\s*1/);
     expect(css).toMatch(/\.log\s*\{[^}]*overflow-y:\s*auto/);
-    // The back button lives below the composer, centered.
-    expect(css).toMatch(/\.back\s*\{[^}]*margin-top:\s*var\(--space-1\)/);
-    expect(css).toMatch(/\.link\s*\{[^}]*align-self:\s*center/);
+    // §24 item 2: the bottom back button is GONE (no .back class, no
+    // back button after the composer block).
+    expect(css).not.toMatch(/\.back\s*\{/);
+    expect(css).toMatch(/\.back-right\s*\{[^}]*align-self:\s*flex-end/);
+    expect(css).not.toContain('class="link back"');
+    // §24 item 4: the counter is centered below the input row.
+    expect(css).toMatch(/\.meta-row\s*\{[^}]*justify-content:\s*center/);
+    expect(css).not.toMatch(/\.counter\s*\{[^}]*margin-left/);
+    // §24 item 9: strongly fixed input height; suggestions ABOVE the
+    // input row (the prefixes block is rendered before the form).
+    expect(css).toMatch(/\.input-row input\s*\{[^}]*height:\s*var\(--touch-target\)/);
+    const prefixes = css.indexOf('class="prefixes"');
+    const form = css.indexOf('class="input-row"');
+    expect(prefixes).toBeGreaterThan(-1);
+    expect(form).toBeGreaterThan(prefixes);
+    // §24 item 8: the clear "x" sits inside the pill on the right.
+    expect(css).toMatch(/\.clear\s*\{[^}]*position:\s*absolute/);
+    expect(css).toMatch(/\.clear\s*\{[^}]*right:\s*var\(--space-2\)/);
+    // §24 item 2: the arrow ⇄ send swap share one slot geometry.
+    expect(css).toMatch(/\.swap\s*\{[^}]*width:\s*var\(--touch-target\)/);
+    expect(css).toMatch(/\.swap\.send\s*\{[^}]*background:\s*var\(--color-accent\)/);
+    expect(css).toMatch(/\.swap\.revert\s*\{[^}]*background:\s*transparent/);
     // The card flex-column treatment is scoped to the persona step.
     const flowCss = source('src/lib/components/join/JoinFlow.svelte');
     expect(flowCss).toMatch(/class:composer-card=\{flow\.step === 'persona'\}/);
     expect(flowCss).toMatch(/\.card\.composer-card\s*\{[^}]*display:\s*flex/);
   });
 
-  it('§23.2 5.9 (owner amendment, DESIGN §4.15.6.4): EVERY wizard step boundary uses the ONE fade treatment', () => {
+  it('§24 item 7b (DESIGN §4.16.1): the persona card is scoped for the desktop 640px room-chat width in JoinFlow', () => {
+    const flowCss = source('src/lib/components/join/JoinFlow.svelte');
+    expect(flowCss).toMatch(/class:persona-step=\{flow\.step === 'persona'\}/);
+    const desktop = flowCss.slice(flowCss.indexOf('@media (min-width: 720px)'));
+    expect(desktop).toMatch(/\.join\.persona-step\s*\{[^}]*max-width:\s*640px/);
+  });
+
+  it('§24 item 7: the intro greeting renders in the pixel font (not the body font)', () => {
     const css = source('src/lib/components/join/CreationWizard.svelte');
-    // One treatment everywhere: the sheets' 200ms opacity-only fade-in
-    // (fade-in 200ms ease-out), on the composer panel (chat-step swaps),
-    // the chat stage (intro ⇄ chat, creating ⇄ chat branch swaps) and the
-    // intro/creating stage (form → intro, chat → creating).
-    expect(css).toMatch(/\.panel\s*\{[^}]*animation:\s*fade-in\s+200ms\s+ease-out/);
-    expect(css).toMatch(/\.stage\s*\{[^}]*animation:\s*fade-in\s+200ms\s+ease-out/);
-    expect(css).toMatch(/\.creating-stage\s*\{[^}]*animation:\s*fade-in\s+200ms\s+ease-out/);
+    expect(css).toMatch(/\.intro-title\s*\{[^}]*font-family:\s*var\(--font-pixel\)/);
+  });
+
+  it('§24 item 10: the device-storage footer note is gone from the chat (both dictionaries)', () => {
+    expect(ru['join.form.contact_hint' as keyof typeof ru]).toBeUndefined();
+    expect(source('src/lib/components/join/CreationWizard.svelte')).not.toContain(
+      'contact_hint'
+    );
+    const ruSrc = source('src/lib/i18n/ru.ts');
+    const enSrc = source('src/lib/i18n/en.ts');
+    expect(ruSrc).not.toContain('Хранится только на этом устройстве');
+    expect(enSrc).not.toContain('Stored on this device only');
+  });
+
+  it('§23.2 5.9 (owner amendment, DESIGN §4.15.6.4) + §24 item 5: EVERY wizard step boundary uses the ONE fade treatment — slower now (400ms)', () => {
+    const css = source('src/lib/components/join/CreationWizard.svelte');
+    // One treatment everywhere: the opacity-only fade-in, on the composer
+    // panel (chat-step swaps), the chat stage (intro ⇄ chat, creating ⇄
+    // chat branch swaps) and the intro/creating stage (form → intro,
+    // chat → creating). §24 item 5: the fade takes MORE time (400ms).
+    expect(css).toMatch(/\.panel\s*\{[^}]*animation:\s*fade-in\s+400ms\s+ease-out/);
+    expect(css).toMatch(/\.stage\s*\{[^}]*animation:\s*fade-in\s+400ms\s+ease-out/);
+    expect(css).toMatch(/\.creating-stage\s*\{[^}]*animation:\s*fade-in\s+400ms\s+ease-out/);
+    expect(css).not.toMatch(/fade-in\s+200ms/);
     expect(css).toMatch(/@keyframes fade-in\s*\{[\s\S]*?opacity:\s*0[\s\S]*?opacity:\s*1/);
     // Opacity only — no slide/translate in the step transition (the bubble
     // entrance keeps its small rise, MessageBubble lineage).
     expect(css).not.toMatch(/panel-in/);
     expect(css).not.toMatch(/stage-fade|panel-fade/);
-    // The chat stage is one fading unit wrapping log + composer + back.
+    // The chat stage is one fading unit wrapping log + composer.
     expect(css).toMatch(/<div class="stage">/);
     // Reduced motion: the fade is a CSS animation, collapsed to instant by
     // the base.css catch-all (state changes remain visible).
@@ -281,8 +408,13 @@ describe('CreationWizard — contact (§23.2 5.4: type first, then the value)', 
       raw('join.wizard.contact.enter', { kind: ru['join.wizard.contact.phone'] })
     );
     expect(screen.getByLabelText(ru['join.wizard.contact.phone'])).toBeTruthy();
-    // The §14.1.3 hint rides the value input.
-    expect(screen.getByText(ru['join.form.contact_hint'])).toBeTruthy();
+    // §24 item 10: the §14.1.3 device-storage hint is REMOVED from the
+    // chat — the value step shows only the centered counter below.
+    expect(screen.queryByText(/Хранится только на этом устройстве/)).toBeNull();
+    expect(screen.queryByText(/Stored on this device only/)).toBeNull();
+    expect(
+      screen.getByText(ru['join.wizard.counter'].replace('{n}', '0').replace('{max}', '255'))
+    ).toBeTruthy();
   });
 
   it('§23.2 5.4: the nickname kind offers the tg:/signal:/inst:@ prefixes, appendable over the typed nickname', async () => {
@@ -357,7 +489,9 @@ describe('CreationWizard — the §23.2 5.5/5.7 themes loop', () => {
     expect(hockey.getAttribute('aria-pressed')).toBe('true');
     await run.click();
     expect(run.getAttribute('aria-pressed')).toBe('true'); // multi-select
-    await screen.findByText(`${ru['interests.k7']} · ${ru['interests.k8']}`);
+    // §24 item 1: NO live echo — the picks do not appear as a chat line
+    // while they are being toggled; the summary lands after Done.
+    expect(myLines(document.body)).not.toContain(`${ru['interests.k7']} · ${ru['interests.k8']}`);
     // Done with the theme → BACK to the badges; the theme's answer stays.
     await screen.getByRole('button', { name: ru['join.wizard.interests.done'] }).click();
     await screen.findByText(ru['join.wizard.interests.question']);
@@ -403,6 +537,84 @@ describe('CreationWizard — the §23.2 5.5/5.7 themes loop', () => {
   });
 });
 
+describe('CreationWizard — §24 second batch (Concept §24, DESIGN §4.16.1)', () => {
+  it('item 1: typing never echoes into the chat — the answer lands only after the send', async () => {
+    await startWizard();
+    const input = document.querySelector<HTMLInputElement>('.input-row input')!;
+    fireEvent.input(input, { target: { value: 'Аня' } });
+    await tick();
+    await tick();
+    // No live echo bubble of the typed text.
+    expect(myLines(document.body)).toEqual([]);
+    await sendButton().click();
+    await screen.findByText(ru['join.wizard.public.question']);
+    // The SENT answer is now a mine bubble.
+    expect(myLines(document.body)).toEqual(['Аня']);
+  });
+
+  it('item 3: the whole history stays when going back (questions + sent answers)', async () => {
+    const container = await startWizard();
+    await answerName('Я');
+    await typeAndSend('Писатель'); // public bio
+    await screen.findByText(ru['join.wizard.private.question']);
+    // Back once (the private input is empty → the arrow is there).
+    await revertArrow().click();
+    await screen.findByText(ru['join.wizard.public.question']);
+    // History intact: the public Q/A and the name answer are still in the log.
+    expect(agentLines(container)).toContain(ru['join.wizard.public.question']);
+    expect(myLines(container)).toContain('Писатель');
+    expect(agentLines(container)).toContain(raw('join.wizard.name.answer', { name: 'Я' }));
+    // Clear the filled input (item 8) to reveal the arrow again, then back.
+    await screen.getByRole('button', { name: ru['join.wizard.clear'] }).click();
+    await revertArrow().click();
+    await screen.findByText(ru['join.wizard.name.question']);
+    // The interview keeps ONE answer line per question (a Q/A transcript,
+    // not a stream): the re-sent name replaces the answer line in place.
+    expect(myLines(container)).toEqual(['Я', 'Писатель']);
+    // Forward again — the interview resumes with the history intact.
+    await answerName('Я');
+    await screen.findByText(ru['join.wizard.public.question']);
+    expect(myLines(container)).toEqual(['Я', 'Писатель']);
+  });
+
+  it('item 13: non-standard sub-steps keep the RIGHT back button; text steps have none (the revert arrow replaces it)', async () => {
+    await startWizard();
+    // Text step: no .back-right — the swap slot holds the arrow instead.
+    expect(document.querySelectorAll('.back-right')).toHaveLength(0);
+    expect(revertArrow()).toBeTruthy();
+    await answerName('Я');
+    await typeAndSend(''); // public
+    await screen.findByText(ru['join.wizard.private.question']);
+    await typeAndSend(''); // private
+    await screen.findByText(ru['join.wizard.contact.question']);
+    // contact TYPE (non-standard): the right back button is there.
+    expect(document.querySelectorAll('.back-right')).toHaveLength(1);
+    await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
+    await screen.findByText(ru['join.wizard.interests.question']);
+    // themes (non-standard): the right back button is there too.
+    expect(document.querySelectorAll('.back-right')).toHaveLength(1);
+    await openSportTopics();
+    // topics (non-standard): still there.
+    expect(document.querySelectorAll('.back-right')).toHaveLength(1);
+  });
+
+  it('item 12: auto-scroll re-pins the newest message above the composer on every line AND step swap (source pin)', () => {
+    const src = source('src/lib/components/join/CreationWizard.svelte');
+    const effect = src.slice(src.indexOf('§24 item 12'));
+    expect(effect).toMatch(/void transcript\.length/);
+    expect(effect).toMatch(/void wizard\.step/);
+    expect(effect).toMatch(/scrollTo\(\{ top: logEl\.scrollHeight \}\)/);
+  });
+
+  it('item 6 + 7: the calm intro copy is in place and the greeting keeps its plain no-plate treatment', async () => {
+    const { container } = render(CreationWizard, { props: {} });
+    // Calm + contextual: the agent's role and the simple-dialog framing.
+    expect(screen.getByText(ru['join.wizard.intro.line'])).toBeTruthy();
+    expect(container.querySelector('.intro-title')?.closest('.bubble')).toBeNull();
+    expect(screen.getByRole('button', { name: ru['join.wizard.intro.start'] })).toBeTruthy();
+  });
+});
+
 describe('CreationWizard — the creating step (§23.2 5.8)', () => {
   it('animates the SummarySheet pixel-dots beat: five staggered steps(2) dots over the status text', async () => {
     const onsubmit = vi.fn();
@@ -412,11 +624,13 @@ describe('CreationWizard — the creating step (§23.2 5.8)', () => {
     await screen.findByText(ru['join.wizard.name.question']);
     const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
     fireEvent.input(nameInput, { target: { value: 'Дубль' } });
+    await tick();
+    await tick(); // the send button only exists once the typed value is in state
     await sendButton().click();
     await screen.findByText(ru['join.wizard.public.question']);
-    await sendButton().click();
+    submitComposer(); // public (empty — the swap slot holds the arrow)
     await screen.findByText(ru['join.wizard.private.question']);
-    await sendButton().click();
+    submitComposer(); // private (empty)
     await screen.findByText(ru['join.wizard.contact.question']);
     await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
     await screen.findByText(ru['join.wizard.interests.question']);
@@ -445,11 +659,13 @@ describe('CreationWizard — the creating step (§23.2 5.8)', () => {
     await screen.findByText(ru['join.wizard.name.question']);
     const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
     fireEvent.input(nameInput, { target: { value: 'Я' } });
+    await tick();
+    await tick(); // the send button only exists once the typed value is in state
     await sendButton().click();
     await screen.findByText(ru['join.wizard.public.question']);
-    await sendButton().click();
+    submitComposer(); // public (empty)
     await screen.findByText(ru['join.wizard.private.question']);
-    await sendButton().click();
+    submitComposer(); // private (empty)
     await screen.findByText(ru['join.wizard.contact.question']);
     await screen.getByRole('button', { name: ru['join.wizard.contact.skip'] }).click();
     await screen.findByText(ru['join.wizard.interests.question']);
