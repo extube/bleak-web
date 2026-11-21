@@ -2941,6 +2941,30 @@ emphasis.
 
 Reconciliation (owner note): the bottom back button is removed everywhere (item 2); the **right back button stays on non-standard sub-steps** (item 13); the **revert arrow in the input** replaces it on standard steps (item 2).
 
+### 4.17 v3.11 addendum (2026-11-21, owner-approved Concept §25)
+
+**Creation chat desktop layout** — size/proportions only; all visual
+styles (colors, dark bg shades, bubble colors, fonts, borders, button
+styles) untouched:
+
+1. **Full screen height:** the chat container stretches from the very top
+   edge to the very bottom edge of the browser window — no vertical
+   centering, no empty space above or below the chat box.
+2. **Wider desktop column:** the chat column spans the center of the
+   page at roughly **750–850px** wide (supersedes the §4.16.1 7b
+   room-chat-dimensions approximation with the explicit target).
+3. **Pinned bottom input:** the input bar stays anchored at the bottom
+   edge of the screen; the message area above it expands to fill all
+   remaining vertical space.
+4. Per-item and color styling unchanged — size/layout proportions only.
+5. **Auto-scroll root cause (task 107, folded):** the wizard-chat
+   "stuck at top" bug was a geometry break — `.join`'s automatic minimum
+   size grew with content, so the log's flex/overflow never engaged and
+   `scrollTo` was a silent no-op; fixed with the bounded persona-step
+   chain (`min-height: 0`, log = scroll container, composer below in
+   normal flow) — smooth scroll on open and every new message, bottom
+   padding so the newest message clears the composer.
+
 ## 5. Design-decision rationale (short)
 
 - **Radar ring semantics = relationship distance**, not random placement: the
