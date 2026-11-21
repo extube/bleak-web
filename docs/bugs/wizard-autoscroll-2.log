@@ -1,0 +1,37 @@
+Owner bug report — RECURRENCE (chat, 2026-11-21, relayed via concept agent —
+Concept.md §24 item 12 amendment, recurrence note):
+
+The creation dialog STILL does not autoscroll to the last message, despite
+task 107 having landed merged + CI green (commit d37c688; the v3.11 sweep
+also landed).
+
+KEY DIAGNOSIS REQUIREMENT: the unit tests pass while the real app
+misbehaves — the test contract does not reproduce the actual runtime
+geometry. jsdom-only scrollTop assertions are NOT acceptable as the
+contract.
+
+Candidates that pass fake-DOM tests but fail in a browser:
+- the scroll fires before fonts/images/layout settle (then content shifts
+  back);
+- scrollTo called on the wrong element at runtime (e.g. a wrapper, not the
+  actual overflow container);
+- the {#key} step remounts reset scrollTop AFTER the scroll effect runs
+  (order-of-effects problem);
+- smooth scrolling canceled by concurrent layout changes;
+- the full-height (§25) restructure changing which element overflows;
+- sticky/fixed composer overlaying content without corresponding padding.
+
+Fix structurally (e.g. anchor the scroll container as the single overflow
+element, run scroll after two rAFs / after layout settles, re-assert on
+each message append, IntersectionObserver or scroll-height watcher if
+needed).
+
+Test contract: at minimum assert against the actual built component
+behavior in a LAYOUT-CAPABLE environment (e.g. happy-dom with measured
+layout, or a real-browser check via the existing e2e/playwright setup if
+present in the repo toolchain — process note: none was found in the repo,
+so no new test-runner dependency is authorized; design the strongest
+layout-capable contract available without new deps).
+
+Scope: creation chat ONLY; /chats untouched; no new deps unless a
+headless-browser test runner already exists in the repo toolchain.

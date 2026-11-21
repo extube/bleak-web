@@ -1,0 +1,25 @@
+Owner bug report (chat, 2026-11-20, relayed via concept agent — Concept.md §19.1 regression):
+
+In the modal sheet, the users' avatars STILL converge (pull toward each
+other) after opening — the §19.1 no-pull fix (task 88, merged e9edcad) is
+NOT effective in the running build.
+
+Expected (§19.1, re-affirmed): GOOD-chat tier avatars stay SPACED APART,
+nod/wave animation unchanged; the GREAT-match tier keeps its
+pull-to-center (§15.3).
+
+Suspected causes to inspect (owner + process notes):
+- task 84's GREAT-tier hop-toward-center may have been applied to both
+  tiers;
+- the per-tier gating/keyframes may not be truly conditional;
+- the merged fix may have been overwritten by later sheet tasks — tasks
+  90/91 touched the sheet after task 88 (task 91 rewrote
+  summary-sheet.test.ts, possibly dropping the no-pull contract; its
+  SummarySheet rebuild may have changed the markup/scoping the fix
+  relied on).
+
+Fix rule: GOOD tier avatars stay spaced apart — nod/wave unchanged; GREAT
+keeps pull-to-center per §15.3 (flag in the report that GREAT still pulls
+by spec). Prove with a behavior test: the GOOD-tier transform/keyframes
+never apply a converging translate toward center; manual smoke in the
+running app per the verification doc.

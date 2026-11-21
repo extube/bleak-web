@@ -1758,6 +1758,9 @@ describe('JoinFlow — unified three-block form shell (Concept §30, DESIGN §4.
     expect(css).toMatch(/\.locale :global\(\.segmented\)\s*\{[^}]*padding:\s*2px/);
     expect(css).toMatch(/\.locale :global\(\.segmented button\)\s*\{[^}]*min-height:\s*36px/);
     expect(css).toMatch(/\.locale\s*\{[^}]*align-items:\s*center/);
+    // Concept §30 geometry unification (owner amendment): the canonical
+    // shared container width is defined ON the FormShell.
+    expect(css).toMatch(/--form-shell-max-width:\s*480px/);
     // Footer: a 1..n action region (the rendered footer snippet).
     expect(css).toMatch(/@render footer\?\.\(\)/);
     // Token discipline: no raw hex.
