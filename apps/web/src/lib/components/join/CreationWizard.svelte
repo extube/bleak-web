@@ -268,26 +268,27 @@
     return lines;
   });
 
-  // §24 item 12 (tz11-06 bug round, task 107): keep the newest message
-  // pinned right above the composer — re-run on every new line AND every
-  // step swap (the composer height). SMOOTH scrolling (owner report);
-  // instant under prefers-reduced-motion (the base.css catch-all only
-  // covers CSS animations, not JS scrolling). The log IS the scroll
-  // container now: JoinFlow bounds the persona card to the viewport
-  // height (.join.persona-step / .card.composer-card min-height: 0), so
-  // the log's flex:1 + overflow-y engage and this actually reaches the
-  // bottom — and the composer sits BELOW the log in normal flex flow, so
-  // the newest message can never be cut off behind the input bar.
+  // §24 item 12 (tz11-06 bug round, task 107; re-fixed in bug round 2,
+  // task 109): keep the newest message pinned right above the composer —
+  // re-run on every new line AND every step swap (the composer height).
+  // SMOOTH scrolling (owner report); instant under prefers-reduced-motion
+  // (the base.css catch-all only covers CSS animations, not JS scrolling).
+  // The log IS the scroll container and the whole §25 height chain is
+  // bounded — JoinFlow bounds the persona card to the viewport height
+  // (.join.persona-step / .card.composer-card min-height: 0) AND, since
+  // bug round 2, the page-level .join wrapper above JoinFlow (the
+  // recurrence root cause: with the wrapper's automatic minimum size
+  // unbounded, the shell grew with the transcript, the PAGE was the
+  // scroll container and this scroll was a visual no-op). The composer
+  // sits BELOW the log in normal flex flow, so the newest message can
+  // never be cut off behind the input bar.
   const reducedMotion =
     typeof window !== 'undefined' &&
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  $effect(() => {
-    void transcript.length;
-    void wizard.step;
-    const el = logEl;
-    if (!el) return;
+  /** One bottom-pin scroll — the effect's real call (spied in tests). */
+  function pinToBottom(el: HTMLElement): void {
     try {
       el.scrollTo({
         top: el.scrollHeight,
@@ -296,6 +297,40 @@
     } catch {
       /* no scroll available (tests) — visual nicety only */
     }
+  }
+
+  $effect(() => {
+    void transcript.length;
+    void wizard.step;
+    const el = logEl;
+    if (!el) return;
+    pinToBottom(el);
+    if (reducedMotion) return;
+    // Re-assert after the layout settles (two rAFs): a smooth scroll
+    // started in this effect can land short when the DOM keeps moving
+    // after it — the keyed composer swap remounts the panel, and late
+    // font/metric shifts reflow the bubbles after the first pin. Bounded
+    // re-assert: one more pin two frames later, cancelled when this
+    // effect re-runs (every content change re-pins immediately anyway)
+    // or the component unmounts; it fires within ~2 frames of the
+    // content change, before a human scroll can compete with it.
+    let frame = 0;
+    try {
+      frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => {
+          if (el.isConnected) pinToBottom(el);
+        });
+      });
+    } catch {
+      /* no rAF available (tests) — the synchronous pin above already ran */
+    }
+    return () => {
+      try {
+        cancelAnimationFrame(frame);
+      } catch {
+        /* no rAF available (tests) */
+      }
+    };
   });
 
   const themeTopics = $derived(

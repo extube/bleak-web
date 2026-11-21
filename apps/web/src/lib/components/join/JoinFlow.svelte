@@ -426,6 +426,26 @@
   .join.persona-step {
     min-height: 0;
   }
+  /* tz11-08 (task 109, bug round 2 — the task-107 RECURRENCE): task 107
+   * bounded this component's own flex links (above), but the real rendered
+   * app has ONE more flex item above this component: routes/+page.svelte
+   * renders JoinFlow inside its own <div class="join"> wrapper (flex: 1,
+   * max-width: 480px, vertical paddings — no min-height). That wrapper's
+   * automatic minimum size still grew with the transcript, so the
+   * min-height: 100dvh app-shell resolved taller than the viewport, the
+   * PAGE was the scroll container, the log's flex: 1 + overflow-y never
+   * engaged and logEl.scrollTo stayed a visual no-op (scrollHeight ==
+   * clientHeight) — the owner saw the bug again. The wrapper is outside
+   * this component's DOM and :has() is the only parent-reach a child
+   * stylesheet has; the persona-step gate keeps the OTHER join steps'
+   * content-driven wrapper geometry untouched (code/vault/resume). This
+   * also frees the Concept §25 conduit: the wrapper's 480px cap + desktop
+   * vertical paddings were clipping the 750–850px full-height column. */
+  :global(.app-shell > .join:has(> .persona-step)) {
+    min-height: 0;
+    max-width: none;
+    padding: 0;
+  }
   /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the card content
    * mounts fresh on every join-step swap (code ⇄ preview ⇄ wizard ⇄
    * vault) and replays the ONE fade treatment — 400ms opacity-only

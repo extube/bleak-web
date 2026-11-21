@@ -171,6 +171,39 @@ return-to-event round-trip.
 
 ---
 
+## tz11-08 appendix (2026-11-21, worker `c1266ebd`, task 109 — bug round 2)
+
+The v3.11 sweep verified the §24.12/§25 product state as LANDED — and the
+owner still saw the bug in the real app, which the sweep's source-level
+contracts could not catch (see the task-109 root cause below: the height
+chain has one more link than any component-local contract can see).
+
+**Real-browser manual smoke (pre-event checklist — MANDATORY, no automated
+replacement exists in the toolchain):**
+
+1. Open `/` in a real browser (phone profile <720px AND desktop ≥720px),
+   resolve an invite code, choose create, start the wizard interview.
+2. Fill enough answers that the transcript visibly exceeds the viewport.
+   EXPECT: the chat log (not the page) scrolls; after EVERY send the
+   newest bubble is pinned right above the composer with breathing room —
+   no partial cut-off, no "stuck at top", no smooth-scroll landing short
+   of the bottom; going back and re-sending re-pins identically.
+3. Desktop: the chat column is ~800px, centered, and the box reaches the
+   window's top and bottom edges (no wrapper gutter — the §25 full-height
+   requirement; the wrapper's old 480px cap + vertical paddings are gone
+   while the persona chat is mounted; code/vault/resume steps are
+   unchanged).
+4. `prefers-reduced-motion: reduce`: the re-pin is instant (no smooth
+   animation), all other behavior identical.
+5. Repeat once on a device without the fix's CSS (`:has()` unsupported —
+   pre-2023 engine only, out of the supported matrix) to document the
+   degradation mode: page-scroll behavior as before the fix (acceptable,
+   documented; :has() is baseline 2023+ and 100dvh baseline 2022+ is
+   already required elsewhere in the app).
+
+---
+
 *Verification-only sweep by worker `58699d30` (task 108, tz11-07) — no
 product code, no test files; the delta-wave CI record above is filled by
-the process after the merge.*
+the process after the merge. The tz11-08 appendix is added by worker
+`c1266ebd` (task 109, bug round 2) per its card's criteria item 3.*

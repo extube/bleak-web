@@ -820,7 +820,17 @@ describe('JoinFlow — phone full-screen forms (Concept §12, DESIGN §4.12.1 it
       'src/lib/components/join/JoinFlow.svelte',
       'src/routes/+page.svelte'
     ]) {
-      const css = source(file);
+      let css = source(file);
+      // tz11-08 (task 109): the persona-scoped :global wrapper rule is the
+      // Concept §25 conduit — the page-level .join wrapper is bounded and
+      // made a full-width, gutter-free flex conduit ONLY while the creation
+      // chat is mounted (the :has(> .persona-step) gate; the other join
+      // steps keep their content-driven wrapper geometry). It is exempt
+      // from the phone-only chrome check below by design.
+      css = css.replace(
+        /:global\(\.app-shell > \.join:has\(> \.persona-step\)\)\s*\{[^}]*\}/,
+        ''
+      );
       // The desktop block is intact.
       expect(css, file).toMatch(/@media \(min-width:\s*720px\)/);
       // Each chrome-dropping declaration appears exactly once in the file —
@@ -948,6 +958,27 @@ describe('JoinFlow — creation-chat geometry (tz11-06 bug round, task 107 + Con
     expect(css).toMatch(/\.card\.composer-card\s*\{[^}]*min-height:\s*0/);
   });
 
+  it('tz11-08 (task 109, bug round 2): the page-level .join wrapper link ABOVE JoinFlow is bounded for the persona step — the task-107 recurrence root cause', () => {
+    const css = source('src/lib/components/join/JoinFlow.svelte');
+    // Task 107 bounded this component's own links; routes/+page.svelte
+    // still renders JoinFlow inside its own padded 480px <div class="join">
+    // wrapper whose automatic minimum size grew with the transcript — the
+    // shell then outgrew the viewport, the PAGE scrolled and logEl.scrollTo
+    // stayed a visual no-op. The wrapper is outside this component's DOM:
+    // :global + :has is the only parent-reach a child stylesheet has, and
+    // the persona-step gate leaves the other join steps' wrapper geometry
+    // untouched.
+    expect(css).toMatch(
+      /:global\(\.app-shell > \.join:has\(> \.persona-step\)\)\s*\{[^}]*min-height:\s*0[^}]*\}/
+    );
+    // The gate never leaks to the wrapper's base state: exactly ONE
+    // wrapper rule exists and it is keyed on the persona step, not on
+    // `.join` unconditionally.
+    const wrapperRules = css.match(/:global\(\.app-shell > \.join[^{]*\{/g) ?? [];
+    expect(wrapperRules).toHaveLength(1);
+    expect(wrapperRules[0]).toContain(':has(> .persona-step)');
+  });
+
   it('desktop (Concept §25 / DESIGN §4.17): a 750–850px centered column spanning the FULL screen height; the other join steps untouched', () => {
     const css = source('src/lib/components/join/JoinFlow.svelte');
     const desktop = css.slice(css.indexOf('@media (min-width: 720px)'));
@@ -991,5 +1022,211 @@ describe('JoinFlow — creation-chat geometry (tz11-06 bug round, task 107 + Con
     expect(log.parentElement).toBe(composer.parentElement);
     expect(log.parentElement?.firstElementChild).toBe(log);
     expect(log.parentElement?.lastElementChild).toBe(composer);
+  });
+});
+
+describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, task 109)', () => {
+  /**
+   * THE bug-round-2 lesson (owner report docs/bugs/wizard-autoscroll-2.log):
+   * the task-107 contract passed while the real app misbehaved, because
+   * happy-dom runs no layout engine AND — verified empirically — the test
+   * environment does not even inject component CSS (0 <style> tags), so
+   * scrollTo-spy assertions never saw geometry or cascade. This is the
+   * strongest layout-capable contract available WITHOUT new deps (no
+   * headless browser exists in the toolchain; none is authorized):
+   *
+   *   1. the components' REAL <style> blocks are read from source at test
+   *      time (no transcription) and injected into the document;
+   *   2. the REAL app-shell + page-level .join wrapper structure is seeded
+   *      exactly as routes/+layout.svelte + routes/+page.svelte render it;
+   *   3. the real JoinFlow is mounted into that fixture and driven to the
+   *      persona step;
+   *   4. the COMPUTED cascade of the actual rendered chain is asserted
+   *      (happy-dom resolves stylesheet cascade incl. :has()).
+   *
+   * happy-dom still computes no box metrics (getBoundingClientRect stays
+   * all-zero), so real-px layout assertions are impossible here — the
+   * cascade contract below is what this environment can genuinely verify;
+   * the real-browser manual smoke is documented in docs/verification-v311.md.
+   * Fidelity caveat: raw pre-scope injection applies both components' `.join`
+   * rules to both elements — every property asserted below has the same
+   * winning value under Svelte scoping too (checked against the real rules).
+   */
+  const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
+    ? process.cwd()
+    : join(process.cwd(), 'apps', 'web');
+  function source(relativePath: string): string {
+    return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
+  }
+  function styleBlock(relativePath: string): string {
+    const match = source(relativePath).match(/<style[^>]*>([\s\S]*)<\/style>/);
+    expect(match, `<style> block not found in ${relativePath}`).toBeTruthy();
+    return match?.[1] ?? '';
+  }
+  /** Svelte's :global(X) → X (raw injection needs unscoped selectors). */
+  function unscope(css: string): string {
+    let out = '';
+    let i = 0;
+    for (;;) {
+      const at = css.indexOf(':global(', i);
+      if (at === -1) return out + css.slice(i);
+      out += css.slice(i, at);
+      let depth = 1;
+      let j = at + ':global('.length;
+      while (j < css.length && depth > 0) {
+        if (css[j] === '(') depth += 1;
+        else if (css[j] === ')') depth -= 1;
+        j += 1;
+      }
+      out += css.slice(at + ':global('.length, j - 1);
+      i = j;
+    }
+  }
+
+  const injected: HTMLStyleElement[] = [];
+  let shell: HTMLElement | null = null;
+  const parsedFixtures: HTMLElement[] = [];
+
+  function injectCascadeFixtureCss(): void {
+    for (const file of [
+      'src/routes/+layout.svelte',
+      'src/routes/+page.svelte',
+      'src/lib/components/join/JoinFlow.svelte',
+      'src/lib/components/join/CreationWizard.svelte'
+    ]) {
+      const style = document.createElement('style');
+      style.setAttribute('data-cascade-contract', file);
+      style.textContent = unscope(styleBlock(file));
+      document.head.appendChild(style);
+      injected.push(style);
+    }
+  }
+
+  function seedShellAndWrapper(): HTMLElement {
+    // The exact rendered ancestor chain of JoinFlow on `/`
+    // (routes/+layout.svelte → routes/+page.svelte → JoinFlow).
+    shell = document.createElement('div');
+    shell.className = 'app-shell';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'join';
+    shell.appendChild(wrapper);
+    document.body.appendChild(shell);
+    return wrapper;
+  }
+
+  function isZeroMin(min: string): boolean {
+    return min === '0' || min === '0px';
+  }
+
+  afterEach(() => {
+    for (const style of injected) style.remove();
+    injected.length = 0;
+    if (shell) shell.remove();
+    shell = null;
+    for (const fixture of parsedFixtures) fixture.remove();
+    parsedFixtures.length = 0;
+  });
+
+  it('the computed chain from ul.log to the app-shell is a bounded flex column ending in the log as the single scroll container', async () => {
+    injectCascadeFixtureCss();
+    const wrapper = seedShellAndWrapper();
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
+    mockedApi.getRoom.mockResolvedValue(room);
+    mockedApi.listRoomUsers.mockResolvedValue([]);
+    // Svelte mount options: mount INTO the seeded wrapper (the page-level
+    // .join wrapper is JoinFlow's real DOM parent on `/`).
+    render(JoinFlow, { props: {}, target: wrapper });
+
+    // GATE, off-state: at the code step the wrapper does not match the
+    // persona gate (the other join steps keep their content-driven
+    // geometry — no min-height: 0). The REAL code-step markup is captured
+    // now; its computed off-state proof runs below, after the drive (the
+    // fixtures are attached only once every screen query is done — an
+    // attached fixture would duplicate the flow's UI for the screen*).
+    await screen.findByText(ru['join.enter']);
+    const wrap = document.querySelector('.app-shell > .join') as HTMLElement;
+    expect(wrap).toBeTruthy();
+    expect(wrap.matches('.app-shell > .join:has(> .persona-step)')).toBe(false);
+    const offHtml = (shell as HTMLElement).outerHTML;
+
+    // Drive to the persona step (the creation chat).
+    pasteCode('123456');
+    await submitViaCta();
+    await screen.findByText(room.name);
+    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
+    await screen.findByText(ru['join.wizard.intro.title']);
+    await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
+    await screen.findByText(ru['join.wizard.name.question']);
+    const log = document.querySelector('ul.log') as HTMLElement;
+    expect(log).toBeTruthy();
+
+    // GATE, on-state on the LIVE rendered tree: the wrapper matches the
+    // :has gate once the persona step is mounted.
+    expect(wrap.matches('.app-shell > .join:has(> .persona-step)')).toBe(true);
+
+    // THE COMPUTED CASCADE runs on the REAL rendered markup round-tripped
+    // through the HTML parser (shell.outerHTML → fresh tree). Reason: the
+    // live Svelte-mount-built tree carries a happy-dom :has() evaluation
+    // quirk (the combined `.app-shell > .join:has(> .persona-step)` fails
+    // in the cascade/matches path when nodes were attached by mount,
+    // verified empirically), while an innerHTML-parsed tree — the SAME
+    // markup, real classes incl. the Svelte scope hashes — evaluates it
+    // correctly. No transcription: every selector below matches the real
+    // rendered classes, and the CSS is the real component source. The
+    // parsed trees must be CONNECTED: happy-dom resolves computed styles
+    // only for elements in the document (detached reads return '').
+    function parsedShellOf(html: string): HTMLElement {
+      const fixture = document.createElement('div');
+      fixture.innerHTML = html;
+      document.body.appendChild(fixture);
+      parsedFixtures.push(fixture);
+      return fixture.children[0] as HTMLElement;
+    }
+    // Off-state: the code-step markup — the gate is off and the wrapper
+    // keeps its content-driven geometry (min-height unset).
+    const offShell = parsedShellOf(offHtml);
+    const offWrap = offShell.children[0] as HTMLElement;
+    expect(offWrap.matches('.app-shell > .join:has(> .persona-step)')).toBe(false);
+    expect(isZeroMin(getComputedStyle(offWrap).minHeight)).toBe(false);
+    // On-state: the persona-step markup — the gate is on, the wrapper is
+    // a bounded, full-width, gutter-free conduit.
+    const pShell = parsedShellOf((shell as HTMLElement).outerHTML);
+    // The wrapper is the shell's only element child on `/` (no TabBar).
+    const pWrap = pShell.children[0] as HTMLElement;
+    const pLog = pShell.querySelector('ul.log') as HTMLElement;
+    expect(pWrap).toBeTruthy();
+    expect(pLog).toBeTruthy();
+    expect(pWrap.className).toContain('join');
+    expect(pWrap.matches('.app-shell > .join:has(> .persona-step)')).toBe(true);
+    expect(getComputedStyle(pWrap).minHeight).toBe('0');
+    expect(getComputedStyle(pWrap).maxWidth).toBe('none');
+
+    // THE CHAIN: every flex-item link from the log up to (exclusive) the
+    // shell is a flex column with min-height: 0 — one unbounded link is
+    // the recurrence bug; the shell provides the 100dvh definite height.
+    const bounded: HTMLElement[] = [];
+    for (let el = pLog.parentElement; el && el !== pShell; el = el.parentElement) {
+      bounded.push(el);
+    }
+    expect(bounded.length).toBeGreaterThanOrEqual(6); // stage→wizard→stage→card→join→wrapper
+    for (const el of bounded) {
+      const cs = getComputedStyle(el);
+      expect(cs.display, `${el.className} display`).toBe('flex');
+      expect(cs.flexDirection, `${el.className} direction`).toBe('column');
+      expect(cs.minHeight, `${el.className} min-height`).toBe('0');
+    }
+    const shellCs = getComputedStyle(pShell);
+    expect(shellCs.display).toBe('flex');
+    expect(shellCs.flexDirection).toBe('column');
+    expect(shellCs.minHeight).toContain('dvh');
+
+    // THE LOG is the scroll container: overflow-y engages on it and on
+    // NOTHING else in the whole rendered chain.
+    expect(getComputedStyle(pLog).overflowY).toBe('auto');
+    expect(getComputedStyle(pLog).flexGrow).toBe('1');
+    const scrollers = Array.from(
+      pShell.querySelectorAll<HTMLElement>('*')
+    ).filter((el) => getComputedStyle(el).overflowY === 'auto');
+    expect(scrollers).toEqual([pLog]);
   });
 });

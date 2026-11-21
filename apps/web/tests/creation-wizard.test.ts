@@ -605,25 +605,40 @@ describe('CreationWizard — §24 second batch (Concept §24, DESIGN §4.16.1)',
     expect(document.querySelectorAll('.back-right')).toHaveLength(1);
   });
 
-  it('item 12 (tz11-06 bug round, task 107): smooth auto-scroll re-pins the newest message above the composer on every line AND step swap; the log is the real scroll container (source pin)', () => {
+  it('item 12 (tz11-06 bug round, task 107; re-pinned for bug round 2, task 109): smooth auto-scroll re-pins the newest message above the composer on every line AND step swap, with a bounded settled-layout re-assert; the log is the real scroll container (source pin)', () => {
     const src = source('src/lib/components/join/CreationWizard.svelte');
     const effect = src.slice(src.indexOf('§24 item 12'));
     expect(effect).toMatch(/void transcript\.length/);
     expect(effect).toMatch(/void wizard\.step/);
-    // SMOOTH scroll to the bottom (instant under prefers-reduced-motion).
+    // SMOOTH scroll to the bottom (instant under prefers-reduced-motion) —
+    // one bottom-pin per content change...
     expect(effect).toMatch(
-      /scrollTo\(\{\s*top: el\.scrollHeight,\s*behavior: reducedMotion \? 'auto' : 'smooth'\s*\}\)/
+      /el\.scrollTo\(\{\s*top: el\.scrollHeight,\s*behavior: reducedMotion \? 'auto' : 'smooth'\s*\}\)/
     );
+    // ...plus a bounded settled-layout re-assert: one more pin two rAFs
+    // later (the keyed composer swap remounts the panel and late font
+    // metrics reflow the bubbles AFTER the first pin), cancelled on the
+    // effect's re-run/unmount and skipped under reduced motion.
+    expect(effect).toMatch(/requestAnimationFrame\(\(\) => \{/);
+    expect(effect).toMatch(/if \(el\.isConnected\) pinToBottom\(el\)/);
+    expect(effect).toMatch(/return \(\) => \{\s*try \{\s*cancelAnimationFrame\(frame\)/);
+    expect(effect).toMatch(/if \(reducedMotion\) return;/);
     // §4.17 item 3 + bug-report bottom padding: the composer keeps its
     // full fixed height (flex: none) and the log carries BOTTOM PADDING.
     expect(src).toMatch(/\.composer\s*\{[^}]*flex:\s*none/);
     expect(src).toMatch(/\.log\s*\{[^}]*padding:\s*0 0 var\(--space-2\)/);
-    // The bounded height chain lives in JoinFlow (the log's flex:1 +
-    // overflow-y must ENGAGE — the old bug: the page scrolled instead).
+    // The bounded height chain lives in JoinFlow — INCLUDING the
+    // page-level .join wrapper ABOVE the component (routes/+page.svelte
+    // renders JoinFlow inside its own wrapper; tz11-08 root cause: with
+    // the wrapper unbounded the shell grew with the transcript, the PAGE
+    // scrolled and the log's flex:1 + overflow-y never engaged).
     const flowCss = source('src/lib/components/join/JoinFlow.svelte');
     expect(flowCss).toMatch(/\.join\.persona-step\s*\{[^}]*min-height:\s*0/);
     expect(flowCss).toMatch(/\.card\.composer-card\s*\{[^}]*flex:\s*1/);
     expect(flowCss).toMatch(/\.card\.composer-card\s*\{[^}]*min-height:\s*0/);
+    expect(flowCss).toMatch(
+      /:global\(\.app-shell > \.join:has\(> \.persona-step\)\)\s*\{[^}]*min-height:\s*0[^}]*\}/
+    );
   });
 
   it('item 6 + 7: the calm intro copy is in place and the greeting keeps its plain no-plate treatment', async () => {
@@ -700,6 +715,118 @@ describe('CreationWizard — item 12 auto-scroll (tz11-06 bug round, task 107; o
     // the bottom edge, Concept §25 item 3).
     expect(stage.firstElementChild).toBe(log);
     expect(stage.lastElementChild).toBe(composer);
+  });
+});
+
+describe('CreationWizard — item 12 REAL-GEOMETRY cascade contract (tz11-08, task 109)', () => {
+  /**
+   * The bug-round-2 lesson (owner report docs/bugs/wizard-autoscroll-2.log):
+   * the task-107 contract passed while the real app misbehaved — happy-dom
+   * runs no layout engine AND (verified empirically) the test environment
+   * injects NO component CSS (0 <style> tags), so the spy assertions never
+   * saw geometry or cascade. This is the strongest layout-capable contract
+   * available WITHOUT new deps (no headless browser exists in the
+   * toolchain; none is authorized): the wizard's REAL <style> block is read
+   * from source at test time, injected into the document, and the COMPUTED
+   * cascade of the rendered chat stage is asserted (happy-dom resolves the
+   * stylesheet cascade). Real box metrics stay impossible here (the
+   * documented real-browser manual smoke lives in docs/verification-v311.md).
+   */
+  function styleBlock(relativePath: string): string {
+    const match = source(relativePath).match(/<style[^>]*>([\s\S]*)<\/style>/);
+    expect(match, `<style> block not found in ${relativePath}`).toBeTruthy();
+    return match?.[1] ?? '';
+  }
+
+  function isZeroMin(min: string): boolean {
+    return min === '0' || min === '0px';
+  }
+
+  it('the computed chat-stage cascade: the log is the SINGLE scroll container, bounded flex columns above it, the composer pinned below', async () => {
+    // The wizard's source has no :global selectors — inject as-is.
+    const style = document.createElement('style');
+    style.setAttribute('data-cascade-contract', 'creation-wizard');
+    style.textContent = styleBlock('src/lib/components/join/CreationWizard.svelte');
+    document.head.appendChild(style);
+    try {
+      await startWizard();
+      const log = document.querySelector('ul.log') as HTMLElement;
+      const composer = document.querySelector('.composer') as HTMLElement;
+      expect(log).toBeTruthy();
+      // The log IS a scroll container in the computed cascade...
+      const logCs = getComputedStyle(log);
+      expect(logCs.overflowY).toBe('auto');
+      expect(logCs.display).toBe('flex');
+      expect(logCs.flexDirection).toBe('column');
+      expect(isZeroMin(logCs.minHeight)).toBe(true);
+      // ...and the ONLY one in the rendered subtree.
+      const scrollers = [
+        ...document.querySelectorAll<HTMLElement>('.wizard, .wizard *')
+      ].filter((el) => getComputedStyle(el).overflowY === 'auto');
+      expect(scrollers).toEqual([log]);
+      // Every flex-item link above the log inside the wizard is a bounded
+      // flex column (one automatic-minimum link = the task-107/109 bug class).
+      const stage = log.parentElement as HTMLElement;
+      const wizard = stage.parentElement as HTMLElement;
+      for (const el of [stage, wizard]) {
+        const cs = getComputedStyle(el);
+        expect(cs.display).toBe('flex');
+        expect(cs.flexDirection).toBe('column');
+        expect(isZeroMin(cs.minHeight)).toBe(true);
+      }
+      // The composer: pinned below the log (flex: none — no growth; the
+      // sticky pin is a fallback, it is NOT inside the scrollport).
+      expect(composer.parentElement).toBe(stage);
+      expect(getComputedStyle(composer).flexGrow).toBe('0');
+      expect(getComputedStyle(composer).position).toBe('sticky');
+    } finally {
+      style.remove();
+    }
+  });
+
+  it('the settled-layout re-assert fires two rAFs after a send (deterministic, stubbed frames)', async () => {
+    /** One slot per scheduled frame; cancel nulls the slot. */
+    const frames: (FrameRequestCallback | undefined)[] = [];
+    const raf = vi.fn((cb: FrameRequestCallback) => {
+      frames.push(cb);
+      return frames.length;
+    });
+    const caf = vi.fn((id: number) => {
+      frames[id - 1] = undefined;
+    });
+    vi.stubGlobal('requestAnimationFrame', raf);
+    vi.stubGlobal('cancelAnimationFrame', caf);
+    function flushFrames(): void {
+      const batch = frames.splice(0);
+      for (const cb of batch) cb?.(16);
+    }
+    let spy: ReturnType<typeof vi.spyOn> | null = null;
+    try {
+      const container = await startWizard();
+      const log = container.querySelector('ul.log') as HTMLElement;
+      spy = vi.spyOn(log, 'scrollTo').mockImplementation(() => {});
+      // One send: the synchronous pin ran in the effect (the mount effect
+      // scheduled a frame that the send's effect re-run cancelled).
+      await typeAndSend('Аня');
+      await screen.findByText(ru['join.wizard.public.question']);
+      const syncCalls = spy.mock.calls.length;
+      expect(syncCalls).toBeGreaterThanOrEqual(1);
+      // Two stubbed frames later: the re-assert pins again — same element,
+      // same smooth bottom target (the "layout settles after the effect"
+      // case: composer swap remount, late font metrics).
+      flushFrames(); // frame 1 (schedules frame 2)
+      flushFrames(); // frame 2 → pinToBottom
+      expect(spy.mock.calls.length).toBeGreaterThan(syncCalls);
+      expect(spy.mock.calls.at(-1)).toEqual([
+        { top: log.scrollHeight, behavior: 'smooth' }
+      ]);
+      // The re-assert is bounded: cancelling happens on the next effect
+      // re-run (a pending frame never survives a content change).
+      expect(raf).toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+      spy?.mockRestore();
+    }
   });
 });
 
