@@ -10,3 +10,4 @@
 2026-11-20T08:11:14Z [worker] make lint green
 2026-11-20T08:11:49Z [worker] make build green (svelte-check 0 errors; pre-existing warnings only, all in foreign files). Handover commit next.
 2026-11-20T08:12:15Z [worker] task 90 ready-for-merge; handover commit 1bf7e62 on feature/5d5256a9-people-rework (10 files; session/log records included)
+2026-11-20T09:02:40Z [worker] tz9-05 started: task 95 in-progress (DB worker_hash=edace188, status set --as edace188 per DB enforcement; session/log remain 5d5256a9)
