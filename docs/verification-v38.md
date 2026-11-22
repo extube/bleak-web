@@ -1,5 +1,46 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.22 ROUND NOTE (§40 bigger titles/descriptions/badges + phone widths,
+> Concept §40 — appended by the process 2026-11-22, post-round three-gate
+> run GREEN: lint clean · 995 tests total (49 api-client + 8 helper + 938
+> web, 52 files; landing suite 77) · build 0 errors, dev `b909e40`):**
+> **Landing adjusted per ALL 2 §40 items** (task 129, worker `05423c53`;
+> design-first — design instance `2e2e5c6d` wrote DESIGN §4.28, a
+> sizing-only pass with the full from→to ladder): (1) **font ladder** —
+> headline 36/44/clamp(22,3.5vw,44) → **40 / 48 / clamp(28,4vw,48)** (the
+> clamp adjustment was forced by the hierarchy — the grown agent-name
+> would otherwise overtake the lead at 720px; open-state re-verified);
+> agent-name 24→28 · stat-title 17→21 · step/section titles 20→24 (join
+> ≥720 28) · privacy/sim/usecase labels 14→16 · descriptions 15→**17**
+> (.step-desc/.privacy-desc/.stat-line/.agent-quote) · .sub 14→16 (≥720
+> 18) · status captions 11→13 / sim 12→14 · pills 10→12 (≥720 13) ·
+> CTAs 16→18; **negatives hold: nav stays 14 (§39), switcher untouched,
+> join-input 14, footer/ring geometric sizes unchanged**; (2) **phone
+> widths** — `.landing` AND `.top` both carry the identical
+> `width: max(90%, 280px); margin-inline: auto` in the base (phone) rules,
+> and `.landing`'s phone inline padding is DROPPED so the width-100%
+> blocks span edge-to-edge aligning exactly with the header edges
+> (390→351px both, 320→288px both, <311→280px floored both); ≥720px
+> restores `max(80%, 280px)` content / 90% header — desktop unchanged.
+> i18n ZERO delta (55/55 byte-identical); no motion; no new deps; tokens
+> untouched; §37 open state + all §35–§39 contracts green.
+> §4.28.K records (no ADVICE NEEDED — all six are design calls within the
+> owner's §40 delegation): .sub + CTA pill family included in the ladder
+> (one-line reversals if the owner disagrees); the shared-floor token
+> rejected (two consumers only); the headline clamp decision; the 280px
+> floor shared by both rules.
+> Manual checks for the owner: the landing on phone + desktop (bigger
+> titles/descriptions/badges read comfortably in BOTH locales; on phone
+> the content blocks and the header edges line up exactly; desktop 80/90
+> split unchanged; the first viewport still opens on lead + BLEAK
+> centered), Start/TALK → /income.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/05423c53-tz12-12-font-scale-phone-widths` (12 branches total);
+> owner refs stay untracked (now also `profile-design.png` +
+> `profile-design-2.png` — appeared at the root, not yet an owner batch).
+
 > **v3.21.1 ROUND NOTE (§39.4 amendment — native-loop swap, Concept §39.4 —
 > appended by the process 2026-11-22, post-round three-gate run GREEN:
 > lint clean · 991 tests total (49 api-client + 8 helper + 934 web, 52
