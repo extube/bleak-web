@@ -412,7 +412,7 @@ export const en = {
    * --- RU/EN parity) --- */
   'landing.headline.1': 'THE RIGHT',
   'landing.headline.2': 'CONNECTIONS',
-  'landing.headline.accent': 'YOU',
+  'landing.headline.accent': 'BESIDE YOU',
   'landing.sub':
     'An event app where AI agents break the ice for you — you arrive at every meeting already warmed up.',
   'landing.cta': 'START',

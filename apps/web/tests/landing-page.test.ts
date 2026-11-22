@@ -24,7 +24,10 @@
  * (6) §4.26.J the §37 open-state rule STAYS: first viewport = lead +
  * BLEAK only. Still in force: the fixed video layer stack, the
  * keep-list, BLEAK/БЛИК, routes, Start/TALK → /income (6-digit), RU/EN
- * parity (55 keys, §4.27.G), removed blocks stay removed, deep links. */
+ * parity (55 keys, §4.27.G), removed blocks stay removed, deep links.
+ * §4.28.1 (Concept §41, 2026-11-22): the lead description reads white
+ * (--color-text, not muted) + the owner copy batch — accent line
+ * 'BESIDE YOU' / «РЯДОМ», the verbatim RU description, EN unchanged. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -1296,6 +1299,77 @@ describe('/ — RU/EN parity (the 55 §4.20.M + §4.26.L/§4.27.G keys, the work
       en['landing.footer.contact.github.label']
     ]);
     expect(goto).not.toHaveBeenCalled();
+  });
+});
+
+describe('/ — the §4.28.1 owner amendment (Concept §41): lead text color + copy', () => {
+  // §41.2 verbatim — the exact owner strings incl. the hyphen; the
+  // hyphen/punctuation must never be "fixed" by an agent.
+  const RU_SUB_VERBATIM =
+    'Нетворкинг - это работа. Здесь ИИ-двойники работают за Вас. Собирайте контакты, проверяйте совместимость и вдохновляйтесь общими идеями!';
+
+  it('the title copy is the §41.2 batch — 3 lines kept, the accent highlight on the final line: EN "The right connections beside you" / RU «Нужные знакомства рядом»', () => {
+    expect(ru['landing.headline.1']).toBe('НУЖНЫЕ');
+    expect(ru['landing.headline.2']).toBe('ЗНАКОМСТВА');
+    expect(ru['landing.headline.accent']).toBe('РЯДОМ');
+    expect(en['landing.headline.1']).toBe('THE RIGHT');
+    expect(en['landing.headline.2']).toBe('CONNECTIONS');
+    expect(en['landing.headline.accent']).toBe('BESIDE YOU');
+    // the superseded titles are gone from BOTH dictionaries
+    expect(ru['landing.headline.accent']).not.toBe('ВАС');
+    expect(en['landing.headline.accent']).not.toBe('YOU');
+  });
+
+  it('renders the amended headline: the accent line carries the new word in BOTH locales (still highlighted, still the 3rd .hl-line)', async () => {
+    render(LandingPage, { props: {} });
+    const h1 = screen.getByRole('heading', { level: 1 });
+    const lines = [...h1.querySelectorAll('.hl-line')];
+    expect(lines.map((l) => l.textContent?.trim())).toEqual([
+      ru['landing.headline.1'],
+      ru['landing.headline.2'],
+      ru['landing.headline.accent']
+    ]);
+    expect(h1.querySelector('.accent-word')?.textContent?.trim()).toBe('РЯДОМ');
+    // flip to EN — the same accent span re-renders 'BESIDE YOU'
+    setLocale('en');
+    await tick();
+    const en1 = screen.getByRole('heading', { level: 1 });
+    expect(en1.querySelector('.accent-word')?.textContent?.trim()).toBe('BESIDE YOU');
+  });
+
+  it('the RU description is the §41.3 VERBATIM string (exact text incl. the hyphen)', () => {
+    expect(ru['landing.sub']).toBe(RU_SUB_VERBATIM);
+    // the superseded RU description is gone
+    expect(ru['landing.sub']).not.toBe(
+      'Приложение события, где ИИ-агенты заводят разговор за вас — вы приходите к знакомству уже готовым.'
+    );
+    expect(ru['landing.sub']).toMatch(/Нетворкинг - это работа\./);
+  });
+
+  it('the EN description is UNCHANGED — §41.3 EN translation stays pending, the owner approved no new EN string (negative)', () => {
+    expect(en['landing.sub']).toBe(
+      'An event app where AI agents break the ice for you — you arrive at every meeting already warmed up.'
+    );
+    // the proposed §41.3 EN translation must NOT have leaked into the dict
+    expect(en['landing.sub']).not.toBe(
+      'Networking is work. Here, AI twins do it for you. Collect contacts, check compatibility, and get inspired by shared ideas!'
+    );
+  });
+
+  it('the lead .sub reads WHITE: color: var(--color-text) — the muted token is retired for this element (not for the rest of the page)', () => {
+    const css = source('src/routes/+page.svelte');
+    const subRule = css.match(/\.sub\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(subRule).toMatch(/color:\s*var\(--color-text\)/);
+    expect(subRule).not.toMatch(/color:\s*var\(--color-text-muted\)/);
+    // the treatment around it is unchanged: the halo + the size ladder stay
+    expect(subRule).toMatch(/font-size:\s*16px/);
+    expect(subRule).toMatch(/text-shadow:/);
+    // the headline treatment is unchanged (clamp + glow + accent word)
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.headline\s*\{[^}]*font-size:\s*clamp\(28px, 4vw, 48px\)/
+    );
+    // other muted consumers keep the token untouched (only the .sub rule moved)
+    expect(css).toMatch(/\.top-nav a\s*\{[^}]*color:\s*var\(--color-text-muted\)/);
   });
 });
 

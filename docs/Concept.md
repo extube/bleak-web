@@ -1856,6 +1856,30 @@ Follow-up adjustments (owner, 2026-11-22):
    (90%, same as the header — so they align visually). Desktop stays
    as-is (content 80%, header 90% per §38).
 
+---
+
+## 41. Owner batch: lead text color + copy changes — ✅ APPROVED (2026-11-22)
+
+Small copy/color batch (owner, 2026-11-22):
+
+1. **Lead block description: white font** — the description text in
+   the "The right connections" block is white.
+2. **Title copy change:**
+   - EN: "The right connections you" → **"The right connections
+     beside you"**;
+   - RU: "Нужные знакомства вас" → **"Нужные знакомства рядом"**.
+3. **Description copy change (RU):**
+   - old: "Приложение события, где ИИ-агенты заводят разговор за вас
+     — вы приходите к знакомству уже готовым."
+   - new: **"Нетворкинг - это работа. Здесь ИИ-двойники работают за
+     Вас. Собирайте контакты, проверяйте совместимость и
+     вдохновляйтесь общими идеями!"**
+   - The owner did not give a new EN description — EN stays as-is
+     until the owner approves a matching EN translation (proposed:
+     "Networking is work. Here, AI twins do it for you. Collect
+     contacts, check compatibility, and get inspired by shared
+     ideas!").
+
 All other §31–§33 contracts stay in force (routes, Start → `/income`
 with the 6-digit input, RU/EN parity, reminder box contracts, three
 step blocks, existing suites green).

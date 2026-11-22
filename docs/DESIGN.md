@@ -7699,6 +7699,29 @@ header's fixed position are untouched).
    edge-to-edge span). A `.copy-body`-internal 20px inset keeps the
    transparent lead's text off the screen edge.
 
+### 4.28.1 owner amendment (2026-11-22, Concept §41 record): lead text color + copy
+
+The owner's small §41 batch (copy + one color, no design instance)
+amends the lead block only; §4.28 stands otherwise byte-unchanged.
+(1) **`.sub` reads white:** the lead description's color moves from
+`var(--color-text-muted)` to the white/text-primary token
+`var(--color-text)` — the muted token is retired **for this element
+only** (every other muted consumer in the file keeps it); the headline
+treatment (clamp(28px, 4vw, 48px) + the token-only glow + the accent
+word) is unchanged. (2) **Title copy** — EN "The right connections
+you" → **"The right connections beside you"**, RU «Нужные знакомства
+вас» → **«Нужные знакомства рядом»**: the 3-line pixel-headline
+structure is kept, the accent highlight stays on the final line
+(`landing.headline.accent` = 'BESIDE YOU' / «РЯДОМ»; `headline.1`/
+`headline.2` unchanged in both dictionaries). (3) **RU description
+verbatim:** "Нетворкинг - это работа. Здесь ИИ-двойники работают за
+Вас. Собирайте контакты, проверяйте совместимость и вдохновляйтесь
+общими идеями!" (exact text incl. the hyphen — do not "fix"
+punctuation); the EN description stays as-is (§41.3's EN translation
+proposal is pending owner approval). No key additions/removals — RU/EN
+parity stays 55/55, values only. Task: tz12-12a
+(`feature/42ce1dbc-tz12-12a-lead-copy-color`).
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)

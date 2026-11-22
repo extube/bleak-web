@@ -1003,7 +1003,7 @@
     margin: 0;
     font-family: var(--font-body);
     font-size: 16px; /* §4.28.B: 14px → 16px (18px ≥720px) */
-    color: var(--color-text-muted);
+    color: var(--color-text); /* §4.28.1 owner amendment (Concept §41): the lead description reads white — the muted token retired for this element */
     max-width: 40ch;
     /* the §4.25.B legibility halo (the softer ambient tail) */
     text-shadow:
