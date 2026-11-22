@@ -64,7 +64,6 @@ import { LANDING_FIGURES } from '../src/lib/components/landing/figures';
 import { BLEAK_FIGURE } from '../src/lib/components/personage/bleakFigure';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, sep } from 'node:path';
-import { stepTime } from '../src/lib/components/landing/videoPingPong';
 
 const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
   ? process.cwd()
@@ -173,7 +172,6 @@ const LANDING_SOURCES = [
   'src/lib/components/landing/LandingFigure.svelte',
   'src/lib/components/landing/figures.ts',
   'src/lib/components/landing/sectionArt.ts',
-  'src/lib/components/landing/videoPingPong.ts',
   'src/lib/components/personage/bleakFigure.ts'
 ];
 
@@ -394,19 +392,22 @@ describe('/ — the §4.26.A detached floating glass header (icon + nav + switch
 });
 
 describe('/ — the §4.22.B video block (LandingVideoHero replaces the drawn hero)', () => {
-  it('the committed app asset background-video.mp4 exists and is imported via the #lib URL import (not hotlinked, not in static/)', () => {
-    const assetPath = 'src/lib/assets/landing/background-video.mp4';
+  it('the committed app asset background-video-loop.mp4 exists and is imported via the #lib URL import (not hotlinked, not in static/) — the §4.27.1 owner amendment: the yo-yo is the FILE itself (pre-stitched forward+reverse); the superseded background-video.mp4 is GONE from the bundle', () => {
+    const assetPath = 'src/lib/assets/landing/background-video-loop.mp4';
     expect(existsSync(join(WEB_ROOT, assetPath))).toBe(true);
-    // a real MP4 (the ISO-BMFF ftyp box at bytes 4..8), committed at ~4.4 MB
+    // a real MP4 (the ISO-BMFF ftyp box at bytes 4..8), committed at ~3 MB
     const bytes = readFileSync(join(WEB_ROOT, assetPath));
     expect(statSync(join(WEB_ROOT, assetPath)).size).toBeGreaterThan(1_000_000);
     expect(bytes.slice(4, 8).toString('ascii')).toBe('ftyp');
     const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
     expect(hero).toMatch(
-      /import videoUrl from '#lib\/assets\/landing\/background-video\.mp4';/
+      /import videoUrl from '#lib\/assets\/landing\/background-video-loop\.mp4';/
     );
     expect(hero).toMatch(/src=\{videoUrl\}/);
-    expect(existsSync(join(WEB_ROOT, 'static/background-video.mp4'))).toBe(false);
+    expect(existsSync(join(WEB_ROOT, 'static/background-video-loop.mp4'))).toBe(false);
+    // negative: the superseded §4.22.B clip is retired from the app assets
+    expect(existsSync(join(WEB_ROOT, 'src/lib/assets/landing/background-video.mp4'))).toBe(false);
+    expect(hero).not.toMatch(/#lib\/assets\/landing\/background-video\.mp4/);
   });
 
   it('the video is the FIXED FULL-VIEWPORT background layer (§4.23.A): position: fixed; inset: 0, z 0, width/height 100%, object-fit cover + object-position 50% 50% — it fills the whole screen at every ratio (desktop 1280×800, phone 320×640 / 390×844), crops, never letterboxes', () => {
@@ -448,15 +449,15 @@ describe('/ — the §4.22.B video block (LandingVideoHero replaces the drawn he
     expect(hero).toMatch(/\.dots\s*\{[^}]*pointer-events:\s*none/);
   });
 
-  it('renders the §4.27.E decisive attribute set: muted playsinline preload="metadata" disablepictureinpicture — the `loop` attribute is GONE (the ping-pong stepper replaces it) — NO autoplay attribute, NO native controls', () => {
+  it('renders the decisive §34 attribute set RESTORED verbatim (§4.27.1): muted loop playsinline preload="metadata" disablepictureinpicture aria-hidden — NO autoplay attribute, NO native controls', () => {
     const { container } = render(LandingPage, { props: {} });
     const video = container.querySelector('video.video') as HTMLVideoElement | null;
     expect(video).toBeTruthy();
     // the properties are set on mount (the muted property is the autoplay-
     // policy load-bearing one; the rest stay attributes)
     expect(video?.muted).toBe(true);
-    // §4.27.E: no native looping — the yo-yo is seek-stepped
-    expect(video?.loop).toBe(false);
+    // §4.27.1: native looping is back — the clip is pre-stitched ping-pong
+    expect(video?.loop).toBe(true);
     expect(video?.preload).toBe('metadata');
     expect(video?.getAttribute('playsinline')).not.toBeNull();
     expect(video?.getAttribute('disablepictureinpicture')).not.toBeNull();
@@ -465,12 +466,12 @@ describe('/ — the §4.22.B video block (LandingVideoHero replaces the drawn he
     expect(video?.hasAttribute('controls')).toBe(false);
     const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
     expect(hero).toMatch(
-      /muted\s*\n\s*playsinline\s*\n\s*preload="metadata"\s*\n\s*disablepictureinpicture\s*\n\s*aria-hidden="true"/
+      /loop\s*\n\s*muted\s*\n\s*playsinline\s*\n\s*preload="metadata"\s*\n\s*disablepictureinpicture\s*\n\s*aria-hidden="true"/
     );
-    // comment-stripped: the `loop` token is GONE from the component; no
-    // autoplay attribute, no native controls attribute
+    // comment-stripped: the `loop` token is PRESENT (native playback);
+    // no autoplay attribute, no native controls attribute
     const stripped = hero.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    expect(stripped).not.toMatch(/\bloop\b/);
+    expect(stripped).toMatch(/\bloop\b/);
     expect(stripped).not.toMatch(/\bautoplay\b/);
     expect(stripped).not.toMatch(/\bcontrols\b/);
   });
@@ -558,90 +559,48 @@ describe('/ — the §4.22.B video block (LandingVideoHero replaces the drawn he
   });
 });
 
-describe('/ — §4.27.E the video PING-PONG playback (the yo-yo replaces the plain loop)', () => {
-  it('stepTime is the pure end-handling seam: forward at the end clamps to duration and FLIPS to reverse; reverse at 0 clamps to 0 and FLIPS to forward; mid-range candidates pass through unchanged', () => {
-    const DURATION = 6;
-    // forward at the end: clamp + flip to reverse
-    expect(stepTime(6, 1, 0.5, DURATION)).toEqual({ time: 6, dir: -1 });
-    // reverse at 0: clamp + flip to forward
-    expect(stepTime(0, -1, 0.5, DURATION)).toEqual({ time: 0, dir: 1 });
-    // mid-range: passthrough, direction held
-    expect(stepTime(2.5, 1, 0.5, DURATION)).toEqual({ time: 3, dir: 1 });
-    expect(stepTime(2.5, -1, 0.5, DURATION)).toEqual({ time: 2, dir: -1 });
-    // exactly at the ends with a zero delta: the flip still happens at
-    // duration (no dwell) but 0 stays forward-with-clamp
-    expect(stepTime(DURATION, 1, 0, DURATION)).toEqual({ time: DURATION, dir: -1 });
-    // clamped inputs never overshoot (total math)
-    expect(stepTime(5.75, 1, 1.25, DURATION).time).toBe(DURATION);
-    expect(stepTime(0.25, -1, 1.25, DURATION).time).toBe(0);
+describe('/ — §4.27.1 the native-loop swap (the §39.4 owner decision, Option A)', () => {
+  it('the JS seek-stepper is RETIRED: no videoPingPong module file, no stepTime/PlayDirection imports, no rAF/direction/currentTime wiring anywhere in the landing sources — the pre-stitched clip + native `loop` IS the ping-pong', () => {
+    // the module file is deleted
+    expect(existsSync(join(WEB_ROOT, 'src/lib/components/landing/videoPingPong.ts'))).toBe(false);
+    // no reference survives in any landing source (comment-stripped: the
+    // amendment record may name the retired seam in prose)
+    for (const file of LANDING_SOURCES) {
+      const stripped = source(file).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      expect(stripped, `${file} still references the retired stepper seam`).not.toMatch(
+        /videoPingPong|stepTime|PlayDirection/
+      );
+    }
+    // the hero carries none of the stepper wiring (the compat-ring tally's
+    // own rAF in +page.svelte is the unrelated §4.27.D count-up)
+    const heroStripped = source(
+      'src/lib/components/landing/LandingVideoHero.svelte'
+    )
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    expect(heroStripped).not.toMatch(
+      /requestAnimationFrame|cancelAnimationFrame|currentTime\s*=|\.pause\(\)|loadedmetadata/
+    );
   });
 
-  it('steady stepping produces a monotonic yo-yo: forward to duration, reverse to 0, forward again — continuously, no dwell at the ends', () => {
-    const DURATION = 1;
-    const dt = 0.25; // exact binary fractions — no FP drift at the ends
-    let t = 0;
-    let dir: 1 | -1 = 1;
-    const forwardTimes: number[] = [];
-    // forward pass: 0 → 1
-    for (let i = 0; i < 4; i++) {
-      const stepped = stepTime(t, dir, dt, DURATION);
-      t = stepped.time;
-      dir = stepped.dir;
-      forwardTimes.push(t);
-    }
-    expect(dir).toBe(-1); // flipped at the end
-    expect(t).toBe(DURATION);
-    expect(forwardTimes.every((v, i) => i === 0 || v >= forwardTimes[i - 1]!)).toBe(true);
-    // reverse pass: 1 → 0
-    const reverseTimes: number[] = [];
-    for (let i = 0; i < 4; i++) {
-      const stepped = stepTime(t, dir, dt, DURATION);
-      t = stepped.time;
-      dir = stepped.dir;
-      reverseTimes.push(t);
-    }
-    expect(dir).toBe(1); // flipped at the start
-    expect(t).toBe(0);
-    expect(reverseTimes.every((v, i) => i === 0 || v <= reverseTimes[i - 1]!)).toBe(true);
-    // the yo-yo continues forward again — no stuck ends
-    const next = stepTime(t, dir, dt, DURATION);
-    expect(next.time).toBeGreaterThan(0);
-    expect(next.dir).toBe(1);
-  });
-
-  it('the component drives the PAUSED element via the rAF seek-stepper: the gated one-shot .play() stays (reduced motion = no call), then pause() on resolve and ONE rAF loop advancing by the wall-clock delta × direction, writing currentTime every tick; the stepper idles until the duration is finite (loadedmetadata), bails on the video error event and cancels the rAF on unmount', () => {
+  it('the gated one-shot .play() is the WHOLE playback wiring: the mount effect keeps the prefers-reduced-motion early return before the play call, the rejection is swallowed, and the error fallback + black bg + dissolve + dot mesh are UNCHANGED', () => {
     const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
-    // the pure seam is imported (not re-derived in the component)
-    expect(hero).toMatch(/import\s*\{\s*stepTime,\s*type\s*PlayDirection\s*\}\s*from\s*'\.\/videoPingPong';/);
-    // the gated one-shot .play() stays (§4.23.A verbatim)
-    expect(hero).toMatch(/prefers-reduced-motion:\s*reduce/);
-    expect(hero).toMatch(/\.play\(\)/);
-    // then pause() — the whole yo-yo is seek-stepped on the PAUSED element
-    expect(hero).toMatch(/video\.pause\(\)/);
-    // ONE rAF stepper: requestAnimationFrame drives it, wall-clock delta
-    expect(hero).toMatch(/requestAnimationFrame/);
-    expect(hero).toMatch(/\/ 1000/);
-    expect(hero).toMatch(/video\.currentTime\s*=/);
-    // direction state starts at 1 and is fed through the pure seam
-    expect(hero).toMatch(/let direction: PlayDirection = 1/);
-    expect(hero).toMatch(/stepTime\(video\.currentTime, direction, delta, video\.duration\)/);
-    // the stepper idles until the duration is finite and > 0
-    expect(hero).toMatch(/Number\.isFinite\(video\.duration\)/);
-    expect(hero).toMatch(/loadedmetadata/);
-    // the error event tears the stepper down (the §4.23.G fallback unchanged)
-    expect(hero).toMatch(/removeEventListener\('loadedmetadata', onMetadata\)/);
-    expect(hero).toMatch(/removeEventListener\('error', onError\)/);
-    // teardown cancels the rAF and disconnects the listeners on unmount
-    expect(hero).toMatch(/cancelAnimationFrame/);
-    // the rejection is swallowed (no stepper runs) — §4.23.I flag 1
-    expect(hero).toMatch(/\.catch\(\(\) =>/);
-    // reduced motion wraps BOTH the play and the stepper (the early return
-    // precedes any listener or rAF wiring)
+    // the reduced-motion gate precedes the one-shot .play()
     const effect = hero.match(/\$effect\(\(\) => \{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
     expect(effect).toMatch(/prefers-reduced-motion: reduce\)'\)\.matches\) return;/);
-    expect(effect.indexOf('requestAnimationFrame')).toBeGreaterThan(
+    expect(effect).toMatch(/\.play\(\)/);
+    expect(effect.indexOf('.play()')).toBeGreaterThan(
       effect.indexOf('prefers-reduced-motion')
     );
+    // the rejection is swallowed — no control to reveal (§4.23.I flag 1)
+    expect(effect).toMatch(/\.catch\(\(\) =>/);
+    // the §4.23.G fallback treatment stands verbatim
+    expect(hero).toMatch(/\.video-failed\s*\{[^}]*display:\s*none/);
+    expect(hero).toMatch(/onerror=\{\(\) => \{\s*failed = true;?\s*\}\}/);
+    expect(hero).toMatch(
+      /radial-gradient\(\s*ellipse 120% 105% at 50% 50%,\s*transparent 0 55%,\s*color-mix\(in srgb, var\(--color-landing-bg\) 55%, transparent\) 78%,\s*var\(--color-landing-bg\) 100%/
+    );
+    expect(hero).toMatch(/dot-twinkle 1\.6s steps\(2\) infinite/);
   });
 });
 

@@ -1832,6 +1832,12 @@ Follow-up adjustments (owner, 2026-11-22):
    loop. Implementation note (not a contract): negative playbackRate
    is unreliable across browsers — seek-stepping reverse is the
    dependable approach; reduced-motion keeps the static fallback.
+   *Owner decision (2026-11-22): implement the ping-pong via the
+   **video file itself** (Option A) — the owner exports the clip as a
+   forward+reverse ping-pong file; the code then plays it with native
+   `loop` and the JS seek-stepper is removed (lag-free playback). This
+   supersedes the §39.4 JS ping-pong implementation once the owner's
+   ping-pong file lands in the workspace.*
 
 All other §31–§33 contracts stay in force (routes, Start → `/income`
 with the 6-digit input, RU/EN parity, reminder box contracts, three

@@ -7272,6 +7272,27 @@ systems' static fallbacks:
    `playbackRate`, no native/stepping double-driving races; the
    reduced-motion and error fallbacks are untouched.
 
+### 4.27.1 owner amendment (2026-11-22, Concept §39.4 record): native-loop swap
+
+The owner exported the yo-yo clip PRE-STITCHED (forward + reverse) as
+`background-video-loop.mp4` and picked Option A of the §39.4 amendment: the
+ping-pong is the FILE itself, so this design retires the §4.27.E seek-stepper
+wholesale — `landing/videoPingPong.ts` (`stepTime`/`PlayDirection`) is deleted
+with its tests and all of the hero's rAF/direction/currentTime wiring — and
+NATIVE playback is restored: the decisive §34 attribute set is back verbatim
+(`muted loop playsinline preload="metadata" disablepictureinpicture
+aria-hidden` — no autoplay, no native controls) with the clip committed as the
+app asset `apps/web/src/lib/assets/landing/background-video-loop.mp4`
+(superseding and deleting the old `background-video.mp4`). The gated one-shot
+`.play()` remains the whole playback wiring (no call under
+prefers-reduced-motion — the static tint + vignette + dots fallback is
+untouched; a rejected `.play()` is still swallowed), and the error fallback,
+black bg, dissolve vignette and dot mesh are unchanged (the new clip keeps the
+near-black background). §4.27.E's stepper record (and flags 4/6's
+stepper-related notes) are SUPERSEDED by this paragraph; every other §4.27
+contract (nav/description bumps, compatibility circle, 55-key RU/EN parity,
+glass sections) stands.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)

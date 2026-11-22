@@ -43,15 +43,17 @@
    * ① z 0 — the `<video>`: width/height 100%, object-fit cover,
    *   object-position 50% 50% — with `cover` the clip fills ANY viewport
    *   aspect ratio (it crops, never letterboxes). Attributes EXACTLY
-   *   (decisive set, §4.27.E — the `loop` attribute is REMOVED, the
-   *   ping-pong seek-stepper replaces plain looping): muted playsinline
-   *   preload="metadata" disablepictureinpicture aria-hidden — NO autoplay
-   *   attribute, NO native controls. Playback starts from the ONE-SHOT
-   *   mount effect, still GATED on prefers-reduced-motion (no call under
-   *   reduce → the video stays paused at its first frame); muted +
-   *   playsinline keep the programmatic start policy-compliant. A rejected
-   *   .play() is swallowed (the tint + vignette + dots state shows; there
-   *   is no control to reveal — §4.23.I flag 1).
+   *   (the decisive §34 set, RESTORED verbatim by the §4.27.1 owner
+   *   amendment — the §4.27.E ping-pong seek-stepper retires; the yo-yo
+   *   is the FILE itself, exported pre-stitched forward+reverse as
+   *   background-video-loop.mp4, Concept §39.4 Option A): muted loop
+   *   playsinline preload="metadata" disablepictureinpicture aria-hidden
+   *   — NO autoplay attribute, NO native controls. Playback starts from
+   *   the ONE-SHOT mount effect, still GATED on prefers-reduced-motion
+   *   (no call under reduce → the video stays paused at its first frame);
+   *   muted + playsinline keep the programmatic start policy-compliant.
+   *   A rejected .play() is swallowed (the tint + vignette + dots state
+   *   shows; there is no control to reveal — §4.23.I flag 1).
    * ② z 1 — the dissolve vignette (re-specced for the fixed full-screen
    *   layer, §4.23.A layer 2): the fixed `::after` — every viewport edge
    *   dissolves into exactly `--color-landing-bg` (no hard edge where the
@@ -75,10 +77,7 @@
    * Color discipline (§4.1): existing tokens only; no new values, no canvas,
    * no animation library. API endpoints used: none.
    */
-  import videoUrl from '#lib/assets/landing/background-video.mp4';
-  /* §4.27.E ping-pong: the pure end-handling seam (clamp + flip at both
-   * ends) — hand-rolled, zero dependencies (the sectionArt.ts precedent). */
-  import { stepTime, type PlayDirection } from './videoPingPong';
+  import videoUrl from '#lib/assets/landing/background-video-loop.mp4';
 
   let videoEl = $state<HTMLVideoElement | null>(null);
   let failed = $state(false);
@@ -89,97 +88,26 @@
    * static state). A rejected .play() (autoplay blocked) is swallowed —
    * there is no control to reveal (§4.23.I flag 1).
    *
-   * §4.27.E PING-PONG: when the gated one-shot .play() RESOLVES, the
-   * component immediately calls video.pause() and takes over — the whole
-   * yo-yo (forward included) is driven by ONE rAF seek-stepper on the
-   * PAUSED element (no native-play vs stepping races; the muted +
-   * playsinline .play() call is what satisfies the autoplay policy, and
-   * pausing right after does not unsatisfy it). Each tick advances the
-   * candidate time by the wall-clock delta × direction (1× speed — the
-   * reverse pass takes the SAME wall time as the forward one); the pure
-   * stepTime seam clamps and flips at the ends; currentTime is written
-   * every tick. The stepper idles until `duration` is finite and > 0
-   * (loadedmetadata; preload="metadata" provides it — until then the
-   * element is paused at frame 0, the established pre-state); the video
-   * `error` event tears it down (the §4.23.G fallback shows unchanged).
-   * The rAF + listeners are cancelled/removed on unmount (no leak across
-   * HMR/tests). Reduced motion: no play, no stepper (§4.23.G verbatim). */
+   * §4.27.1 owner amendment (2026-11-22, Concept §39.4): the yo-yo is the
+   * FILE ITSELF — the owner exports the clip pre-stitched (forward +
+   * reverse) as background-video-loop.mp4, so NATIVE `loop` plays the
+   * ping-pong lag-free and the §4.27.E JS seek-stepper RETIRES (no rAF
+   * loop, no direction state, no listeners — the §34 attribute set is
+   * restored verbatim). The gated one-shot `.play()` is the whole
+   * playback wiring. */
   $effect(() => {
     const video = videoEl;
     if (!video) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    let raf = 0;
-    let direction: PlayDirection = 1;
-    let last = 0;
-    let active = false;
-    let disposed = false;
-
-    const stopStepper = (): void => {
-      if (raf) cancelAnimationFrame(raf);
-      raf = 0;
-      active = false;
-    };
-
-    const stepTick = (now: number): void => {
-      /* wall-clock delta, seconds (frame-rate independent) */
-      const delta = last === 0 ? 0 : (now - last) / 1000;
-      last = now;
-      const stepped = stepTime(video.currentTime, direction, delta, video.duration);
-      direction = stepped.dir;
-      video.currentTime = stepped.time;
-      raf = requestAnimationFrame(stepTick);
-    };
-
-    const startStepper = (): void => {
-      if (
-        active ||
-        disposed ||
-        typeof requestAnimationFrame !== 'function' ||
-        !Number.isFinite(video.duration) ||
-        video.duration <= 0
-      ) {
-        return;
-      }
-      active = true;
-      last = 0;
-      raf = requestAnimationFrame(stepTick);
-    };
-
-    const onMetadata = (): void => startStepper();
-    const onError = (): void => {
-      stopStepper();
-      video.removeEventListener('loadedmetadata', onMetadata);
-      video.removeEventListener('error', onError);
-    };
-
-    video.addEventListener('loadedmetadata', onMetadata);
-    video.addEventListener('error', onError);
-
     try {
-      Promise.resolve(video.play())
-        .then(() => {
-          if (disposed) return;
-          /* the autoplay-policy entry — pause and take over with the
-           * stepper (uniform path: everything is seek-stepped) */
-          video.pause();
-          /* preload="metadata" may already have provided the duration */
-          startStepper();
-        })
-        .catch(() => {
-          /* autoplay blocked — the ambient tint + dots state shows; no
-           * stepper runs (§4.23.I flag 1) */
-        });
+      Promise.resolve(video.play()).catch(() => {
+        /* autoplay blocked — the ambient tint + dots state shows
+         * (§4.23.I flag 1) */
+      });
     } catch {
       /* defensive: never break the mount over playback */
     }
-
-    return () => {
-      disposed = true;
-      stopStepper();
-      video.removeEventListener('loadedmetadata', onMetadata);
-      video.removeEventListener('error', onError);
-    };
   });
 </script>
 
@@ -188,14 +116,16 @@
      pointer-events: none — the layer must never intercept the content's
      interaction above it. -->
 <div class="video-layer" aria-hidden="true">
-  <!-- layer 1 (z 0): the owner's video, fixed + cover-cropped — the §4.22.B
-       decisive attribute set pins the element verbatim; the aria-hidden
+  <!-- layer 1 (z 0): the owner's pre-stitched ping-pong clip, fixed +
+       cover-cropped — the decisive §34 attribute set pins the element
+       verbatim (restored §4.27.1); the aria-hidden
        ambient clip carries no captions track by design. -->
   <video
     bind:this={videoEl}
     class="video"
     class:video-failed={failed}
     src={videoUrl}
+    loop
     muted
     playsinline
     preload="metadata"
