@@ -1,5 +1,60 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.15 ROUND NOTE (§33 landing adjustments — owner photo review, Concept
+> §33 — appended by the process 2026-11-22, post-round three-gate run GREEN:
+> lint clean · 958 tests total (49 api-client + 8 helper + 901 web, 52
+> files; landing suite 45) · build 0 errors, dev `01196b6`):**
+> **Landing adjusted per ALL 7 §33 items** (task 120, worker `dc61864e`;
+> design-first — design instance `bbe7aacb` wrote DESIGN §4.21 amending
+> §4.20, grounded in `real-design.png` + `background-img.jpg`): (1) hero
+> right figure = **ASTRA** — NOVA's copy with white hair + small purple
+> horns (shared 16×31 body table; BYTE + handshake-node/beam retired); (2)
+> **reminder box** (`LandingReminder`) — pixel (Handjet) centered text,
+> 1:3.5 strip fixed at the art block's bottom (bottom 16px, min()-capped
+> widths, top edge ≥81% of block height — no overlays left/right/top),
+> 24px pixel emoji at the left-top corner, 24/20px pixel check mark with
+> pulsing glow, 3s ease-in-out up-down bob (−6/−10px, reduced-motion
+> static); (3) stat card padding minimized (12×14/16×20); (4) layout
+> reorganized — desktop: header / lead+art+agent+chat section
+> (`27% 1fr 26%`) / stat + steps + contact footer; **phone order
+> unchanged**; footer = site contacts (extube@proton.me /
+> github.com/extube, RU/EN); (5) Find/Chat/Share = three BIG blocks
+> (01/02/03 pixel number + pixel title + icon + one-line description;
+> desktop row, phone stack); (6) "every connection matters" + "start now"
+> blocks REMOVED (keys deleted both dicts); (7) art block taller
+> (500/680px) on the committed app asset
+> `apps/web/src/lib/assets/landing/background.jpg` (#lib URL import,
+> cover) with radial-vignette dissolve into `--color-bg` (no hard edge),
+> protected central-scenario rects, animated purple pixels kept;
+> mascot-chat strip re-placed under the agent card (§32 animation
+> preserved); i18n 38 keys parity; entry points = Start CTA + agent TALK
+> → /income.
+> §4.21.J owner flags (advice): (1) the small SVG pair flanks the image's
+> own boy+robot cast (outside the protected rects) — owner may prefer the
+> image duo as the only cast (one-line layer removal); (2) invented names/
+> descriptions (ASTRA, step descriptions) — tone/naming ratification
+> welcome; (3) contact footer = extube@proton.me / github.com/extube per
+> the owner's suggestion — confirm before treating as published.
+> Worker-disclosed deviations: footer hover uses `--color-deepa-4` (not
+> `--color-accent` — the yellow accent is unusable on the landing, per the
+> ratified §4.20 deviation); §4.21.B's conservative protected rect grazes
+> the flanking pair's outer ~2% at the real desktop column — the drawn
+> boy+robot sit at x≈38–62%, central scene untouched.
+> Manual checks for the owner: the landing vs `real-design.png` intent on
+> phone + desktop (hero pair, reminder box geometry/bob/check, 3 big step
+> blocks, contact footer, removed blocks gone, taller art block with the
+> background image + smooth edge in BOTH locales), Start/TALK → /income,
+> reduced-motion rendering.
+> Housekeeping: index carries STAGED-LEFTOVER state from a worker's
+> transient `git add -A` (untracked root `background-img.jpg` + a 2-line
+> legacy `docs/logs/1640ba9e.log` mod) — the landing + docs commits were
+> pathspec-scoped to exclude them; needs a devops `git restore --staged`
+> (or equivalent) cleanup; branches `feature/c1dc2bb0-tz12-03-landing-redesign`,
+> `feature/c28f1e56-tz12-04-landing-rebuild`,
+> `feature/dc61864e-tz12-05-landing-adjustments` await `git branch -D`
+> (squash-landing `-d` refusal, devops); owner refs (`real-design.png`,
+> `landing-design-example.png`, root `background-img.jpg`) stay untracked.
+
 > **v3.14 ROUND NOTE (§32 landing REBUILD from zero, Concept §32 — appended by
 > the process 2026-11-22, post-round three-gate run GREEN: lint clean · 941
 > tests total (49 api-client + 8 helper + 884 web, 52 files) · build 0 errors,
