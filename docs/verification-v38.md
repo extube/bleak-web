@@ -1,5 +1,42 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.14 ROUND NOTE (§32 landing REBUILD from zero, Concept §32 — appended by
+> the process 2026-11-22, post-round three-gate run GREEN: lint clean · 941
+> tests total (49 api-client + 8 helper + 884 web, 52 files) · build 0 errors,
+> dev `d2cbf6f`):**
+> **Landing rebuilt from zero at `/`** (task 119, worker `c28f1e56`;
+> design-first per the owner addition — design instance `3d00ca94` wrote
+> DESIGN §4.20 from the owner's example `landing-design-example.png` before
+> the build): near-black canvas + purple accent/glow (token-only;
+> `--color-accent` mapped to the violet `--color-deepa-4` — the yellow accent
+> token cannot give the example's purple bloom; white-on-violet CTAs pass
+> AA 5.4:1), Handjet taglines + working RU/EN switch, 3-line headline with
+> the glowing accent word (EN "YOU" / RU «ВАС»), NOVA-meets-BYTE hero scene
+> (glowing handshake node + beam + network mesh), retro dialogue-box (3
+> cycling asterisk lines + blinking caret), PIP↔GLITCH mascot-chat animation
+> (4 pixel speech bubbles, typewriter 55ms/char, infinite loop, reduced-motion
+> static), stat card (BLOOM) + VECTOR agent card (single TALK → /income),
+> 3-step tutorial FIND→CHAT→SHARE (search → chatting → contacts sharing),
+> positioning footer + START-NOW badge — six distinct original mascots, no
+> background plates; mobile-first stacking, ≥720px 3-col grid; 35 `landing.*`
+> i18n keys in both dicts; routes `/income` + `/income/[room]/create`
+> untouched; 28 tests in `landing-page.test.ts` (incl. desktop + mobile
+> viewport + RU/EN parity).
+> DESIGN §4.20.O owner flags (advice): (1) the example's PASS button dropped —
+> single TALK CTA (a decorative no-op would fake behavior); (2) cast names +
+> copy are the design's invention (adapt-don't-copy) — owner ratification
+> welcome.
+> Manual checks for the owner: the landing on phone + desktop vs
+> `landing-design-example.png` (mood/structure), the mascot-chat loop in both
+> locales, Start/TALK/badge → /income with the 6-digit input, reduced-motion
+> rendering.
+> Housekeeping (dead-relay round): task 118 (worker `c1dc2bb0` — no output,
+> unresumable session) superseded by task 119; branches
+> `feature/c1dc2bb0-tz12-03-landing-redesign` + `feature/c28f1e56-tz12-04-landing-rebuild`
+> await `git branch -D` cleanup (squash-landing artifact, devops);
+> `landing-design-example.png` stays untracked at the repo root (local-only
+> visual reference, per the docs/refs policy).
+
 > **v3.14 ROUND NOTE (tz12-02 landing page + route re-homing, Concept §31 —
 > appended by the process 2026-11-21, post-round three-gate run GREEN: lint
 > clean · 870 tests total (49 api-client + 8 helper + 813 web, 52 files) ·
