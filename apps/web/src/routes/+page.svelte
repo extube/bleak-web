@@ -1,59 +1,61 @@
 <script lang="ts">
   /**
-   * `/` — the landing page (tz12-09, Concept §37 owner correction, DESIGN
-   * §4.25 amending §4.24 → §4.23 → §4.22 → §4.21 → §4.20 item by item):
+   * `/` — the landing page (tz12-10, Concept §38 owner batch, DESIGN
+   * §4.26 amending §4.25 item by item):
    *
-   * - Canvas: the §4.22.F page background stays — `--color-landing-bg` (the
-   *   near-black page matching the video's own near-black background),
-   *   painted full-bleed by the page wrapper. §4.24.A: ONE container rule —
-   *   `.landing` is `max(80%, 280px)` wide, centered (the §4.20 1000px
-   *   canvas cap is retired as a width rule); every section lives inside
-   *   that one 80% column.
-   * - §4.23.A fixed background: `LandingVideoHero` (REPURPOSED in place) is
-   *   the FIRST child of `.landing-page` — a fixed full-viewport video
-   *   layer (z 0) + dissolve vignette + 30% tint (z 1) + the 12-dot purple
-   *   mesh (z 2); ALL landing blocks scroll OVER it as overlays.
-   * - Header (§4.25.C — the owner's EXACT values verbatim): TRUE liquid
-   *   glassmorphism — `position: fixed; top: 0` (out of the flow; the video
-   *   scrolls directly underneath), `rgba(20, 20, 30, 0.25)` tint,
-   *   `backdrop-filter: blur(16px) saturate(180%)`, glossy 1px
-   *   `rgba(255, 255, 255, 0.15)` top/bottom borders + the soft inset inner
-   *   highlight, ROUNDED corners kept (radius-lg desktop / radius-md phone
-   *   chip). Width re-cut against the viewport (`max(80%, 280px)` +
-   *   `margin-inline: auto` — pixel-identical to `.landing`'s width; the
-   *   §4.24.A container breakout retires). Keep-list UNCHANGED (§4.22.A).
-   * - Open state (§4.25.A — §37.1): on open, ONLY the lead (Start block)
-   *   and the BLEAK agent card are visible, VERTICALLY CENTERED in the
-   *   first viewport — desktop ≥720px: `.stage` is the 100dvh hero region
-   *   (the §4.24.D thirds grid, `align-content: center` +
-   *   `align-items: center`; the middle third empty); phone <720px:
-   *   `.area-lead` is the 100dvh hero region (the Start block centered in
-   *   screen 1), BLEAK next in flow. The stat card, the three step blocks
-   *   and the contact footer flow AFTER the hero region — below the fold
-   *   initially, revealed on scroll. The §4.24.E `calc(200dvh / 3)` spacer
-   *   is DELETED (§4.25.D.1).
-   * - Lead section (§4.25.B — §37.2): TRANSPARENT and without border —
-   *   headline + supporting text + Start CTA (§4.20.C verbatim; the desktop
-   *   headline adapts via `clamp(22px, 3.5vw, 44px)`) sit DIRECTLY over the
-   *   video background: no pixel frame, no panel, no border, no
-   *   backdrop-filter; legibility = the token-only text halo on
-   *   `.headline`/`.sub` (the accent word keeps its violet glow).
-   * - Stat card (§4.21.F compact) + the three BIG step blocks (§4.21.E):
-   *   FIND / CHAT / SHARE — opaque pixel frames, floating over the video,
-   *   full-width rows of the 80% container below the thirds row.
-   * - Footer (§4.21.G): the site contact block — extube@proton.me +
-   *   github.com/extube with RU/EN labels.
-   * - Reminders REMOVED (§4.23.C, §35 item 3): LandingReminder, its props,
-   *   the play control and the dialog/video i18n keys are all retired —
-   *   pure subtraction (§4.23.E supersessions).
-   * - Mascots: two figures — BLEAK (the agent card) and BLOOM (stat card);
-   *   the video carries its own cast.
-   * - Behavior (§4.20.L + §4.22.A made exact): the /income entry points
-   *   are EXACTLY TWO — the Start CTA and the agent-card TALK; nothing on
-   *   / fetches; the join deep links (?code= / ?u=) still forward to
-   *   /income with the query preserved (the §3.1 guard, unchanged).
-   * - RU/EN parity: every landing string goes through the landing keys;
-   *   the header switch re-renders the page without a reload.
+   * - Canvas: the §4.22.F page background stays — `--color-landing-bg`
+   *   painted full-bleed by the page wrapper; §4.24.A: ONE container rule
+   *   — `.landing` is `max(80%, 280px)` wide, centered (§4.26.O.5: the
+   *   header is deliberately WIDER — 90% / max 1200px — do not
+   *   "harmonize" them).
+   * - §4.23.A fixed background: `LandingVideoHero` stays the FIRST child
+   *   of `.landing-page` — a fixed full-viewport video layer (z 0) +
+   *   dissolve vignette + 30% tint (z 1) + the 12-dot purple mesh (z 2);
+   *   ALL landing blocks scroll OVER it as overlays.
+   * - Header (§4.26.A — the owner's EXACT §38.1 values verbatim,
+   *   superseding §4.25.C): the DETACHED floating glass pill —
+   *   `position: fixed; top: 24px`, centered `width: 90%`,
+   *   `max-width: 1200px`, `border-radius: var(--radius-md)` (20px),
+   *   `rgba(18, 15, 28, 0.35)` + `backdrop-filter: blur(18px)
+   *   saturate(180%)`, full 1px `rgba(255, 255, 255, 0.2)` border + the
+   *   inset white highlight; the no-backdrop fallback is
+   *   `rgba(18, 15, 28, 0.85)`. Keep-list UNCHANGED (§4.22.A).
+   *   The nav anchors are FOUR smooth-scroll links (§4.26.K.3): HOW IT
+   *   WORKS → #how-it-works (the step cards; the `tutorial` id is
+   *   renamed), PRIVACY → #privacy, USE CASES → #use-cases, JOIN →
+   *   #join (`#agents` stays as an id with no nav link); CSS smooth
+   *   scroll under `prefers-reduced-motion: no-preference`.
+   * - Open state (§4.25.A — §37.1 CARRIES, §4.26.J): on open, ONLY the
+   *   lead (Start block) and the BLEAK agent card are visible,
+   *   VERTICALLY CENTERED in the first viewport; everything else flows
+   *   AFTER the hero region — below the fold, revealed on scroll.
+   * - Lead section (§4.25.B): TRANSPARENT and borderless — unchanged.
+   * - Banner (§4.26.B — the stat card amended in place): the
+   *   pixel-framed card goes liquid glass (`rgba(20, 18, 30, 0.55)` +
+   *   blur 12px), the `[ LIVE NETWORK // IRL ]` pixel sub-badge above
+   *   the title, and the glowing `AI Agents active nearby` caption with
+   *   a pulsing green pixel dot next to the BLOOM glyph.
+   * - Step cards (§4.26.C): glass (`rgba(15, 14, 22, 0.65)` + blur
+   *   10px), hover purple glow + slight lift (reduced motion: instant
+   *   glow, no lift), a decorative pixel mini-illustration top-right
+   *   per card (§4.3 art in `landing/sectionArt.ts`) and the bottom
+   *   micro-pills (§4.26.L exact strings).
+   * - Footer (§4.26.D): the dark liquid-glass pill — the pixel-frame
+   *   construction is retired from it; content contract verbatim.
+   * - The FOUR new sections (§4.26.E–I, after the steps, before the
+   *   footer): sim (#sim, no nav link) → privacy (#privacy) →
+   *   use-cases (#use-cases) → join (#join) — the shared glass recipe
+   *   (`rgba(18, 15, 28, 0.45)` + blur 16px + the white border +
+   *   inset highlight + radius-md), the SCOUT + BLEAK-WAVE figures, the
+   *   sim chat window and the GET EARLY ACCESS mailto stub (§4.26.I-2:
+   *   a plain `<a>` — no form, no fetch, no validation; the stub swaps
+   *   to a button + handler when a real endpoint lands).
+   * - Reminders REMOVED (§4.23.C) — stays removed.
+   * - Behavior (§4.20.L + §4.22.A): the /income entry points are
+   *   EXACTLY TWO — the Start CTA and the agent-card TALK; nothing on /
+   *   fetches; the join deep links still forward to /income.
+   * - RU/EN parity: 58 landing keys (§4.26.L); the header switch
+   *   re-renders the page without a reload.
    */
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -63,6 +65,14 @@
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import LandingVideoHero from '#lib/components/landing/LandingVideoHero.svelte';
   import LandingFigure from '#lib/components/landing/LandingFigure.svelte';
+  import {
+    STEP_ART,
+    PRIVACY_ICONS,
+    USECASE_ICONS,
+    type StepArtName,
+    type PrivacyIconName,
+    type UsecaseIconName
+  } from '#lib/components/landing/sectionArt';
 
   // Deep-link forwarding: any recognized join query param rides along to
   // the entry page (the landing itself never consumes join state).
@@ -82,28 +92,77 @@
     void goto(resolve('/income'));
   }
 
-  /* The §4.21.E step blocks: number/title/icon/mini-description — the
-   * numbers are locale-invariant literals; titles reuse the §4.20.M keys. */
+  /* The §4.21.E step blocks (content contract §4.26.C verbatim): number/
+   * title/icon/description unchanged; each card adds its decorative
+   * mini-illustration (STEP_ART) and the §4.26.L bottom micro-pill. */
   const tutorialSteps = $derived([
     {
       num: '01',
       icon: 'search',
+      art: 'find' as StepArtName,
       label: translate($locale, 'landing.tutorial.search'),
-      desc: translate($locale, 'landing.steps.find.desc')
+      desc: translate($locale, 'landing.steps.find.desc'),
+      pill: translate($locale, 'landing.steps.find.pill')
     },
     {
       num: '02',
       icon: 'dialog-lines',
+      art: 'chat' as StepArtName,
       label: translate($locale, 'landing.tutorial.chat'),
-      desc: translate($locale, 'landing.steps.chat.desc')
+      desc: translate($locale, 'landing.steps.chat.desc'),
+      pill: translate($locale, 'landing.steps.chat.pill')
     },
     {
       num: '03',
       icon: 'contact-share',
+      art: 'share' as StepArtName,
       label: translate($locale, 'landing.tutorial.share'),
-      desc: translate($locale, 'landing.steps.share.desc')
+      desc: translate($locale, 'landing.steps.share.desc'),
+      pill: translate($locale, 'landing.steps.share.pill')
     }
   ] as const);
+
+  /* §4.26.G privacy cards: title + desc keys + the 16×16 icon data. */
+  const privacyCards = $derived([
+    {
+      icon: 'ghost' as PrivacyIconName,
+      title: translate($locale, 'landing.privacy.ghost.title'),
+      desc: translate($locale, 'landing.privacy.ghost.desc')
+    },
+    {
+      icon: 'mutual' as PrivacyIconName,
+      title: translate($locale, 'landing.privacy.mutual.title'),
+      desc: translate($locale, 'landing.privacy.mutual.desc')
+    },
+    {
+      icon: 'gps' as PrivacyIconName,
+      title: translate($locale, 'landing.privacy.gps.title'),
+      desc: translate($locale, 'landing.privacy.gps.desc')
+    }
+  ] as const);
+
+  /* §4.26.H use-case pills: label keys + the 16×16 icon data. */
+  const usecasePills = $derived([
+    { icon: 'conferences' as UsecaseIconName, label: translate($locale, 'landing.usecases.conferences') },
+    { icon: 'parties' as UsecaseIconName, label: translate($locale, 'landing.usecases.parties') },
+    { icon: 'coworkings' as UsecaseIconName, label: translate($locale, 'landing.usecases.coworkings') },
+    { icon: 'festivals' as UsecaseIconName, label: translate($locale, 'landing.usecases.festivals') }
+  ] as const);
+
+  /* §4.26.I-2: the GET EARLY ACCESS frontend stub — a plain `<a>` whose
+   * href is derived from the input: the bare mailto (subject only) when
+   * the input is empty, subject + URL-encoded body when it is not. No
+   * form element, no fetch, no env, NO validation (type="text" +
+   * inputmode="email" passes @telegram handles straight through). When a
+   * real endpoint lands the anchor becomes a <button> + one fetch
+   * handler — everything else stays. */
+  const MAILTO_SUBJECT = 'mailto:extube@proton.me?subject=BLEAK%20EARLY%20ACCESS';
+  let joinValue = $state('');
+  const joinHref = $derived(
+    joinValue.length > 0
+      ? `${MAILTO_SUBJECT}&body=${encodeURIComponent(joinValue)}`
+      : MAILTO_SUBJECT
+  );
 
   /* §4.21.G: the kept copyright line splits into the Handjet brand name +
    * the Inter muted year (the contact block's row 1). */
@@ -120,16 +179,17 @@
        of .landing-page, before .landing; the page content scrolls over it. -->
   <LandingVideoHero />
   <div class="landing">
-    <!-- SECTION 1 — HEADER (§4.25.C — the owner's EXACT values verbatim):
-         the TRUE liquid-glass panel — position: fixed at top: 0 (out of the
-         flow; the video scrolls directly underneath), rgba(20, 20, 30, 0.25)
-         tint + backdrop blur(16px) saturate(180%), glossy 1px
-         rgba(255, 255, 255, 0.15) top/bottom borders + the soft inset inner
-         highlight, rounded corners (radius-lg desktop / radius-md phone
-         chip), viewport-sized max(80%, 280px) centered (pixel-identical to
-         .landing's width). Keep-list (§4.22.A verbatim): the web icon + the
-         navigation + the language switcher ONLY; on phone icon + switcher
-         (the anchors are a desktop convenience). -->
+    <!-- SECTION 1 — HEADER (§4.26.A — the owner's EXACT §38.1 values
+         verbatim, superseding §4.25.C): the DETACHED floating liquid-glass
+         pill — position: fixed at top: 24px (out of the flow; the video
+         scrolls through the 24px gap above it and directly underneath),
+         rgba(18, 15, 28, 0.35) + backdrop blur(18px) saturate(180%), the
+         FULL glossy 1px rgba(255, 255, 255, 0.2) border + the inset white
+         highlight, radius-md (20px) at every width, viewport-sized
+         width: 90% / max-width: 1200px centered. Keep-list (§4.22.A
+         verbatim): the web icon + the navigation + the language switcher
+         ONLY; on phone icon + switcher. The anchors are the FOUR
+         smooth-scroll links (§4.26.K.3). -->
     <header class="top">
       <!-- the §30 FormShell app mark, plate-less; the cutout cells are the
            landing page background token so the mark dissolves into the new
@@ -153,15 +213,14 @@
           <rect x="28" y="30" width="8" height="4" />
         </g>
       </svg>
-      <!-- desktop-only in-page anchors; their accessible names reuse the
-           §4.20.M keys (§4.20.M: no extra nav keys). -->
+      <!-- desktop-only smooth-scroll anchors (§4.26.A): HOW IT WORKS /
+           PRIVACY / USE CASES / JOIN — the old #tutorial/#agents links
+           are SUPERSEDED (§4.26.K.3). -->
       <div class="top-nav">
-        <a href="#tutorial">
-          {translate($locale, 'landing.tutorial.search')} →
-          {translate($locale, 'landing.tutorial.chat')} →
-          {translate($locale, 'landing.tutorial.share')}
-        </a>
-        <a href="#agents">{translate($locale, 'landing.agent.name')}</a>
+        <a href="#how-it-works">{translate($locale, 'landing.nav.how')}</a>
+        <a href="#privacy">{translate($locale, 'landing.nav.privacy')}</a>
+        <a href="#use-cases">{translate($locale, 'landing.nav.usecases')}</a>
+        <a href="#join">{translate($locale, 'landing.nav.join')}</a>
       </div>
       <div class="locale"><LocaleControl /></div>
     </header>
@@ -234,11 +293,19 @@
         </section>
       </div>
 
-      <!-- STAT / FEATURE CARD (§4.20.G-a, compact per §4.21.F) -->
+      <!-- BANNER (§4.26.B — the §4.20.G-a/§4.21.F stat card amended IN
+           PLACE): the pixel-frame construction is KEPT over the glass —
+           only the body fill becomes liquid glass; the [ LIVE NETWORK //
+           IRL ] pixel sub-badge renders above the title and the glowing
+           AI Agents active nearby caption + pulsing green pixel dot
+           joins the BLOOM glyph. -->
       <section class="area-stat">
         <article class="card pixel-corners pixel-frame pixel-frame--strong stat-card">
           <div class="card-body pixel-corners stat-body">
             <div class="stat-copy">
+              <span class="stat-badge pixel-corners">
+                <span class="pixel-corners">{translate($locale, 'landing.banner.badge')}</span>
+              </span>
               <h2 class="stat-title">{translate($locale, 'landing.stat.title')}</h2>
               <p class="stat-line">{translate($locale, 'landing.stat.line1')}</p>
               <p class="stat-line">{translate($locale, 'landing.stat.line2')}</p>
@@ -246,33 +313,210 @@
             </div>
             <div class="stat-glyph">
               <LandingFigure kind="bloom" size={48} />
+              <span class="stat-status">
+                <span class="status-dot" aria-hidden="true"></span>
+                {translate($locale, 'landing.banner.status')}
+              </span>
             </div>
           </div>
         </article>
       </section>
 
-      <!-- the three BIG step blocks (§4.21.E):
-           FIND → CHAT → SHARE, number + pixel title + icon + description -->
-      <section class="tutorial area-tutorial" id="tutorial">
+      <!-- the three BIG step blocks (§4.21.E as amended by §4.26.C):
+           FIND → CHAT → SHARE — glass fill, hover glow/lift, a decorative
+           pixel mini-illustration top-right and the bottom micro-pill;
+           the section id RENAMED tutorial → how-it-works (§4.26.K.3, the
+           HOW IT WORKS anchor target). -->
+      <section class="tutorial area-tutorial" id="how-it-works">
         <ol class="steps">
           {#each tutorialSteps as step (step.icon)}
             <li class="step-block pixel-corners pixel-frame pixel-frame--strong">
               <div class="step-body pixel-corners">
+                <svg
+                  class="step-art"
+                  viewBox="0 0 {STEP_ART[step.art].viewW} {STEP_ART[step.art].viewH}"
+                  aria-hidden="true"
+                  shape-rendering="crispEdges"
+                >
+                  {#each STEP_ART[step.art].parts as part, pi (pi)}
+                    <g
+                      fill={part.fill}
+                      style={part.glow
+                        ? 'filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-deepa-4) 60%, transparent))'
+                        : undefined}
+                    >
+                      {#each part.rects as rect, ri (ri)}
+                        <rect x={rect[0]} y={rect[1]} width={rect[2]} height={rect[3]} />
+                      {/each}
+                    </g>
+                  {/each}
+                </svg>
                 <span class="step-num" aria-hidden="true">{step.num}</span>
                 <h3 class="step-title">{step.label}</h3>
                 <span class="step-icon">
                   <PixelIcon name={step.icon} size={32} />
                 </span>
                 <p class="step-desc">{step.desc}</p>
+                <span class="step-pill">{step.pill}</span>
               </div>
             </li>
           {/each}
         </ol>
       </section>
 
-      <!-- FOOTER — the §4.21.G site contact block -->
-      <footer class="contact area-foot pixel-corners pixel-frame pixel-frame--strong">
-        <div class="foot-body pixel-corners">
+      <!-- SECTION 4 — LIVE AGENT SIMULATION (§4.26.F): id="sim" — no nav
+           anchor targets it (§4.26.O.6). One wide glass container: the
+           BLEAK personage (purple glow) + YOUR AGENT / Status: Scanning...
+           with the blinking pixel cursor on the left, the NEW SCOUT figure
+           (cyan glow) + NEARBY AGENT / Distance: 15m on the right, and the
+           opaque dark pixel-frame chat window in the center — exactly 3
+           rows + the glowing green ICE BROKEN badge. -->
+      <section class="area-sim" id="sim">
+        <article class="sim-card">
+          <h2 class="section-title">{translate($locale, 'landing.sim.title')}</h2>
+          <div class="sim-grid">
+            <div class="sim-agent sim-you">
+              <span class="sim-portrait sim-portrait--you">
+                <LandingFigure kind="bleak" size={64} idle={false} />
+              </span>
+              <span class="sim-agent-name">{translate($locale, 'landing.sim.you')}</span>
+              <span class="sim-status sim-status--you">
+                {translate($locale, 'landing.sim.you.status')}
+                <span class="sim-cursor" aria-hidden="true"></span>
+              </span>
+            </div>
+            <div class="sim-agent sim-nearby">
+              <span class="sim-portrait sim-portrait--nearby">
+                <LandingFigure kind="scout" size={64} idle={false} />
+              </span>
+              <span class="sim-agent-name">{translate($locale, 'landing.sim.nearby')}</span>
+              <span class="sim-status sim-status--nearby">
+                {translate($locale, 'landing.sim.nearby.status')}
+              </span>
+            </div>
+            <!-- the chat is the "screen" — opaque, it does not blur -->
+            <div class="sim-chat pixel-corners pixel-frame pixel-frame--strong">
+              <div class="sim-chat-body pixel-corners">
+                <div class="sim-row sim-row--left">
+                  <span class="sim-who">{translate($locale, 'landing.sim.who1')}</span>
+                  <p class="sim-msg">{translate($locale, 'landing.sim.msg1')}</p>
+                </div>
+                <div class="sim-row sim-row--right">
+                  <span class="sim-who">{translate($locale, 'landing.sim.who2')}</span>
+                  <p class="sim-msg">{translate($locale, 'landing.sim.msg2')}</p>
+                </div>
+                <div class="sim-row sim-row--badge">
+                  <span class="sim-badge">{translate($locale, 'landing.sim.badge')}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- SECTION 5 — PRIVACY & CONTROL (§4.26.G): id="privacy" (nav
+           target). One glass container; the three inner cards are
+           transparent + hairline (no nested blur) — GHOST MODE / MUTUAL
+           OPT-IN / EPHEMERAL GPS with the 16×16 pixel icons. -->
+      <section class="area-privacy" id="privacy">
+        <article class="privacy-card">
+          <h2 class="section-title">{translate($locale, 'landing.privacy.title')}</h2>
+          <div class="privacy-grid">
+            {#each privacyCards as card (card.icon)}
+              <div class="privacy-item">
+                <svg
+                  class="privacy-icon"
+                  viewBox="0 0 {PRIVACY_ICONS[card.icon].viewW} {PRIVACY_ICONS[card.icon].viewH}"
+                  aria-hidden="true"
+                  shape-rendering="crispEdges"
+                >
+                  {#each PRIVACY_ICONS[card.icon].parts as part, pi (pi)}
+                    <g fill={part.fill}>
+                      {#each part.rects as rect, ri (ri)}
+                        <rect x={rect[0]} y={rect[1]} width={rect[2]} height={rect[3]} />
+                      {/each}
+                    </g>
+                  {/each}
+                </svg>
+                <h3 class="privacy-title">{card.title}</h3>
+                <p class="privacy-desc">{card.desc}</p>
+              </div>
+            {/each}
+          </div>
+        </article>
+      </section>
+
+      <!-- SECTION 6 — USE CASES (§4.26.H): id="use-cases" (nav target).
+           A plain section — NO outer glass; the glass lives on the pills:
+           CONFERENCES / PARTIES & BARS / COWORKINGS / FESTIVALS with the
+           16×16 pixel icons. -->
+      <section class="area-usecases" id="use-cases">
+        <h2 class="section-title">{translate($locale, 'landing.usecases.title')}</h2>
+        <ul class="usecase-row">
+          {#each usecasePills as pill (pill.icon)}
+            <li class="usecase-pill">
+              <svg
+                class="usecase-icon"
+                viewBox="0 0 {USECASE_ICONS[pill.icon].viewW} {USECASE_ICONS[pill.icon].viewH}"
+                aria-hidden="true"
+                shape-rendering="crispEdges"
+              >
+                {#each USECASE_ICONS[pill.icon].parts as part, pi (pi)}
+                  <g
+                    fill={part.fill}
+                    style={part.glow
+                      ? 'filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-deepa-4) 60%, transparent))'
+                      : undefined}
+                  >
+                    {#each part.rects as rect, ri (ri)}
+                      <rect x={rect[0]} y={rect[1]} width={rect[2]} height={rect[3]} />
+                    {/each}
+                  </g>
+                {/each}
+              </svg>
+              <span class="usecase-label">{pill.label}</span>
+            </li>
+          {/each}
+        </ul>
+      </section>
+
+      <!-- SECTION 7 — FINAL CTA (§4.26.I): id="join" (nav target). One
+           centered glass card with the purple neon outer glow; the waving
+           BLEAK-WAVE mascot; the headline; the inline dark glass input +
+           the GET EARLY ACCESS mailto stub (a plain <a>, no form/fetch). -->
+      <section class="area-join" id="join">
+        <h2 class="section-title">{translate($locale, 'landing.join.title')}</h2>
+        <article class="join-card">
+          <LandingFigure kind="bleakWave" size={96} idle={false} />
+          <h3 class="join-headline">{translate($locale, 'landing.join.headline')}</h3>
+          <div class="join-row">
+            <input
+              class="join-input"
+              type="text"
+              inputmode="email"
+              autocomplete="email"
+              placeholder={translate($locale, 'landing.join.input.placeholder')}
+              aria-label={translate($locale, 'landing.join.input.placeholder')}
+              bind:value={joinValue}
+            />
+            <!-- §4.26.I-2: a plain mailto anchor (the frontend stub) —
+                 the resolve() navigation rule does not apply to external
+                 schemes; a <button> + fetch handler replaces it when a
+                 real endpoint lands. -->
+            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+            <a class="cta-access" href={joinHref}>
+              {translate($locale, 'landing.join.button')}
+            </a>
+          </div>
+        </article>
+      </section>
+
+      <!-- FOOTER — the §4.21.G site contact block, resurfaced as the dark
+           liquid-glass pill (§4.26.D): the pixel-frame construction is
+           retired from it; the content contract (copyright row + EMAIL +
+           GITHUB) is verbatim. -->
+      <footer class="contact area-foot">
+        <div class="foot-body">
           <div class="foot-brand">
             <svg
               viewBox="0 0 64 64"
@@ -346,33 +590,34 @@
     }
   }
 
-  /* ---------- section 1: the TRUE liquid-glass header (§4.25.C) ----------
-   * The owner's EXACT values, verbatim (Concept §37.3): position: fixed;
-   * top: 0 — out of the flow, so the §4.25.A hero region spans the full
-   * first viewport from the page top and the video scrolls directly
-   * underneath the never-moving header. background rgba(20, 20, 30, 0.25)
-   * (the sanctioned raw-literal palette exception, §4.25.D.7) +
-   * backdrop-filter blur(16px) saturate(180%) (both prefixes), glossy 1px
-   * rgba(255, 255, 255, 0.15) top/bottom borders (side borders NONE) and
-   * the soft inset inner highlight — the liquid-glass edge. Rounding KEPT
-   * (radius-lg desktop / radius-md phone chip — the only rounded surface,
-   * §4.24.F.4). Width re-cut for fixed positioning: the viewport is the
-   * containing block, so the §4.24.A container breakout retires and the
-   * header sizes directly against the viewport with the SAME width
-   * expression as .landing — max(80%, 280px) + margin-inline auto keeps
-   * the two pixel-identical at every viewport (the two-tier 92%/88%
-   * color-mix recipe and the violet Deepa hairline are DELETED,
-   * §4.25.D.3; where backdrop-filter cannot run the fallback is a single
-   * higher-opacity tint so text stays readable). The AA tradeoff over
+  /* ---------- section 1: the DETACHED floating glass header (§4.26.A) ----------
+   * The owner's EXACT §38.1 values, verbatim (superseding §4.25.C,
+   * §4.26.K.1–.2): position: fixed; top: 24px — detached from the top edge
+   * (the video scrolls through the 24px gap above it and directly
+   * underneath the never-moving header). background rgba(18, 15, 28, 0.35)
+   * (the sanctioned raw-literal family, §4.26.K.8) + backdrop-filter
+   * blur(18px) saturate(180%) (both prefixes), the FULL glossy 1px
+   * rgba(255, 255, 255, 0.2) border (all four sides — the §4.25.C
+   * top/bottom-only rule is gone) and the inset white highlight — the
+   * glowing purple pixel background blurs right through it. Rounding:
+   * radius-md (20px) at EVERY width (the phone chip rule is DELETED).
+   * Width: the viewport is the containing block — width 90%,
+   * max-width 1200px, margin-inline auto centers it (1152px at 1280,
+   * 720px at 800, 351px at 390, 288px at 320 — deliberately WIDER than
+   * the 80% content column, §4.26.O.5). The §4.24.A container breakout
+   * retires. Where backdrop-filter cannot run the fallback is a single
+   * higher-opacity tint so text stays readable. The AA tradeoff over
    * bright video frames is the owner's recorded owner-order exception
-   * (§4.25.C). Keep-list, inner paddings, min-heights and z 10 unchanged. */
+   * (§4.25.C carries). Keep-list, inner paddings, min-heights and z 10
+   * unchanged. */
   .top {
     position: fixed;
-    top: 0;
+    top: 24px;
     left: 0;
     right: 0;
     margin-inline: auto;
-    width: max(80%, 280px);
+    width: 90%;
+    max-width: 1200px;
     z-index: 10;
     display: flex;
     justify-content: space-between;
@@ -380,25 +625,18 @@
     gap: var(--space-4);
     min-height: 52px;
     padding: 8px 10px;
-    /* --- the owner's EXACT values, verbatim (§4.25.C) ---------------- */
-    background: rgba(20, 20, 30, 0.25);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
-    backdrop-filter: blur(16px) saturate(180%);
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
-    border-radius: var(--radius-lg);
+    /* --- the owner's EXACT values, verbatim (§4.26.A) ---------------- */
+    background: rgba(18, 15, 28, 0.35);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    backdrop-filter: blur(18px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35);
+    border-radius: var(--radius-md);
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     /* no blur support: a single higher-opacity tint keeps the chrome readable */
     .top {
-      background: rgba(20, 20, 30, 0.85);
-    }
-  }
-  @media (max-width: 719.98px) {
-    /* the smaller phone chip reads 20px (§4.23.B) */
-    .top {
-      border-radius: var(--radius-md);
+      background: rgba(18, 15, 28, 0.85);
     }
   }
   @media (min-width: 720px) {
@@ -503,10 +741,25 @@
     }
     /* column 2: NO element — nothing is placed there (§4.24.D) */
   }
-  /* anchored sections never hide under the fixed glass panel (§4.25.C) */
+  /* §4.26.A anchor plumbing: the four smooth-scroll targets (the step
+   * cards #how-it-works + the new sections) clear the detached floating
+   * header (24px top gap + ≤56px row + slack); #agents keeps its id with
+   * no nav link. Smooth scroll via CSS only, scoped under
+   * prefers-reduced-motion: no-preference (the default auto IS the
+   * reduced-motion fallback; base.css also forces scroll-behavior: auto
+   * under reduce). */
   .area-agents,
-  .area-tutorial {
-    scroll-margin-top: 80px;
+  .area-tutorial,
+  .area-sim,
+  .area-privacy,
+  .area-usecases,
+  .area-join {
+    scroll-margin-top: 100px;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    :global(html) {
+      scroll-behavior: smooth;
+    }
   }
 
   /* ---------- lead block (§4.20.C verbatim copy; §4.25.B TRANSPARENT) ----
@@ -738,15 +991,44 @@
    * 16px 20px desktop; title 18→17px; BLOOM 56px → 44px mobile / 48px
    * desktop; the desktop layout stays title-left / glyph-right in one
    * compact row, full-width atop section 3. */
+   /* Stat card → BANNER (§4.26.B): the pixel-frame construction is KEPT
+    * over the glass; the compact padding/typography contract (12px 14px /
+    * 16px 20px, 17px title, 44/48px BLOOM) stands — only the body FILL
+    * becomes the owner's dark liquid glass (rgba(20, 18, 30, 0.55) +
+    * blur(12px); the pixel cityscape of the video blurs right through). */
   .stat-body {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-4);
     padding: 12px 14px;
+    /* --- the owner's EXACT values, verbatim (§4.26.B) ---------------- */
+    background: rgba(20, 18, 30, 0.55);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
   }
   .stat-copy {
     min-width: 0;
+  }
+  /* the §4.26.B pixel sub-badge above the title: the pixel-badge
+   * technique at chip scale — the outer span's background IS the frame
+   * color (deepa-4 at 60%), the inner transparent span carries the text;
+   * both layers clip with .pixel-corners. */
+  .stat-badge {
+    display: inline-flex;
+    background: color-mix(in srgb, var(--color-deepa-4) 60%, transparent);
+    padding: 2px;
+    margin: 0 0 var(--space-2);
+  }
+  .stat-badge > span {
+    padding: 2px 8px;
+    font-family: var(--font-pixel);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-deepa-4);
+    line-height: 1.2;
   }
   .stat-title {
     font-family: var(--font-pixel);
@@ -764,9 +1046,45 @@
     line-height: 1.35;
     color: var(--color-text-muted);
   }
+  /* the glyph becomes a small right column: BLOOM on top, below it the
+   * glowing status caption with the pulsing green pixel dot (§4.26.B). */
   .stat-glyph {
     flex: none;
     line-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .stat-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1;
+    font-family: var(--font-pixel);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text);
+    /* the glowing caption read */
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-deepa-1) 45%, transparent);
+  }
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    flex: none;
+    background: var(--color-deepa-1);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-deepa-1) 70%, transparent);
+    animation: status-pulse 1.6s steps(2) infinite alternate;
+  }
+  @keyframes status-pulse {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0.4;
+    }
   }
   .stat-glyph :global(svg) {
     width: 44px;
@@ -782,10 +1100,14 @@
     }
   }
 
-  /* ---------- the three BIG step blocks (§4.21.E) ----------
+  /* ---------- the three BIG step blocks (§4.21.E as amended by §4.26.C) ----------
    * FIND → CHAT → SHARE: one step per display block — pixel step number,
-   * pixel-font title, step icon, one-line description. Non-interactive:
-   * no hover/press states, no motion (§4.6 no scroll-triggered motion). */
+   * pixel-font title, step icon, one-line description. §4.26.C: the body
+   * fill becomes the owner's glass (rgba(15, 14, 22, 0.65) + blur(10px);
+   * the pixel frame stays square/stepped over the glass), the blocks gain
+   * the hover purple glow + slight lift (no click handler, no cursor
+   * change — they still navigate nowhere), each carries its decorative
+   * mini-illustration top-right and the §4.26.L bottom micro-pill. */
   .steps {
     list-style: none;
     margin: 0;
@@ -796,14 +1118,41 @@
   }
   .step-block {
     width: 100%;
+    transition: transform 160ms ease-out, filter 160ms ease-out;
+  }
+  .step-block:hover {
+    transform: translateY(-4px);
+    filter:
+      drop-shadow(0 0 12px color-mix(in srgb, var(--color-deepa-4) 45%, transparent))
+      drop-shadow(0 0 36px color-mix(in srgb, var(--color-deepa-4) 20%, transparent));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .step-block {
+      transition-duration: 0s;
+    }
+    .step-block:hover {
+      transform: none; /* glow applies instantly, no lift */
+    }
   }
   .step-body {
-    background: var(--color-surface);
+    background: rgba(15, 14, 22, 0.65);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    position: relative;
     padding: 16px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-2);
+  }
+  /* the §4.26.C decorative mini-illustration: top-right of the card,
+   * token fills, transparent background, no plate. */
+  .step-art {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 48px;
+    height: 48px;
   }
   .step-num {
     font-family: var(--font-pixel);
@@ -839,6 +1188,29 @@
     font-size: 13px;
     color: var(--color-text-muted);
   }
+  /* the §4.26.L bottom micro-pill: a chip (§4.5 — pills are NOT
+   * pixel-corners), pinned to the card bottom on desktop via margin-top
+   * auto. */
+  .step-pill {
+    display: inline-flex;
+    align-items: center;
+    margin-top: var(--space-3);
+    padding: 4px 10px;
+    border: 1px solid color-mix(in srgb, var(--color-deepa-4) 40%, transparent);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-pixel);
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-deepa-4);
+  }
+  @media (min-width: 720px) {
+    .step-pill {
+      margin-top: auto;
+      font-size: 11px;
+    }
+  }
   @media (min-width: 720px) {
     /* desktop: the three blocks ordered left to right, equal thirds */
     .steps {
@@ -852,15 +1224,24 @@
     }
   }
 
-  /* ---------- contact footer (§4.21.G) ----------
-   * One pixel-framed site contact block, centered: row 1 = the kept
-   * copyright content (logo + brand + year), row 2 = EMAIL + GITHUB. */
+  /* ---------- contact footer (§4.21.G as resurfaced by §4.26.D) ----------
+   * The dark liquid-glass pill matching the header family: the
+   * pixel-frame construction is retired; the content contract (row 1 =
+   * the kept copyright content, row 2 = EMAIL + GITHUB) is verbatim.
+   * White/purple pixel text = the footer's established --color-text
+   * values + deepa-4 hovers. */
   .contact {
     width: 100%;
     max-width: 560px;
     margin: 0 auto;
   }
   .foot-body {
+    background: rgba(18, 15, 28, 0.5);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35);
+    border-radius: var(--radius-md);
     padding: 16px 20px;
     display: flex;
     flex-direction: column;
@@ -936,6 +1317,384 @@
     .foot-links {
       flex-direction: row;
       gap: var(--space-6);
+    }
+  }
+
+  /* ---------- the FOUR new sections (§4.26.E–I, tz12-10) ----------
+   * Shared glass recipe (the owner's §38.5 values, applied to each
+   * section's own class — NOT a shared glass class, which stays retired,
+   * §4.26.K.8): rgba(18, 15, 28, 0.45) + blur(16px) + the thin white
+   * glossy border + the inset highlight; glass surfaces are ROUNDED
+   * (radius-md 20px) while every pixel-frame surface stays square.
+   * Placement: after the step cards, before the footer — the .canvas
+   * flex column's --space-6 rhythm spaces them; the phone stack is the
+   * DOM order. The z-order holds: plain z-3 content over the fixed video
+   * (§4.26.J). */
+  .sim-card,
+  .privacy-card,
+  .usecase-pill,
+  .join-card {
+    background: rgba(18, 15, 28, 0.45);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35);
+    border-radius: var(--radius-md);
+  }
+  /* the shared section title: Handjet 20px uppercase, the §4.20.A glow */
+  .section-title {
+    font-family: var(--font-pixel);
+    font-weight: 600;
+    font-size: 20px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--color-text);
+    margin: 0 0 var(--space-4);
+    text-shadow:
+      0 0 8px color-mix(in srgb, var(--color-deepa-4) 60%, transparent),
+      0 0 24px color-mix(in srgb, var(--color-deepa-4) 30%, transparent);
+  }
+
+  /* ---- SECTION 4 — LIVE AGENT SIMULATION (§4.26.F) ---- */
+  .sim-card {
+    width: 100%;
+    padding: var(--space-5) var(--space-4);
+  }
+  .sim-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      'you nearby'
+      'chat chat';
+    gap: var(--space-4);
+    align-items: center;
+  }
+  .sim-you {
+    grid-area: you;
+  }
+  .sim-nearby {
+    grid-area: nearby;
+  }
+  .sim-chat {
+    grid-area: chat;
+  }
+  .sim-agent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-2);
+  }
+  .sim-portrait {
+    line-height: 0;
+  }
+  .sim-portrait--you {
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-deepa-4) 45%, transparent))
+      drop-shadow(0 0 28px color-mix(in srgb, var(--color-deepa-4) 20%, transparent));
+  }
+  .sim-portrait--nearby {
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-deepa-5) 45%, transparent))
+      drop-shadow(0 0 28px color-mix(in srgb, var(--color-deepa-5) 20%, transparent));
+  }
+  .sim-agent-name {
+    font-family: var(--font-pixel);
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text);
+  }
+  .sim-status {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-pixel);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .sim-status--you {
+    color: var(--color-deepa-4);
+  }
+  .sim-status--nearby {
+    color: var(--color-deepa-5);
+  }
+  /* the blinking pixel cursor: a 6×2px deepa-4 block after the status
+   * text; reduced motion → statically visible (the base.css catch-all). */
+  .sim-cursor {
+    width: 6px;
+    height: 2px;
+    flex: none;
+    background: var(--color-deepa-4);
+    animation: cursor-blink 1s steps(2) infinite;
+  }
+  @keyframes cursor-blink {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  /* the dark pixel chat window: the established card pattern — opaque
+   * (the chat is the "screen", it does not blur), stepped square frame. */
+  .sim-chat {
+    width: min(100%, 420px);
+    margin-inline: auto;
+  }
+  .sim-chat-body {
+    background: var(--color-surface);
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .sim-row--right {
+    text-align: right;
+  }
+  .sim-row--badge {
+    text-align: center;
+  }
+  .sim-who {
+    display: block;
+    font-family: var(--font-pixel);
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+  .sim-msg {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--color-text);
+  }
+  .sim-badge {
+    display: inline-flex;
+    font-family: var(--font-pixel);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-deepa-1);
+    border: 1px solid color-mix(in srgb, var(--color-deepa-1) 50%, transparent);
+    text-shadow: 0 0 8px color-mix(in srgb, var(--color-deepa-1) 60%, transparent);
+    animation: badge-pulse 1.6s steps(2) infinite alternate;
+  }
+  @keyframes badge-pulse {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0.7;
+    }
+  }
+  @media (min-width: 720px) {
+    .sim-grid {
+      grid-template-columns: 1fr auto 1fr;
+      grid-template-areas: 'you chat nearby';
+      gap: var(--space-5);
+    }
+    .sim-card {
+      padding: var(--space-5);
+    }
+  }
+
+  /* ---- SECTION 5 — PRIVACY & CONTROL (§4.26.G) ---- */
+  .privacy-card {
+    width: 100%;
+    padding: var(--space-5) var(--space-4);
+  }
+  .privacy-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  /* the inner cards are NOT glass-stacked: transparent + hairline — one
+   * backdrop-filter per section, no nested blur cost (§4.26.E). */
+  .privacy-item {
+    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-2);
+  }
+  .privacy-icon {
+    width: 48px;
+    height: 48px;
+  }
+  .privacy-title {
+    font-family: var(--font-pixel);
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text);
+    margin: 0;
+  }
+  .privacy-desc {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--color-text-muted);
+  }
+  @media (min-width: 720px) {
+    .privacy-grid {
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-5);
+    }
+    .privacy-card {
+      padding: var(--space-5);
+    }
+  }
+
+  /* ---- SECTION 6 — USE CASES (§4.26.H) ----
+   * A plain section — the glass lives on the pills themselves. */
+  .usecase-row {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  .usecase-pill {
+    padding: var(--space-4);
+    min-height: 112px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+  }
+  .usecase-icon {
+    width: 40px;
+    height: 40px;
+  }
+  .usecase-label {
+    font-family: var(--font-pixel);
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--color-text);
+  }
+  @media (min-width: 720px) {
+    .usecase-row {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  /* ---- SECTION 7 — FINAL CTA (§4.26.I) ---- */
+  .join-card {
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-4);
+    /* the vibrant purple neon glow behind the card, over the family
+     * inset highlight (§4.26.I-1) */
+    box-shadow:
+      inset 0 1px 1px rgba(255, 255, 255, 0.35),
+      0 0 32px color-mix(in srgb, var(--color-deepa-4) 45%, transparent),
+      0 0 96px color-mix(in srgb, var(--color-deepa-4) 22%, transparent);
+  }
+  .join-headline {
+    font-family: var(--font-pixel);
+    font-weight: 600;
+    font-size: 20px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text);
+    margin: 0;
+    text-shadow:
+      0 0 8px color-mix(in srgb, var(--color-deepa-4) 60%, transparent),
+      0 0 24px color-mix(in srgb, var(--color-deepa-4) 30%, transparent);
+  }
+  @media (min-width: 720px) {
+    .join-headline {
+      font-size: 24px;
+    }
+  }
+  .join-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    width: 100%;
+  }
+  /* the inline dark glass input (§4.26.I-3) */
+  .join-input {
+    width: 100%;
+    background: rgba(15, 14, 22, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-pill);
+    padding: 12px 20px;
+    min-height: var(--touch-target);
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--color-text);
+  }
+  .join-input::placeholder {
+    color: var(--color-text-muted);
+  }
+  .join-input:focus-visible {
+    outline: 2px solid var(--color-deepa-4);
+    outline-offset: 2px;
+  }
+  /* the GET EARLY ACCESS neon pixel button — DECIDED neon YELLOW (the
+   * §4.1 interactive-accent rule: --color-accent is reserved for exactly
+   * this kind of active element). §4.26.I-2: it is a plain <a> (the
+   * mailto stub) — no form, no fetch; a <button> + handler replaces it
+   * when a real endpoint lands. */
+  .cta-access {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 24px;
+    min-height: var(--touch-target);
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+    font-family: var(--font-pixel);
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border: none;
+    border-radius: var(--radius-pill);
+    transition:
+      filter 120ms ease-out,
+      transform 120ms ease-out;
+  }
+  .cta-access:hover {
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-accent) 50%, transparent))
+      drop-shadow(0 0 24px color-mix(in srgb, var(--color-accent) 22%, transparent));
+  }
+  .cta-access:active {
+    transform: scale(0.98);
+  }
+  .cta-access:focus-visible {
+    outline: 2px solid var(--color-deepa-4);
+    outline-offset: 2px;
+  }
+  @media (min-width: 720px) {
+    .join-row {
+      flex-direction: row;
+      align-items: stretch;
+    }
+    .join-input {
+      flex: 1;
+      width: auto;
     }
   }
 </style>

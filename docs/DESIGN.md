@@ -5805,6 +5805,997 @@ loading/empty/error states exist (the landing fetches nothing, §4.20.L).
    retired by the owner's exact values; flag 3 (the two-thirds spacer
    record) is MOOT — the spacer is removed by §37.1.
 
+### 4.26 v3.20 feature design (2026-11-22, owner-approved Concept §38): §38 glass-system polish + 4 new landing sections
+
+The owner reviewed the §37 result and issued the seven-item §38 batch: a
+**floating liquid-glass header** with **smooth-scroll anchor nav** (HOW IT
+WORKS / PRIVACY / USE CASES / JOIN), the stat card becoming a **liquid-glass
+banner** with a live-network sub-badge + pulsing status caption, the three
+step cards going **glass** with hover glow/lift, mini-illustrations and
+micro-pills, a **dark glass footer pill**, and **FOUR new content sections**
+below the steps (Live Agent Simulation / Privacy & Control / Use Cases /
+Final CTA) whose GET EARLY ACCESS form is a **frontend mailto stub**. This
+section amends §4.25 (→ §4.24 → … → §4.20) item by item; **where §4.26 is
+silent, the earlier specs stand** except where §4.26.K explicitly supersedes
+them (the video layer stack §4.23.A, the keep-list §4.22.A, the open-state
+hero regions §4.25.A, the transparent lead §4.25.B, the headline copy +
+Start CTA §4.20.C, behavior §4.20.L, motion/a11y baselines §4.20.L/§4.6 all
+carry over unchanged unless named below). Grounded in the live code:
+`apps/web/src/routes/+page.svelte`,
+`lib/components/landing/{LandingVideoHero,LandingFigure}.svelte`,
+`figures.ts`, `lib/components/personage/bleakFigure.ts`,
+`lib/styles/tokens.css`, `lib/i18n/{en,ru}.ts`,
+`tests/landing-page.test.ts`. Hard constraints unchanged: **no new
+dependencies** (all effects are native CSS; the new art is hand-authored SVG
+rects per §4.3), **no new color values** beyond the sanctioned raw-literal
+glass family (§4.26.K.8 — the owner's exact `rgba(…)` values join the
+§4.25.D.7 precedent; tokens/`color-mix` everywhere else), **no canvas, no
+animation library**, **routes untouched**, **/income surfaces untouched**,
+the video asset stays. **API endpoints used: none** — the landing stays
+fetch-free (§4.20 preamble); the GET EARLY ACCESS control is a `mailto:`
+stub, not a fetch (§4.26.I-2). Task: tz12-10
+(`feature/a729241a-tz12-10-glass-sections`).
+
+#### 4.26.A The header: detached floating glass pill + smooth-scroll anchor nav (item 1)
+
+Owner verbatim (Concept §38.1), carried VERBATIM into the spec. The §4.25.C
+exact values and the §4.24.A/§4.25.C **80% header width** are superseded
+(§4.26.K.1–.2); the keep-list (§4.22.A verbatim: web icon + desktop nav +
+switcher; phone icon + switcher) is UNCHANGED.
+
+- **Position — `position: fixed`, top: 24px, decided (the owner offered
+  fixed OR sticky):** fixed, because (1) the §38 width — **90% of the
+  viewport, max-width 1200px** — cannot come from a sticky header inside
+  `.landing`: the container is `max(80%, 280px)` (§4.24.A stands for the
+  CONTENT column), so a sticky child is ≤ 80% wide and the retired
+  container-breakout hack (§4.24.F.1) cannot reach 90%/1200px either (at
+  1280 it yields 1120px, not the owner's 1152px); (2) `fixed` sizes against
+  the viewport — the same mechanism §4.25.C already uses — with
+  `top: 24px` replacing `top: 0` (detached from the top edge per the
+  owner's spec; the video scrolls through the 24px gap above it).
+  ```css
+  .top {
+    position: fixed;
+    top: 24px;                     /* the owner's exact value */
+    left: 0;
+    right: 0;
+    margin-inline: auto;           /* centers the fixed element */
+    width: 90%;                    /* the owner's exact width */
+    max-width: 1200px;             /* the owner's exact cap */
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-4);
+    min-height: 52px;
+    padding: 8px 10px;             /* inner chrome unchanged */
+    /* --- the owner's EXACT §38.1 values, verbatim ------------------ */
+    background: rgba(18, 15, 28, 0.35);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    backdrop-filter: blur(18px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.2);   /* full border — supersedes
+                                      §4.25.C's top/bottom-only rule */
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35);
+    border-radius: var(--radius-md);   /* resolves to the owner's exact
+                                      20px (token value 20px) */
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .top { background: rgba(18, 15, 28, 0.85); }  /* the §4.25.C fallback
+                                      re-pointed to the new tint */
+  }
+  @media (min-width: 720px) { .top { min-height: 56px; padding: 10px 16px; } }
+  ```
+  The `@media (max-width: 719.98px) { .top { border-radius: … } }` phone
+  chip rule is DELETED — the radius is now 20px at every width (the
+  `--radius-md` token alone). Resulting widths: 1280 → 1152px (90%), 800 →
+  720px, 390 → 351px, 320 → 288px — the header is WIDER than the 80%
+  content column at every viewport ≥ 350px (intended per §38; recorded so
+  nobody "fixes" it — §4.26.O.5). Keep-list, inner paddings, min-heights
+  and z 10 unchanged.
+- **NAV LINKS → SMOOTH-SCROLL ANCHORS (the owner's final directive — the
+  "match the full page" line):** the `.top-nav` anchor set is replaced.
+  The old anchors (the combined `FIND → CHAT → SHARE` link → `#tutorial`
+  and the `BLEAK` link → `#agents`) are SUPERSEDED (§4.26.K.3); the new
+  set is exactly four, in this DOM order:
+  | # | Label (EN, exact) | Label (RU) | Target | Target section |
+  | --- | --- | --- | --- | --- |
+  | 1 | `HOW IT WORKS` | «КАК ЭТО РАБОТАЕТ» | `#how-it-works` | the existing three step cards (§4.21.E) |
+  | 2 | `PRIVACY` | «ПРИВАТНОСТЬ» | `#privacy` | new Section 5 (§4.26.G) |
+  | 3 | `USE CASES` | «СЦЕНАРИИ» | `#use-cases` | new Section 6 (§4.26.H) |
+  | 4 | `JOIN` | «ВСТУПИТЬ» | `#join` | new Section 7 (§4.26.I) |
+  - **IDs:** the step-cards section's id RENAMES `tutorial` →
+    `how-it-works`; Sections 5/6/7 carry `id="privacy"` / `id="use-cases"`
+    / `id="join"`. Section 4 (the simulation) gets its own `id="sim"`
+    (record) — no nav link targets it (§4.26.F). The `#agents` id STAYS on
+    the BLEAK card section (nothing else consumes it) but no nav link
+    points at it anymore.
+  - **RU labels are design inventions** (the owner gave EN only; §38's
+    RU/EN-parity preamble requires keys in both dictionaries) — flagged
+    for owner tone approval (§4.26.O.1).
+  - **Anchor plumbing:** each target gets `scroll-margin-top: 100px` (the
+    24px top gap + ≤ 56px header row + 20px slack — the detached header no
+    longer lets 80px clear it). Smooth scroll via CSS, preferred per the
+    caller's brief, with the reduced-motion auto fallback:
+    ```css
+    @media (prefers-reduced-motion: no-preference) {
+      :global(html) { scroll-behavior: smooth; }
+    }
+    ```
+    (declared once in the landing page's styles — the global rule exists
+    only while `/` is mounted; the default `auto`/instant behavior IS the
+    reduced-motion fallback). The anchors keep the established nav style
+    (Handjet 12px uppercase `--color-text-muted`, hover `--color-deepa-4`,
+    120ms) and stay desktop-only (≥720px; phone = icon + switcher).
+- **AA tradeoff (carried):** the §4.25.C owner-order exception carries —
+  at a 0.35 tint + blur the same derivation applies (the higher tint
+  improves on 0.25's numbers, but over a bright frame the guarantee is
+  still the owner's exact-values exception, not the §2.6 baseline). The
+  new white border + inset highlight are decorative non-text edges (≥3:1
+  not required).
+
+#### 4.26.B The banner: REAL PEOPLE. REAL RESULTS. becomes liquid glass (item 2)
+
+The §4.20.G-a / §4.21.F compact stat card IS this banner — amended **in
+place** (same markup slot, same copy contract, same full-width row atop the
+post-hero flow, §4.25.A). Only the SURFACE and the additions below change
+(§4.26.K.4).
+
+- **Glass surface:** `.stat-body`'s `background: var(--color-surface)` is
+  replaced by the owner's exact values:
+  ```css
+  .stat-body {
+    background: rgba(20, 18, 30, 0.55);          /* dark liquid glass */
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+  ```
+  The pixel-corners/pixel-frame construction (`pixel-corners
+  pixel-frame--strong` outer + `pixel-corners` body) is KEPT over the
+  glass — the stepped frame lines are the 8-bit identity (the same
+  decision as the step cards, §4.26.C); the padding/typography contract
+  (§4.21.F: 12px 14px / 16px 20px, 17px title) is unchanged. The pixel
+  cityscape of the video blurs right through the fill.
+- **Pixel sub-badge above the title** (rendered as the first child of
+  `.stat-copy`, above `.stat-title`): `[ LIVE NETWORK // IRL ]` — the
+  exact string, key `landing.banner.badge` (RU «[ ЖИВАЯ СЕТЬ // IRL ]» —
+  invention flagged, §4.26.O.1). Style — the pixel-badge technique at chip
+  scale (the §4.5 two-layer stepped-corner simulated border): an outer
+  `<span class="stat-badge pixel-corners">` whose background IS the frame
+  color `color-mix(in srgb, var(--color-deepa-4) 60%, transparent)`, with
+  an inner `<span class="pixel-corners">` (transparent fill, `padding:
+  2px 8px`), text Handjet 11px uppercase, `letter-spacing: 0.08em`,
+  `color: var(--color-deepa-4)`; `margin: 0 0 var(--space-2)`.
+- **Glowing status caption + pulsing green pixel dot** on the right, next
+  to the BLOOM flower: `.stat-glyph` becomes a small right column (flex,
+  `align-items: center`, `gap: 6px`): BLOOM unchanged (44px mobile /
+  48px desktop, §4.21.F) on top; below it the status row — a **pulsing
+  green pixel dot** + the caption `AI Agents active nearby` (key
+  `landing.banner.status`; RU «Рядом активны ИИ-агенты»), Handjet 11px
+  uppercase `--color-text` with a green glow text-shadow
+  (`0 0 8px color-mix(in srgb, var(--color-deepa-1) 45%, transparent)`).
+  The dot:
+  ```css
+  .status-dot {
+    width: 6px; height: 6px; flex: none;      /* square — the pixel read */
+    background: var(--color-deepa-1);          /* the palette's green */
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-deepa-1) 70%, transparent);
+    animation: status-pulse 1.6s steps(2) infinite alternate; /* §4.6 live-dot family */
+  }
+  @keyframes status-pulse { from { opacity: 1; } to { opacity: 0.4; } }
+  ```
+  Reduced motion: the base.css catch-all collapses the pulse — the dot is
+  static at full opacity. `aria-hidden` on the dot (the caption text
+  carries the meaning).
+
+#### 4.26.C The step cards: glass fill + hover glow/lift + mini-illustrations + micro-pills (item 3)
+
+The §4.21.E step blocks (01 FIND / 02 CHAT / 03 SHARE) keep their content
+contract VERBATIM — the pixel step number (01/02/03, 40px deepa-4 glow),
+the pixel-font title (`landing.tutorial.*`), the step icon
+(search / dialog-lines / contact-share, 32px) and the one-line description
+(`landing.steps.*.desc`) all stay; the layout (desktop equal thirds
+~300px min-height, phone stacked) stays. Amended:
+
+- **Glass surface:** `.step-body`'s `background: var(--color-surface)` is
+  replaced:
+  ```css
+  .step-body {
+    background: rgba(15, 14, 22, 0.65);          /* the owner's exact value */
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  ```
+- **§4.20.G frame fate — DECIDED: KEEP the pixel frame over glass.** The
+  `pixel-corners pixel-frame pixel-frame--strong` outer + `pixel-corners`
+  inner construction stays exactly as shipped: the stepped corner lines
+  and frame strokes are the page's 8-bit neon signature, and glass only
+  replaces the flat fill. `.step-body` therefore still sets NO
+  `border-radius` (the existing "stays square" test assertion stays
+  green). Dropping the frame was considered and rejected — frameless
+  rounded glass cards would erase the pixel language exactly where it is
+  most visible.
+- **Hover — purple outer glow + slight lift:** the §4.21.E
+  "non-interactive, no hover" rule is AMENDED by the owner's batch (the
+  steps gain a hover state; they remain non-navigating display blocks —
+  no click handler, no cursor change):
+  ```css
+  .step-block {
+    transition: transform 160ms ease-out, filter 160ms ease-out;
+  }
+  .step-block:hover {
+    transform: translateY(-4px);   /* the slight lift */
+    filter:
+      drop-shadow(0 0 12px color-mix(in srgb, var(--color-deepa-4) 45%, transparent))
+      drop-shadow(0 0 36px color-mix(in srgb, var(--color-deepa-4) 20%, transparent));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .step-block { transition-duration: 0s; }
+    .step-block:hover { transform: none; }   /* glow applies instantly, no lift */
+  }
+  ```
+  (No press state — the blocks are not buttons.)
+- **Custom pixel mini-illustration, top-right of each card:** an
+  absolutely-positioned decorative SVG (top 12px, right 12px, 48×48px,
+  `aria-hidden`, `shape-rendering="crispEdges"`, `viewBox="0 0 24 24"`,
+  token fills only, transparent background — NO plates, per §4.3;
+  original art, no figure reuses another's parts). Each card renders one
+  of these three 24×24 constructions (fill / rects `[x, y, w, h]`):
+  - **01 FIND — the radar character** (a pixel figure holding a glowing
+    radar/scanner):
+
+    | Part | Fill | Rects |
+    | --- | --- | --- |
+    | Hair | `--color-surface` | `[5,2,10,2]`, `[4,4,2,3]`, `[16,4,2,3]` |
+    | Face | `--color-art-skin-1` | `[6,4,10,7]` |
+    | Dot eyes | `--color-surface` | `[8,7,2,2]`, `[13,7,2,2]` |
+    | Body | `--color-surface-elevated` | `[4,12,12,8]` |
+    | Arms | `--color-surface-elevated` | `[2,13,2,5]`, `[16,13,2,4]` |
+    | Legs | `--color-surface-elevated` | `[5,20,4,3]`, `[11,20,4,3]` |
+    | Radar body | `--color-surface` | `[18,10,5,7]` |
+    | Radar ring | `--color-deepa-4` | `[19,11,3,1]`, `[19,15,3,1]`, `[18,12,1,3]`, `[22,12,1,3]` |
+    | Radar blip | `--color-deepa-1` | `[20,13,1,1]` |
+
+    the radar group carries the accent glow
+    (`filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-deepa-4)
+    60%, transparent))`).
+  - **02 CHAT — two avatars + speech bubble** (facing each other):
+
+    | Part | Fill | Rects |
+    | --- | --- | --- |
+    | Avatar L hair | `--color-surface` | `[1,6,8,3]`, `[1,9,2,4]` |
+    | Avatar L face | `--color-art-skin-1` | `[2,8,6,6]` |
+    | Avatar L body | `--color-surface-elevated` | `[2,15,6,5]` |
+    | Avatar R hair | `--color-deepa-4` | `[15,6,8,3]`, `[21,9,2,4]` |
+    | Avatar R face | `--color-art-skin-3` | `[16,8,6,6]` |
+    | Avatar R body | `--color-surface-elevated` | `[16,15,6,5]` |
+    | Bubble frame | `--color-deepa-4` | `[9,2,7,1]`, `[9,6,7,1]`, `[8,3,1,3]`, `[16,3,1,3]` |
+    | Bubble tail | `--color-deepa-4` | `[11,7,2,1]`, `[12,8,1,1]` |
+    | Bubble dots | `--color-deepa-4` | `[11,4,1,1]`, `[13,4,1,1]`, `[15,4,1,1]` |
+
+  - **03 SHARE — fist-bump + sparkles** (two arms meeting):
+
+    | Part | Fill | Rects |
+    | --- | --- | --- |
+    | Arm L | `--color-surface-elevated` | `[1,9,7,4]` |
+    | Fist L | `--color-art-skin-2` | `[8,8,5,5]` |
+    | Arm R | `--color-surface-elevated` | `[16,9,7,4]` |
+    | Fist R | `--color-art-skin-4` | `[11,8,5,5]` |
+    | Impact star | `--color-deepa-4` | `[12,3,2,2]`, `[11,5,1,1]`, `[14,5,1,1]` |
+    | Sparkle a | `--color-deepa-4` | `[4,3,2,2]` |
+    | Sparkle b | `--color-deepa-2` | `[19,4,2,2]` |
+    | Sparkle c | `--color-text` | `[12,14,2,1]` |
+
+  (data lives beside the step definitions in `+page.svelte` or a small
+  `landing/stepArt.ts` — worker's choice; token fills only.)
+- **Bottom micro-pills — EXACT strings** (pixel font, chip style), one per
+  card, rendered last in `.step-body` (pushed to the bottom on desktop via
+  `margin-top: auto` inside the flex column):
+  | Card | EN (exact) | RU |
+  | --- | --- | --- |
+  | 01 FIND | `RANGE: 50M • REAL-TIME GPS` | «ДАЛЬНОСТЬ: 50М • GPS В РЕАЛЬНОМ ВРЕМЕНИ» |
+  | 02 CHAT | `AUTO-INTRO • ZERO AWKWARDNESS` | «АВТО-ЗНАКОМСТВО • НОЛЬ НЕЛОВКОСТИ» |
+  | 03 SHARE | `INSTANT SYNC • MUTUAL OPT-IN` | «МГНОВЕННАЯ СИНХРОНИЗАЦИЯ • ВЗАИМНОЕ СОГЛАСИЕ» |
+  Style — a chip pill (§4.5: pills are NOT pixel-corners): inline-flex,
+  `border: 1px solid color-mix(in srgb, var(--color-deepa-4) 40%,
+  transparent)`, `border-radius: var(--radius-pill)`, `color:
+  var(--color-deepa-4)`, transparent fill, Handjet 10px (11px ≥720px),
+  `letter-spacing: 0.08em`, uppercase, `padding: 4px 10px`,
+  `margin-top: var(--space-3)` (phone) / `auto` (desktop).
+
+#### 4.26.D The footer: dark glass pill (item 4)
+
+The §4.21.G contact footer's CONTENT contract carries verbatim — the
+copyright row (logo glyph + brand + year) and the EMAIL
+(`mailto:extube@proton.me`) / GITHUB (`github.com/extube`,
+`rel="noopener noreferrer"`) links with their keys and hover/focus
+behavior; the white/purple pixel text is what the footer already renders
+(`--color-text` values, `--color-deepa-4` hovers). The SURFACE is
+replaced (§4.26.K.6): the `pixel-corners pixel-frame pixel-frame--strong`
+outer + `pixel-corners` body construction is retired from the footer and
+the block becomes a **dark liquid-glass pill matching the header family**:
+
+```css
+.foot-body {
+  background: rgba(18, 15, 28, 0.5);        /* the owner's exact value */
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.2);         /* the header family */
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35); /* the family highlight */
+  border-radius: var(--radius-md);          /* 20px — the glass-surface rounding */
+  padding: 16px 20px;
+}
+```
+The footer markup drops all `pixel-corners`/`pixel-frame` classes;
+`max-width: 560px` + centered (§4.21.G) stand. The white border + inset
+highlight are additions beyond the owner's three named values (the family
+recipe, §4.26.E) — recorded. The existing `.foot-body`-stays-square test
+assertion retires (§4.26.N-18).
+
+#### 4.26.E The four new sections — shared glass recipe, placement & ids (item 5)
+
+**Placement:** four new sections inside `main.canvas`, in this DOM order
+AFTER the step-cards section and BEFORE the footer: **sim → privacy →
+use-cases → join**. The `.canvas` flex column's `gap: var(--space-6)`
+rhythm spaces them automatically; the phone stack is the DOM order
+(no exceptions — one order for both breakpoints).
+
+**Shared surface recipe** (the owner's §38.5 values, applied to each
+section's own class — `sim-card`, `privacy-card`, `usecase-pill`,
+`join-card` — NOT a shared `.glass` class, which stays retired):
+
+```css
+.sim-card, .privacy-card, .usecase-pill, .join-card {
+  background: rgba(18, 15, 28, 0.45);        /* the owner's exact fill */
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.2);              /* thin white glossy */
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35);   /* the inset highlight */
+  border-radius: var(--radius-md);           /* 20px — glass surfaces are rounded */
+}
+```
+
+- **Rounded-corner scope amended:** glass surfaces (header, footer, these
+  four sections, the join input) are the rounded family; every
+  pixel-frame surface (agent card, stat/banner, step cards, sim chat
+  window) stays square/stepped (§4.26.K.7).
+- **Section titles:** each of the four sections opens with a centered
+  Handjet 20px uppercase title, `--color-text`, with the §4.20.A deepa-4
+  glow (the 8-bit neon read); keys per section below. Section headings
+  are `<h2>`-level (the sections sit below the hero's `h1`); privacy/use
+  case card titles are `<h3>`.
+- **Inner cards of the privacy section** are NOT glass-stacked: they are
+  transparent (`background: transparent`) with a hairline
+  `border: 1px solid color-mix(in srgb, var(--color-text) 12%,
+  transparent)` and `padding: var(--space-4)` — one backdrop-filter per
+  section, no nested blur cost.
+- **Neon accents:** titles/icons carry the deepa-4 (or per-icon deepa-N)
+  glow recipe; the green (`--color-deepa-1`), yellow (`--color-deepa-2`),
+  cyan (`--color-deepa-5`) hues are reserved to the roles specced below
+  (status dot / button / scout avatar).
+
+#### 4.26.F Section 4 — LIVE AGENT SIMULATION ("HOW YOUR AGENTS BREAK THE ICE")
+
+`id="sim"` (own id; **no nav anchor targets it** — how-it-works is the
+step cards, §4.26.A). One wide glass container (the shared recipe,
+full-width row). Contents:
+
+- **Title:** `HOW YOUR AGENTS BREAK THE ICE` (key `landing.sim.title`;
+  RU «КАК ВАШИ АГЕНТЫ ЗАВОДЯТ РАЗГОВОР») — the shared title style,
+  centered, top of the container.
+- **Body grid (≥720px):** `display: grid; grid-template-columns: 1fr auto
+  1fr; gap: var(--space-5); align-items: center` — left agent block /
+  center chat window / right agent block. **Phone (<720px):** the two
+  agent blocks share a 2-col row (`grid-template-columns: 1fr 1fr`) above
+  the full-width chat window (a flex column, gap `var(--space-4)`).
+- **Left — YOUR AGENT:** the BLEAK personage rendered via
+  `LandingFigure kind="bleak" size={64}` (the shared figure — reuse, no
+  new art) with the established purple portrait glow (the
+  `.agent-portrait` drop-shadow recipe); label `YOUR AGENT` (key
+  `landing.sim.you`; RU «ВАШ АГЕНТ»), Handjet 14px uppercase
+  `--color-text`; status line `Status: Scanning...` (key
+  `landing.sim.you.status`; RU «Статус: Сканирование...»), Handjet 12px
+  `--color-deepa-4`. **Decided: static label + blinking pixel cursor** —
+  a `6×2px` `--color-deepa-4` block appended after the status text
+  (`aria-hidden`), `animation: cursor-blink 1s steps(2) infinite` (opacity
+  1↔0); reduced motion → the cursor is statically visible. The label is
+  static text (no simulated progress).
+- **Right — NEARBY AGENT:** a NEW figure `scout` (cyan/yellow agent) —
+  added to `figures.ts` as a third `FigureName` (`'bleak' | 'bloom' |
+  'scout' | 'bleakWave'`), rendered via `LandingFigure kind="scout"
+  size={64}` with a cyan glow (the drop-shadow recipe re-pointed to
+  `--color-deepa-5`); label `NEARBY AGENT` (key `landing.sim.nearby`; RU
+  «АГЕНТ РЯДОМ»); status `Distance: 15m` (key
+  `landing.sim.nearby.status`; RU «Дистанция: 15м»), Handjet 12px
+  `--color-deepa-5`. **SCOUT construction (24×24 grid, `viewW: 24`,
+  `viewH: 24`, original art, token fills):**
+
+  | Part | Fill | Rects |
+  | --- | --- | --- |
+  | Antenna | `--color-deepa-2` | `[11,1,2,3]` |
+  | Head | `--color-art-skin-1` | `[8,4,8,6]` |
+  | Visor | `--color-deepa-5` | `[7,6,10,2]` |
+  | Visor glint | `--color-text` | `[8,6,2,1]` |
+  | Body | `--color-surface-elevated` | `[7,11,10,8]` |
+  | Chest stripe | `--color-deepa-2` | `[10,13,4,2]` |
+  | Legs | `--color-surface-elevated` | `[8,19,3,4]`, `[13,19,3,4]` |
+
+- **Center — the dark pixel chat window:** the established card pattern —
+  outer `pixel-corners pixel-frame pixel-frame--strong` + inner
+  `pixel-corners` body with `background: var(--color-surface)` (opaque —
+  the chat is the "screen", it does not blur), `width: min(100%, 420px)`,
+  `padding: 12px 16px`. **EXACTLY 3 rows**, top to bottom:
+  1. message from `Agent 01` (key `landing.sim.who1`; RU «Агент 01») —
+     text `Shared interests detected: AI, Pixel Art, Coffee.` (key
+     `landing.sim.msg1`; RU «Обнаружены общие интересы: ИИ, пиксель-арт,
+     кофе.»), left-aligned;
+  2. message from `Agent 02` (key `landing.sim.who2`; RU «Агент 02») —
+     text `High compatibility (96%). Suggesting IRL intro.` (key
+     `landing.sim.msg2`; RU «Совместимость высокая (96%). Рекомендую
+     знакомство вживую.»), right-aligned;
+  3. the glowing green system badge `[ ICE BROKEN — SAY HELLO ]` (key
+     `landing.sim.badge`; RU «[ ЛЁД РАЗБИТ — СКАЖИТЕ ПРИВЕТ ]»),
+     centered.
+  Row anatomy: speaker label Handjet 10px uppercase
+  `--color-text-muted`, message text Inter 13px `--color-text`; rows gap
+  `var(--space-2)`. The badge: inline chip, Handjet 12px uppercase,
+  `color: var(--color-deepa-1)`, `border: 1px solid color-mix(in srgb,
+  var(--color-deepa-1) 50%, transparent)`, glow text-shadow
+  `0 0 8px color-mix(in srgb, var(--color-deepa-1) 60%, transparent)`,
+  `animation: badge-pulse 1.6s steps(2) infinite alternate` (opacity
+  1↔0.7 — the §4.26.B pattern); reduced motion → static. The three
+  strings are static (no typewriter, no loop — this is a preview still,
+  not the retired §4.20.F strip; nothing animates except the badge pulse
+  and the cursor blink).
+
+#### 4.26.G Section 5 — PRIVACY & CONTROL ("BUILT FOR REAL LIFE, NOT STALKERS")
+
+`id="privacy"` (nav target). One glass container (the shared recipe,
+full-width row): title `BUILT FOR REAL LIFE, NOT STALKERS` (key
+`landing.privacy.title`; RU «СОЗДАНО ДЛЯ РЕАЛЬНОЙ ЖИЗНИ, А НЕ ДЛЯ
+СТЕЛКЕРОВ»), then a **3-column grid** (`repeat(3, 1fr)`, gap
+`var(--space-5)`, ≥720px) — **phone: a stack** (full-width cards). Each
+card: transparent + hairline (§4.26.E), centered column, gap
+`var(--space-2)` — pixel icon (48px, `aria-hidden`, 16×16 grid,
+`crispEdges`, token fills, original art) → title Handjet 14px uppercase
+`--color-text` → desc Inter 13px `--color-text-muted`. The three cards
+and icon constructions:
+
+| # | Title (EN, exact) / RU | Desc (EN, exact) / RU | Icon |
+| --- | --- | --- | --- |
+| A | `GHOST MODE` / «РЕЖИМ ПРИЗРАКА» | `Go invisible on the radar with one tap.` / «Одно касание — и вы исчезаете с радара.» | pixel ghost/hoodie character |
+| B | `MUTUAL OPT-IN` / «ВЗАИМНОЕ СОГЛАСИЕ» | `Zero cold DMs. Contacts unlock only after a mutual handshake.` / «Никаких холодных сообщений. Контакты открываются только после взаимного рукопожатия.» | pixel padlock & key |
+| C | `EPHEMERAL GPS` / «GPS БЕЗ СЛЕДОВ» | `Your location is processed live and never stored.` / «Ваша геопозиция обрабатывается в реальном времени и никогда не сохраняется.» | pixel shield + radar |
+
+**Icon constructions (16×16; fill / rects `[x, y, w, h]`):**
+
+- **A — ghost/hoodie** (a white ghost with a hood):
+  | Part | Fill | Rects |
+  | --- | --- | --- |
+  | Hood | `--color-text` | `[4,2,8,2]`, `[3,4,2,5]`, `[11,4,2,5]` |
+  | Body | `--color-text` | `[4,6,8,6]` |
+  | Hem notches | `--color-surface` (cutouts) | `[5,12,1,1]`, `[7,12,1,1]`, `[9,12,1,1]` |
+  | Eyes | `--color-surface` | `[6,7,1,2]`, `[9,7,1,2]` |
+  | Hood shade | `color-mix(in srgb, var(--color-text) 72%, var(--color-surface))` | `[3,9,2,2]`, `[11,9,2,2]` |
+- **B — padlock & key**:
+  | Part | Fill | Rects |
+  | --- | --- | --- |
+  | Shackle | `--color-text-muted` | `[5,2,6,1]`, `[4,3,2,3]`, `[10,3,2,3]` |
+  | Lock body | `--color-deepa-4` | `[4,6,8,6]` |
+  | Keyhole | `--color-surface` | `[7,8,2,3]` |
+  | Key | `--color-accent` | `[11,11,4,1]`, `[14,12,1,2]`, `[12,12,1,1]` |
+- **C — shield + radar**:
+  | Part | Fill | Rects |
+  | --- | --- | --- |
+  | Shield outline | `--color-deepa-1` | `[4,2,8,1]`, `[3,3,1,5]`, `[12,3,1,5]`, `[4,8,8,1]`, `[6,9,4,1]`, `[7,10,2,1]` |
+  | Radar arcs | `--color-deepa-4` | `[6,4,1,1]`, `[9,4,1,1]`, `[5,5,1,1]`, `[10,5,1,1]`, `[7,6,2,1]` |
+  | Radar blip | `--color-deepa-1` | `[8,5,1,1]` |
+
+(RU card titles/descs are inventions flagged in §4.26.O.1; «GPS БЕЗ
+СЛЕДОВ» renders the "ephemeral" idea idiomatically.)
+
+#### 4.26.H Section 6 — USE CASES ("WHERE BLEAK SHINES")
+
+`id="use-cases"` (nav target). **Decided structure:** a plain section
+(no outer glass container — the glass lives on the pills themselves, per
+§38.5's "a 4-column row of glass pills/mini-cards"): centered title
+`WHERE BLEAK SHINES` (key `landing.usecases.title`; RU «ГДЕ БЛИК
+РАСКРЫВАЕТСЯ»), then a **4-column row** of glass pills
+(`repeat(4, 1fr)`, gap `var(--space-4)`, ≥720px). **Phone: a stack**
+(full-width pills; a 2×2 of ~140px cells cannot hold «ВЕЧЕРИНКИ И
+БАРЫ» without wrapping — the stack is the safe reading; a 2×2 grid is a
+one-line change if the owner prefers). Each pill: the shared glass
+recipe + `padding: var(--space-4)`, centered column, gap
+`var(--space-2)`, `min-height: 112px`: pixel icon (40px, `aria-hidden`,
+16×16 grid, token fills) → label Handjet 14px uppercase `--color-text`.
+
+| # | Label (EN, exact) / RU | Icon |
+| --- | --- | --- |
+| 1 | `CONFERENCES` / «КОНФЕРЕНЦИИ» | pixel badge (id-card on a lanyard) |
+| 2 | `PARTIES & BARS` / «ВЕЧЕРИНКИ И БАРЫ» | pixel neon glasses |
+| 3 | `COWORKINGS` / «КОУОРКИНГИ» | pixel laptop |
+| 4 | `FESTIVALS` / «ФЕСТИВАЛИ» | pixel headphones |
+
+**Icon constructions (16×16; fill / rects):**
+
+- **Badge:** lanyard `--color-text-muted` `[7,1,2,3]`, `[6,3,1,1]`,
+  `[9,3,1,1]`; card body `--color-text` `[4,4,8,8]`; photo chip
+  `--color-deepa-4` `[6,6,3,3]`; lines `--color-surface` `[10,6,1,1]`,
+  `[10,8,1,3]`.
+- **Neon glasses:** frame `--color-text` `[2,6,5,1]`, `[9,6,5,1]`,
+  `[7,7,2,1]`, `[2,7,1,3]`, `[6,7,1,3]`, `[9,7,1,3]`, `[13,7,1,3]`;
+  lenses `--color-deepa-5` `[3,7,3,3]`, `[10,7,3,3]` with the deepa-4
+  glow drop-shadow (the neon read).
+- **Laptop:** screen `--color-surface` `[3,3,10,7]`; glow rows
+  `--color-deepa-4` `[5,5,3,1]`, `[5,7,2,1]`; base `--color-text`
+  `[2,10,12,2]`.
+- **Headphones:** band `--color-text` `[3,3,10,2]`, `[2,4,2,3]`,
+  `[12,4,2,3]`; cups `--color-deepa-2` `[3,7,3,5]`, `[10,7,3,5]`;
+  pad glints `--color-deepa-4` `[4,8,1,1]`, `[11,8,1,1]`.
+
+#### 4.26.I Section 7 — FINAL CTA ("JOIN THE NETWORK") + the GET EARLY ACCESS stub (items 5–6)
+
+`id="join"` (nav target). One **centered glass card** (the shared recipe)
++ the **vibrant purple neon glow behind it**:
+
+```css
+.join-card {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.35),
+    0 0 32px color-mix(in srgb, var(--color-deepa-4) 45%, transparent),
+    0 0 96px color-mix(in srgb, var(--color-deepa-4) 22%, transparent);
+}
+```
+
+Contents (centered column, gap `var(--space-4)`):
+
+1. **The waving mascot** — `LandingFigure kind="bleakWave" size={96}`:
+   the BLEAK personage art REUSED as the base, extended in
+   `personage/bleakFigure.ts` with a new exported variant
+   `BLEAK_WAVE_FIGURE` (also re-exported through `figures.ts` as the
+   `bleakWave` entry so `LandingFigure` renders it — one source of truth,
+   zero duplication). **Byte-table (36×32 grid; `viewW: 36`, `viewH:
+   32`; the BLEAK parts carry over at identical coordinates except the
+   two deltas below):**
+
+   | Part | Fill | Rects |
+   | --- | --- | --- |
+   | Hair | `--color-surface` | `[9,3,14,3]`, `[9,6,2,3]`, `[21,6,2,3]` |
+   | Face | `--color-art-skin-1` | `[10,6,12,10]` |
+   | Mouth | `--color-surface` | `[14,13,4,1]` |
+   | **Cyber-glasses frame** (replaces the monocle) | `--color-surface` | `[9,9,15,1]`, `[9,10,1,2]`, `[23,10,1,2]` |
+   | **Cyber-glasses lenses** | `--color-deepa-5` | `[10,10,5,2]`, `[17,10,5,2]` |
+   | Lens glints | `--color-text` | `[10,10,2,1]`, `[17,10,2,1]` |
+   | Shoulders / torso / lapels | `--color-surface-elevated` | `[7,18,18,2]`, `[8,20,16,8]`, `[12,20,2,6]`, `[18,20,2,6]` |
+   | Shirt collar + front | `--color-text` | `[14,18,4,2]`, `[15,20,2,3]` |
+   | Tie | `--color-deepa-4` | `[15,21,2,5]` |
+   | **Wave arm** (raised, right side) | `--color-surface-elevated` | `[24,16,3,3]`, `[25,12,3,4]` |
+   | **Wave hand** | `--color-art-skin-1` | `[25,9,3,3]` |
+   | Wave sparkles | `--color-deepa-4` | `[29,7,1,1]`, `[30,10,1,1]` |
+
+   Deltas vs `BLEAK_FIGURE` exactly: (a) the monocle visor group AND the
+   left dot eye are replaced by the cyber-glasses frame + lenses +
+   glints; (b) the wave arm/hand/sparkle groups are added. Every other
+   rect is byte-identical. Decorative (`aria-hidden` — no label prop).
+2. **Headline:** `THE RIGHT CONNECTIONS ARE ALREADY NEARBY.` (key
+   `landing.join.headline`; RU «НУЖНЫЕ ЗНАКОМСТВА УЖЕ РЯДОМ.») — Handjet
+   20px mobile / 24px ≥720px, uppercase, `--color-text`, centered, the
+   §4.20.A deepa-4 glow.
+3. **Inline row (≥720px): input + button side-by-side** (input flex 1);
+   **phone: stacked** (input full-width, button full-width, gap
+   `var(--space-3)`).
+   - **Input:** `<input type="text" inputmode="email" autocomplete="email">`
+     with `placeholder` = `Enter your email or @telegram...` (key
+     `landing.join.input.placeholder`; RU «Введите почту или
+     @telegram...») and `aria-label` = the same key (no visible label;
+     recorded a11y note). Style — dark glass: `background: rgba(15, 14,
+     22, 0.65)`, `border: 1px solid rgba(255, 255, 255, 0.2)`,
+     `border-radius: var(--radius-pill)`, `padding: 12px 20px`,
+     `min-height: var(--touch-target)`, Inter 14px `--color-text`;
+     `:focus-visible` ring per §2.6 (`2px solid var(--color-deepa-4)`,
+     offset 2).
+   - **Button — GET EARLY ACCESS:** DECIDED **neon yellow** — the
+     §4.1 interactive-accent rule reserves `--color-accent` for exactly
+     this kind of active element (purple is the ambient glow; the
+     yellow pops against it): `background: var(--color-accent)`, `color:
+     var(--color-accent-ink)`, Handjet 16px uppercase
+     `letter-spacing: 0.08em`, `border-radius: var(--radius-pill)`,
+     `padding: 12px 24px`, `min-height: var(--touch-target)`, hover
+     glow (drop-shadow accent mixes), press `scale(0.98)`, focus ring.
+     (One value flips it to purple if the owner prefers — §4.26.O.3.)
+4. **The GET EARLY ACCESS frontend stub (§38.6) — RECORD:**
+   - **No backend endpoint exists.** The control is a plain
+     `<a class="cta-access">` (a link, not a form — no form element, no
+     form library, no fetch, no new env vars) whose `href` is derived
+     from the input value:
+     `mailto:extube@proton.me?subject=BLEAK%20EARLY%20ACCESS` plus
+     `&body=<encodeURIComponent(value)>` **only when the input is
+     non-empty**; an empty input opens the bare mailto (empty body).
+     The subject literal `BLEAK EARLY ACCESS` is locale-invariant.
+   - **Client validation: NONE (lean decision).** `type="email"` would
+     natively block `@telegram` handles; `type="text"` +
+     `inputmode="email"` passes any handle straight into the mailto
+     body. The stub sends whatever was typed, unvalidated, to the
+     owner's inbox — exactly the §38.6 default.
+   - **What changes when the owner wires a real endpoint:** the anchor
+     becomes a `<button type="button">` with one `fetch POST` handler
+     to the endpoint (loading/disabled/error states added then); the
+     input, both keys, the markup and this section's layout are
+     unchanged. No other surface moves.
+   - The button's accessible name = `landing.join.button` (`GET EARLY
+     ACCESS` / «ПОЛУЧИТЬ РАННИЙ ДОСТУП»); it navigates via the
+     `mailto:` link (native behavior — no JS handler in this pass).
+
+#### 4.26.J The open-state rule, layer stack & page-growth audit (item 7)
+
+- **§37's open-state rule STAYS untouched (§4.25.A carries):** the first
+  viewport still contains ONLY the lead block and the BLEAK agent card
+  (plus the fixed header chrome), vertically centered — desktop: the
+  `.stage` 100dvh thirds hero; phone: `.area-lead` as the 100dvh hero.
+  ALL new content (the glass banner, the hover-glass steps, the FOUR new
+  sections, the glass footer) lives in the normal flow AFTER `.stage` —
+  below the fold at open, revealed on scroll. The new DOM appends
+  strictly after the hero region; no spacer, no scroll-lock, no
+  scroll-hijack is added. Verified geometry: at 1280×800 and 390×844 the
+  hero region still occupies exactly the first viewport and the banner
+  begins below it.
+- **The z-order still holds as the page grows:** the new sections are
+  plain z-3 content (children of `.landing`, which carries
+  `position: relative; z-index: 3`) — they scroll over the fixed video
+  (z 0) + vignette/30% tint (z 1) + dots (z 2), under the fixed header
+  (z 10). No new stacking context escapes the content column (the
+  sections use no `position: fixed/absolute` except the step-cards'
+  internal illustration, which is inside its own card). The blur
+  backdrops sample the fixed video through the z-1 wash — the intended
+  "pixel cityscape glows behind the glass" read.
+- **The video layer is untouched:** the same committed asset, the same
+  attribute set, the same gated one-shot mount `.play()`, the same
+  error fallback (§4.23.A/§4.23.G); the 12-dot mesh keeps twinkling in
+  the gaps between the new sections (the ambient "sky").
+- **Reduced motion — static fallbacks for ALL new pulse/hover/glow:**
+  the banner status dot, the sim badge pulse and the cursor blink
+  collapse via the established base.css catch-all (static, full
+  opacity / cursor visible); the step hover lift is suppressed
+  (`transform: none`) with the glow applying instantly; the hover
+  glows of existing cards/CTAs are unchanged state colors. The
+  scroll-behavior smooth rule is scoped under
+  `prefers-reduced-motion: no-preference` (default instant otherwise).
+  The video fallback itself is unchanged (§4.25.F verbatim).
+- **Interaction states:** unchanged in kind — the landing still fetches
+  nothing (no loading/empty/error data states, §4.20.L); the video
+  media states are §4.23.G verbatim; the only new interactive element
+  is the mailto stub (a native link — no JS states).
+
+#### 4.26.K Supersessions (explicit record)
+
+1. **§4.25.C header exact values SUPERSEDED by §38.1's:** `rgba(20, 20,
+   30, 0.25)` → `rgba(18, 15, 28, 0.35)`; `blur(16px) saturate(180%)` →
+   `blur(18px) saturate(180%)`; the top/bottom-only
+   `1px rgba(255, 255, 255, 0.15)` borders + `inset 0 1px 0 rgba(255,
+   255, 255, 0.15)` → the full `1px rgba(255, 255, 255, 0.2)` border +
+   `inset 0 1px 1px rgba(255, 255, 255, 0.35)`; `top: 0` → `top: 24px`.
+   Position stays FIXED (the owner's "fixed or sticky" resolved for
+   fixed — §4.26.A; §4.25.C's justification carries).
+2. **§4.24.A/§4.25.C 80% HEADER width SUPERSEDED:** the header now spans
+   `width: 90%; max-width: 1200px` (viewport-relative, `margin-inline:
+   auto`). The CONTENT container `.landing` KEEPS `max(80%, 280px)`
+   (§38 is silent on it — the §36/§4.24.A container rule stands; the
+   header is deliberately wider than the content, §4.26.O.5).
+3. **§4.20.B/§4.22.A/§4.25.C nav anchor set SUPERSEDED:** the two old
+   anchors (→ `#tutorial`, → `#agents`) are replaced by the four
+   smooth-scroll anchors (HOW IT WORKS / PRIVACY / USE CASES / JOIN);
+   the step section's id renames `tutorial` → `how-it-works`; `#agents`
+   remains as an id with no nav link. The `landing.tutorial.*` keys
+   survive as the step titles (their nav-anchor reuse dies).
+4. **§4.20.G-a/§4.21.F banner surface SUPERSEDED:** the stat card's
+   opaque `--color-surface` body fill becomes glass
+   (`rgba(20, 18, 30, 0.55)` + blur 12px); the §4.20.G pixel frame is
+   KEPT over the glass; the §4.21.F padding/typography contract stands.
+5. **§4.21.E step blocks amended:** the opaque fill becomes glass
+   (`rgba(15, 14, 22, 0.65)` + blur 10px); the "non-interactive, no
+   hover/motion" rule gains the owner's hover glow + lift (the blocks
+   still navigate nowhere); the §4.20.G frame is KEPT over the glass
+   (the §4.24.F.4 "pixel frames stay square" reading holds — the test
+   assertion stays green).
+6. **§4.21.G footer surface SUPERSEDED:** the pixel-framed
+   `--color-surface` block becomes the dark glass pill
+   (`rgba(18, 15, 28, 0.5)` + blur 14px + the white border + the inset
+   highlight, radius 20px); the content keys, links and centered
+   max-width 560px stand.
+7. **§4.24.F.4 rounded-corner scope amended:** glass surfaces (header,
+   footer, the four new sections, the join input) are the rounded
+   family (radius-md 20px); pixel-frame surfaces (agent card, banner,
+   steps, sim chat window) stay square/stepped. The `.foot-body`
+   stays-square test assertion retires; `.step-body` keeps its
+   square assertion.
+8. **Sanctioned palette exception (record, extends §4.25.D.7):** the
+   owner's §38 `rgba(…)` literals (header 0.35/0.2/0.35, banner 0.55,
+   steps 0.65, footer 0.5, sections 0.45 + the shared white
+   border/highlight pair, the join input's `rgba(15, 14, 22, 0.65)`,
+   the fallback `rgba(18, 15, 28, 0.85)`) are raw literals outside the
+   token palette — sanctioned by the owner's exact-value spec (§38) and
+   recorded here; everywhere else the token/`color-mix` rule stands.
+   Suite note: the raw-hex guard (`#[0-9a-fA-F]{3,8}`) cannot match
+   `rgba(…)` literals — the sweep stays green without a waiver; and no
+   `.glass` class is introduced (the retired-class assertion stays
+   green — per-section class names only).
+9. **Superseded-but-carried (unchanged into §4.26):** the §4.23.A fixed
+   layer stack (z 0–10), the decisive video attribute set, the gated
+   one-shot mount `.play()`, the error fallback, the 12-dot mesh, the
+   §4.22.A keep-list, the §4.25.A/B open state + transparent lead, the
+   §4.20.C copy/CTA, the §4.20.L behavior + deep-link forwarding, the
+   §4.20.G agent-card contract and the §4.23.G reduced-motion fallback
+   all carry unchanged.
+
+#### 4.26.L RU/EN i18n delta (35 new keys; grep-audited; both dictionaries required)
+
+**35 new keys** — every string §38 speaks, EN verbatim from Concept §38.5,
+RU as specced above (inventions flagged in §4.26.O.1). The existing 23
+`landing.*` keys are unchanged; **new parity total: 58 keys per
+dictionary** (`LANDING_KEYS` extends 23 → 58; `DEAD_KEYS` unchanged).
+
+| Δ | Key | RU | EN |
+| --- | --- | --- | --- |
+| + | `landing.nav.how` | КАК ЭТО РАБОТАЕТ | HOW IT WORKS |
+| + | `landing.nav.privacy` | ПРИВАТНОСТЬ | PRIVACY |
+| + | `landing.nav.usecases` | СЦЕНАРИИ | USE CASES |
+| + | `landing.nav.join` | ВСТУПИТЬ | JOIN |
+| + | `landing.banner.badge` | [ ЖИВАЯ СЕТЬ // IRL ] | [ LIVE NETWORK // IRL ] |
+| + | `landing.banner.status` | Рядом активны ИИ-агенты | AI Agents active nearby |
+| + | `landing.steps.find.pill` | ДАЛЬНОСТЬ: 50М • GPS В РЕАЛЬНОМ ВРЕМЕНИ | RANGE: 50M • REAL-TIME GPS |
+| + | `landing.steps.chat.pill` | АВТО-ЗНАКОМСТВО • НОЛЬ НЕЛОВКОСТИ | AUTO-INTRO • ZERO AWKWARDNESS |
+| + | `landing.steps.share.pill` | МГНОВЕННАЯ СИНХРОНИЗАЦИЯ • ВЗАИМНОЕ СОГЛАСИЕ | INSTANT SYNC • MUTUAL OPT-IN |
+| + | `landing.sim.title` | КАК ВАШИ АГЕНТЫ ЗАВОДЯТ РАЗГОВОР | HOW YOUR AGENTS BREAK THE ICE |
+| + | `landing.sim.you` | ВАШ АГЕНТ | YOUR AGENT |
+| + | `landing.sim.you.status` | Статус: Сканирование... | Status: Scanning... |
+| + | `landing.sim.nearby` | АГЕНТ РЯДОМ | NEARBY AGENT |
+| + | `landing.sim.nearby.status` | Дистанция: 15м | Distance: 15m |
+| + | `landing.sim.who1` | Агент 01 | Agent 01 |
+| + | `landing.sim.who2` | Агент 02 | Agent 02 |
+| + | `landing.sim.msg1` | Обнаружены общие интересы: ИИ, пиксель-арт, кофе. | Shared interests detected: AI, Pixel Art, Coffee. |
+| + | `landing.sim.msg2` | Совместимость высокая (96%). Рекомендую знакомство вживую. | High compatibility (96%). Suggesting IRL intro. |
+| + | `landing.sim.badge` | [ ЛЁД РАЗБИТ — СКАЖИТЕ ПРИВЕТ ] | [ ICE BROKEN — SAY HELLO ] |
+| + | `landing.privacy.title` | СОЗДАНО ДЛЯ РЕАЛЬНОЙ ЖИЗНИ, А НЕ ДЛЯ СТЕЛКЕРОВ | BUILT FOR REAL LIFE, NOT STALKERS |
+| + | `landing.privacy.ghost.title` | РЕЖИМ ПРИЗРАКА | GHOST MODE |
+| + | `landing.privacy.ghost.desc` | Одно касание — и вы исчезаете с радара. | Go invisible on the radar with one tap. |
+| + | `landing.privacy.mutual.title` | ВЗАИМНОЕ СОГЛАСИЕ | MUTUAL OPT-IN |
+| + | `landing.privacy.mutual.desc` | Никаких холодных сообщений. Контакты открываются только после взаимного рукопожатия. | Zero cold DMs. Contacts unlock only after a mutual handshake. |
+| + | `landing.privacy.gps.title` | GPS БЕЗ СЛЕДОВ | EPHEMERAL GPS |
+| + | `landing.privacy.gps.desc` | Ваша геопозиция обрабатывается в реальном времени и никогда не сохраняется. | Your location is processed live and never stored. |
+| + | `landing.usecases.title` | ГДЕ БЛИК РАСКРЫВАЕТСЯ | WHERE BLEAK SHINES |
+| + | `landing.usecases.conferences` | КОНФЕРЕНЦИИ | CONFERENCES |
+| + | `landing.usecases.parties` | ВЕЧЕРИНКИ И БАРЫ | PARTIES & BARS |
+| + | `landing.usecases.coworkings` | КОУОРКИНГИ | COWORKINGS |
+| + | `landing.usecases.festivals` | ФЕСТИВАЛИ | FESTIVALS |
+| + | `landing.join.title` | ВСТУПАЙТЕ В СЕТЬ | JOIN THE NETWORK |
+| + | `landing.join.headline` | НУЖНЫЕ ЗНАКОМСТВА УЖЕ РЯДОМ. | THE RIGHT CONNECTIONS ARE ALREADY NEARBY. |
+| + | `landing.join.input.placeholder` | Введите почту или @telegram... | Enter your email or @telegram... |
+| + | `landing.join.button` | ПОЛУЧИТЬ РАННИЙ ДОСТУП | GET EARLY ACCESS |
+
+Grep-audit instructions (worker): after landing, `landing.nav.` /
+`landing.banner.` / `landing.sim.` / `landing.privacy.` /
+`landing.usecases.` / `landing.join.` appear ONLY in `en.ts`, `ru.ts`,
+`+page.svelte` (or their section components) and the tests — no other
+route or component consumes them; the three `.pill` keys render beside
+the step descriptions; `landing.join.title` renders above the
+`join-card` (it doubles as the section's `<h2>`). The RU/EN switch
+re-renders every new string without a reload (the parity + re-render
+test pattern extends to the new keys).
+
+#### 4.26.M Reduced motion + media states
+
+Unchanged in kind from §4.23.G/§4.25.F: the video stays paused at frame 0
+with the tint + vignette + dots as the static state; the dot mesh is
+static. New elements' static fallbacks (§4.26.J): the banner status dot
+static at full opacity, the sim badge static, the cursor statically
+visible, hover lifts suppressed with instant glow, smooth-scroll scoped
+to `no-preference`. All new keyframes (`status-pulse`, `badge-pulse`,
+`cursor-blink`) are transform/opacity-only (§4.6). No loading/empty/error
+data states exist (the landing fetches nothing); the video error
+fallback shows every new section over the near-black treatment (the
+glass still reads — blur over the static tint). No layout shift: the new
+sections are normal-flow blocks; the glass surfaces have no media-load
+dependency.
+
+#### 4.26.N Acceptance criteria (checkable)
+
+**Header (item 1):**
+1. `.top` computes the owner's EXACT §38.1 values verbatim:
+   `position: fixed; top: 24px`, `left/right: 0` + `margin-inline: auto`,
+   `width: 90%; max-width: 1200px`, `border-radius` 20px (token),
+   `background: rgba(18, 15, 28, 0.35)`, `backdrop-filter: blur(18px)
+   saturate(180%)` AND `-webkit-backdrop-filter: blur(18px)
+   saturate(180%)`, `border: 1px solid rgba(255, 255, 255, 0.2)` (all
+   four sides — the §4.25.C top/bottom-only rule is gone),
+   `box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35)`; the
+   `@supports not (…)` fallback sets `rgba(18, 15, 28, 0.85)`; z-index
+   10; the keep-list is UNCHANGED (§4.22.A: icon + desktop nav +
+   switcher; phone icon + switcher) and the video scrolls beneath the
+   24px gap and through the glass.
+2. Widths: 1152px at 1280, 720px at 800, 351px at 390, 288px at 320 —
+   wider than the 80% content column (which still measures 1024/312/280
+   per §4.24.A); the content container rule is unchanged.
+3. The nav renders EXACTLY four desktop-only anchors in order — HOW IT
+   WORKS → `#how-it-works`, PRIVACY → `#privacy`, USE CASES →
+   `#use-cases`, JOIN → `#join` (EN labels verbatim; RU «КАК ЭТО
+   РАБОТАЕТ» / «ПРИВАТНОСТЬ» / «СЦЕНАРИИ» / «ВСТУПИТЬ») — and the old
+   `#tutorial`/`#agents` nav links are gone (no `href="#tutorial"`, no
+   `href="#agents"` anywhere on `/`).
+4. The anchor targets exist and clear the header: the step-cards section
+   carries `id="how-it-works"` (the `tutorial` id is gone), Sections
+   5/6/7 carry `id="privacy"` / `id="use-cases"` / `id="join"`; each
+   target sets `scroll-margin-top: 100px`; clicking an anchor smooth-
+   scrolls (CSS `scroll-behavior: smooth` under
+   `prefers-reduced-motion: no-preference`) and lands with the section
+   title below the glass header at 1280×800 and 390×844.
+
+**Banner (item 2):**
+5. The stat card's body is glass: `background: rgba(20, 18, 30, 0.55)` +
+   `backdrop-filter`/`-webkit-backdrop-filter: blur(12px)`; the
+   pixel-corners/pixel-frame construction is KEPT (the outer
+   `.stat-card` still carries `pixel-corners pixel-frame
+   pixel-frame--strong`); the §4.21.F compact padding/typography and the
+   stat copy (`landing.stat.*`) are unchanged.
+6. The sub-badge `[ LIVE NETWORK // IRL ]` (RU «[ ЖИВАЯ СЕТЬ // IRL ]»)
+   renders above the title as a pixel-badge chip (stepped-corner two-
+   layer construction, deepa-4 frame at 60%, Handjet 11px uppercase).
+7. The status caption `AI Agents active nearby` (RU «Рядом активны
+   ИИ-агенты») renders on the right next to the BLOOM glyph with a
+   square 6px `--color-deepa-1` pixel dot pulsing `steps(2)` 1.6s
+   (opacity 1↔0.4, green glow); reduced motion → the dot is static at
+   full opacity.
+
+**Step cards (item 3):**
+8. Each step body is glass: `background: rgba(15, 14, 22, 0.65)` +
+   blur(10px) (both prefixes); `.step-body` still sets NO
+   `border-radius` (the pixel frame stays square/stepped over the
+   glass); the 01/02/03 numbers, pixel titles, step icons and
+   descriptions are unchanged (§4.21.E content contract).
+9. Hover: `translateY(-4px)` + the purple double drop-shadow glow over a
+   160ms ease-out transition; under reduced motion the lift is
+   suppressed (`transform: none`) and the glow applies instantly; no
+   press/click state exists.
+10. Each card carries a 48×48px decorative pixel-art SVG top-right
+    (`aria-hidden`, `crispEdges`, 24×24 grid, token fills only): 01 =
+    the radar character, 02 = two avatars + bubble, 03 = fist-bump +
+    sparkles — original rect art per the §4.26.C tables, no background
+    plates, no figure reusing another's parts.
+11. The bottom micro-pills render EXACTLY `RANGE: 50M • REAL-TIME GPS` /
+    `AUTO-INTRO • ZERO AWKWARDNESS` / `INSTANT SYNC • MUTUAL OPT-IN`
+    (RU per §4.26.L) as pill chips (Handjet 10/11px uppercase, deepa-4
+    text + 40% border, radius-pill), pinned to the card bottom on
+    desktop (`margin-top: auto`).
+
+**Footer (item 4):**
+12. The footer is a dark glass pill: `rgba(18, 15, 28, 0.5)` +
+    blur(14px) (both prefixes) + `border: 1px solid rgba(255, 255, 255,
+    0.2)` + `box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35)` +
+    `border-radius: var(--radius-md)`; NO `pixel-corners`/`pixel-frame`
+    class remains on it; max-width 560px centered; the copyright row +
+    EMAIL (`mailto:extube@proton.me`) / GITHUB links and their keys/
+    hover/focus contracts are unchanged.
+
+**The four new sections (item 5):**
+13. DOM order after the step cards and before the footer: sim → privacy
+    → use-cases → join, each as a normal-flow row of the 80% container
+    (the `--space-6` gap rhythm); phone stacks in the same order; no
+    horizontal scroll at 320/760/1280.
+14. Each glass surface (`.sim-card`, `.privacy-card`, `.usecase-pill`,
+    `.join-card`) carries the shared recipe verbatim: `rgba(18, 15, 28,
+    0.45)` + blur(16px) (both prefixes) + `border: 1px solid rgba(255,
+    255, 255, 0.2)` + `box-shadow: inset 0 1px 1px rgba(255, 255, 255,
+    0.35)` + `border-radius: var(--radius-md)`; NO `.glass` class
+    exists in the landing sources.
+15. Section 4 (`#sim`): wide glass container; left block = the BLEAK
+    personage (64px, purple glow) + `YOUR AGENT` + `Status:
+    Scanning...` with the blinking 6×2px deepa-4 cursor (reduced motion
+    → cursor statically visible); right block = the SCOUT figure (new
+    cyan/yellow 24×24 art per the §4.26.F table, cyan glow) + `NEARBY
+    AGENT` + `Distance: 15m`; ≥720px = 1fr/auto/1fr grid, phone =
+    2-col avatar row + full-width chat window.
+16. The sim chat window is the dark opaque pixel-frame card
+    (`--color-surface` body, `pixel-corners` construction) with
+    EXACTLY 3 rows: `Agent 01` — `Shared interests detected: AI, Pixel
+    Art, Coffee.` (left), `Agent 02` — `High compatibility (96%).
+    Suggesting IRL intro.` (right), and the centered glowing green
+    badge `[ ICE BROKEN — SAY HELLO ]` (deepa-1, pulse 1.6s steps(2);
+    reduced motion → static); no fourth row, no typewriter loop.
+17. Section 5 (`#privacy`): glass container titled `BUILT FOR REAL
+    LIFE, NOT STALKERS`; a 3-col grid ≥720px / a stack on phone; the
+    three cards carry the ghost / padlock+key / shield+radar 48px pixel
+    icons and the exact titles/descs (`GHOST MODE` / `MUTUAL OPT-IN` /
+    `EPHEMERAL GPS` + their sentences, RU per §4.26.L).
+18. Section 6 (`#use-cases`): title `WHERE BLEAK SHINES`; a 4-col pill
+    row ≥720px / a stack on phone; the pills carry the badge /
+    neon-glasses / laptop / headphones 40px pixel icons and the exact
+    labels `CONFERENCES` / `PARTIES & BARS` / `COWORKINGS` /
+    `FESTIVALS`.
+19. Section 7 (`#join`): a centered glass card (max-width 640px) with
+    the purple outer glow (`0 0 32px … 45%` + `0 0 96px … 22%` over the
+    inset highlight); the waving BLEAK-WAVE mascot (96px, the wave arm
+    + cyber-glasses deltas; every other rect byte-identical to
+    `BLEAK_FIGURE`); the headline `THE RIGHT CONNECTIONS ARE ALREADY
+    NEARBY.` (RU «НУЖНЫЕ ЗНАКОМСТВА УЖЕ РЯДОМ.»); the dark glass input
+    (`rgba(15, 14, 22, 0.65)`, radius-pill, `aria-label` = placeholder
+    key) with the exact placeholder; the GET EARLY ACCESS button
+    (`--color-accent` bg, `--color-accent-ink` text).
+
+**The GET EARLY ACCESS stub (item 6):**
+20. Submitting = opening `mailto:extube@proton.me` with subject `BLEAK
+    EARLY ACCESS` and — only when the input is non-empty — a
+    URL-encoded body equal to the input value (empty input → no body
+    param); it is a native `<a>` link (no form element, no fetch, no
+    new env, no form library, NO client validation — `type="text"` +
+    `inputmode="email"`); the mailto address matches the footer's
+    published contact.
+
+**Open state, layers, i18n, suites (item 7 + carry):**
+21. Open state intact: at the scroll origin the first viewport contains
+    ONLY the lead block and the BLEAK agent card (plus the fixed
+    header chrome) at BOTH 1280×800 and 390×844; the banner, steps,
+    the four new sections and the footer begin below the fold; no
+    spacer returns (`calc(200dvh / 3)` stays absent).
+22. The layer stack holds with the grown page: video z 0 / vignette +
+    tint z 1 / dots z 2 / content z 3 / header z 10 — the new sections
+    are z-3 content scrolling over the video; the 12-dot mesh stays
+    below the content; the video attributes and gated playback are
+    untouched.
+23. i18n: exactly **58** `landing.*` keys in BOTH dictionaries (23
+    existing + the 35 new keys above, EN strings verbatim); the
+    dead-key list is unchanged; the RU/EN switch re-renders every new
+    string without a reload; the parity/dead-key tests pass amended.
+24. Reduced motion: the status dot, sim badge, cursor blink, step
+    hover-lift and smooth-scroll all have static/instant fallbacks;
+    the video fallback is unchanged (§4.25.F).
+25. Suites amended and green: `landing-page.test.ts` — the §4.25.C
+    header-value assertions REPLACED by ACs 1–4 (top 24px, 90%/1200px,
+    radius 20px, the 0.35/0.2/0.35 glass set, the full border, the
+    fallback), the `.foot-body` square assertion RETIRED, the
+    `.step-body` square assertion KEPT, new banner/step/footer/section/
+    stub assertions per ACs 5–20, `LANDING_KEYS` extended to 58 — plus
+    `i18n.test.ts` (58-key parity), `sweep.test.ts` (token discipline;
+    the rgba literals stay unmatched and unwaivered), `mascot.test.ts`
+    (the two new figures render — scout + bleakWave — with the base
+    BLEAK art unchanged), `join-flow.test.ts` /
+    `creation-wizard.test.ts` untouched and green;
+    `make lint && make test && make build` green.
+26. Constraints: no new dependencies; routes untouched; `/income`
+    untouched; the video asset stays; the mailto stub is frontend-only
+    (no fetch on `/` — "API endpoints used: none" stands); no canvas,
+    no animation library; palette tokens + the sanctioned rgba family
+    only.
+
+#### 4.26.O Flags for the owner / concept (concept report)
+
+1. **ADVICE NEEDED — RU strings for the new copy are design
+   inventions:** the owner's §38.5 gives EN only; this spec supplies RU
+   for all 35 keys (nav labels, the `[ ЖИВАЯ СЕТЬ // IRL ]` badge, the
+   statuses, the simulation messages, the section titles/descs, the
+   placeholder, the button) per the RU/EN-parity preamble. Owner tone
+   approval requested with the batch (the §4.20.O-2 precedent).
+2. **Record — the nav RU label «ВСТУПИТЬ»** renders "JOIN" as a call to
+   the final CTA section; if the owner prefers «ПРИСОЕДИНИТЬСЯ» or
+   another form it is a one-value change.
+3. **Record — GET EARLY ACCESS is neon YELLOW** (`--color-accent`, the
+   §4.1 interactive-accent rule); §38.5 offered "bright neon yellow or
+   purple pixel button" — yellow was decided so the button pops against
+   the purple glow; a one-value flip to `--color-deepa-4` (+ ink swap)
+   if the owner prefers purple.
+4. **Record — the GET EARLY ACCESS stub:** mailto to
+   `extube@proton.me` (the footer's published contact) with subject
+   `BLEAK EARLY ACCESS` and the raw input value as the body; no
+   validation by design (so `@telegram` handles pass through). When a
+   real endpoint lands: anchor → button + one fetch handler; everything
+   else stays.
+5. **Record — the header is deliberately wider than the content:** 90%
+   (max 1200px) vs the 80% content container — both are owner specs
+   (§38.1 header; §36/§4.24.A container); do not "harmonize" them.
+6. **Record — Section 4 has no nav anchor** (`id="sim"` only): the
+   owner's anchor map names four targets; how-it-works is the step
+   cards, not the simulation.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)

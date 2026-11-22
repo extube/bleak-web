@@ -15,13 +15,20 @@
  * mount) and is re-exported here as the `bleak` entry — byte-identical art,
  * only the name changed (§4.22.D).
  *
+ * §4.26 (Concept §38, tz12-10) adds two cast members: `scout` — the
+ * NEARBY AGENT of the Live Agent Simulation (a NEW cyan/yellow 24×24
+ * figure, original art, no part reused from another figure) — and
+ * `bleakWave` — the Final-CTA waving mascot, re-exported from the shared
+ * personage module (`BLEAK_WAVE_FIGURE`, the BLEAK art extended per the
+ * §4.26.I byte-table; one source of truth, zero duplication).
+ *
  * Fills are token references only (§4.1) — the landing accent is the
  * approved Deepa violet (--color-deepa-4, the example's purple bloom);
  * shading stays in `color-mix` alpha variants of existing tokens.
  */
-import { BLEAK_FIGURE } from '../personage/bleakFigure';
+import { BLEAK_FIGURE, BLEAK_WAVE_FIGURE } from '../personage/bleakFigure';
 
-export type FigureName = 'bleak' | 'bloom';
+export type FigureName = 'bleak' | 'bloom' | 'scout' | 'bleakWave';
 
 export interface FigurePart {
   fill: string;
@@ -99,5 +106,61 @@ export const LANDING_FIGURES: Record<FigureName, Figure> = {
         ]
       }
     ]
-  }
+  },
+
+  /* SCOUT (§4.26.F): the NEARBY AGENT of the Live Agent Simulation — a
+   * cyan/yellow pixel agent with an antenna, a wide cyan visor and a
+   * chest stripe. Original 24×24 art, token fills, no part reused from
+   * another figure. */
+  scout: {
+    grid: 24,
+    viewW: 24,
+    viewH: 24,
+    parts: [
+      {
+        fill: 'var(--color-deepa-2)',
+        rects: [
+          [11, 1, 2, 3] // antenna
+        ]
+      },
+      {
+        fill: 'var(--color-art-skin-1)',
+        rects: [
+          [8, 4, 8, 6] // head
+        ]
+      },
+      {
+        fill: 'var(--color-deepa-5)',
+        rects: [
+          [7, 6, 10, 2] // visor
+        ]
+      },
+      {
+        fill: 'var(--color-text)',
+        rects: [
+          [8, 6, 2, 1] // visor glint
+        ]
+      },
+      {
+        fill: 'var(--color-surface-elevated)',
+        rects: [
+          [7, 11, 10, 8], // body
+          [8, 19, 3, 4], // leg, left
+          [13, 19, 3, 4] // leg, right
+        ]
+      },
+      {
+        fill: 'var(--color-deepa-2)',
+        rects: [
+          [10, 13, 4, 2] // chest stripe
+        ]
+      }
+    ]
+  },
+
+  /* BLEAK WAVE (§4.26.I): the Final-CTA waving mascot — the shared
+   * personage module's BLEAK_WAVE_FIGURE (the BLEAK art extended per the
+   * §4.26.I byte-table; re-exported here so LandingFigure renders it —
+   * one source of truth, zero duplication). */
+  bleakWave: BLEAK_WAVE_FIGURE
 };

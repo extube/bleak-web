@@ -435,6 +435,47 @@ export const en = {
   'landing.footer.contact.github.label': 'GITHUB',
   'landing.footer.copyright': 'bleak-web · 2026',
 
+  /* --- landing v3.20 (Concept §38 owner batch, DESIGN §4.26.L — 35 new
+   * --- keys: floating glass header anchors, glass banner, step micro-
+   * --- pills, the four new sections; EN verbatim from §38.5, RU/EN
+   * --- parity; RU inventions flagged in §4.26.O.1) --- */
+  'landing.nav.how': 'HOW IT WORKS',
+  'landing.nav.privacy': 'PRIVACY',
+  'landing.nav.usecases': 'USE CASES',
+  'landing.nav.join': 'JOIN',
+  'landing.banner.badge': '[ LIVE NETWORK // IRL ]',
+  'landing.banner.status': 'AI Agents active nearby',
+  'landing.steps.find.pill': 'RANGE: 50M • REAL-TIME GPS',
+  'landing.steps.chat.pill': 'AUTO-INTRO • ZERO AWKWARDNESS',
+  'landing.steps.share.pill': 'INSTANT SYNC • MUTUAL OPT-IN',
+  'landing.sim.title': 'HOW YOUR AGENTS BREAK THE ICE',
+  'landing.sim.you': 'YOUR AGENT',
+  'landing.sim.you.status': 'Status: Scanning...',
+  'landing.sim.nearby': 'NEARBY AGENT',
+  'landing.sim.nearby.status': 'Distance: 15m',
+  'landing.sim.who1': 'Agent 01',
+  'landing.sim.who2': 'Agent 02',
+  'landing.sim.msg1': 'Shared interests detected: AI, Pixel Art, Coffee.',
+  'landing.sim.msg2': 'High compatibility (96%). Suggesting IRL intro.',
+  'landing.sim.badge': '[ ICE BROKEN — SAY HELLO ]',
+  'landing.privacy.title': 'BUILT FOR REAL LIFE, NOT STALKERS',
+  'landing.privacy.ghost.title': 'GHOST MODE',
+  'landing.privacy.ghost.desc': 'Go invisible on the radar with one tap.',
+  'landing.privacy.mutual.title': 'MUTUAL OPT-IN',
+  'landing.privacy.mutual.desc':
+    'Zero cold DMs. Contacts unlock only after a mutual handshake.',
+  'landing.privacy.gps.title': 'EPHEMERAL GPS',
+  'landing.privacy.gps.desc': 'Your location is processed live and never stored.',
+  'landing.usecases.title': 'WHERE BLEAK SHINES',
+  'landing.usecases.conferences': 'CONFERENCES',
+  'landing.usecases.parties': 'PARTIES & BARS',
+  'landing.usecases.coworkings': 'COWORKINGS',
+  'landing.usecases.festivals': 'FESTIVALS',
+  'landing.join.title': 'JOIN THE NETWORK',
+  'landing.join.headline': 'THE RIGHT CONNECTIONS ARE ALREADY NEARBY.',
+  'landing.join.input.placeholder': 'Enter your email or @telegram...',
+  'landing.join.button': 'GET EARLY ACCESS',
+
   /* --- global 401 gate (DESIGN rev. 3 §2.8, §4.7) --- */
   'auth.401.notice':
     'This profile has no valid access credential — join again with the event code.',

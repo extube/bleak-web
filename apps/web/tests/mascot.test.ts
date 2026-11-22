@@ -13,7 +13,7 @@ import { cleanup, render } from '@testing-library/svelte';
 import BleakMascot from '../src/lib/components/BleakMascot.svelte';
 import CodeEntry from '../src/lib/components/join/CodeEntry.svelte';
 import RoomPreview from '../src/lib/components/join/RoomPreview.svelte';
-import { BLEAK_FIGURE } from '../src/lib/components/personage/bleakFigure';
+import { BLEAK_FIGURE, BLEAK_WAVE_FIGURE } from '../src/lib/components/personage/bleakFigure';
 import { LANDING_FIGURES } from '../src/lib/components/landing/figures';
 
 afterEach(() => {
@@ -191,5 +191,73 @@ describe('BleakMascot — the shared BLEAK personage (§4.22.E)', () => {
     // the main-room transcript never mounts the mascot (behavior-neutral
     // there): the mascot prop is set only by the creation wizard
     expect(bubble).toMatch(/mascot/);
+  });
+});
+
+/** §4.26 (Concept §38, tz12-10): the landing cast grows by two — SCOUT
+ * (the Live Agent Simulation's NEARBY AGENT, new original 24×24 art) and
+ * BLEAK WAVE (the Final-CTA mascot, the BLEAK personage extended per the
+ * §4.26.I byte-table). The base BLEAK art is UNCHANGED. */
+describe('§4.26 cast growth — SCOUT + BLEAK WAVE (the base BLEAK art unchanged)', () => {
+  it('SCOUT is a NEW original 24×24 figure: token fills only, cyan (deepa-5) visor + yellow (deepa-2) antenna/stripe — no part reused from another figure', () => {
+    const scout = LANDING_FIGURES.scout;
+    expect(scout).toBeTruthy();
+    expect(scout.viewW).toBe(24);
+    expect(scout.viewH).toBe(24);
+    const rects = scout.parts.flatMap((p) => p.rects.map((r) => r.join(',')));
+    expect(new Set(rects).size).toBe(rects.length);
+    const fills = scout.parts.map((p) => p.fill);
+    expect(fills).toContain('var(--color-deepa-5)');
+    expect(fills.filter((f) => f === 'var(--color-deepa-2)').length).toBe(2);
+    for (const fill of fills) {
+      expect(fill).toMatch(/^var\(--/);
+    }
+  });
+
+  it('BLEAK WAVE is the shared personage module\'s waving variant: figures.ts re-exports the SAME module instance (one source of truth, zero duplication)', () => {
+    expect(LANDING_FIGURES.bleakWave).toBe(BLEAK_WAVE_FIGURE);
+    expect(BLEAK_WAVE_FIGURE.viewW).toBe(36);
+    expect(BLEAK_WAVE_FIGURE.viewH).toBe(32);
+    for (const fill of BLEAK_WAVE_FIGURE.parts.map((p) => p.fill)) {
+      expect(fill).toMatch(/^var\(--/);
+    }
+  });
+
+  it('the §4.26.I deltas are exactly the specced ones: every surviving BLEAK rect is byte-identical, the monocle visor + left dot eye are REPLACED by the cyber-glasses, and the wave arm/hand/sparkles are added', () => {
+    // the replaced BLEAK parts: the monocle lens interior (inside the face
+    // group), the left dot eye (inside the surface group) and the whole
+    // monocle visor ring group
+    const replacedRects = new Set([
+      '19,10,2,2', // monocle lens interior
+      '13,10,2,2', // left dot eye
+      '18,9,4,1', // monocle ring, top
+      '18,12,4,1', // monocle ring, bottom
+      '18,10,1,2', // monocle ring, left
+      '21,10,1,2' // monocle ring, right
+    ]);
+    const base = BLEAK_FIGURE.parts
+      .flatMap((p) => p.rects.map((r) => r.join(',')))
+      .filter((r) => !replacedRects.has(r));
+    const wave = new Set(BLEAK_WAVE_FIGURE.parts.flatMap((p) => p.rects.map((r) => r.join(','))));
+    // every surviving base rect is byte-identical in the wave figure
+    for (const rect of base) {
+      expect(wave.has(rect), `BLEAK rect ${rect} missing from BLEAK_WAVE`).toBe(true);
+    }
+    // the replaced rects are GONE
+    for (const rect of replacedRects) {
+      expect(wave.has(rect), `replaced rect ${rect} still in BLEAK_WAVE`).toBe(false);
+    }
+    // the wave-only additions: cyber-glasses frame + lenses + glints,
+    // the wave arm/hand and the sparkles
+    for (const rect of [
+      '9,9,15,1', '9,10,1,2', '23,10,1,2', // glasses frame
+      '10,10,5,2', '17,10,5,2', // lenses
+      '10,10,2,1', '17,10,2,1', // glints
+      '24,16,3,3', '25,12,3,4', // wave arm
+      '25,9,3,3', // wave hand
+      '29,7,1,1', '30,10,1,1' // sparkles
+    ]) {
+      expect(wave.has(rect), `wave rect ${rect} missing`).toBe(true);
+    }
   });
 });

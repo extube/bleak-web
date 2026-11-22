@@ -1,29 +1,25 @@
-/** Landing page tests (tz12-09, Concept §37 owner correction, DESIGN §4.25
- * amending §4.24 item by item): the §37 batch lands on the video-background
- * landing — (1) §4.25.A the DEFAULT OPEN STATE: on open, ONLY the lead
- * (Start block) and the BLEAK agent card are displayed, VERTICALLY CENTERED
- * in the first viewport — desktop ≥720px: .stage is the 100dvh hero region
- * (the thirds grid, align-content/align-items center, the middle third
- * empty); phone <720px: .area-lead is the 100dvh hero region (the Start
- * block centered in screen 1), BLEAK next in flow; stat card → steps →
- * footer flow AFTER (below the fold initially); the §4.24.E
- * `calc(200dvh / 3)` spacer is GONE; (2) §4.25.B the lead block is
- * TRANSPARENT and BORDERLESS — no pixel frame, no panel, no border, no
- * backdrop-filter — legibility via the token-only text halo on
- * .headline/.sub (the accent word keeps its violet glow; the desktop
- * headline clamp(22px, 3.5vw, 44px) stands); (3) §4.25.C the header is TRUE
- * liquid glassmorphism — the owner's EXACT values verbatim: position:
- * fixed; top: 0 (the video scrolls directly underneath), background
- * rgba(20, 20, 30, 0.25), backdrop-filter blur(16px) saturate(180%)
- * (both prefixes), 1px rgba(255, 255, 255, 0.15) top/bottom borders
- * (side borders NONE), the soft inset inner highlight, rounding kept, and
- * the viewport-relative width max(80%, 280px) + margin-inline auto (the
- * §4.24.A breakout retires); the two-tier 92%/88% fill and the violet
- * hairline are DELETED, the no-backdrop-filter fallback is rgba(20, 20,
- * 30, 0.85). Still in force: the fixed full-viewport video layer stack,
- * the keep-list, BLEAK/БЛИК, three step blocks, contact footer, routes,
- * Start/TALK → /income (6-digit), RU/EN parity (23 keys), removed blocks
- * stay removed, deep links. */
+/** Landing page tests (tz12-10, Concept §38 owner batch, DESIGN §4.26
+ * amending §4.25 item by item): the §38 batch lands on the video-background
+ * landing — (1) §4.26.A the DETACHED floating glass header: the owner's
+ * EXACT §38.1 values verbatim — position: fixed; top: 24px, left/right 0 +
+ * margin-inline auto, width 90% max-width 1200px, border-radius
+ * var(--radius-md) (20px) at every width, background rgba(18, 15, 28, 0.35),
+ * backdrop-filter blur(18px) saturate(180%) (both prefixes), the FULL 1px
+ * rgba(255, 255, 255, 0.2) border + the inset white highlight, the
+ * no-backdrop fallback rgba(18, 15, 28, 0.85); the nav is FOUR smooth-
+ * scroll anchors (HOW IT WORKS → #how-it-works, PRIVACY → #privacy,
+ * USE CASES → #use-cases, JOIN → #join; the #tutorial/#agents links are
+ * gone, #agents stays as an id with no nav link), scroll-margin-top
+ * 100px + CSS smooth scroll under prefers-reduced-motion: no-preference;
+ * (2) §4.26.B the banner glass + [ LIVE NETWORK // IRL ] sub-badge + the
+ * pulsing status dot; (3) §4.26.C the step cards glass + hover glow/lift
+ * + mini-illustrations + micro-pills; (4) §4.26.D the footer glass pill;
+ * (5) §4.26.E–I the FOUR new sections (sim / privacy / use-cases / join)
+ * with the shared glass recipe + the mailto GET EARLY ACCESS stub;
+ * (6) §4.26.J the §37 open-state rule STAYS: first viewport = lead +
+ * BLEAK only. Still in force: the fixed video layer stack, the
+ * keep-list, BLEAK/БЛИК, routes, Start/TALK → /income (6-digit), RU/EN
+ * parity (58 keys), removed blocks stay removed, deep links. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -76,8 +72,7 @@ function source(relativePath: string): string {
   return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
 }
 
-/** The 23 §4.20.M + §4.21.H + §4.22.H + §4.23.F keys (as reduced by the
- * §4.22.1 chat-strip retirement and the §4.23.C dialog/video removal) —
+/** The 23 §4.20.M keys (unchanged) + the 35 §4.26.L keys — 58 total,
  * every landing string, RU/EN parity. */
 const LANDING_KEYS = [
   'landing.headline.1',
@@ -102,7 +97,43 @@ const LANDING_KEYS = [
   'landing.steps.share.desc',
   'landing.footer.contact.email.label',
   'landing.footer.contact.github.label',
-  'landing.footer.copyright'
+  'landing.footer.copyright',
+  // §4.26.L — the 35 new keys
+  'landing.nav.how',
+  'landing.nav.privacy',
+  'landing.nav.usecases',
+  'landing.nav.join',
+  'landing.banner.badge',
+  'landing.banner.status',
+  'landing.steps.find.pill',
+  'landing.steps.chat.pill',
+  'landing.steps.share.pill',
+  'landing.sim.title',
+  'landing.sim.you',
+  'landing.sim.you.status',
+  'landing.sim.nearby',
+  'landing.sim.nearby.status',
+  'landing.sim.who1',
+  'landing.sim.who2',
+  'landing.sim.msg1',
+  'landing.sim.msg2',
+  'landing.sim.badge',
+  'landing.privacy.title',
+  'landing.privacy.ghost.title',
+  'landing.privacy.ghost.desc',
+  'landing.privacy.mutual.title',
+  'landing.privacy.mutual.desc',
+  'landing.privacy.gps.title',
+  'landing.privacy.gps.desc',
+  'landing.usecases.title',
+  'landing.usecases.conferences',
+  'landing.usecases.parties',
+  'landing.usecases.coworkings',
+  'landing.usecases.festivals',
+  'landing.join.title',
+  'landing.join.headline',
+  'landing.join.input.placeholder',
+  'landing.join.button'
 ] as const;
 
 /** The keys the §4.21.H + §4.22.H amendments kill, plus the §4.22.1
@@ -136,6 +167,7 @@ const LANDING_SOURCES = [
   'src/lib/components/landing/LandingVideoHero.svelte',
   'src/lib/components/landing/LandingFigure.svelte',
   'src/lib/components/landing/figures.ts',
+  'src/lib/components/landing/sectionArt.ts',
   'src/lib/components/personage/bleakFigure.ts'
 ];
 
@@ -152,8 +184,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('/ — the §4.25.C liquid-glass header (icon + nav + switcher ONLY)', () => {
-  it('renders exactly: the plate-less web icon (cutouts in --color-landing-bg), the two in-page anchors (desktop-only) and the LocaleControl — the keep-list is UNCHANGED (§4.22.A verbatim)', () => {
+describe('/ — the §4.26.A detached floating glass header (icon + nav + switcher ONLY)', () => {
+  it('renders exactly: the plate-less web icon (cutouts in --color-landing-bg), the FOUR smooth-scroll anchors (desktop-only) and the LocaleControl — the keep-list is UNCHANGED (§4.22.A verbatim)', () => {
     const { container } = render(LandingPage, { props: {} });
     const top = container.querySelector('header.top');
     expect(top).toBeTruthy();
@@ -166,12 +198,34 @@ describe('/ — the §4.25.C liquid-glass header (icon + nav + switcher ONLY)', 
     // no background plate; the cutout cells are the landing page token
     expect(css).toMatch(/\.app-icon\s*\{[^}]*flex:\s*none/);
     expect(icon?.querySelector('g[fill="var(--color-landing-bg)"]')).toBeTruthy();
-    // the two anchors, names reusing the §4.20.M keys (no new nav keys)
+    // the four smooth-scroll anchors, in the §4.26.A DOM order, with
+    // existing targets (§4.26.K.3: the #tutorial/#agents links are gone)
     const nav = top?.querySelector('.top-nav');
     const links = [...(nav?.querySelectorAll('a') ?? [])];
-    expect(links.map((a) => a.getAttribute('href'))).toEqual(['#tutorial', '#agents']);
-    expect(nav?.textContent).toContain(ru['landing.tutorial.search']);
-    expect(nav?.textContent).toContain(ru['landing.agent.name']);
+    expect(links.map((a) => a.getAttribute('href'))).toEqual([
+      '#how-it-works',
+      '#privacy',
+      '#use-cases',
+      '#join'
+    ]);
+    expect(nav?.textContent).toContain(ru['landing.nav.how']);
+    expect(nav?.textContent).toContain(ru['landing.nav.privacy']);
+    expect(nav?.textContent).toContain(ru['landing.nav.usecases']);
+    expect(nav?.textContent).toContain(ru['landing.nav.join']);
+    // verbatim EN labels
+    expect(en['landing.nav.how']).toBe('HOW IT WORKS');
+    expect(en['landing.nav.privacy']).toBe('PRIVACY');
+    expect(en['landing.nav.usecases']).toBe('USE CASES');
+    expect(en['landing.nav.join']).toBe('JOIN');
+    // every anchor target exists in the DOM and no dead link remains
+    for (const id of ['how-it-works', 'privacy', 'use-cases', 'join']) {
+      expect(container.querySelector(`#${id}`)).toBeTruthy();
+    }
+    expect(container.querySelector('#tutorial')).toBeNull();
+    expect(links.map((a) => a.getAttribute('href'))).not.toContain('#tutorial');
+    expect(links.map((a) => a.getAttribute('href'))).not.toContain('#agents');
+    // #agents remains as an id (the BLEAK card section) — no nav link to it
+    expect(container.querySelector('#agents')).toBeTruthy();
     // desktop-only anchors (≥720px); the switcher is always there
     expect(css).toMatch(/\.top-nav\s*\{[^}]*display:\s*none/);
     expect(css).toMatch(/@media \(min-width: 720px\)[\s\S]*\.top-nav\s*\{[^}]*display:\s*flex/);
@@ -181,35 +235,36 @@ describe('/ — the §4.25.C liquid-glass header (icon + nav + switcher ONLY)', 
     expect(container.querySelector('header.top .start-link')).toBeNull();
   });
 
-  it('the header is FIXED at the page top (§4.25.C): position: fixed; top: 0 — out of the content flow (the video scrolls directly underneath), z-index 10, sized directly against the viewport: width max(80%, 280px) + margin-inline auto with left/right 0 — pixel-identical to .landing\'s width; the §4.24.A container breakout RETIRES (§4.25.D.4)', () => {
+  it('the header is FIXED, DETACHED from the top edge (§4.26.A): position: fixed; top: 24px — out of the content flow (the video scrolls through the 24px gap above it and directly underneath), z-index 10, sized against the viewport: width 90% + max-width 1200px + margin-inline auto with left/right 0 (deliberately WIDER than the 80% content column, §4.26.O.5 — do not "harmonize")', () => {
     const css = source('src/routes/+page.svelte');
     expect(css).toMatch(/\.top\s*\{[^}]*position:\s*fixed/);
-    expect(css).toMatch(/\.top\s*\{[^}]*top:\s*0/);
+    expect(css).toMatch(/\.top\s*\{[^}]*top:\s*24px/);
     // NOT sticky — the sticky position retires (§4.25.D.5)
     expect(css).not.toMatch(/\.top\s*\{[^}]*position:\s*sticky/);
     expect(css).toMatch(/\.top\s*\{[^}]*z-index:\s*10/);
-    // the viewport-relative width rule — the same expression as .landing's
-    expect(css).toMatch(/\.top\s*\{[^}]*width:\s*max\(80%, 280px\)/);
+    // the owner's §38 width: 90% capped at 1200px, centered
+    expect(css).toMatch(/\.top\s*\{[^}]*width:\s*90%/);
+    expect(css).toMatch(/\.top\s*\{[^}]*max-width:\s*1200px/);
     expect(css).toMatch(/\.top\s*\{[^}]*margin-inline:\s*auto/);
     expect(css).toMatch(/\.top\s*\{[^}]*left:\s*0/);
     expect(css).toMatch(/\.top\s*\{[^}]*right:\s*0/);
-    // the breakout math is GONE (width = container + 2 × padding + negative
-    // margins — invalid for a fixed element whose containing block is the
-    // viewport)
-    expect(css).not.toMatch(/calc\(100% \+ 2 \* var\(--space-5\)\)/);
-    expect(css).not.toMatch(/calc\(100% \+ 2 \* var\(--space-7\)\)/);
-    expect(css).not.toMatch(/margin-inline:\s*calc\(-1 \* var\(--space-5\)\)/);
-    expect(css).not.toMatch(/margin-inline:\s*calc\(-1 \* var\(--space-7\)\)/);
-    // no vw units anywhere in the header geometry
+    // the §4.25.C header width expression is SUPERSEDED (§4.26.K.2)...
     const topRule = css.match(/\.top\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(topRule).not.toMatch(/max\(80%, 280px\)/);
+    // ...while the CONTENT container rule stands (§4.24.A unchanged)
+    expect(css).toMatch(/\.landing\s*\{[^}]*width:\s*max\(80%, 280px\)/);
+    // no vw units anywhere in the header geometry
     expect(topRule).not.toMatch(/vw/);
-    // the retired inset chip
-    expect(css).not.toMatch(/min\(100% - 24px, calc\(1000px - 48px\)\)/);
-    // desktop row height + padding (§4.23.B) — the smaller phone chip below
+    // desktop row height + padding (§4.23.B) — unchanged inner chrome
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.top\s*\{[^}]*min-height:\s*56px[^}]*padding:\s*10px 16px/);
     expect(css).toMatch(/\.top\s*\{[^}]*min-height:\s*52px[^}]*padding:\s*8px 10px/);
-    // anchored sections never hide under the fixed panel
-    expect(css).toMatch(/scroll-margin-top:\s*80px/);
+    // §4.26.A anchor plumbing: every target clears the detached header
+    expect(css).toMatch(/scroll-margin-top:\s*100px/);
+    // smooth scroll via CSS, scoped under no-preference (the default auto
+    // IS the reduced-motion fallback)
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: no-preference\)\s*\{[\s\S]*?scroll-behavior:\s*smooth/
+    );
     // the header is OUT of the flow — .landing's first in-flow child is
     // main.canvas (§4.25.G AC 9)
     const page = source('src/routes/+page.svelte');
@@ -218,49 +273,55 @@ describe('/ — the §4.25.C liquid-glass header (icon + nav + switcher ONLY)', 
     expect(mainIdx).toBeGreaterThan(headerIdx);
   });
 
-  it('the TRUE liquid-glass header (§4.25.C — the owner\'s EXACT values, verbatim): background rgba(20, 20, 30, 0.25), backdrop-filter blur(16px) saturate(180%) (+ -webkit-), glossy 1px rgba(255, 255, 255, 0.15) top/bottom borders with side borders NONE, the soft inset inner highlight, rounded corners radius-lg desktop / radius-md phone chip — the two-tier fill retires; the no-backdrop-filter fallback is rgba(20, 20, 30, 0.85)', () => {
+  it('the liquid-glass header (§4.26.A — the owner\'s EXACT §38.1 values, verbatim): background rgba(18, 15, 28, 0.35), backdrop-filter blur(18px) saturate(180%) (+ -webkit-), the FULL glossy 1px rgba(255, 255, 255, 0.2) border (all four sides), the inset white highlight, radius-md (20px) at every width — the §4.25.C values are superseded (§4.26.K.1); the no-backdrop-filter fallback is rgba(18, 15, 28, 0.85)', () => {
     const css = source('src/routes/+page.svelte');
     // the owner's low-opacity dark tint (the sanctioned raw-literal
-    // exception, §4.25.D.7 — the raw-hex guard cannot match rgba(…))
-    expect(css).toMatch(/\.top\s*\{[^}]*background:\s*rgba\(20, 20, 30, 0\.25\)/);
+    // family, §4.26.K.8 — the raw-hex guard cannot match rgba(…))
+    expect(css).toMatch(/\.top\s*\{[^}]*background:\s*rgba\(18, 15, 28, 0\.35\)/);
     // the strong frosted blur — both prefixes (comment-stripped: the count
     // assertion sees the declarations only)
     const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    expect(stripped).toMatch(/-webkit-backdrop-filter:\s*blur\(16px\) saturate\(180%\)/);
-    expect(stripped).toMatch(/backdrop-filter:\s*blur\(16px\) saturate\(180%\)/);
-    // exactly one backdrop-filter declaration pair on the page — no other
-    // landing rule overrides it on .top (the negative assertion)
-    expect(stripped.match(/backdrop-filter:\s*blur\(16px\)/g)).toHaveLength(2);
-    // the glossy 1px semi-transparent WHITE top/bottom borders
-    expect(css).toMatch(/\.top\s*\{[^}]*border-top:\s*1px solid rgba\(255, 255, 255, 0\.15\)/);
-    expect(css).toMatch(/\.top\s*\{[^}]*border-bottom:\s*1px solid rgba\(255, 255, 255, 0\.15\)/);
+    expect(stripped).toMatch(/-webkit-backdrop-filter:\s*blur\(18px\) saturate\(180%\)/);
+    expect(stripped).toMatch(/backdrop-filter:\s*blur\(18px\) saturate\(180%\)/);
+    // exactly one blur(18px) saturate(180%) pair — the header only
+    expect(stripped.match(/backdrop-filter:\s*blur\(18px\) saturate\(180%\)/g)).toHaveLength(2);
+    // the glossy 1px semi-transparent WHITE border on all four sides —
+    // the §4.25.C top/bottom-only rule is GONE
+    expect(css).toMatch(/\.top\s*\{[^}]*border:\s*1px solid rgba\(255, 255, 255, 0\.2\)/);
     const topRule = css.match(/\.top\s*\{[^}]*\}/)?.[0] ?? '';
-    // side borders NONE — no full-border shorthand, no left/right borders
-    expect(topRule).not.toMatch(/border:\s*1px/);
-    expect(topRule).not.toMatch(/border-left|border-right/);
-    // the soft INNER highlight — the liquid-glass edge
-    expect(css).toMatch(/\.top\s*\{[^}]*box-shadow:\s*inset 0 1px 0 rgba\(255, 255, 255, 0\.15\)/);
-    // the two-tier color-mix recipe is DELETED (§4.25.D.3): no 92%/88%
-    // tiers, no tier-2 @supports block, no violet Deepa hairline
-    expect(css).not.toMatch(/color-mix\(in srgb, var\(--color-landing-bg\) 92%, transparent\)/);
-    expect(css).not.toMatch(/color-mix\(in srgb, var\(--color-landing-bg\) 88%, transparent\)/);
-    expect(css).not.toMatch(/@supports \(backdrop-filter: blur\(1px\)\) or/);
-    expect(css).not.toMatch(/border:\s*1px solid color-mix\(in srgb, var\(--color-deepa-4\) 22%, transparent\)/);
-    // the no-backdrop-filter fallback re-specced: a single 0.85 tint
+    expect(topRule).not.toMatch(/border-top|border-bottom/);
+    // the INNER highlight — the liquid-glass edge
+    expect(css).toMatch(/\.top\s*\{[^}]*box-shadow:\s*inset 0 1px 1px rgba\(255, 255, 255, 0\.35\)/);
+    // the §4.25.C exact values are superseded — none of them remain
+    expect(css).not.toMatch(/rgba\(20, 20, 30, 0\.25\)/);
+    expect(css).not.toMatch(/rgba\(20, 20, 30, 0\.85\)/);
+    expect(css).not.toMatch(/border-top:\s*1px solid rgba\(255, 255, 255, 0\.15\)/);
+    expect(css).not.toMatch(/box-shadow:\s*inset 0 1px 0 rgba\(255, 255, 255, 0\.15\)/);
+    // the no-backdrop-filter fallback re-pointed to the new tint
     expect(css).toMatch(
-      /@supports not \(\(backdrop-filter: blur\(1px\)\) or \(-webkit-backdrop-filter: blur\(1px\)\)\)\s*\{[\s\S]{0,120}?\.top\s*\{[^}]*background:\s*rgba\(20, 20, 30, 0\.85\)/
+      /@supports not \(\(backdrop-filter: blur\(1px\)\) or \(-webkit-backdrop-filter: blur\(1px\)\)\)\s*\{[\s\S]{0,120}?\.top\s*\{[^}]*background:\s*rgba\(18, 15, 28, 0\.85\)/
     );
-    // rounded corners — radius-lg (24px) desktop / radius-md (20px) phone
-    // chip, tokens only (rounding KEPT, §4.25.C)
-    expect(css).toMatch(/\.top\s*\{[^}]*border-radius:\s*var\(--radius-lg\)/);
-    expect(css).toMatch(/@media \(max-width: 719\.98px\)\s*\{[\s\S]*?\.top\s*\{[^}]*border-radius:\s*var\(--radius-md\)/);
-    // scoped: the pixel-frame cards/steps/footer keep the square/stepped
-    // corner treatment — their rules set no border-radius
-    for (const rule of ['.step-body', '.foot-body']) {
-      const block = css.match(new RegExp(`${rule}\\s*\\{[^}]*\\}`))?.[0] ?? '';
-      expect(block, `${rule} must stay square (the pixel aesthetic)`).not.toMatch(/border-radius/);
+    // rounded corners — radius-md (the owner's 20px) at EVERY width; the
+    // phone chip rule is DELETED (§4.26.A)
+    expect(css).toMatch(/\.top\s*\{[^}]*border-radius:\s*var\(--radius-md\)/);
+    expect(css).not.toMatch(/\.top\s*\{[^}]*border-radius:\s*var\(--radius-lg\)/);
+    expect(css).not.toMatch(
+      /@media \(max-width: 719\.98px\)\s*\{[\s\S]*?\.top\s*\{[^}]*border-radius/
+    );
+    // scoped: the pixel-frame surfaces keep the square/stepped corner
+    // treatment (their rules set no border-radius); the glass surfaces
+    // (footer + the four sections) carry the rounded family (§4.26.K.7)
+    const stepBlock = css.match(/\.step-body\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(stepBlock, '.step-body must stay square (the pixel aesthetic)').not.toMatch(
+      /border-radius/
+    );
+    for (const rule of ['.foot-body', '.join-card']) {
+      const block = css.match(new RegExp(`${rule}\\s*\\{[\\s\\S]*?\\}\\n`))?.[0] ?? '';
+      expect(block, `${rule} is a glass surface (rounded, §4.26.K.7)`).toMatch(
+        /border-radius:\s*var\(--radius-md\)/
+      );
     }
-    // the .glass class stays retired (§4.24.F.3)
+    // the .glass class stays retired (§4.24.F.3 / §4.26.K.8)
     expect(css).not.toMatch(/\.glass/);
     // and the pixel-frame construction is still in the markup for the
     // card surfaces (§4.25.D.2: the lead is the ONLY transparent surface)
@@ -474,15 +535,33 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     expect(heroClasses.some((c) => c.includes('area-stat'))).toBe(false);
     expect(heroClasses.some((c) => c.includes('area-tutorial'))).toBe(false);
     expect(heroClasses.some((c) => c.includes('area-foot'))).toBe(false);
-    // everything else renders after the hero region — the stat card, the
-    // three step blocks and the contact footer (below the fold)
+    // everything else renders after the hero region — the banner, the
+    // three step blocks, the FOUR new sections and the contact footer
+    // (below the fold; the §4.26.E DOM order sim → privacy → use-cases
+    // → join after the steps, before the footer)
     const afterHero = canvas?.textContent ?? '';
     expect(afterHero).toContain(ru['landing.stat.title']);
     expect(afterHero).toContain(ru['landing.tutorial.search']);
+    expect(afterHero).toContain(ru['landing.sim.title']);
+    expect(afterHero).toContain(ru['landing.privacy.title']);
+    expect(afterHero).toContain(ru['landing.usecases.title']);
+    expect(afterHero).toContain(ru['landing.join.title']);
     expect(afterHero).toContain(ru['landing.footer.contact.email.label']);
     expect(canvas?.querySelector('.stage ~ .area-stat')).toBeTruthy();
     expect(canvas?.querySelector('.stage ~ .area-tutorial')).toBeTruthy();
+    expect(canvas?.querySelector('.stage ~ #sim')).toBeTruthy();
+    expect(canvas?.querySelector('.stage ~ #privacy')).toBeTruthy();
+    expect(canvas?.querySelector('.stage ~ #use-cases')).toBeTruthy();
+    expect(canvas?.querySelector('.stage ~ #join')).toBeTruthy();
     expect(canvas?.querySelector('.stage ~ footer.contact')).toBeTruthy();
+    // §4.26.E AC 13: the strict DOM order — steps → sim → privacy →
+    // use-cases → join → footer
+    const order = ['.area-tutorial', '#sim', '#privacy', '#use-cases', '#join', 'footer.contact'];
+    const positions = order.map((sel) => {
+      const el = canvas?.querySelector(sel);
+      return [...(canvas?.children ?? [])].indexOf(el ?? canvas!);
+    });
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
   it('desktop ≥720px: .stage is the 100dvh HERO REGION — the THIRDS grid (§4.24.D) with align-content: center + align-items: center (§4.25.A supersedes §4.24.D\'s align-items: start, §4.25.D.6): lead column 1, the BLEAK agent card column 3, the MIDDLE THIRD EMPTY; the minmax(0,1fr) 360px row and the 360px cap stay retired (§4.24.F.5)', () => {
@@ -514,7 +593,10 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     // base canvas + stage = one column (flex); the DOM order IS the mobile order
     expect(css).toMatch(/\.canvas\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/);
     expect(css).toMatch(/\.stage\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/);
-    const order = ['area-lead', 'area-agents', 'area-stat', 'area-tutorial', 'area-foot'];
+    const order = [
+      'area-lead', 'area-agents', 'area-stat', 'area-tutorial',
+      'area-sim', 'area-privacy', 'area-usecases', 'area-join', 'area-foot'
+    ];
     const positions = order.map((name) => css.indexOf(name, css.indexOf('<main')));
     expect(positions.every((p) => p > 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
@@ -749,19 +831,24 @@ describe('/ — the §4.22.D BLEAK rename + the §4.22.G supersessions', () => {
     }
   });
 
-  it('the landing cast: two DISTINCT figures — BLEAK (card only), BLOOM (stat only) — no figure appears twice (§4.22.I as reduced by §4.22.1)', () => {
+  it('the landing cast: BLEAK (agent card + the sim YOUR AGENT, §4.26.F reuse), BLOOM (stat only), SCOUT (sim only), BLEAK WAVE (join only) — the new figures render, the retired ones stay gone', () => {
     const { container } = render(LandingPage, { props: {} });
     const kinds = [...container.querySelectorAll('[data-figure]')].map(
       (el) => el.getAttribute('data-figure')
     );
-    for (const kind of ['bleak', 'bloom']) {
+    for (const kind of ['bleak', 'bloom', 'scout', 'bleakWave']) {
       expect(kinds, `${kind} on the page`).toContain(kind);
     }
     for (const kind of ['byte', 'nova', 'astra', 'pip', 'glitch']) {
       expect(kinds).not.toContain(kind);
     }
-    // each region carries its own figure — one node per figure on the page
-    for (const kind of ['bleak', 'bloom']) {
+    // §4.26.F: the sim reuses the BLEAK personage (the agent card + the
+    // sim's YOUR AGENT = the only allowed double mount); BLOOM, SCOUT and
+    // BLEAK WAVE mount exactly once, in their own regions
+    expect(container.querySelectorAll('[data-figure="bleak"]')).toHaveLength(2);
+    expect(container.querySelectorAll('.agent-card [data-figure="bleak"]')).toHaveLength(1);
+    expect(container.querySelectorAll('.sim-card [data-figure="bleak"]')).toHaveLength(1);
+    for (const kind of ['bloom', 'scout', 'bleakWave']) {
       expect(container.querySelectorAll(`[data-figure="${kind}"]`)).toHaveLength(1);
     }
     expect(container.querySelectorAll('.agent-card [data-figure="bloom"]')).toHaveLength(0);
@@ -791,7 +878,12 @@ describe('/ — the §4.22.F black page background (scoped to /)', () => {
     }
     const page = source('src/routes/+page.svelte');
     expect(page).toMatch(/var\(--color-deepa-4\)/);
-    expect(page).not.toMatch(/--color-accent/);
+    // §4.26.I-3: the §4.25.G negative --color-accent assertion is
+    // SUPERSEDED — the GET EARLY ACCESS neon-yellow button is exactly the
+    // §4.1 interactive-accent use (--color-accent bg + --color-accent-ink
+    // text; §4.26.O.3)
+    expect(page).toMatch(/\.cta-access\s*\{[^}]*background:\s*var\(--color-accent\)/);
+    expect(page).toMatch(/\.cta-access\s*\{[^}]*color:\s*var\(--color-accent-ink\)/);
   });
 
   it('no new dependencies, no canvas element, no animation library', () => {
@@ -871,9 +963,9 @@ describe('/ — the §4.20 unchanged zones (headline, cards, steps, footer) as r
     expect(hero).toMatch(/@media \(prefers-reduced-motion/);
   });
 
-  it('three separate step blocks, each with the pixel step number, the pixel-font title, the step icon and a mini description (§4.21.E intact)', () => {
+  it('three separate step blocks, each with the pixel step number, the pixel-font title, the step icon and a mini description (§4.21.E intact; the section id is now how-it-works, §4.26.K.3)', () => {
     const { container } = render(LandingPage, { props: {} });
-    const blocks = [...container.querySelectorAll('#tutorial .step-block')];
+    const blocks = [...container.querySelectorAll('#how-it-works .step-block')];
     expect(blocks).toHaveLength(3);
     expect(blocks.map((b) => b.querySelector('.step-num')?.textContent)).toEqual([
       '01', '02', '03'
@@ -893,8 +985,8 @@ describe('/ — the §4.20 unchanged zones (headline, cards, steps, footer) as r
       ru['landing.steps.chat.desc'],
       ru['landing.steps.share.desc']
     ]);
-    expect(container.querySelectorAll('#tutorial button, #tutorial a')).toHaveLength(0);
-    expect(container.querySelectorAll('#tutorial .chevron')).toHaveLength(0);
+    expect(container.querySelectorAll('#how-it-works button, #how-it-works a')).toHaveLength(0);
+    expect(container.querySelectorAll('#how-it-works .chevron')).toHaveLength(0);
   });
 
   it('steps layout: phone stacked (--space-5 gaps) / desktop equal thirds (~300px min-height) — §4.21.E intact', () => {
@@ -905,11 +997,15 @@ describe('/ — the §4.20 unchanged zones (headline, cards, steps, footer) as r
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.step-block \.step-body\s*\{[^}]*min-height:\s*300px/);
   });
 
-  it('renders ONE site contact block: the kept copyright row + EMAIL/GITHUB links (§4.21.G intact)', () => {
+  it('renders ONE site contact block: the kept copyright row + EMAIL/GITHUB links, resurfaced as the dark glass pill (§4.26.D — the pixel-frame construction retired from it)', () => {
     const { container } = render(LandingPage, { props: {} });
     const contact = container.querySelector('.contact');
     expect(contact?.tagName).toBe('FOOTER');
-    expect(contact?.className).toContain('pixel-frame--strong');
+    // §4.26.D/§4.26.K.6: the pixel-corners/pixel-frame classes are retired
+    // from the footer — it is now a glass pill
+    expect(contact?.className).not.toContain('pixel-corners');
+    expect(contact?.className).not.toContain('pixel-frame');
+    expect(contact?.querySelector('.foot-body.pixel-corners')).toBeNull();
     expect(contact?.querySelector('.brand-name')?.textContent).toBe('bleak-web');
     expect(contact?.querySelector('.foot-year')?.textContent).toBe('· 2026');
     const links = [...(contact?.querySelectorAll('a.foot-link') ?? [])];
@@ -934,6 +1030,16 @@ describe('/ — the §4.20 unchanged zones (headline, cards, steps, footer) as r
     expect(css).toMatch(/\.contact\s*\{[^}]*max-width:\s*560px/);
     expect(css).toMatch(/\.contact\s*\{[^}]*margin:\s*0 auto/);
     expect(css).toMatch(/\.foot-body\s*\{[^}]*padding:\s*16px 20px/);
+    // the §4.26.D glass pill: the owner's exact value + blur(14px) (both
+    // prefixes) + the white border + the inset highlight + radius-md
+    expect(css).toMatch(/\.foot-body\s*\{[^}]*background:\s*rgba\(18, 15, 28, 0\.5\)/);
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(stripped).toMatch(/-webkit-backdrop-filter:\s*blur\(14px\)/);
+    expect(stripped).toMatch(/backdrop-filter:\s*blur\(14px\)/);
+    expect(stripped.match(/backdrop-filter:\s*blur\(14px\)/g)).toHaveLength(2);
+    expect(css).toMatch(/\.foot-body\s*\{[^}]*border:\s*1px solid rgba\(255, 255, 255, 0\.2\)/);
+    expect(css).toMatch(/\.foot-body\s*\{[^}]*box-shadow:\s*inset 0 1px 1px rgba\(255, 255, 255, 0\.35\)/);
+    expect(css).toMatch(/\.foot-body\s*\{[^}]*border-radius:\s*var\(--radius-md\)/);
   });
 
   it('the two §4.20.I footer blocks are ABSENT — no DOM node, no rendered copy', () => {
@@ -988,9 +1094,9 @@ describe('/ — behavior (§4.20.L; §4.22.A made the entry points exact)', () =
   });
 });
 
-describe('/ — RU/EN parity (the 23 §4.20.M+§4.21.H+§4.22.H+§4.23.F keys, the working switch)', () => {
+describe('/ — RU/EN parity (the 58 §4.20.M + §4.26.L keys, the working switch)', () => {
   it('every landing key exists in BOTH dictionaries, non-empty — and the dead keys exist in NEITHER', () => {
-    expect(LANDING_KEYS).toHaveLength(23);
+    expect(LANDING_KEYS).toHaveLength(58);
     for (const key of LANDING_KEYS) {
       expect(ru, `ru missing ${key}`).toHaveProperty(key);
       expect(en, `en missing ${key}`).toHaveProperty(key);
@@ -1068,6 +1174,387 @@ describe('/ — deep links forward to the entry page (tz12-02, unchanged)', () =
     await tick();
     await tick();
     expect(goto).not.toHaveBeenCalled();
+  });
+});
+
+describe('/ — §4.26.B the banner: REAL PEOPLE. REAL RESULTS. becomes liquid glass', () => {
+  it('the stat card body is glass IN PLACE (AC 5): rgba(20, 18, 30, 0.55) + blur(12px) (both prefixes); the pixel-corners/pixel-frame construction is KEPT; the compact padding/typography and the stat copy are unchanged', () => {
+    const { container } = render(LandingPage, { props: {} });
+    const stat = container.querySelector('.stat-card');
+    expect(stat?.className).toContain('pixel-corners');
+    expect(stat?.className).toContain('pixel-frame');
+    expect(stat?.className).toContain('pixel-frame--strong');
+    expect(stat?.querySelector('.stat-body.pixel-corners')).toBeTruthy();
+    expect(stat?.querySelector('.stat-title')?.textContent).toBe(ru['landing.stat.title']);
+    const css = source('src/routes/+page.svelte');
+    const statBody = css.match(/\.stat-body\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(statBody).toMatch(/background:\s*rgba\(20, 18, 30, 0\.55\)/);
+    expect(statBody).toMatch(/padding:\s*12px 14px/);
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(stripped).toMatch(/-webkit-backdrop-filter:\s*blur\(12px\)/);
+    expect(stripped).toMatch(/backdrop-filter:\s*blur\(12px\)/);
+    // the §4.25 opaque fill is superseded — no --color-surface on .stat-body
+    expect(statBody).not.toMatch(/var\(--color-surface\)/);
+  });
+
+  it('the pixel sub-badge [ LIVE NETWORK // IRL ] renders ABOVE the title (AC 6): a pixel-badge chip — the outer span\'s background IS the deepa-4 frame at 60%, an inner transparent span carries the text (Handjet 11px uppercase, letter-spacing 0.08em)', async () => {
+    const { container } = render(LandingPage, { props: {} });
+    const copy = container.querySelector('.stat-copy');
+    const badge = copy?.querySelector('.stat-badge');
+    expect(badge).toBeTruthy();
+    // the badge is the FIRST .stat-copy child, above the title
+    expect(copy?.firstElementChild?.className).toContain('stat-badge');
+    expect(badge?.nextElementSibling?.className).toContain('stat-title');
+    expect(badge?.textContent?.trim()).toBe(ru['landing.banner.badge']);
+    expect(badge?.className).toContain('pixel-corners');
+    expect(badge?.querySelector(':scope > span.pixel-corners')).toBeTruthy();
+    const ruBadge = ru['landing.banner.badge'];
+    expect(ruBadge).toBe('[ ЖИВАЯ СЕТЬ // IRL ]');
+    expect(en['landing.banner.badge']).toBe('[ LIVE NETWORK // IRL ]');
+    const css = source('src/routes/+page.svelte');
+    const badgeCss = css.match(/\.stat-badge\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(badgeCss).toMatch(
+      /background:\s*color-mix\(in srgb, var\(--color-deepa-4\) 60%, transparent\)/
+    );
+    expect(badgeCss).toMatch(/padding:\s*2px/);
+    expect(badgeCss).toMatch(/margin:\s*0 0 var\(--space-2\)/);
+    const inner = css.match(/\.stat-badge > span\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(inner).toMatch(/font-size:\s*11px/);
+    expect(inner).toMatch(/letter-spacing:\s*0\.08em/);
+    expect(inner).toMatch(/text-transform:\s*uppercase/);
+  });
+
+  it('the glowing status caption + pulsing green pixel dot render on the right, next to the BLOOM glyph (AC 7): a square 6px deepa-1 dot pulsing steps(2) 1.6s (opacity 1↔0.4, green glow), the caption in Handjet 11px uppercase with the green glow; reduced motion → static (the base.css catch-all); the dot is aria-hidden', () => {
+    const { container } = render(LandingPage, { props: {} });
+    const glyph = container.querySelector('.stat-glyph');
+    expect(glyph?.querySelector('[data-figure="bloom"]')).toBeTruthy();
+    const status = glyph?.querySelector('.stat-status');
+    expect(status?.textContent?.trim()).toBe(ru['landing.banner.status']);
+    expect(en['landing.banner.status']).toBe('AI Agents active nearby');
+    expect(ru['landing.banner.status']).toBe('Рядом активны ИИ-агенты');
+    const dot = status?.querySelector('.status-dot');
+    expect(dot?.getAttribute('aria-hidden')).toBe('true');
+    const css = source('src/routes/+page.svelte');
+    expect(css).toMatch(/\.status-dot\s*\{[^}]*width:\s*6px[^}]*height:\s*6px/);
+    expect(css).toMatch(/\.status-dot\s*\{[^}]*background:\s*var\(--color-deepa-1\)/);
+    expect(css).toMatch(
+      /\.status-dot\s*\{[^}]*animation:\s*status-pulse 1\.6s steps\(2\) infinite alternate/
+    );
+    expect(css).toMatch(
+      /@keyframes status-pulse\s*\{[\s\S]*?from\s*\{[^}]*opacity:\s*1[\s\S]*?to\s*\{[^}]*opacity:\s*0\.4/
+    );
+    expect(css).toMatch(/\.stat-status\s*\{[^}]*font-size:\s*11px/);
+    expect(css).toMatch(
+      /\.stat-status\s*\{[^}]*text-shadow:\s*0 0 8px color-mix\(in srgb, var\(--color-deepa-1\) 45%, transparent\)/
+    );
+  });
+});
+
+describe('/ — §4.26.C the step cards: glass fill + hover glow/lift + illustrations + micro-pills', () => {
+  it('each step body is glass (AC 8): rgba(15, 14, 22, 0.65) + blur(10px) (both prefixes); .step-body still sets NO border-radius (the pixel frame stays square/stepped over the glass)', () => {
+    const { container } = render(LandingPage, { props: {} });
+    for (const block of container.querySelectorAll('.step-block')) {
+      expect(block.className).toContain('pixel-corners');
+      expect(block.className).toContain('pixel-frame--strong');
+      expect(block.querySelector('.step-body.pixel-corners')).toBeTruthy();
+    }
+    const css = source('src/routes/+page.svelte');
+    const stepBody = css.match(/\.step-body\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(stepBody).toMatch(/background:\s*rgba\(15, 14, 22, 0\.65\)/);
+    expect(stepBody).not.toMatch(/border-radius/);
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(stripped).toMatch(/-webkit-backdrop-filter:\s*blur\(10px\)/);
+    expect(stripped).toMatch(/backdrop-filter:\s*blur\(10px\)/);
+    expect(stripped.match(/backdrop-filter:\s*blur\(10px\)/g)).toHaveLength(2);
+  });
+
+  it('hover = purple outer glow + slight lift (AC 9): translateY(-4px) + the double drop-shadow over a 160ms ease-out transition; reduced motion → the lift is suppressed (transform: none), no press/click state exists', () => {
+    const css = source('src/routes/+page.svelte');
+    expect(css).toMatch(/\.step-block\s*\{[^}]*transition:\s*transform 160ms ease-out, filter 160ms ease-out/);
+    expect(css).toMatch(/\.step-block:hover\s*\{[^}]*transform:\s*translateY\(-4px\)/);
+    expect(css).toMatch(
+      /\.step-block:hover\s*\{[\s\S]*?drop-shadow\(0 0 12px color-mix\(in srgb, var\(--color-deepa-4\) 45%, transparent\)\)[\s\S]*?drop-shadow\(0 0 36px color-mix\(in srgb, var\(--color-deepa-4\) 20%, transparent\)\)/
+    );
+    const reduced = css.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\s{2}\}/g)?.join('\n') ?? '';
+    expect(reduced).toMatch(/\.step-block\s*\{[^}]*transition-duration:\s*0s/);
+    expect(reduced).toMatch(/\.step-block:hover\s*\{[^}]*transform:\s*none/);
+    // the blocks still navigate nowhere — no buttons, no links
+    const { container } = render(LandingPage, { props: {} });
+    expect(container.querySelectorAll('#how-it-works button, #how-it-works a')).toHaveLength(0);
+  });
+
+  it('each card carries a 48×48px decorative pixel-art SVG top-right (AC 10): aria-hidden, crispEdges, 24×24 grid, token fills only — 01 = the radar character, 02 = two avatars + bubble, 03 = fist-bump + sparkles (original rect art, no plates)', () => {
+    const { container } = render(LandingPage, { props: {} });
+    const arts = [...container.querySelectorAll('.step-art')];
+    expect(arts).toHaveLength(3);
+    for (const art of arts) {
+      expect(art.getAttribute('viewBox')).toBe('0 0 24 24');
+      expect(art.getAttribute('aria-hidden')).toBe('true');
+      expect(art.getAttribute('shape-rendering')).toBe('crispEdges');
+    }
+    const css = source('src/routes/+page.svelte');
+    const artCss = css.match(/\.step-art\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(artCss).toMatch(/position:\s*absolute/);
+    expect(artCss).toMatch(/top:\s*12px/);
+    expect(artCss).toMatch(/right:\s*12px/);
+    expect(artCss).toMatch(/width:\s*48px/);
+    expect(artCss).toMatch(/height:\s*48px/);
+    // token discipline: every fill in the step-art data is a token
+    // reference (the sanctioned color-mix shading excepted)
+    const art = source('src/lib/components/landing/sectionArt.ts');
+    const withoutComments = art.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(withoutComments).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    for (const fill of withoutComments.match(/fill: '([^']+)'/g) ?? []) {
+      expect(fill).toMatch(/var\(--color-|color-mix\(in srgb, var\(--color-/);
+    }
+  });
+
+  it('the bottom micro-pills render EXACTLY (AC 11): RANGE: 50M • REAL-TIME GPS / AUTO-INTRO • ZERO AWKWARDNESS / INSTANT SYNC • MUTUAL OPT-IN (RU per §4.26.L), as pill chips (Handjet 10/11px uppercase, deepa-4 text + 40% border, radius-pill), pinned to the card bottom on desktop (margin-top: auto)', () => {
+    const { container } = render(LandingPage, { props: {} });
+    const pills = [...container.querySelectorAll('.step-pill')];
+    expect(pills.map((p) => p.textContent?.trim())).toEqual([
+      ru['landing.steps.find.pill'],
+      ru['landing.steps.chat.pill'],
+      ru['landing.steps.share.pill']
+    ]);
+    expect(ru['landing.steps.find.pill']).toBe('ДАЛЬНОСТЬ: 50М • GPS В РЕАЛЬНОМ ВРЕМЕНИ');
+    expect(en['landing.steps.find.pill']).toBe('RANGE: 50M • REAL-TIME GPS');
+    expect(en['landing.steps.chat.pill']).toBe('AUTO-INTRO • ZERO AWKWARDNESS');
+    expect(en['landing.steps.share.pill']).toBe('INSTANT SYNC • MUTUAL OPT-IN');
+    const css = source('src/routes/+page.svelte');
+    const pill = css.match(/\.step-pill\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(pill).toMatch(/border:\s*1px solid color-mix\(in srgb, var\(--color-deepa-4\) 40%, transparent\)/);
+    expect(pill).toMatch(/border-radius:\s*var\(--radius-pill\)/);
+    expect(pill).toMatch(/color:\s*var\(--color-deepa-4\)/);
+    expect(pill).toMatch(/font-size:\s*10px/);
+    expect(pill).toMatch(/padding:\s*4px 10px/);
+    expect(css).toMatch(/\.step-pill\s*\{[^}]*margin-top:\s*var\(--space-3\)/);
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.step-pill\s*\{[^}]*margin-top:\s*auto/
+    );
+  });
+});
+
+describe('/ — §4.26.E–I the four new sections + the GET EARLY ACCESS stub', () => {
+  it('the shared glass recipe (AC 14): .sim-card / .privacy-card / .usecase-pill / .join-card all carry rgba(18, 15, 28, 0.45) + blur(16px) (both prefixes) + the thin white glossy border + the inset highlight + radius-md; NO .glass class exists', () => {
+    const css = source('src/routes/+page.svelte');
+    const recipe = css.match(
+      /\.sim-card,\s*\n?\s*\.privacy-card,\s*\n?\s*\.usecase-pill,\s*\n?\s*\.join-card\s*\{[^}]*\}/
+    )?.[0];
+    expect(recipe).toBeTruthy();
+    expect(recipe).toMatch(/background:\s*rgba\(18, 15, 28, 0\.45\)/);
+    expect(recipe).toMatch(/border:\s*1px solid rgba\(255, 255, 255, 0\.2\)/);
+    expect(recipe).toMatch(/box-shadow:\s*inset 0 1px 1px rgba\(255, 255, 255, 0\.35\)/);
+    expect(recipe).toMatch(/border-radius:\s*var\(--radius-md\)/);
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(stripped).toMatch(/-webkit-backdrop-filter:\s*blur\(16px\)/);
+    expect(stripped).toMatch(/backdrop-filter:\s*blur\(16px\)/);
+    expect(css).not.toMatch(/\.glass/);
+    // the blur backdrops count: the recipe (1 pair) + banner (12px) +
+    // steps (10px) + footer (14px) + header (18px) — per-value pairs stay
+    // unshared
+    expect(stripped.match(/backdrop-filter:\s*blur\(16px\)/g)).toHaveLength(2);
+  });
+
+  it('Section 4 renders (AC 15/16): the wide glass container #sim with the BLEAK personage (64px, purple glow) + YOUR AGENT + Status: Scanning... (blinking cursor), the SCOUT figure (cyan glow) + NEARBY AGENT + Distance: 15m, and the dark opaque pixel-frame chat window with EXACTLY 3 rows — the two messages + the glowing green ICE BROKEN badge (no nav anchor targets #sim)', () => {
+    const { container } = render(LandingPage, { props: {} });
+    const sim = container.querySelector('#sim');
+    expect(sim).toBeTruthy();
+    expect(sim?.querySelector('.sim-card')).toBeTruthy();
+    expect(sim?.querySelector('.section-title')?.textContent).toBe(ru['landing.sim.title']);
+    // left: YOUR AGENT — the shared BLEAK personage at 64px, static
+    const you = sim?.querySelector('.sim-you');
+    const youFigure = you?.querySelector('[data-figure="bleak"] svg');
+    expect(youFigure).toBeTruthy();
+    expect(youFigure?.getAttribute('height')).toBe('64');
+    expect(you?.querySelector('.sim-agent-name')?.textContent).toBe(ru['landing.sim.you']);
+    expect(you?.querySelector('.sim-status')?.textContent?.trim()).toBe(
+      ru['landing.sim.you.status']
+    );
+    expect(sim?.querySelector('.sim-cursor')).toBeTruthy();
+    // right: NEARBY AGENT — the NEW scout figure
+    const nearby = sim?.querySelector('.sim-nearby');
+    expect(nearby?.querySelector('[data-figure="scout"]')).toBeTruthy();
+    expect(nearby?.querySelector('.sim-agent-name')?.textContent).toBe(
+      ru['landing.sim.nearby']
+    );
+    expect(nearby?.querySelector('.sim-status')?.textContent?.trim()).toBe(
+      ru['landing.sim.nearby.status']
+    );
+    // center: the opaque dark pixel chat window, EXACTLY 3 rows
+    const chat = sim?.querySelector('.sim-chat');
+    expect(chat?.className).toContain('pixel-corners');
+    expect(chat?.className).toContain('pixel-frame--strong');
+    const rows = [...(chat?.querySelectorAll('.sim-row') ?? [])];
+    expect(rows).toHaveLength(3);
+    expect(rows[0]?.querySelector('.sim-who')?.textContent).toBe(ru['landing.sim.who1']);
+    expect(rows[0]?.querySelector('.sim-msg')?.textContent).toBe(ru['landing.sim.msg1']);
+    expect(rows[0]?.className).toContain('sim-row--left');
+    expect(rows[1]?.querySelector('.sim-who')?.textContent).toBe(ru['landing.sim.who2']);
+    expect(rows[1]?.querySelector('.sim-msg')?.textContent).toBe(ru['landing.sim.msg2']);
+    expect(rows[1]?.className).toContain('sim-row--right');
+    const badge = rows[2]?.querySelector('.sim-badge');
+    expect(badge?.textContent?.trim()).toBe(ru['landing.sim.badge']);
+    // verbatim EN copy
+    expect(en['landing.sim.msg1']).toBe('Shared interests detected: AI, Pixel Art, Coffee.');
+    expect(en['landing.sim.msg2']).toBe('High compatibility (96%). Suggesting IRL intro.');
+    expect(en['landing.sim.badge']).toBe('[ ICE BROKEN — SAY HELLO ]');
+    // the glowing green badge pulses steps(2) 1.6s; reduced motion → static
+    const css = source('src/routes/+page.svelte');
+    expect(css).toMatch(/\.sim-badge\s*\{[^}]*color:\s*var\(--color-deepa-1\)/);
+    expect(css).toMatch(/\.sim-badge\s*\{[^}]*animation:\s*badge-pulse 1\.6s steps\(2\) infinite alternate/);
+    expect(css).toMatch(/\.sim-chat-body\s*\{[^}]*background:\s*var\(--color-surface\)/);
+    // §4.26.O.6: no nav link targets #sim (id="sim" is record-only)
+    const nav = container.querySelector('.top-nav');
+    for (const a of nav?.querySelectorAll('a') ?? []) {
+      expect(a.getAttribute('href')).not.toBe('#sim');
+    }
+    // the 1fr/auto/1fr desktop grid; phone = the 2-col avatar row above
+    // the full-width chat (grid areas)
+    expect(css).toMatch(/\.sim-grid\s*\{[^}]*grid-template-columns:\s*1fr 1fr/);
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.sim-grid\s*\{[^}]*grid-template-columns:\s*1fr auto 1fr/
+    );
+  });
+
+  it('Section 5 renders (AC 17): the glass container #privacy titled BUILT FOR REAL LIFE, NOT STALKERS; a 3-col grid ≥720px / a stack on phone; the three cards carry the 48px ghost / padlock+key / shield+radar icons and the exact titles + descs (RU per §4.26.L)', () => {
+    const { container } = render(LandingPage, { props: {} });
+    const privacy = container.querySelector('#privacy');
+    expect(privacy?.querySelector('.privacy-card')).toBeTruthy();
+    expect(privacy?.querySelector('.section-title')?.textContent).toBe(
+      ru['landing.privacy.title']
+    );
+    const items = [...(privacy?.querySelectorAll('.privacy-item') ?? [])];
+    expect(items).toHaveLength(3);
+    expect(items.map((i) => i.querySelector('.privacy-title')?.textContent)).toEqual([
+      ru['landing.privacy.ghost.title'],
+      ru['landing.privacy.mutual.title'],
+      ru['landing.privacy.gps.title']
+    ]);
+    expect(items.map((i) => i.querySelector('.privacy-desc')?.textContent)).toEqual([
+      ru['landing.privacy.ghost.desc'],
+      ru['landing.privacy.mutual.desc'],
+      ru['landing.privacy.gps.desc']
+    ]);
+    for (const item of items) {
+      const icon = item.querySelector('.privacy-icon');
+      expect(icon?.getAttribute('viewBox')).toBe('0 0 16 16');
+      expect(icon?.getAttribute('aria-hidden')).toBe('true');
+      expect(icon?.getAttribute('shape-rendering')).toBe('crispEdges');
+    }
+    const css = source('src/routes/+page.svelte');
+    expect(css).toMatch(/\.privacy-icon\s*\{[^}]*width:\s*48px/);
+    expect(css).toMatch(/\.privacy-grid\s*\{[^}]*grid-template-columns:\s*1fr/);
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.privacy-grid\s*\{[^}]*grid-template-columns:\s*repeat\(3, 1fr\)/
+    );
+    // the inner cards are transparent + hairline — no nested blur (§4.26.E)
+    const item = css.match(/\.privacy-item\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(item).toMatch(/background:\s*transparent/);
+    expect(item).toMatch(/border:\s*1px solid color-mix\(in srgb, var\(--color-text\) 12%, transparent\)/);
+    expect(item).not.toMatch(/backdrop-filter/);
+    // verbatim EN copy
+    expect(en['landing.privacy.ghost.desc']).toBe('Go invisible on the radar with one tap.');
+    expect(en['landing.privacy.mutual.desc']).toBe(
+      'Zero cold DMs. Contacts unlock only after a mutual handshake.'
+    );
+    expect(en['landing.privacy.gps.desc']).toBe('Your location is processed live and never stored.');
+  });
+
+  it('Section 6 renders (AC 18): the plain section #use-cases titled WHERE BLEAK SHINES; a 4-col pill row ≥720px / a stack on phone; the pills carry the 40px badge / neon-glasses / laptop / headphones icons and the exact labels', () => {
+    const { container } = render(LandingPage, { props: {} });
+    const usecases = container.querySelector('#use-cases');
+    expect(usecases?.querySelector('.sim-card')).toBeNull();
+    expect(usecases?.querySelector('.section-title')?.textContent).toBe(
+      ru['landing.usecases.title']
+    );
+    const pills = [...(usecases?.querySelectorAll('.usecase-pill') ?? [])];
+    expect(pills).toHaveLength(4);
+    expect(pills.map((p) => p.querySelector('.usecase-label')?.textContent)).toEqual([
+      ru['landing.usecases.conferences'],
+      ru['landing.usecases.parties'],
+      ru['landing.usecases.coworkings'],
+      ru['landing.usecases.festivals']
+    ]);
+    for (const pill of pills) {
+      const icon = pill.querySelector('.usecase-icon');
+      expect(icon?.getAttribute('viewBox')).toBe('0 0 16 16');
+      expect(icon?.getAttribute('aria-hidden')).toBe('true');
+    }
+    const css = source('src/routes/+page.svelte');
+    expect(css).toMatch(/\.usecase-icon\s*\{[^}]*width:\s*40px/);
+    expect(css).toMatch(/\.usecase-pill\s*\{[^}]*min-height:\s*112px/);
+    expect(css).toMatch(/\.usecase-row\s*\{[^}]*grid-template-columns:\s*1fr/);
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.usecase-row\s*\{[^}]*grid-template-columns:\s*repeat\(4, 1fr\)/
+    );
+    expect(en['landing.usecases.parties']).toBe('PARTIES & BARS');
+    expect(ru['landing.usecases.parties']).toBe('ВЕЧЕРИНКИ И БАРЫ');
+  });
+
+  it('Section 7 renders (AC 19): the centered glass card #join with the purple outer glow (32px 45% + 96px 22% over the inset highlight), the BLEAK-WAVE mascot (96px), the verbatim headline, the dark glass input (aria-label = placeholder key) and the GET EARLY ACCESS neon-yellow button', () => {
+    const { container } = render(LandingPage, { props: {} });
+    const join = container.querySelector('#join');
+    expect(join?.querySelector('.section-title')?.textContent).toBe(ru['landing.join.title']);
+    const card = join?.querySelector('.join-card');
+    expect(card?.querySelector('[data-figure="bleakWave"]')).toBeTruthy();
+    const headline = card?.querySelector('.join-headline');
+    expect(headline?.textContent?.trim()).toBe(ru['landing.join.headline']);
+    expect(en['landing.join.headline']).toBe('THE RIGHT CONNECTIONS ARE ALREADY NEARBY.');
+    expect(ru['landing.join.headline']).toBe('НУЖНЫЕ ЗНАКОМСТВА УЖЕ РЯДОМ.');
+    const input = card?.querySelector('.join-input') as HTMLInputElement | null;
+    expect(input?.getAttribute('type')).toBe('text');
+    expect(input?.getAttribute('inputmode')).toBe('email');
+    expect(input?.getAttribute('autocomplete')).toBe('email');
+    expect(input?.placeholder).toBe(ru['landing.join.input.placeholder']);
+    expect(input?.getAttribute('aria-label')).toBe(ru['landing.join.input.placeholder']);
+    const cta = card?.querySelector('.cta-access');
+    expect(cta?.tagName).toBe('A');
+    expect(cta?.textContent?.trim()).toBe(ru['landing.join.button']);
+    expect(en['landing.join.button']).toBe('GET EARLY ACCESS');
+    expect(ru['landing.join.button']).toBe('ПОЛУЧИТЬ РАННИЙ ДОСТУП');
+    const css = source('src/routes/+page.svelte');
+    // the standalone .join-card rule (not the shared recipe selector list)
+    const joinCard = css.match(/\.join-card\s*\{[^}]*max-width:\s*640px[^}]*\}/)?.[0] ?? '';
+    expect(joinCard).toMatch(/max-width:\s*640px/);
+    expect(joinCard).toMatch(/margin:\s*0 auto/);
+    expect(joinCard).toMatch(
+      /box-shadow:\s*\n?\s*inset 0 1px 1px rgba\(255, 255, 255, 0\.35\),\s*\n?\s*0 0 32px color-mix\(in srgb, var\(--color-deepa-4\) 45%, transparent\),\s*\n?\s*0 0 96px color-mix\(in srgb, var\(--color-deepa-4\) 22%, transparent\)/
+    );
+    const inputCss = css.match(/\.join-input\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(inputCss).toMatch(/background:\s*rgba\(15, 14, 22, 0\.65\)/);
+    expect(inputCss).toMatch(/border:\s*1px solid rgba\(255, 255, 255, 0\.2\)/);
+    expect(inputCss).toMatch(/border-radius:\s*var\(--radius-pill\)/);
+    expect(inputCss).toMatch(/min-height:\s*var\(--touch-target\)/);
+    const ctaCss = css.match(/\.cta-access\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(ctaCss).toMatch(/background:\s*var\(--color-accent\)/);
+    expect(ctaCss).toMatch(/color:\s*var\(--color-accent-ink\)/);
+    expect(ctaCss).toMatch(/border-radius:\s*var\(--radius-pill\)/);
+    expect(ctaCss).toMatch(/min-height:\s*var\(--touch-target\)/);
+  });
+
+  it('the GET EARLY ACCESS stub (AC 20): a plain <a> whose href is mailto:extube@proton.me with subject BLEAK EARLY ACCESS — a URL-encoded body ONLY when the input is non-empty; no form element, no fetch, no new env, NO client validation', async () => {
+    const { container } = render(LandingPage, { props: {} });
+    const input = container.querySelector('.join-input') as HTMLInputElement;
+    const cta = container.querySelector('.cta-access') as HTMLAnchorElement;
+    // empty input → the bare mailto (subject only, no body param)
+    expect(input.value).toBe('');
+    expect(cta.getAttribute('href')).toBe(
+      'mailto:extube@proton.me?subject=BLEAK%20EARLY%20ACCESS'
+    );
+    // a typed value → the URL-encoded body rides along
+    input.value = 'me@example.com';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await tick();
+    expect(cta.getAttribute('href')).toBe(
+      'mailto:extube@proton.me?subject=BLEAK%20EARLY%20ACCESS&body=me%40example.com'
+    );
+    // source discipline: no form element, no fetch on /, no validation
+    const page = source('src/routes/+page.svelte');
+    expect(page).not.toMatch(/<form/);
+    expect(page).not.toMatch(/\bfetch\(/);
+    expect(page).toMatch(/type="text"/);
+    expect(page).toMatch(/inputmode="email"/);
   });
 });
 

@@ -434,6 +434,48 @@ export const ru: Record<MessageKey, string> = {
   'landing.footer.contact.github.label': 'ГИТХАБ',
   'landing.footer.copyright': 'bleak-web · 2026',
 
+  /* --- лендинг v3.20 (Concept §38, DESIGN §4.26.L — 35 новых ключей:
+   * --- якорная навигация, стеклянный баннер, микро-пилюли шагов,
+   * --- четыре новых секции; RU из §4.26.L (авторские RU для EN-копий
+   * --- §38.5 — дизайн-изобретения, флаг §4.26.O.1); RU/EN паритет) --- */
+  'landing.nav.how': 'КАК ЭТО РАБОТАЕТ',
+  'landing.nav.privacy': 'ПРИВАТНОСТЬ',
+  'landing.nav.usecases': 'СЦЕНАРИИ',
+  'landing.nav.join': 'ВСТУПИТЬ',
+  'landing.banner.badge': '[ ЖИВАЯ СЕТЬ // IRL ]',
+  'landing.banner.status': 'Рядом активны ИИ-агенты',
+  'landing.steps.find.pill': 'ДАЛЬНОСТЬ: 50М • GPS В РЕАЛЬНОМ ВРЕМЕНИ',
+  'landing.steps.chat.pill': 'АВТО-ЗНАКОМСТВО • НОЛЬ НЕЛОВКОСТИ',
+  'landing.steps.share.pill': 'МГНОВЕННАЯ СИНХРОНИЗАЦИЯ • ВЗАИМНОЕ СОГЛАСИЕ',
+  'landing.sim.title': 'КАК ВАШИ АГЕНТЫ ЗАВОДЯТ РАЗГОВОР',
+  'landing.sim.you': 'ВАШ АГЕНТ',
+  'landing.sim.you.status': 'Статус: Сканирование...',
+  'landing.sim.nearby': 'АГЕНТ РЯДОМ',
+  'landing.sim.nearby.status': 'Дистанция: 15м',
+  'landing.sim.who1': 'Агент 01',
+  'landing.sim.who2': 'Агент 02',
+  'landing.sim.msg1': 'Обнаружены общие интересы: ИИ, пиксель-арт, кофе.',
+  'landing.sim.msg2': 'Совместимость высокая (96%). Рекомендую знакомство вживую.',
+  'landing.sim.badge': '[ ЛЁД РАЗБИТ — СКАЖИТЕ ПРИВЕТ ]',
+  'landing.privacy.title': 'СОЗДАНО ДЛЯ РЕАЛЬНОЙ ЖИЗНИ, А НЕ ДЛЯ СТЕЛКЕРОВ',
+  'landing.privacy.ghost.title': 'РЕЖИМ ПРИЗРАКА',
+  'landing.privacy.ghost.desc': 'Одно касание — и вы исчезаете с радара.',
+  'landing.privacy.mutual.title': 'ВЗАИМНОЕ СОГЛАСИЕ',
+  'landing.privacy.mutual.desc':
+    'Никаких холодных сообщений. Контакты открываются только после взаимного рукопожатия.',
+  'landing.privacy.gps.title': 'GPS БЕЗ СЛЕДОВ',
+  'landing.privacy.gps.desc':
+    'Ваша геопозиция обрабатывается в реальном времени и никогда не сохраняется.',
+  'landing.usecases.title': 'ГДЕ БЛИК РАСКРЫВАЕТСЯ',
+  'landing.usecases.conferences': 'КОНФЕРЕНЦИИ',
+  'landing.usecases.parties': 'ВЕЧЕРИНКИ И БАРЫ',
+  'landing.usecases.coworkings': 'КОУОРКИНГИ',
+  'landing.usecases.festivals': 'ФЕСТИВАЛИ',
+  'landing.join.title': 'ВСТУПАЙТЕ В СЕТЬ',
+  'landing.join.headline': 'НУЖНЫЕ ЗНАКОМСТВА УЖЕ РЯДОМ.',
+  'landing.join.input.placeholder': 'Введите почту или @telegram...',
+  'landing.join.button': 'ПОЛУЧИТЬ РАННИЙ ДОСТУП',
+
   /* --- глобальный гейт 401 (DESIGN rev. 3 §2.8, §4.7) --- */
   'auth.401.notice':
     'У этого профиля нет действительного ключа доступа — присоединитесь заново по коду события.',

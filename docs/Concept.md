@@ -1712,6 +1712,99 @@ reminders removed, thirds layout with empty middle, black bg +
 dissolve, reduced-motion fallback, routes, Start/TALK → `/income`,
 RU/EN parity, three step blocks, contact footer).
 
+---
+
+## 38. Owner batch: glass system polish + 4 new sections — ✅ APPROVED (2026-11-22)
+
+Landing layout/nav/content improvements (owner, 2026-11-22). All new
+copy is RU/EN parity; all pixel art is original, in the app's style,
+no background plates; hover/pulse effects CSS-only with reduced-motion
+fallbacks.
+
+1. **Floating liquid-glass header** (supersedes the §37 header values
+   and the §36 80% header width):
+   - detached from the top edge: **top: 24px**, centered horizontally,
+     **width: 90%, max-width: 1200px, border-radius: 20px**;
+   - background **rgba(18, 15, 28, 0.35)**, **backdrop-filter:
+     blur(18px) saturate(180%)**;
+   - glossy **1px white border rgba(255, 255, 255, 0.2)**; inner top
+     highlight **box-shadow: inset 0 1px 1px rgba(255, 255, 255,
+     0.35)** — the glowing purple pixel background blurs right
+     through it;
+   - nav links become clear clickable anchors with **smooth scroll**:
+     owner's final directive (the "match the full page" line):
+     **HOW IT WORKS, PRIVACY, USE CASES, JOIN** (the interim options
+     "HOW IT WORKS, FEATURES, AGENTS, DOWNLOAD" / "RADAR, AGENTS,
+     HANDSHAKE, BLEAK" were offered and superseded).
+2. **Banner block ("REAL PEOPLE. REAL RESULTS."):**
+   - dark liquid glass **rgba(20, 18, 30, 0.55) + backdrop-filter:
+     blur(12px)** instead of the flat solid fill (the pixel cityscape
+     subtly glows behind it);
+   - keep the left text block ("REAL PEOPLE. REAL RESULTS. No empty
+     chats. No cold DMs. Only encounters that matter.");
+   - add a small pixel-art sub-badge above the title:
+     **[ LIVE NETWORK // IRL ]**;
+   - on the right, next to the pixel flower/character icon: a small
+     **glowing status caption "AI Agents active nearby"** with a
+     **pulsing green pixel dot**.
+3. **Three feature cards (01 FIND / 02 CHAT / 03 SHARE):**
+   - glass background **rgba(15, 14, 22, 0.65) + backdrop-filter:
+     blur(10px)**; hover = **purple outer glow + slight lift**;
+   - each card gets a **custom pixel-art mini-illustration in the
+     top-right corner** and a **bottom micro-caption pill**:
+     - **01 FIND:** pixel character holding a glowing radar/scanner
+       (top right); keep the magnifying-glass icon and "The radar
+       shows who is around you right now."; pill: **RANGE: 50M •
+       REAL-TIME GPS**;
+     - **02 CHAT:** two pixel avatars facing each other with a speech
+       bubble (top right); keep "Your agents break the ice before you
+       arrive."; pill: **AUTO-INTRO • ZERO AWKWARDNESS**;
+     - **03 SHARE:** two pixel characters doing a fist-bump/handshake
+       with sparkles (top right); keep "One handshake — and contacts
+       are exchanged."; pill: **INSTANT SYNC • MUTUAL OPT-IN**.
+4. **Footer:** replace the stark white box with a **dark liquid-glass
+   pill matching the header**: rgba(18, 15, 28, 0.5), backdrop-filter
+   blur(14px), subtle white border, white/purple pixel text.
+5. **Four NEW content sections** below the step cards — the same dark
+   liquid glassmorphism (**rgba(18, 15, 28, 0.45), backdrop-filter:
+   blur(16px), thin white glossy borders**) + 8-bit neon pixel art:
+   - **Section 4 — Live Agent Simulation ("HOW YOUR AGENTS BREAK THE
+     ICE"):** a wide glass container previewing two AI agents talking.
+     Left: glowing purple pixel avatar labeled **YOUR AGENT (Status:
+     Scanning...)**. Right: glowing cyan/yellow pixel avatar labeled
+     **NEARBY AGENT (Distance: 15m)**. Center: a sleek dark pixel-art
+     chat window with 3 short messages: (1) Agent 01: "Shared
+     interests detected: AI, Pixel Art, Coffee."; (2) Agent 02: "High
+     compatibility (96%). Suggesting IRL intro."; (3) a glowing green
+     system badge: **[ ICE BROKEN — SAY HELLO ]**.
+   - **Section 5 — Privacy & Control ("BUILT FOR REAL LIFE, NOT
+     STALKERS"):** a 3-column grid of compact glass cards with
+     pixel-art icons and captions: (A) pixel ghost/hoodie character —
+     **GHOST MODE** — "Go invisible on the radar with one tap.";
+     (B) pixel padlock & key — **MUTUAL OPT-IN** — "Zero cold DMs.
+     Contacts unlock only after a mutual handshake."; (C) pixel shield
+     + radar — **EPHEMERAL GPS** — "Your location is processed live
+     and never stored."
+   - **Section 6 — Use Cases ("WHERE BLEAK SHINES"):** a 4-column row
+     of glass pills/mini-cards with small pixel icons: **CONFERENCES**
+     (pixel badge), **PARTIES & BARS** (pixel neon glasses),
+     **COWORKINGS** (pixel laptop), **FESTIVALS** (pixel headphones).
+   - **Section 7 — Final CTA banner ("JOIN THE NETWORK"):** a
+     prominent centered glass card with a **vibrant purple neon glow**
+     behind it; the pixel mascot (pixel guy in a suit with purple tie
+     and cyber-glasses) **waving**; headline **THE RIGHT CONNECTIONS
+     ARE ALREADY NEARBY.**; an **inline dark glass input** ("Enter
+     your email or @telegram...") paired with a **bright neon yellow
+     or purple pixel button: GET EARLY ACCESS**. Anchor `join` for the
+     nav.
+6. **Behavior notes for the new elements:** smooth-scroll anchors
+   (`how-it-works` = the step cards, `privacy` = §38.5 Section 5,
+   `use-cases` = Section 6, `join` = Section 7); the GET EARLY ACCESS
+   form is a frontend stub for now (no backend endpoint exists —
+   default: mailto to the owner's contact on submit, until the owner
+   says otherwise); the animated pieces (pulsing dot, glow, hover
+   lift) respect reduced motion.
+
 All other §31–§33 contracts stay in force (routes, Start → `/income`
 with the 6-digit input, RU/EN parity, reminder box contracts, three
 step blocks, existing suites green).
