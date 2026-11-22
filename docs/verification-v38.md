@@ -1,5 +1,63 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.20 ROUND NOTE (§38 glass-system polish + 4 new landing sections,
+> Concept §38 — appended by the process 2026-11-22, post-round three-gate
+> run GREEN: lint clean · 983 tests total (49 api-client + 8 helper + 926
+> web, 52 files; landing suite 65) · build 0 errors, dev `b429e69`):**
+> **Landing adjusted per ALL 7 §38 items** (task 126, worker `a729241a`;
+> design-first — design instance `1a3d809d` wrote DESIGN §4.26 from the
+> owner's verbatim values/copy): (1) **header** — detached floating glass
+> pill: `fixed; top: 24px`, centered `width: 90% / max-width: 1200px`,
+> `radius-md` 20px, `rgba(18,15,28,0.35)` + `blur(18px) saturate(180%)`,
+> 1px `rgba(255,255,255,0.2)` border + `inset 0 1px 1px
+> rgba(255,255,255,0.35)` (supersedes the §37 exact values + the §36 80%
+> HEADER width — the content container keeps 80%, recorded as intended);
+> nav → 4 smooth-scroll anchors HOW IT WORKS/PRIVACY/USE CASES/JOIN →
+> `#how-it-works` (renamed from #tutorial) / `#privacy` / `#use-cases` /
+> `#join`, `scroll-margin-top: 100px`, CSS smooth under
+> `no-preference`; (2) **banner** — glass `rgba(20,18,30,0.55)` +
+> `blur(12px)`, `[ LIVE NETWORK // IRL ]` sub-badge, glowing caption
+> "AI Agents active nearby" + pulsing green dot (reduced-motion static);
+> (3) **step cards** — glass `rgba(15,14,22,0.65)` + `blur(10px)`, hover
+> purple glow + lift, 3 original pixel mini-illustrations (new
+> `sectionArt.ts`: radar character / avatars+bubble / fist-bump+sparkles),
+> the 3 EXACT micro-pills; (4) **footer** — glass pill
+> `rgba(18,15,28,0.5)` + `blur(14px)` (pixel-frame box retired, content
+> contract kept); (5) **four new sections** (shared recipe
+> `rgba(18,15,28,0.45)` + `blur(16px)` + glossy white borders, all below
+> the fold, open state intact): **#sim** live agent simulation (BLEAK 64px
+> + "Status: Scanning..." blinking cursor, new 24×24 SCOUT figure +
+> "Distance: 15m", opaque 3-row chat window + `[ ICE BROKEN — SAY HELLO ]`
+> pulsing badge), **#privacy** 3-col (GHOST MODE / MUTUAL OPT-IN /
+> EPHEMERAL GPS; ghost/padlock+key/shield+radar icons), **#use-cases** 4
+> pills (CONFERENCES / PARTIES & BARS / COWORKINGS / FESTIVALS;
+> badge/neon-glasses/laptop/headphones), **#join** final CTA (centered
+> glass card, purple neon glow, new `BLEAK_WAVE_FIGURE` 36×32 —
+> cyber-glasses + wave arm on the byte-identical BLEAK art; headline
+> verbatim; dark glass input + **GET EARLY ACCESS mailto stub** →
+> `mailto:extube@proton.me?subject=BLEAK%20EARLY%20ACCESS` + encoded body,
+> no form/fetch/env/validation — swap-to-endpoint note recorded §4.26.I);
+> (6) i18n **+35 keys → 58/dict** (EN verbatim from §38.5, RU per
+> §4.26.L); (7) reduced-motion statics for all pulse/hover/glow; no new
+> deps; raw-hex sweep stays green (the rgba glass family per the
+> §4.25.D.7/§4.26.K.8 sanctioned exception).
+> §4.26.O owner flags (advice): (1) **all 35 RU strings are design
+> inventions** (the owner gave EN only) — tone approval requested; (2) the
+> nav form «ВСТУПИТЬ»; (3) GET EARLY ACCESS button = the yellow accent
+> (one-value flip to purple if preferred); (4) the stub record (no
+> decision needed); (5) header-wider-than-content (90% vs 80%) is
+> intended; (6) Section 4 has no nav anchor (by design).
+> Manual checks for the owner: the landing on phone + desktop (detached
+> glass header pill + the 4 anchor scrolls, banner sub-badge/caption/dot,
+> step-card glass/hover/illustrations/pills, glass footer pill, the four
+> new sections in BOTH locales, the JOIN mailto stub on desktop mail
+> client, open state still lead+Bleak only, reduced-motion statics).
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/a729241a-tz12-10-glass-sections` (9 branches total); owner refs
+> stay untracked.
+
 > **v3.19 ROUND NOTE (§37 owner correction — "Not, is not what I want":
 > open state + transparent lead + true liquid-glass header, Concept §37 —
 > appended by the process 2026-11-22, post-round three-gate run GREEN:
