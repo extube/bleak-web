@@ -1,5 +1,62 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.17 ROUND NOTE (§35 full-screen video background + liquid-glass header
+> + reminders removed, Concept §35 — appended by the process 2026-11-22,
+> post-round three-gate run GREEN: lint clean · 964 tests total (49
+> api-client + 8 helper + 907 web, 52 files; landing suite 49) · build 0
+> errors, dev `1100cab`):**
+> **Landing adjusted per ALL 3 §35 items** (task 123, worker `9659161e`;
+> design-first — design instance `1e2fd9c5` wrote DESIGN §4.23 amending
+> §4.22; still no video tooling in the sandbox — defensive spec from the
+> owner's text): (1) **fixed full-viewport video background** —
+> `LandingVideoHero` repurposed in place as the first `.landing-page`
+> child: z0 video `position: fixed; inset: 0`, cover (crops, never
+> letterboxes), §34 attribute set verbatim (muted/loop/playsinline/
+> preload="metadata"/disablepictureinpicture, one-shot mount .play() gated
+> on prefers-reduced-motion); z1 dissolve vignette (ellipse 120%×105%,
+> 55/78/100% stops) + 30% legibility wash into `--color-landing-bg`; z2
+> the 12-dot purple mesh kept, ambient over the full viewport; z3 the
+> content column scrolls OVER the video (desktop lead glass panel + 360px
+> BLEAK card row; phone DOM-order stack); play/pause control RETIRED
+> (ambient scenery — restorable, §4.23.I); error fallback unchanged (black
+> tint + dots); (2) **liquid-glass header** — floating sticky chip (top
+> 12px, insets 12px, canvas-aligned): `color-mix(--color-landing-bg 92%,
+> transparent)` + `backdrop-filter: blur(14px) saturate(1.1)` (+-webkit-) +
+> 22% Deepa hairline + ROUNDED corners (radius-lg 24px desktop / radius-md
+> 20px phone — the only rounded surfaces, scoped to the glass); keep-list
+> unchanged (icon + nav + switcher); AA floor ≈5:1 recorded; @supports
+> near-solid fallback; (3) **agent reminders REMOVED entirely** —
+> `LandingReminder.svelte` + its derivations/vars/z-rules deleted, 6 keys
+> dropped from both dicts (live audit: the copy lived in
+> `landing.dialog.line1/2/3` + `landing.video.aria/play/pause` — there was
+> no `landing.reminder.*` family), grep-audited; i18n parity **23/23**.
+> **Supersessions recorded (§4.23.E, 8 items):** §34 center-video-block
+> geometry + phone no-overlay rule + §33 protected-scenario/art-block
+> rules + §4.21.C/§4.22.C reminder contracts + the play control + the
+> named video region all retired; the attribute set, gated mount, error
+> fallback, dot mesh, header keep-list carried verbatim; §4.22.F vignette
+> rationale amended (structural dissolve into the black token stays).
+> Spec erratum disclosed: §4.23.F's "29 keys (35−6)" arithmetic predated
+> the landed §4.22.1 chat-strip retirement (the live start was already 29);
+> the 6-key removal intent was honored and lands at 23/23.
+> §4.23.I owner flags (advice): (1) the play/pause control retired —
+> restorable as one glass chip + 3 keys; (2) the glass LEAD panel is the
+> design's legibility extension beyond the owner's header-only wording
+> (raw muted text over an arbitrary bright video region cannot guarantee
+> AA at any tolerable global tint; fallback = ~90% global tint so the
+> video reads as faint texture); (3) the video's exact bg color remains
+> unverifiable without tooling — the dissolve stays structural.
+> Manual checks for the owner: the landing on phone + desktop (fixed video
+> behind ALL scrolling content on both, glass header + glass lead panel
+> legibility in BOTH locales, no reminders anywhere, black seamless edges,
+> Start/TALK → /income), reduced-motion (static near-black, no playback),
+> RU/EN switch over the glass.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — pathspec-
+> scoped commits again; devops `-D` branch-cleanup list adds
+> `feature/9659161e-tz12-07-video-background` (6 branches total); owner
+> refs stay untracked.
+
 > **v3.16.1 ROUND NOTE (§34 owner amendment — chat-strip retirement, Concept
 > §34 record — appended by the process 2026-11-22, post-round three-gate run
 > GREEN: lint clean · 966 tests total (49 api-client + 8 helper + 909 web,
