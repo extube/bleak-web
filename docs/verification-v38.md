@@ -1,5 +1,46 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.21 ROUND NOTE (§39 font bumps + compatibility circle + ping-pong
+> video, Concept §39 — appended by the process 2026-11-22, post-round
+> three-gate run GREEN: lint clean · 992 tests total (49 api-client + 8
+> helper + 935 web, 52 files; landing suite 74) · build 0 errors, dev
+> `6e9f0be`):**
+> **Landing adjusted per ALL 4 §39 items** (task 127, worker `43e60f70`;
+> design-first — design instance `bda82016` wrote DESIGN §4.27 after
+> LOCATING the pattern source): (1) nav anchors 12 → **14px** (switcher
+> untouched — explicit negative test); (2) one consistent description bump
+> 13 → **15px** on `.step-desc`/`.privacy-desc`/`.stat-line`/
+> `.agent-quote` (`.sub` + join input untouched); (3) **Section 4 center
+> rework** — the 3-message chat window DELETED (4 orphaned keys removed,
+> 55 keys/dict), replaced by the **compatibility circle reusing the /chats
+> summary-sheet pattern verbatim**: imports `RING_RADIUS`/
+> `ringCircumference`/`ringScoreOffset`/`TALLY_MS`/`tallyValue` from
+> `#lib/chats/summary` (no duplicated constants — pattern-reuse test
+> asserts the import; the shared `summary.js` chunk is now in the build),
+> r66/160×160/stroke-12 ring, 25% ink track, 900ms ease-out ring-fill,
+> `COMPAT_SCORE = 96`, Handjet 600 40px numeral, NO yellow (green stays on
+> the badge), one-shot IntersectionObserver trigger (mount fallback;
+> reduced-motion = static final); the ICE BROKEN badge relocated BELOW the
+> circle; flanking avatars + status lines verbatim; (4) **video
+> ping-pong** — the `loop` attribute REMOVED; pure seam
+> `landing/videoPingPong.ts` (`stepTime` clamp+flip, unit-tested) + one
+> rAF seek-stepper driving the paused element (wall-clock delta, 1×,
+> direction state flips at 0/duration), idles until `loadedmetadata`,
+> bails on error, cancels on unmount; reduced-motion = no play/no stepper
+> (static fallback unchanged). RU invention carried: «Совместимость
+> агентов: 96%» (design-invented aria — owner tone approval requested,
+> §4.26.O.1 precedent). Keep: header glass recipe, transparent lead, all
+> section structures, BLEAK/БЛИК, income surfaces, tokens.
+> Manual checks for the owner: nav/description sizes in BOTH locales, the
+> Section 4 compatibility circle count-up on scroll-into-view (matches the
+> /chats summary ring), the badge below it, the video yo-yo reverse at the
+> ends, reduced-motion statics.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/43e60f70-tz12-11-fonts-compat-pingpong` (10 branches total);
+> owner refs stay untracked.
+
 > **v3.20 ROUND NOTE (§38 glass-system polish + 4 new landing sections,
 > Concept §38 — appended by the process 2026-11-22, post-round three-gate
 > run GREEN: lint clean · 983 tests total (49 api-client + 8 helper + 926
