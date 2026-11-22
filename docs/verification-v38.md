@@ -1,5 +1,37 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.22.1 ROUND NOTE (§41 lead text color + copy changes, Concept §41 —
+> appended by the process 2026-11-22, post-round three-gate run GREEN:
+> lint clean · 1000 tests total (49 api-client + 8 helper + 943 web, 52
+> files; landing suite 87) · build 0 errors, dev `929bb56`):**
+> **Landing adjusted per ALL 3 §41 items** (task 130, worker `42ce1dbc`;
+> NO design instance — lean judgment: copy + one color; the worker wrote
+> the dated DESIGN §4.28.1 owner-amendment record): (1) the lead
+> description `.sub` now reads **white** — `var(--color-text)` (the muted
+> token retired for this element only; the headline treatment — clamp
+> 28/4vw/48 + halo + accent word — unchanged); (2) **titles**: EN →
+> "The right connections beside you" / RU → «Нужные знакомства рядом»
+> (`landing.headline.accent` = 'BESIDE YOU' / «РЯДОМ» — the 3-line
+> pixel-headline + highlighted-accent structure kept); (3) the **RU
+> description** = the owner's VERBATIM string «Нетворкинг - это работа.
+> Здесь ИИ-двойники работают за Вас. Собирайте контакты, проверяйте
+> совместимость и вдохновляйтесь общими идеями!» (hyphen preserved as
+> given); the **EN description UNCHANGED** (the §41.3 proposed translation
+> stays pending the owner's decision — a negative test asserts it did not
+> leak). Values only — parity stays 55/55 key-wise; no new deps; tokens
+> untouched; all other muted consumers (nav etc.) untouched.
+> Owner decision pending (carried): the EN description string — the
+> §41.3 proposal awaits approval.
+> Manual checks for the owner: the lead block (white description over the
+> video, the new 3-line titles in BOTH locales with the accent line
+> BESIDE YOU / «РЯДОМ»), Start/TALK → /income.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/42ce1dbc-tz12-12a-lead-copy-color` (14 branches total); owner
+> refs stay untracked (incl. `profile-design*.png` — still no owner
+> batch referencing them).
+
 > **v3.22 ROUND NOTE (§40 bigger titles/descriptions/badges + phone widths,
 > Concept §40 — appended by the process 2026-11-22, post-round three-gate
 > run GREEN: lint clean · 995 tests total (49 api-client + 8 helper + 938
