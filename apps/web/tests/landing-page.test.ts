@@ -19,7 +19,7 @@
  * (6) §4.26.J the §37 open-state rule STAYS: first viewport = lead +
  * BLEAK only. Still in force: the fixed video layer stack, the
  * keep-list, BLEAK/БЛИК, routes, Start/TALK → /income (6-digit), RU/EN
- * parity (58 keys), removed blocks stay removed, deep links. */
+ * parity (55 keys, §4.27.G), removed blocks stay removed, deep links. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -64,6 +64,7 @@ import { LANDING_FIGURES } from '../src/lib/components/landing/figures';
 import { BLEAK_FIGURE } from '../src/lib/components/personage/bleakFigure';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, sep } from 'node:path';
+import { stepTime } from '../src/lib/components/landing/videoPingPong';
 
 const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
   ? process.cwd()
@@ -72,7 +73,8 @@ function source(relativePath: string): string {
   return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
 }
 
-/** The 23 §4.20.M keys (unchanged) + the 35 §4.26.L keys — 58 total,
+/** The 23 §4.20.M keys (unchanged) + the §4.26.L keys minus the 4
+ * §4.27.G-removed sim chat keys + the 1 §4.27.G ring aria key — 55 total,
  * every landing string, RU/EN parity. */
 const LANDING_KEYS = [
   'landing.headline.1',
@@ -98,7 +100,7 @@ const LANDING_KEYS = [
   'landing.footer.contact.email.label',
   'landing.footer.contact.github.label',
   'landing.footer.copyright',
-  // §4.26.L — the 35 new keys
+  // §4.26.L — the 35 keys, §4.27.G-amended
   'landing.nav.how',
   'landing.nav.privacy',
   'landing.nav.usecases',
@@ -113,10 +115,8 @@ const LANDING_KEYS = [
   'landing.sim.you.status',
   'landing.sim.nearby',
   'landing.sim.nearby.status',
-  'landing.sim.who1',
-  'landing.sim.who2',
-  'landing.sim.msg1',
-  'landing.sim.msg2',
+  // §4.27.G: the ring's role="img" label (embeds the value)
+  'landing.sim.compat.aria',
   'landing.sim.badge',
   'landing.privacy.title',
   'landing.privacy.ghost.title',
@@ -137,8 +137,8 @@ const LANDING_KEYS = [
 ] as const;
 
 /** The keys the §4.21.H + §4.22.H amendments kill, plus the §4.22.1
- * chat-strip keys and the §4.23.C dialog/video keys — in NEITHER
- * dictionary. */
+ * chat-strip keys and the §4.23.C dialog/video keys — and the §4.27.F
+ * orphaned sim chat message keys — in NEITHER dictionary. */
 const DEAD_KEYS = [
   'landing.footer.line',
   'landing.footer.badge',
@@ -159,7 +159,12 @@ const DEAD_KEYS = [
   'landing.dialog.line3',
   'landing.video.aria',
   'landing.video.play',
-  'landing.video.pause'
+  'landing.video.pause',
+  // §4.27.C/F: the 3-message chat window's keys are retired with it
+  'landing.sim.who1',
+  'landing.sim.who2',
+  'landing.sim.msg1',
+  'landing.sim.msg2'
 ] as const;
 
 const LANDING_SOURCES = [
@@ -168,6 +173,7 @@ const LANDING_SOURCES = [
   'src/lib/components/landing/LandingFigure.svelte',
   'src/lib/components/landing/figures.ts',
   'src/lib/components/landing/sectionArt.ts',
+  'src/lib/components/landing/videoPingPong.ts',
   'src/lib/components/personage/bleakFigure.ts'
 ];
 
@@ -351,6 +357,32 @@ describe('/ — the §4.26.A detached floating glass header (icon + nav + switch
     expect(container.querySelector('.top')?.textContent).not.toBe('');
   });
 
+  it('§4.27.A the nav font bump: .top-nav a computes font-size: 14px (was 12px) — the Handjet family, weight 600, letter-spacing 0.08em, uppercase, the muted color, the deepa-4 hover over 120ms and the desktop-only ≥720px visibility are ALL unchanged; the language switcher is UNCHANGED (explicit negative — no .locale-scoped size override exists in the landing sources)', () => {
+    const css = source('src/routes/+page.svelte');
+    // the bump: 12px → 14px
+    expect(css).toMatch(/\.top-nav a\s*\{[^}]*font-size:\s*14px/);
+    expect(css).not.toMatch(/\.top-nav a\s*\{[^}]*font-size:\s*12px/);
+    // everything else about the anchors is verbatim
+    const navRule = css.match(/\.top-nav a\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(navRule).toMatch(/font-family:\s*var\(--font-pixel\)/);
+    expect(navRule).toMatch(/font-weight:\s*600/);
+    expect(navRule).toMatch(/letter-spacing:\s*0\.08em/);
+    expect(navRule).toMatch(/text-transform:\s*uppercase/);
+    expect(navRule).toMatch(/color:\s*var\(--color-text-muted\)/);
+    expect(css).toMatch(/\.top-nav a:hover\s*\{[^}]*color:\s*var\(--color-deepa-4\)/);
+    expect(css).toMatch(/\.top-nav a\s*\{[^}]*transition:\s*color 120ms ease-out/);
+    // §4.27.A explicit negative: the switcher is NOT dragged along —
+    // LocaleControl.svelte and SegmentedControl.svelte are untouched files
+    // and no landing style overrides sizes inside .locale
+    expect(css).not.toMatch(/\.locale[^{]*\{[^}]*font-size/);
+    const localeControl = source('src/lib/components/join/LocaleControl.svelte');
+    const segmented = source('src/lib/components/SegmentedControl.svelte');
+    expect(segmented).toMatch(/font-size:\s*14px/); // the switcher's buttons stay 14px
+    // neither file grew a size change for this batch (their 14px stands;
+    // this test only reads them — the guard is the untouched-file negative)
+    expect(localeControl.length).toBeGreaterThan(0);
+  });
+
   it('the LocaleControl still switches every landing string without a reload', async () => {
     const { container } = render(LandingPage, { props: {} });
     expect(container.querySelector('.agent-name')?.textContent).toBe(ru['landing.agent.name']);
@@ -416,14 +448,15 @@ describe('/ — the §4.22.B video block (LandingVideoHero replaces the drawn he
     expect(hero).toMatch(/\.dots\s*\{[^}]*pointer-events:\s*none/);
   });
 
-  it('renders the decisive attribute set verbatim: muted loop playsinline preload="metadata" disablepictureinpicture — NO autoplay attribute, NO native controls', () => {
+  it('renders the §4.27.E decisive attribute set: muted playsinline preload="metadata" disablepictureinpicture — the `loop` attribute is GONE (the ping-pong stepper replaces it) — NO autoplay attribute, NO native controls', () => {
     const { container } = render(LandingPage, { props: {} });
     const video = container.querySelector('video.video') as HTMLVideoElement | null;
     expect(video).toBeTruthy();
     // the properties are set on mount (the muted property is the autoplay-
     // policy load-bearing one; the rest stay attributes)
     expect(video?.muted).toBe(true);
-    expect(video?.loop).toBe(true);
+    // §4.27.E: no native looping — the yo-yo is seek-stepped
+    expect(video?.loop).toBe(false);
     expect(video?.preload).toBe('metadata');
     expect(video?.getAttribute('playsinline')).not.toBeNull();
     expect(video?.getAttribute('disablepictureinpicture')).not.toBeNull();
@@ -431,9 +464,13 @@ describe('/ — the §4.22.B video block (LandingVideoHero replaces the drawn he
     expect(video?.hasAttribute('autoplay')).toBe(false);
     expect(video?.hasAttribute('controls')).toBe(false);
     const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
-    expect(hero).toMatch(/muted\s*\n\s*loop\s*\n\s*playsinline\s*\n\s*preload="metadata"\s*\n\s*disablepictureinpicture\s*\n\s*aria-hidden="true"/);
-    // comment-stripped: no autoplay attribute, no native controls attribute
+    expect(hero).toMatch(
+      /muted\s*\n\s*playsinline\s*\n\s*preload="metadata"\s*\n\s*disablepictureinpicture\s*\n\s*aria-hidden="true"/
+    );
+    // comment-stripped: the `loop` token is GONE from the component; no
+    // autoplay attribute, no native controls attribute
     const stripped = hero.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(stripped).not.toMatch(/\bloop\b/);
     expect(stripped).not.toMatch(/\bautoplay\b/);
     expect(stripped).not.toMatch(/\bcontrols\b/);
   });
@@ -518,6 +555,93 @@ describe('/ — the §4.22.B video block (LandingVideoHero replaces the drawn he
       /background-color:\s*color-mix\(in srgb, var\(--color-landing-bg\) 30%, transparent\)/
     );
     expect(css).toMatch(/pointer-events:\s*none/);
+  });
+});
+
+describe('/ — §4.27.E the video PING-PONG playback (the yo-yo replaces the plain loop)', () => {
+  it('stepTime is the pure end-handling seam: forward at the end clamps to duration and FLIPS to reverse; reverse at 0 clamps to 0 and FLIPS to forward; mid-range candidates pass through unchanged', () => {
+    const DURATION = 6;
+    // forward at the end: clamp + flip to reverse
+    expect(stepTime(6, 1, 0.5, DURATION)).toEqual({ time: 6, dir: -1 });
+    // reverse at 0: clamp + flip to forward
+    expect(stepTime(0, -1, 0.5, DURATION)).toEqual({ time: 0, dir: 1 });
+    // mid-range: passthrough, direction held
+    expect(stepTime(2.5, 1, 0.5, DURATION)).toEqual({ time: 3, dir: 1 });
+    expect(stepTime(2.5, -1, 0.5, DURATION)).toEqual({ time: 2, dir: -1 });
+    // exactly at the ends with a zero delta: the flip still happens at
+    // duration (no dwell) but 0 stays forward-with-clamp
+    expect(stepTime(DURATION, 1, 0, DURATION)).toEqual({ time: DURATION, dir: -1 });
+    // clamped inputs never overshoot (total math)
+    expect(stepTime(5.75, 1, 1.25, DURATION).time).toBe(DURATION);
+    expect(stepTime(0.25, -1, 1.25, DURATION).time).toBe(0);
+  });
+
+  it('steady stepping produces a monotonic yo-yo: forward to duration, reverse to 0, forward again — continuously, no dwell at the ends', () => {
+    const DURATION = 1;
+    const dt = 0.25; // exact binary fractions — no FP drift at the ends
+    let t = 0;
+    let dir: 1 | -1 = 1;
+    const forwardTimes: number[] = [];
+    // forward pass: 0 → 1
+    for (let i = 0; i < 4; i++) {
+      const stepped = stepTime(t, dir, dt, DURATION);
+      t = stepped.time;
+      dir = stepped.dir;
+      forwardTimes.push(t);
+    }
+    expect(dir).toBe(-1); // flipped at the end
+    expect(t).toBe(DURATION);
+    expect(forwardTimes.every((v, i) => i === 0 || v >= forwardTimes[i - 1]!)).toBe(true);
+    // reverse pass: 1 → 0
+    const reverseTimes: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      const stepped = stepTime(t, dir, dt, DURATION);
+      t = stepped.time;
+      dir = stepped.dir;
+      reverseTimes.push(t);
+    }
+    expect(dir).toBe(1); // flipped at the start
+    expect(t).toBe(0);
+    expect(reverseTimes.every((v, i) => i === 0 || v <= reverseTimes[i - 1]!)).toBe(true);
+    // the yo-yo continues forward again — no stuck ends
+    const next = stepTime(t, dir, dt, DURATION);
+    expect(next.time).toBeGreaterThan(0);
+    expect(next.dir).toBe(1);
+  });
+
+  it('the component drives the PAUSED element via the rAF seek-stepper: the gated one-shot .play() stays (reduced motion = no call), then pause() on resolve and ONE rAF loop advancing by the wall-clock delta × direction, writing currentTime every tick; the stepper idles until the duration is finite (loadedmetadata), bails on the video error event and cancels the rAF on unmount', () => {
+    const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
+    // the pure seam is imported (not re-derived in the component)
+    expect(hero).toMatch(/import\s*\{\s*stepTime,\s*type\s*PlayDirection\s*\}\s*from\s*'\.\/videoPingPong';/);
+    // the gated one-shot .play() stays (§4.23.A verbatim)
+    expect(hero).toMatch(/prefers-reduced-motion:\s*reduce/);
+    expect(hero).toMatch(/\.play\(\)/);
+    // then pause() — the whole yo-yo is seek-stepped on the PAUSED element
+    expect(hero).toMatch(/video\.pause\(\)/);
+    // ONE rAF stepper: requestAnimationFrame drives it, wall-clock delta
+    expect(hero).toMatch(/requestAnimationFrame/);
+    expect(hero).toMatch(/\/ 1000/);
+    expect(hero).toMatch(/video\.currentTime\s*=/);
+    // direction state starts at 1 and is fed through the pure seam
+    expect(hero).toMatch(/let direction: PlayDirection = 1/);
+    expect(hero).toMatch(/stepTime\(video\.currentTime, direction, delta, video\.duration\)/);
+    // the stepper idles until the duration is finite and > 0
+    expect(hero).toMatch(/Number\.isFinite\(video\.duration\)/);
+    expect(hero).toMatch(/loadedmetadata/);
+    // the error event tears the stepper down (the §4.23.G fallback unchanged)
+    expect(hero).toMatch(/removeEventListener\('loadedmetadata', onMetadata\)/);
+    expect(hero).toMatch(/removeEventListener\('error', onError\)/);
+    // teardown cancels the rAF and disconnects the listeners on unmount
+    expect(hero).toMatch(/cancelAnimationFrame/);
+    // the rejection is swallowed (no stepper runs) — §4.23.I flag 1
+    expect(hero).toMatch(/\.catch\(\(\) =>/);
+    // reduced motion wraps BOTH the play and the stepper (the early return
+    // precedes any listener or rAF wiring)
+    const effect = hero.match(/\$effect\(\(\) => \{[\s\S]*?\n {2}\}\);/)?.[0] ?? '';
+    expect(effect).toMatch(/prefers-reduced-motion: reduce\)'\)\.matches\) return;/);
+    expect(effect.indexOf('requestAnimationFrame')).toBeGreaterThan(
+      effect.indexOf('prefers-reduced-motion')
+    );
   });
 });
 
@@ -758,6 +882,22 @@ describe('/ — §4.23.C the reminders are REMOVED ENTIRELY (§35 item 3, negati
       );
     }
   });
+
+  it('§4.27.C/F grep-audit: the four orphaned sim chat keys (landing.sim.who1/who2/msg1/msg2) exist in NEITHER dictionary, in NO route, in NO component and in NO test; the retired .sim-chat/.sim-row/.sim-who/.sim-msg markup and CSS are gone from the landing sources', () => {
+    for (const key of ['landing.sim.who1', 'landing.sim.who2', 'landing.sim.msg1', 'landing.sim.msg2']) {
+      expect(ru).not.toHaveProperty(key);
+      expect(en).not.toHaveProperty(key);
+    }
+    for (const file of [...LANDING_SOURCES, 'src/routes/+page.svelte']) {
+      const stripped = source(file).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      expect(stripped, `${file} still uses a retired sim chat key`).not.toMatch(
+        /landing\.sim\.(who1|who2|msg1|msg2)/
+      );
+      expect(stripped, `${file} still carries the chat-window markup/CSS`).not.toMatch(
+        /sim-chat|sim-row|sim-who\b|sim-msg/
+      );
+    }
+  });
 });
 
 describe('/ — the §4.22.D BLEAK rename + the §4.22.G supersessions', () => {
@@ -937,7 +1077,8 @@ describe('/ — the §4.20 unchanged zones (headline, cards, steps, footer) as r
     expect(css).toMatch(/\.stat-body\s*\{[^}]*padding:\s*12px 14px/);
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stat-body\s*\{[^}]*padding:\s*16px 20px/);
     expect(css).toMatch(/\.stat-title\s*\{[^}]*font-size:\s*17px/);
-    expect(css).toMatch(/\.stat-line\s*\{[^}]*font-size:\s*13px/);
+    // §4.27.B: the banner's mini-lines share the one description bump
+    expect(css).toMatch(/\.stat-line\s*\{[^}]*font-size:\s*15px/);
     expect(css).toMatch(/\.stat-line\s*\{[^}]*line-height:\s*1\.35/);
     expect(css).toMatch(/margin:\s*0 0 2px/);
     expect(css).toMatch(/\.stat-glyph :global\(svg\)\s*\{[^}]*width:\s*44px/);
@@ -995,6 +1136,32 @@ describe('/ — the §4.20 unchanged zones (headline, cards, steps, footer) as r
     expect(css).toMatch(/\.steps\s*\{[^}]*gap:\s*var\(--space-5\)/);
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.steps\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(3, 1fr\)/);
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.step-block \.step-body\s*\{[^}]*min-height:\s*300px/);
+  });
+
+  it('§4.27.B the description font bumps: ONE consistent +2px — .step-desc, .privacy-desc, .stat-line and .agent-quote ALL compute font-size: 15px (was 13px), with family/color/line-height otherwise unchanged; the explicit negatives hold — the lead .sub stays 14px (16px ≥720px) and the join input stays 14px', () => {
+    const css = source('src/routes/+page.svelte');
+    // the four description classes carry the SAME bumped value
+    for (const cls of ['step-desc', 'privacy-desc', 'stat-line', 'agent-quote']) {
+      const rule = css.match(new RegExp(`\\.${cls}\\s*\\{[^}]*\\}`))?.[0] ?? '';
+      expect(rule, `.${cls} carries the 15px bump`).toMatch(/font-size:\s*15px/);
+      expect(rule, `.${cls} keeps the Inter body family`).toMatch(
+        /font-family:\s*var\(--font-body\)/
+      );
+      expect(rule, `.${cls} lost no color declaration`).toMatch(
+        /color:\s*var\(--color-(text|text-muted)\)/
+      );
+      expect(rule, `.${cls} did not keep the old 13px`).not.toMatch(/font-size:\s*13px/);
+    }
+    // existing line-heights unchanged
+    expect(css).toMatch(/\.stat-line\s*\{[^}]*line-height:\s*1\.35/);
+    // negatives: the lead sub and the join input are NOT card descriptions
+    expect(css).toMatch(/\.sub\s*\{[^}]*font-size:\s*14px/);
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.sub\s*\{[^}]*font-size:\s*16px/
+    );
+    const joinInput = css.match(/\.join-input\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(joinInput).toMatch(/font-size:\s*14px/);
+    expect(joinInput).not.toMatch(/font-size:\s*15px/);
   });
 
   it('renders ONE site contact block: the kept copyright row + EMAIL/GITHUB links, resurfaced as the dark glass pill (§4.26.D — the pixel-frame construction retired from it)', () => {
@@ -1094,9 +1261,9 @@ describe('/ — behavior (§4.20.L; §4.22.A made the entry points exact)', () =
   });
 });
 
-describe('/ — RU/EN parity (the 58 §4.20.M + §4.26.L keys, the working switch)', () => {
+describe('/ — RU/EN parity (the 55 §4.20.M + §4.26.L/§4.27.G keys, the working switch)', () => {
   it('every landing key exists in BOTH dictionaries, non-empty — and the dead keys exist in NEITHER', () => {
-    expect(LANDING_KEYS).toHaveLength(58);
+    expect(LANDING_KEYS).toHaveLength(55);
     for (const key of LANDING_KEYS) {
       expect(ru, `ru missing ${key}`).toHaveProperty(key);
       expect(en, `en missing ${key}`).toHaveProperty(key);
@@ -1356,7 +1523,7 @@ describe('/ — §4.26.E–I the four new sections + the GET EARLY ACCESS stub',
     expect(stripped.match(/backdrop-filter:\s*blur\(16px\)/g)).toHaveLength(2);
   });
 
-  it('Section 4 renders (AC 15/16): the wide glass container #sim with the BLEAK personage (64px, purple glow) + YOUR AGENT + Status: Scanning... (blinking cursor), the SCOUT figure (cyan glow) + NEARBY AGENT + Distance: 15m, and the dark opaque pixel-frame chat window with EXACTLY 3 rows — the two messages + the glowing green ICE BROKEN badge (no nav anchor targets #sim)', () => {
+  it('Section 4 renders (§4.27.C/§4.27.D): the wide glass container #sim with the BLEAK personage (64px, purple glow) + YOUR AGENT + Status: Scanning... (blinking cursor) on the left, the SCOUT figure (cyan glow) + NEARBY AGENT + Distance: 15m on the right, and the CENTER COLUMN .sim-center holding EXACTLY two children — the compatibility ring on top and the glowing green ICE BROKEN badge BELOW it (the §4.26.F 3-message chat window is REMOVED; no nav anchor targets #sim)', () => {
     const { container } = render(LandingPage, { props: {} });
     const sim = container.querySelector('#sim');
     expect(sim).toBeTruthy();
@@ -1372,7 +1539,7 @@ describe('/ — §4.26.E–I the four new sections + the GET EARLY ACCESS stub',
       ru['landing.sim.you.status']
     );
     expect(sim?.querySelector('.sim-cursor')).toBeTruthy();
-    // right: NEARBY AGENT — the NEW scout figure
+    // right: NEARBY AGENT — the scout figure
     const nearby = sim?.querySelector('.sim-nearby');
     expect(nearby?.querySelector('[data-figure="scout"]')).toBeTruthy();
     expect(nearby?.querySelector('.sim-agent-name')?.textContent).toBe(
@@ -1381,41 +1548,148 @@ describe('/ — §4.26.E–I the four new sections + the GET EARLY ACCESS stub',
     expect(nearby?.querySelector('.sim-status')?.textContent?.trim()).toBe(
       ru['landing.sim.nearby.status']
     );
-    // center: the opaque dark pixel chat window, EXACTLY 3 rows
-    const chat = sim?.querySelector('.sim-chat');
-    expect(chat?.className).toContain('pixel-corners');
-    expect(chat?.className).toContain('pixel-frame--strong');
-    const rows = [...(chat?.querySelectorAll('.sim-row') ?? [])];
-    expect(rows).toHaveLength(3);
-    expect(rows[0]?.querySelector('.sim-who')?.textContent).toBe(ru['landing.sim.who1']);
-    expect(rows[0]?.querySelector('.sim-msg')?.textContent).toBe(ru['landing.sim.msg1']);
-    expect(rows[0]?.className).toContain('sim-row--left');
-    expect(rows[1]?.querySelector('.sim-who')?.textContent).toBe(ru['landing.sim.who2']);
-    expect(rows[1]?.querySelector('.sim-msg')?.textContent).toBe(ru['landing.sim.msg2']);
-    expect(rows[1]?.className).toContain('sim-row--right');
-    const badge = rows[2]?.querySelector('.sim-badge');
-    expect(badge?.textContent?.trim()).toBe(ru['landing.sim.badge']);
-    // verbatim EN copy
-    expect(en['landing.sim.msg1']).toBe('Shared interests detected: AI, Pixel Art, Coffee.');
-    expect(en['landing.sim.msg2']).toBe('High compatibility (96%). Suggesting IRL intro.');
+    // §4.27.C: the center column holds EXACTLY two children, top →
+    // bottom: (1) the compatibility ring, (2) the badge BELOW it
+    const center = sim?.querySelector('.sim-center');
+    expect(center).toBeTruthy();
+    const centerChildren = [...(center?.children ?? [])].map((el) => el.className);
+    expect(centerChildren).toHaveLength(2);
+    expect(centerChildren[0]).toContain('compat-ring');
+    expect(centerChildren[1]).toContain('sim-badge');
+    expect(center?.querySelector('.sim-badge')?.textContent?.trim()).toBe(
+      ru['landing.sim.badge']
+    );
+    // verbatim EN badge copy
     expect(en['landing.sim.badge']).toBe('[ ICE BROKEN — SAY HELLO ]');
-    // the glowing green badge pulses steps(2) 1.6s; reduced motion → static
+    // the retired chat window is ABSENT from the DOM
+    for (const sel of ['.sim-chat', '.sim-chat-body', '.sim-row', '.sim-who', '.sim-msg']) {
+      expect(sim?.querySelector(sel), `${sel} is gone`).toBeNull();
+    }
+    // the badge keeps its unchanged deepa-1 chip styles + pulse; reduced
+    // motion → static (the base.css catch-all)
     const css = source('src/routes/+page.svelte');
     expect(css).toMatch(/\.sim-badge\s*\{[^}]*color:\s*var\(--color-deepa-1\)/);
     expect(css).toMatch(/\.sim-badge\s*\{[^}]*animation:\s*badge-pulse 1\.6s steps\(2\) infinite alternate/);
-    expect(css).toMatch(/\.sim-chat-body\s*\{[^}]*background:\s*var\(--color-surface\)/);
     // §4.26.O.6: no nav link targets #sim (id="sim" is record-only)
     const nav = container.querySelector('.top-nav');
     for (const a of nav?.querySelectorAll('a') ?? []) {
       expect(a.getAttribute('href')).not.toBe('#sim');
     }
-    // the 1fr/auto/1fr desktop grid; phone = the 2-col avatar row above
-    // the full-width chat (grid areas)
+    // the 1fr/auto/1fr desktop grid (the 160px ring box is the `auto`
+    // middle column); phone = the 2-col avatar row above the full-width
+    // center (grid areas)
     expect(css).toMatch(/\.sim-grid\s*\{[^}]*grid-template-columns:\s*1fr 1fr/);
     expect(css).toMatch(
       /@media \(min-width: 720px\)\s*\{[\s\S]*?\.sim-grid\s*\{[^}]*grid-template-columns:\s*1fr auto 1fr/
     );
+    expect(css).toMatch(/\.sim-center\s*\{[^}]*grid-area:\s*center/);
+    expect(css).toMatch(/grid-template-areas:\s*\n?\s*'you center nearby'/);
+    expect(css).toMatch(/grid-template-areas:\s*\n?\s*'you nearby'\s*\n?\s*'center center'/);
   });
+
+  it('§4.27.D the compatibility circle is the /chats summary-sheet pattern REUSED (source-scan): the landing imports RING_RADIUS, ringScoreOffset, TALLY_MS and tallyValue from #lib/chats/summary — NO duplicated geometry or timing constants exist in the landing sources (no local radius 66, no local 700ms count-up constant, no re-derived dash math)', () => {
+    const page = source('src/routes/+page.svelte');
+    // the import — reuse, do not copy
+    expect(page).toMatch(
+      /import\s*\{[^}]*\bRING_RADIUS\b[^}]*\bringCircumference\b[^}]*\bringScoreOffset\b[^}]*\bTALLY_MS\b[^}]*\btallyValue\b[^}]*\}\s*from\s*'#lib\/chats\/summary';/
+    );
+    // no duplicated constants: the pure module is the ONLY source of the
+    // geometry/count-up numbers
+    for (const file of LANDING_SOURCES) {
+      const src = source(file);
+      expect(src, `${file} carries a local ring radius 66`).not.toMatch(/\bRADIUS\s*=\s*66\b/);
+      expect(src, `${file} carries a local 700ms count-up constant`).not.toMatch(
+        /\bTALLY_MS\s*=\s*700\b|\b=\s*700\s*;\s*\/\/\s*ms\b/
+      );
+      expect(src, `${file} re-derives the dash math`).not.toMatch(
+        /Math\.PI\s*\*\s*(RING_RADIUS|radius)/
+      );
+    }
+    // SummarySheet.svelte + lib/chats/summary.ts are UNTOUCHED (the pattern
+    // source is not modified)
+    expect(source('src/lib/chats/summary.ts')).toMatch(
+      /export const RING_RADIUS = 66;/
+    );
+    expect(source('src/lib/components/SummarySheet.svelte')).toMatch(
+      /ring-fill 900ms ease-out both/
+    );
+  });
+
+  it('§4.27.D the ring construction (verbatim): SVG viewBox 0 0 160 160 at 160×160px, r 66 (the imported RING_RADIUS), stroke-width 12, stroke-linecap: butt, crispEdges, the track at 25% of --color-text, the arc dasharray = full circumference with ring-fill 900ms ease-out from the full C to ringScoreOffset(96), rotate(-90deg) 12-o-clock clockwise start; the numeral renders 96% at rest — Handjet 600 40px centered, fill --color-text; arc + numeral --color-text (no yellow, no new colors)', async () => {
+    // happy-dom never intersects: stub the API as unavailable → the mount
+    // fallback flips `started` immediately and the count-up runs
+    vi.stubGlobal('IntersectionObserver', undefined);
+    const { container } = render(LandingPage, { props: {} });
+    const ring = container.querySelector('.compat-ring') as SVGSVGElement | null;
+    expect(ring).toBeTruthy();
+    expect(ring?.getAttribute('viewBox')).toBe('0 0 160 160');
+    expect(ring?.getAttribute('width')).toBe('160');
+    expect(ring?.getAttribute('height')).toBe('160');
+    expect(ring?.getAttribute('role')).toBe('img');
+    expect(ring?.getAttribute('shape-rendering')).toBe('crispEdges');
+    // the count-up runs off the mount fallback — after it lands the
+    // numeral reads exactly 96%
+    await waitFor(() => {
+      expect(ring?.querySelector('.compat-score')?.textContent).toBe('96%');
+    });
+    // accessibility: the aria-label embeds the final value (the sheet's
+    // scoreAria pattern); the count-up announces nothing (no aria-live)
+    expect(ring?.getAttribute('aria-label')).toBe(ru['landing.sim.compat.aria']);
+    expect(en['landing.sim.compat.aria']).toBe('Agent compatibility: 96%');
+    expect(ru['landing.sim.compat.aria']).toBe('Совместимость агентов: 96%');
+    expect(ring?.querySelector('[aria-live]')).toBeNull();
+    const css = source('src/routes/+page.svelte');
+    // geometry + stroke treatment (the sheet's values, verbatim)
+    expect(css).toMatch(/\.compat-ring\s*\{[^}]*width:\s*160px[^}]*height:\s*160px/);
+    expect(css).toMatch(/\.compat-ring\s*\{[^}]*shape-rendering:\s*crispEdges/);
+    expect(css).toMatch(/\.compat-ring circle\s*\{[^}]*stroke:\s*var\(--color-text\)[^}]*stroke-width:\s*12/);
+    expect(css).toMatch(/\.compat-ring \.track\s*\{[^}]*stroke:\s*color-mix\(in srgb, var\(--color-text\) 25%, transparent\)/);
+    expect(css).toMatch(/\.compat-ring \.arc\s*\{[^}]*stroke-linecap:\s*butt/);
+    expect(css).toMatch(/\.compat-ring \.arc\s*\{[^}]*stroke-dasharray:\s*var\(--ring-c\) var\(--ring-c\)/);
+    expect(css).toMatch(/\.compat-ring \.arc\s*\{[^}]*stroke-dashoffset:\s*var\(--ring-target\)/);
+    expect(css).toMatch(/\.compat-ring \.arc\s*\{[^}]*transform:\s*rotate\(-90deg\)[^}]*transform-origin:\s*80px 80px/);
+    expect(css).toMatch(/\.compat-ring \.arc\s*\{[^}]*animation:\s*ring-fill 900ms ease-out both/);
+    expect(css).toMatch(/@keyframes ring-fill\s*\{[\s\S]*?from\s*\{[^}]*stroke-dashoffset:\s*var\(--ring-c\)[\s\S]*?to\s*\{[^}]*stroke-dashoffset:\s*var\(--ring-target\)/);
+    // the numeral: Handjet 600 40px, centered, the text ink
+    const scoreRule = css.match(/\.compat-ring \.compat-score\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(scoreRule).toMatch(/font-family:\s*var\(--font-pixel\)/);
+    expect(scoreRule).toMatch(/font-weight:\s*600/);
+    expect(scoreRule).toMatch(/font-size:\s*40px/);
+    expect(scoreRule).toMatch(/letter-spacing:\s*0/);
+    expect(scoreRule).toMatch(/text-anchor:\s*middle/);
+    expect(scoreRule).toMatch(/dominant-baseline:\s*central/);
+    expect(scoreRule).toMatch(/fill:\s*var\(--color-text\)/);
+    // no yellow anywhere on the ring (the green stays on the badge)
+    const ringRules = css.match(/\.compat-ring[^{]*\{[^}]*\}/g)?.join('\n') ?? '';
+    expect(ringRules).not.toMatch(/accent|--color-accent/);
+  });
+
+  it('§4.27.D reduced motion: the ring renders the static final state immediately — the explicit matchMedia guard jumps the tally to 96 (no observer, no rAF); scrolling never replays anything', async () => {
+    const page = source('src/routes/+page.svelte');
+    // the explicit guard inside the effect (the base.css catch-all only
+    // intercepts CSS)
+    expect(page).toMatch(
+      /prefers-reduced-motion:\s*reduce/
+    );
+    // behavior: under reduce the numeral is 96% without any trigger
+    vi.stubGlobal('matchMedia', vi.fn(() => ({
+      matches: true,
+      media: '(prefers-reduced-motion: reduce)',
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false
+    })));
+    const { container } = render(LandingPage, { props: {} });
+    const ring = container.querySelector('.compat-ring') as SVGSVGElement | null;
+    expect(ring).toBeTruthy();
+    await tick();
+    expect(ring?.querySelector('.compat-score')?.textContent).toBe('96%');
+    expect(ring?.getAttribute('aria-label')).toBe(ru['landing.sim.compat.aria']);
+  });
+
 
   it('Section 5 renders (AC 17): the glass container #privacy titled BUILT FOR REAL LIFE, NOT STALKERS; a 3-col grid ≥720px / a stack on phone; the three cards carry the 48px ghost / padlock+key / shield+radar icons and the exact titles + descs (RU per §4.26.L)', () => {
     const { container } = render(LandingPage, { props: {} });

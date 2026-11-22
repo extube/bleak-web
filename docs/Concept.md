@@ -1805,6 +1805,34 @@ fallbacks.
    says otherwise); the animated pieces (pulsing dot, glow, hover
    lift) respect reduced motion.
 
+---
+
+## 39. Owner batch: font sizes + compatibility circle + reverse video — ✅ APPROVED (2026-11-22)
+
+Follow-up adjustments (owner, 2026-11-22):
+
+1. **Header nav titles: bigger font** (the anchor links grow; the
+   language switcher keeps its current size).
+2. **Block descriptions: bigger font** — the mini description texts
+   inside the content blocks (step cards, privacy cards, etc.) are
+   increased. Exact sizes are the design's call — a clearly visible
+   bump, consistent across blocks.
+3. **Section 4 ("HOW YOUR AGENTS BREAK THE ICE") center rework:** in
+   the compatibility display, keep **only the 96% compatibility** with
+   an **animation of the percents increasing** and a **circle around
+   it** — the **same animation as the compatibility indicator in the
+   summary chat on the chats page** (reuse that existing component/
+   pattern for consistency). The 3-message chat window is removed in
+   favor of the compatibility circle. The badge **[ICE BROKEN — SAY
+   HELLO]** stays **below the compatibility circle**. The two agent
+   avatars (YOUR AGENT / NEARBY AGENT) flanking the center stay.
+4. **Video ping-pong playback:** when the background video reaches
+   the end, it **runs in reverse** back to the start, then plays
+   forward again — continuously (yo-yo loop). This replaces the plain
+   loop. Implementation note (not a contract): negative playbackRate
+   is unreliable across browsers — seek-stepping reverse is the
+   dependable approach; reduced-motion keeps the static fallback.
+
 All other §31–§33 contracts stay in force (routes, Start → `/income`
 with the 6-digit input, RU/EN parity, reminder box contracts, three
 step blocks, existing suites green).

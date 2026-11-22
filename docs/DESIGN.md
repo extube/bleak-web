@@ -6796,6 +6796,482 @@ dependency.
    owner's anchor map names four targets; how-it-works is the step
    cards, not the simulation.
 
+### 4.27 v3.21 feature design (2026-11-22, owner-approved Concept §39): §39 font bumps + compatibility circle + ping-pong video
+
+The owner issued the four-item §39 follow-up batch: bigger header-nav
+titles (the language switcher keeps its size), bigger block
+descriptions, Section 4's center reworked to ONLY the 96% compatibility
+display — an animated count-up inside a circle, reusing the /chats
+summary-sheet indicator pattern — with the ICE BROKEN badge below it and
+the two flanking agent avatars kept, and the background video playing
+ping-pong (forward → reverse → forward, continuously) instead of
+looping. This section amends §4.26 (→ §4.25 → … → §4.20) item by item;
+**where §4.27 is silent, the earlier specs stand** except where
+§4.27.F explicitly supersedes them. Grounded in the live code:
+`apps/web/src/routes/+page.svelte`,
+`lib/components/landing/LandingVideoHero.svelte`,
+`lib/components/landing/{sectionArt,figures}.ts`,
+`lib/components/personage/bleakFigure.ts`,
+`lib/components/SummarySheet.svelte` + `lib/chats/summary.ts` (the
+pattern source), `lib/i18n/{en,ru}.ts`, `tests/landing-page.test.ts`.
+Hard constraints unchanged: **no new dependencies** (the ring helpers
+and the ping-pong stepper are imports + hand-rolled native code; the
+stepper's pure unit is a tiny local module per the `sectionArt.ts`
+precedent), **no new color values** (token/`color-mix` only — the
+sanctioned §38 rgba family is untouched and nothing is added to it),
+**no canvas, no animation library**, **routes untouched**, **/income
+surfaces untouched**, the video asset stays, all reduced-motion
+fallbacks preserved. **API endpoints used: none** — the landing stays
+fetch-free (§4.20 preamble); the round is presentational. Task:
+tz12-11 (`feature/43e60f70-tz12-11-fonts-compat-pingpong`).
+
+#### 4.27.A Nav font bump — the four anchor links (item 1)
+
+The §4.26.A nav anchor set (HOW IT WORKS / PRIVACY / USE CASES / JOIN,
+smooth-scroll, desktop-only ≥720px) is unchanged in every respect
+except SIZE: `.top-nav a` goes **font-size: 12px → 14px** (a +2px bump
+in the owner's "+2–4px" band; Handjet is condensed so 14px still reads
+as chrome, not as a headline). Everything else about the anchors is
+UNCHANGED and stays verbatim: `font-family: var(--font-pixel)`,
+`font-weight: 600`, `letter-spacing: 0.08em`, uppercase,
+`color: var(--color-text-muted)`, hover `--color-deepa-4` over 120ms,
+the desktop-only `display: none → flex` media rule, and the header's
+min-heights/paddings (52px/56px rows — 14px labels fit; at the 720px
+viewport the four labels + icon + switcher hold one line each, no
+wrap). **The language switcher size is UNCHANGED — explicit negative:**
+`LocaleControl.svelte` and `SegmentedControl.svelte` are untouched
+files, the switcher's buttons stay at their 14px, and NO landing style
+overrides sizes inside `.locale` (the test suite asserts this
+negatively — the switcher is not dragged along by the bump).
+
+#### 4.27.B Description font bumps — one consistent +2px across blocks (item 2)
+
+The owner leaves the exact size to the design ("a clearly visible
+bump, consistent across blocks", §39.2). Decided: **every card
+mini-description goes Inter 13px → 15px** — ONE value, the same
+everywhere, on the four description classes that play the
+"mini description inside a content block" role:
+
+| Class | Block | From → To |
+| --- | --- | --- |
+| `.step-desc` | the three step cards (§4.26.C) | 13px → 15px |
+| `.privacy-desc` | the three privacy cards (§4.26.G) | 13px → 15px |
+| `.stat-line` | the banner's mini-lines (§4.26.B) | 13px → 15px |
+| `.agent-quote` | the BLEAK agent card quote (§4.20.G) | 13px → 15px |
+
+(`.stat-line` and `.agent-quote` are the "etc." reading — they are the
+remaining card-body mini-texts at 13px; including them keeps the bump
+consistent across ALL blocks, which is the owner's stated intent.
+Excluding either is a one-line change — §4.27.J flag 2.) Family
+(`var(--font-body)`), colors (`--color-text-muted`, `--color-text`)
+and existing line-height declarations are otherwise unchanged — only
+the `font-size` value moves. **Wrap sanity at the 288px desktop
+thirds:** at 15px the longest RU desc («Никаких холодных сообщений.
+Контакты открываются только после взаимного рукопожатия.») wraps to
+~3 lines in a ~248px card interior — the privacy cards and step cards
+grow naturally (normal-flow blocks), the step cards keep their
+min-height 300px with the pill pinned via `margin-top: auto`
+(whitespace shrinks, nothing overflows at 320/760/1280), and the
+banner's three lines still fit the compact flex row. **Explicit
+negatives — NOT card descriptions, unchanged:** the lead `.sub`
+(stays 14px/16px ≥720px) and the join input (stays 14px); the removed
+`.sim-msg` (13px) dies with the chat window (§4.27.C).
+
+#### 4.27.C Section 4 center rework — deletions (item 3)
+
+`#sim` keeps its title (`landing.sim.title`), its glass container and
+its TWO FLANKING AGENT BLOCKS verbatim (§4.26.F, unchanged down to the
+blinking cursor and the purple/cyan glows). The CENTER changes:
+
+- **DELETED — the 3-message chat window:** the entire
+  `.sim-chat` / `.sim-chat-body` / `.sim-row*` / `.sim-who` /
+  `.sim-msg` markup and CSS (the opaque pixel-frame "screen", the
+  Agent 01 / Agent 02 rows, the left/right alignment classes) goes
+  away. The orphaned keys — grep-audited live: `landing.sim.who1`,
+  `landing.sim.who2`, `landing.sim.msg1`, `landing.sim.msg2` appear
+  ONLY in `en.ts`/`ru.ts` (~456–459), the sim rows of
+  `+page.svelte`, and `landing-page.test.ts` (the `LANDING_KEYS` list
+  + the §4.26.N-16 assertions) — are removed from BOTH dictionaries
+  (§4.27.G).
+- **KEPT — the badge, relocated:** the glowing green
+  `[ ICE BROKEN — SAY HELLO ]` chip (`landing.sim.badge`; RU
+  «[ ЛЁД РАЗБИТ — СКАЖИТЕ ПРИВЕТ ]») STAYS, now **BELOW the
+  compatibility circle** in the center column. All badge styles are
+  unchanged (Handjet 12px uppercase deepa-1, the 50% deepa-1 border,
+  the glow text-shadow, `badge-pulse` 1.6s steps(2) infinite
+  alternate; reduced motion → static at full opacity).
+- **New center column `.sim-center`:** a flex column
+  (`align-items: center`, gap `var(--space-3)`) holding exactly two
+  children, top → bottom: (1) the compatibility circle (§4.27.D),
+  (2) the badge. Grid: ≥720px keeps `grid-template-columns: 1fr auto
+  1fr` with areas `'you center nearby'` (the `auto` middle column is
+  the 160px ring box — the retired chat window was the previous
+  `auto` occupant); phone keeps the 2-col avatar row above a
+  full-width center (`'you nearby'` / `'center center'`).
+
+#### 4.27.D The compatibility circle — the /chats summary pattern, reused (item 3)
+
+**Pattern source (groundwork record).** The owner names "the
+compatibility indicator in the summary chat on the chats page". That
+implementation is:
+
+- `apps/web/src/lib/components/SummarySheet.svelte` — the score-stage
+  ring: markup (`.ring` SVG: track + arc + `<text class="score">`,
+  §4.15.C-5) and CSS (`.ring`/`.track`/`.arc`/`.score` +
+  `@keyframes ring-fill`), plus the tally `$effect` (the one-shot rAF
+  count-up with the explicit reduced-motion guard);
+- `apps/web/src/lib/chats/summary.ts` — the pure, framework-free
+  home of the geometry and timing: `RING_RADIUS` (66, viewBox
+  160×160), `ringCircumference`, `ringScoreOffset(score, radius)`,
+  `summaryScoreDisplay`, `TALLY_MS` (700), `tallyEase` (cubic
+  ease-out), `tallyValue(elapsedMs, score)` (ceil integer steps,
+  lands exactly on the target);
+- spec of record: DESIGN §4.15.C-5.
+
+**What transfers VERBATIM (construction + behavior):**
+
+- **Ring geometry:** SVG `viewBox="0 0 160 160"` rendered at
+  **160×160px**; circle `r = 66` (`RING_RADIUS`); **stroke-width 12**;
+  **`stroke-linecap: butt`** (square ends — the pixel aesthetic);
+  **`shape-rendering: crispEdges`** on the SVG; track circle at 25%
+  ink (`color-mix(in srgb, var(--color-text) 25%, transparent)` — the
+  sheet's 25%-white role remapped, see ink below); the arc carries
+  `stroke-dasharray: var(--ring-c) var(--ring-c)` (full circumference,
+  the same `--ring-c` custom-property technique) and `rotate(-90deg)`
+  (transform-origin 80px 80px) so the fill **starts at 12 o'clock and
+  sweeps clockwise**.
+- **Arc fill animation:** `@keyframes ring-fill` from
+  `stroke-dashoffset: var(--ring-c)` (empty) to
+  `stroke-dashoffset: var(--ring-target)` where
+  `--ring-target = ringScoreOffset(96)` — over **900ms ease-out both**
+  (the sheet's exact duration/easing; the stroke-geometry animation is
+  the sanctioned §4.13.5/§4.15.C-5 exception to §4.6, carried by the
+  pattern).
+- **Tally count-up:** a one-shot rAF loop 0 → 96 over **`TALLY_MS`
+  = 700ms** stepping through `tallyValue(elapsedMs, 96)` — cubic
+  ease-out, `Math.ceil` integer steps, landing EXACTLY on 96 — a
+  direct port of the sheet's tally `$effect` (same structure, same
+  reset-to-0 start, same `cancelAnimationFrame` cleanup, same
+  "land exactly on the final integer" branch).
+- **Reduced motion (both layers):** the explicit
+  `matchMedia('(prefers-reduced-motion: reduce)')` guard inside the
+  effect jumps the tally straight to 96 (the base.css catch-all only
+  intercepts CSS); the CSS `ring-fill` collapses via the catch-all
+  (0.01ms + `both` fill) so the arc snaps to its final offset — the
+  static state is the ring AT 96% with the numeral 96.
+- **Accessibility shape:** `role="img"` on the SVG with an aria-label
+  that embeds the final value (the sheet's `scoreAria` pattern); the
+  count-up never announces intermediate values (static label, no
+  aria-live). The landing's label key is new — §4.27.G.
+
+**What adapts (landing-local):**
+
+- **The value — a constant, not a Summary:** `COMPAT_SCORE = 96`
+  (the 96 from the retired §4.26.F msg2 becomes the display value)
+  declared in the landing page component. The numeral renders the
+  count-up integer followed by a literal `%` in the same `<text>`
+  (the sheet shows a bare integer; the owner asks for "the 96%
+  compatibility") — at rest the ring reads **`96%`**.
+- **Ink mapping (no `--sheet-*` scope here):** the sheet's whites map
+  to the landing text ink — arc + numeral **`var(--color-text)`**,
+  track at 25% of `--color-text`. The arc stays white/ink
+  (structural per the pattern); the tier accent is NOT carried —
+  `summaryTier(96)` = GREAT, and the sheet itself retired the yellow
+  GREAT label to common ink (§4.15.6.2), so a standalone GREAT-96
+  display carries no yellow: the green stays reserved to the badge
+  below (the §4.26.E hue-role discipline), the numeral/arc stay ink.
+- **Numeral face/size:** `var(--font-pixel)` (Handjet) weight 600,
+  **40px**, `letter-spacing: 0` (the sheet's 28px Press Start 2P
+  equivalent — PS2P runs large, Handjet is narrow; 40px fills the
+  132px ring interior comparably), `text-anchor: middle` +
+  `dominant-baseline: central` at x 80 / y 80 (the sheet's technique).
+- **Start trigger — DECIDED scroll-into-view, one-shot:** the sheet
+  animates on open; the landing ring sits BELOW THE FOLD, so a
+  mount-triggered animation would be spent before anyone sees it. On
+  mount the component sets an IntersectionObserver (threshold 0.4)
+  on the ring; the FIRST intersection flips a `started` flag and the
+  observer disconnects; the tally `$effect` runs off `started` exactly
+  like the sheet's runs off `open`. Fallback: when
+  `IntersectionObserver` is unavailable (old browsers/test DOM),
+  `started` flips immediately on mount. Reduced motion needs no
+  observer — the static final state renders from the start.
+- **Home:** the ring markup + tally effect live in `+page.svelte`
+  (the landing already owns the section markup) — or a tiny
+  `landing/compatRing` module if the worker prefers; EITHER WAY the
+  geometry/count-up comes from `#lib/chats/summary` by IMPORT —
+  **reuse, do not copy**: no local `66`, no local 700ms constant, no
+  re-derived dash math in the landing sources (the tests assert the
+  import by source-scan, the suite's established technique).
+- **No tier machinery, no sparkles, no avatar motion:** the sheet's
+  GREAT-tier reactions (approach/hop, sparkle poppers, spark burst)
+  are NOT ported — the owner asked for the count-up + circle only;
+  the flanking avatars keep their static §4.26.F treatment (glow +
+  status lines + cursor), which is the landing's own idle language.
+
+#### 4.27.E Video ping-pong playback (item 4)
+
+The §4.23.A fixed background layer keeps its z-stack, attributes (minus
+one — below), gated start and error fallback; the PLAYBACK MODEL
+changes from plain loop to a continuous yo-yo:
+
+- **The `loop` attribute is REMOVED** from the `<video>` (the decisive
+  set becomes `muted playsinline preload="metadata"
+  disablepictureinpicture aria-hidden` — everything else verbatim; no
+  autoplay attribute, no native controls, still aria-hidden
+  decorative scenery).
+- **State machine (owner's seek-stepping note, not a contract —
+  negative `playbackRate` is browser-unreliable, so none is used):**
+  a `direction: 1 | -1` state starting at `1`.
+  1. **Mount:** the gated ONE-SHOT `.play()` stays exactly as shipped
+     (§4.23.A — no call under reduced motion; a rejection is
+     swallowed → the static tint state, and no stepper runs). When
+     `.play()` RESOLVES, the component immediately calls
+     `video.pause()` and takes over: the whole yo-yo — forward
+     included — is driven by ONE rAF seek-stepper on the PAUSED
+     element (a uniform path: no native-play vs stepping races; the
+     muted + playsinline `.play()` call is what satisfies the
+     autoplay policy, and pausing right after does not unsatisfy it).
+  2. **Stepping:** each rAF tick computes
+     `delta = (now − last) / 1000` (wall-clock, frame-rate independent
+     — the smooth equivalent of the owner's per-frame delta with
+     seconds-per-pass = the clip's duration, i.e. the reverse pass
+     takes the SAME wall time as the forward one at 1× speed) and
+     advances the candidate time `t + direction × delta`.
+  3. **End handling (the pure seam):** at `t ≥ duration` → clamp
+     `t = duration`, flip `direction = −1`; at `t ≤ 0` → clamp
+     `t = 0`, flip `direction = +1`; write `video.currentTime = t`
+     every tick. Net behavior: forward → (ended) → reverse stepping →
+     (t = 0) → forward → … continuously, no dwell at the ends.
+  4. **Pure/testable unit:** a tiny new module
+     `apps/web/src/lib/components/landing/videoPingPong.ts` exporting
+     `type PlayDirection = 1 | -1` and
+     `stepTime(t, dir, delta, duration): { time, dir }` — pure, total,
+     clamps and flips at both ends. Unit tests cover: forward at the
+     end flips to reverse and clamps to `duration`; reverse at 0
+     flips to forward; mid-range calls pass through unchanged; steady
+     stepping produces a monotonic yo-yo. (Hand-rolled, zero
+     dependencies — the `sectionArt.ts` local-module precedent.)
+  5. **Guards:** the stepper idles until `duration` is finite and
+     > 0 (`loadedmetadata`; `preload="metadata"` provides it — until
+     then the element is paused at frame 0, the established pre-state);
+     if the video `error` event fires (`failed`), the stepper tears
+     down and the §4.23.G fallback shows unchanged (element hidden —
+     tint + vignette + dots).
+  6. **Teardown:** the mount effect's cleanup cancels the rAF and
+     disconnects any listeners on unmount (no leak across HMR/tests).
+- **Reduced motion: unchanged** — the gate wraps BOTH the `.play()`
+  and the stepper: no play, no stepping, the video stays paused at
+  frame 0 with the tint + vignette + dots (§4.23.G verbatim; the
+  static fallback is not re-derived here).
+
+#### 4.27.F Supersessions (explicit record)
+
+1. **§4.26.F's center 3-message chat window SUPERSEDED** by the
+   compatibility circle (§4.27.C/§4.27.D): the pixel-frame "screen",
+   its exactly-3-rows anatomy, the left/right message alignment and
+   the `.sim-chat*`/`.sim-row*`/`.sim-who`/`.sim-msg` CSS all cease;
+   the §4.26.N-16 chat-window test assertions retire (replaced by
+   §4.27.I). The badge survives (relocated below the circle) and the
+   two flanking agent blocks stand verbatim.
+2. **`landing.sim.who1/who2/msg1/msg2` keys SUPERSEDED** (removed from
+   both dictionaries — §4.27.G).
+3. **The `loop` attribute SUPERSEDED** (§4.23.A.1's decisive
+   attribute set, carried through §4.26.K.9): the video no longer
+   loops — ping-pong seek-stepping replaces it (§4.27.E); the
+   `video?.loop).toBe(true)` + source-regex assertions retire.
+4. **§4.26.B/§4.26.C/§4.20.G description typography AMENDED** (not
+   superseded): the four description classes' 13px → 15px
+   (§4.27.B); every other landing font size stands.
+5. **Superseded-but-carried (unchanged into §4.27):** the §4.23.A
+   fixed layer stack and gated one-shot `.play()`, the §4.23.G
+   reduced-motion + error fallbacks, the §4.22.A keep-list, the
+   §4.26.A–E header/banner/steps/footer/sections contracts (except
+   the size bumps above), the §4.26.J open state + layer audit, the
+   §4.20.C copy/CTA and the §4.20.L behavior + deep-link forwarding.
+
+#### 4.27.G RU/EN i18n delta (grep-audited; both dictionaries required)
+
+Net **−4 +1 = 55 keys per dictionary** (was 58): the four orphaned sim
+message keys are removed, one accessibility key is added for the
+ring's `role="img"` label (the sheet pattern requires an aria-label
+embedding the value). `landing.sim.badge` STAYS in both dictionaries,
+byte-unchanged.
+
+| Δ | Key | RU | EN |
+| --- | --- | --- | --- |
+| − | `landing.sim.who1` | Агент 01 | Agent 01 |
+| − | `landing.sim.who2` | Агент 02 | Agent 02 |
+| − | `landing.sim.msg1` | Обнаружены общие интересы: ИИ, пиксель-арт, кофе. | Shared interests detected: AI, Pixel Art, Coffee. |
+| − | `landing.sim.msg2` | Совместимость высокая (96%). Рекомендую знакомство вживую. | High compatibility (96%). Suggesting IRL intro. |
+| + | `landing.sim.compat.aria` | Совместимость агентов: 96% | Agent compatibility: 96% |
+
+(`landing.sim.compat.aria`'s RU is a design invention — flagged in
+§4.27.J.1.) Grep-audit instructions (worker): after landing, no
+`landing.sim.who*`/`landing.sim.msg*` match remains in either
+dictionary, any route, any component or any test; `landing.sim.compat.aria`
+appears only in `en.ts`, `ru.ts`, `+page.svelte` (the ring's
+aria-label) and the tests; `LANDING_KEYS` extends/retires to the 55-key
+list and `DEAD_KEYS` gains the four removed keys. The RU/EN switch
+re-renders every string without a reload (the parity + re-render test
+pattern extends to the new key).
+
+#### 4.27.H Reduced motion + media states
+
+Unchanged in kind from §4.23.G/§4.26.M, plus the two new motion
+systems' static fallbacks:
+
+- **Compatibility circle:** reduced motion → the tally renders 96
+  immediately (the explicit matchMedia guard) and the arc sits at its
+  final offset (the catch-all completes `ring-fill` instantly with
+  `both` fill); no observer is needed and scrolling never replays
+  anything.
+- **Video:** reduced motion → no `.play()`, no stepper — paused at
+  frame 0 with the tint + vignette + dots (§4.23.G verbatim);
+  ping-pong adds no reduced-motion surface of its own (the stepper
+  only exists downstream of the gated play).
+- **Everything else:** the badge pulse, cursor blink, dot twinkle,
+  hover glows/lifts and smooth-scroll fallbacks are unchanged
+  (§4.26.M). Media states: the landing still fetches nothing — no
+  loading/empty/error data states; the video media states are
+  §4.23.G verbatim (the stepper bails on error); the ring has no
+  data states (a constant). No layout shift: the ring is a fixed
+  160×160 box replacing the chat window's slot; the font bumps grow
+  normal-flow cards only.
+
+#### 4.27.I Acceptance criteria (checkable)
+
+**Nav font bump (item 1):**
+1. `.top-nav a` computes `font-size: 14px` (was 12px); font-family
+   `var(--font-pixel)`, weight 600, letter-spacing 0.08em, uppercase,
+   color `--color-text-muted`, hover `--color-deepa-4` 120ms, and the
+   desktop-only ≥720px visibility are ALL unchanged (source +
+   computed-style assertions).
+2. The language switcher is UNCHANGED: `LocaleControl.svelte` and
+   `SegmentedControl.svelte` are untouched files; the switcher buttons
+   stay 14px; no `.locale`-scoped size override exists in the landing
+   sources (negative assertion).
+
+**Description bumps (item 2):**
+3. One consistent bump: `.step-desc`, `.privacy-desc`, `.stat-line`,
+   `.agent-quote` ALL compute `font-size: 15px` (was 13px), with
+   family/color/line-height declarations otherwise unchanged — the
+   same value in all four (source-scan + computed assertions).
+4. Negatives: the lead `.sub` stays 14px (16px ≥720px) and the join
+   input stays 14px; no other landing font size changed.
+
+**Section 4 center (item 3):**
+5. Negative + cleanup: `.sim-chat`, `.sim-chat-body`, `.sim-row`,
+   `.sim-who`, `.sim-msg` are ABSENT from markup and CSS; no
+   `landing.sim.who1/who2/msg1/msg2` key exists in either dictionary,
+   any route, any component or any test (grep-audited; DEAD_KEYS
+   extended; the §4.26.N-16 chat-window assertions retired).
+6. The center column `.sim-center` holds EXACTLY two children, top →
+   bottom: the compatibility ring and the badge — the badge renders
+   `[ ICE BROKEN — SAY HELLO ]` (RU «[ ЛЁД РАЗБИТ — СКАЖИТЕ ПРИВЕТ ]»)
+   BELOW the ring with its unchanged deepa-1 chip styles + `badge-pulse`
+   (reduced motion → static at full opacity).
+7. Pattern reuse vs the /chats summary implementation (source-scan):
+   the landing imports `RING_RADIUS`, `ringScoreOffset`, `TALLY_MS`
+   and `tallyValue` from `#lib/chats/summary`; NO duplicated geometry
+   or timing constants exist in the landing sources (no local radius
+   66, no local 700ms count-up constant, no re-derived dash math).
+8. Ring construction (§4.27.D verbatim): SVG viewBox 0 0 160 160 at
+   160×160px, `r = 66`, stroke-width 12, `stroke-linecap: butt`,
+   `crispEdges`, track at 25% `--color-text` mix, arc dasharray =
+   full circumference + `ring-fill` 900ms ease-out from full C to
+   `ringScoreOffset(96)`, `rotate(-90deg)` 12-o'clock clockwise start;
+   the numeral renders `96%` at rest — `var(--font-pixel)` 600 40px,
+   centered (x 80 / y 80, middle/central), fill `--color-text`; arc +
+   numeral `--color-text` (no yellow, no new colors).
+9. Count-up behavior: a one-shot 700ms rAF loop stepping through
+   `tallyValue(elapsedMs, 96)` — integer steps, landing EXACTLY on
+   96; triggered ONCE by the scroll-into-view IntersectionObserver
+   (threshold 0.4, disconnects after firing; mount fallback when the
+   API is missing); scrolling away and back does NOT replay; under
+   reduced motion the tally is 96 and the arc is at its final offset
+   with no observer and no rAF.
+10. The flanking agent blocks are verbatim (§4.26.F): BLEAK 64px +
+    purple glow + YOUR AGENT + `Status: Scanning...` + blinking
+    cursor; SCOUT 64px + cyan glow + NEARBY AGENT + `Distance: 15m`;
+    ≥720px grid `1fr auto 1fr` (areas you/center/nearby), phone =
+    2-col avatar row above the full-width center; no horizontal
+    scroll at 320/760/1280.
+11. Accessibility: the ring SVG is `role="img"` with
+    `aria-label = landing.sim.compat.aria` ('Agent compatibility:
+    96%' / «Совместимость агентов: 96%»); the count-up announces
+    nothing (no aria-live on the numeral).
+
+**Video ping-pong (item 4):**
+12. The `loop` attribute is GONE: `video.loop === false` and no `loop`
+    token in `LandingVideoHero.svelte`; `muted`, `playsinline`,
+    `preload="metadata"`, `disablepictureinpicture`, `aria-hidden`
+    remain verbatim; no autoplay attribute, no native controls.
+13. Ping-pong: the pure unit `landing/videoPingPong.ts` `stepTime`
+    flips direction at BOTH ends with clamping (forward at `duration`
+    → reverse at `duration`; reverse at 0 → forward at 0) — unit
+    tests green; the component drives the PAUSED element via rAF
+    seek-stepping (wall-clock delta × direction, 1× speed — the
+    reverse pass takes the same wall time as the forward one) after
+    the gated one-shot `.play()` resolves (then `pause()`); the
+    stepper idles until `duration` is finite, bails on the video
+    `error` event (the §4.23.G fallback unchanged) and its rAF is
+    cancelled on unmount (teardown).
+14. Reduced motion: no `.play()`, no stepper — the video stays paused
+    at frame 0 with the tint + vignette + dots (§4.23.G verbatim);
+    the ring renders the static final state (96% + final arc offset)
+    and every §4.26 static fallback is unchanged.
+
+**i18n + suites (carry):**
+15. i18n: exactly **55** `landing.*` keys in BOTH dictionaries (58 − 4
+    + 1); `landing.sim.compat.aria` present in both; the four removed
+    keys exist NOWHERE (grep-audited); the RU/EN switch re-renders
+    every string without a reload.
+16. Suites amended and green: `landing-page.test.ts` (the 3-row chat
+    window + `loop` assertions retired; ACs 1–14 asserted),
+    `i18n.test.ts` (55-key parity + dead keys), new `videoPingPong`
+    unit tests, `sweep.test.ts` (token discipline — no new color
+    values, the sanctioned rgba family unchanged), `mascot.test.ts`
+    untouched green, `summary-sheet.test.ts` untouched green (the
+    pattern source is NOT modified), `join-flow.test.ts` /
+    `creation-wizard.test.ts` untouched green; `make lint && make
+    test && make build` green.
+17. Constraints: no new dependencies; palette tokens unchanged (no
+    new values anywhere); routes untouched; `/income` untouched; the
+    video asset stays; no canvas, no animation library; API endpoints
+    used: none (the landing stays fetch-free).
+
+#### 4.27.J Flags for the owner / concept (concept report)
+
+1. **ADVICE NEEDED — RU for `landing.sim.compat.aria` is a design
+   invention** («Совместимость агентов: 96%»): the owner's §39 gives
+   no copy for the ring's accessible label; the key is required by
+   the sheet pattern's `role="img"` + value-bearing label. Owner tone
+   approval requested with the batch (the §4.26.O.1 precedent).
+2. **Record — the font sizes are this design's calls** (§39.1–.2
+   leave them to the design): nav 12→14px (+2px, Handjet stays
+   chrome-scale at 14px), descriptions 13→15px. The descriptions
+   scope includes `.stat-line` + `.agent-quote` under the owner's
+   "etc." for cross-block consistency; excluding either is a one-line
+   change if the owner wants strictly steps + privacy.
+3. **Record — the arc is ink/white** (`--color-text`, the summary
+   pattern's structural white; the GREAT tier's yellow label was
+   already retired in the sheet itself, §4.15.6.2). A one-value flip
+   of the arc + numeral to `--color-deepa-4` gives the violet neon
+   read if the owner prefers it.
+4. **Record — reverse speed = 1×**: the reverse pass takes the same
+   wall time as the forward one (the owner's per-frame-delta note
+   with seconds-per-pass = the clip duration). A faster yo-yo is one
+   speed-multiplier constant.
+5. **Record — the count-up trigger is scroll-into-view** (one-shot
+   IntersectionObserver, mount fallback): a below-the-fold
+   mount-triggered animation would finish before the section is ever
+   seen. Reduced motion renders the final state without any observer.
+6. **Record — `.play()`-then-pause:** the gated one-shot `.play()`
+   stays as the autoplay-policy entry (muted + playsinline), then the
+   stepper drives the paused element uniformly — no negative
+   `playbackRate`, no native/stepping double-driving races; the
+   reduced-motion and error fallbacks are untouched.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)

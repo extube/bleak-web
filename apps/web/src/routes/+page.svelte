@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
-   * `/` — the landing page (tz12-10, Concept §38 owner batch, DESIGN
-   * §4.26 amending §4.25 item by item):
+   * `/` — the landing page (tz12-11, Concept §38 owner batch + the §39
+   * follow-up, DESIGN §4.27 amending §4.26 item by item):
    *
    * - Canvas: the §4.22.F page background stays — `--color-landing-bg`
    *   painted full-bleed by the page wrapper; §4.24.A: ONE container rule
@@ -47,15 +47,18 @@
    *   use-cases (#use-cases) → join (#join) — the shared glass recipe
    *   (`rgba(18, 15, 28, 0.45)` + blur 16px + the white border +
    *   inset highlight + radius-md), the SCOUT + BLEAK-WAVE figures, the
-   *   sim chat window and the GET EARLY ACCESS mailto stub (§4.26.I-2:
-   *   a plain `<a>` — no form, no fetch, no validation; the stub swaps
-   *   to a button + handler when a real endpoint lands).
+   *   compatibility circle (§4.27.C/§4.27.D — the summary-sheet ring
+   *   pattern reused, the chat window removed) and the GET EARLY ACCESS
+   *   mailto stub (§4.26.I-2: a plain `<a>` — no form, no fetch, no
+   *   validation; the stub swaps to a button + handler when a real
+   *   endpoint lands).
    * - Reminders REMOVED (§4.23.C) — stays removed.
    * - Behavior (§4.20.L + §4.22.A): the /income entry points are
    *   EXACTLY TWO — the Start CTA and the agent-card TALK; nothing on /
    *   fetches; the join deep links still forward to /income.
-   * - RU/EN parity: 58 landing keys (§4.26.L); the header switch
-   *   re-renders the page without a reload.
+   * - RU/EN parity: 55 landing keys (§4.27.G — 58 − 4 orphaned sim chat
+   *   keys + 1 ring aria key); the header switch re-renders the page
+   *   without a reload.
    */
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -65,6 +68,17 @@
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import LandingVideoHero from '#lib/components/landing/LandingVideoHero.svelte';
   import LandingFigure from '#lib/components/landing/LandingFigure.svelte';
+  /* §4.27.D — the compatibility circle is the /chats summary-sheet
+   * indicator pattern REUSED, not re-derived: the ring geometry and the
+   * arcade tally come from lib/chats/summary.ts by IMPORT (no local
+   * radius 66, no local 700ms constant, no re-derived dash math). */
+  import {
+    RING_RADIUS,
+    ringCircumference,
+    ringScoreOffset,
+    TALLY_MS,
+    tallyValue
+  } from '#lib/chats/summary';
   import {
     STEP_ART,
     PRIVACY_ICONS,
@@ -169,6 +183,97 @@
   const copyright = $derived(translate($locale, 'landing.footer.copyright'));
   const copyrightBrand = $derived(copyright.split(' · ')[0] ?? '');
   const copyrightYear = $derived(copyright.split(' · ')[1] ?? '');
+
+  /* --- §4.27.D THE COMPATIBILITY CIRCLE (Section 4 center) ----------------
+   * The /chats summary-sheet score-ring pattern, reused: the geometry and
+   * the tally timing are IMPORTED from #lib/chats/summary (no duplicated
+   * constants). The value is a constant, not a Summary — the 96 from the
+   * retired §4.26.F msg2 becomes the display value; the numeral renders
+   * the count-up integer followed by a literal `%`. The arc + numeral stay
+   * the landing text ink (--color-text) — no yellow (the green stays on
+   * the badge below). */
+  const COMPAT_SCORE = 96;
+
+  /** The ring's full circumference — the dasharray + the fill's from-value. */
+  const RING_C = ringCircumference();
+
+  /** The arc's final dashoffset — the 96% fill (ringScoreOffset). */
+  const RING_TARGET = ringScoreOffset(COMPAT_SCORE);
+
+  const compatAria = $derived(translate($locale, 'landing.sim.compat.aria'));
+
+  /** The arcade tally's live integer (0 → 96), the sheet's tally port. */
+  let tally = $state(0);
+
+  /** One-shot start flag: the first scroll-into-view flips it. */
+  let compatStarted = $state(false);
+
+  /** The ring element — the IntersectionObserver's observe target. */
+  let compatRingEl = $state<SVGSVGElement | null>(null);
+
+  /** The §4.27.D reduced-motion guard (the explicit matchMedia check —
+   * the base.css catch-all only intercepts CSS). */
+  function reducedMotion(): boolean {
+    return (
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
+  }
+
+  /**
+   * §4.27.D start trigger — one-shot scroll-into-view: on mount an
+   * IntersectionObserver (threshold 0.4) watches the ring; the FIRST
+   * intersection flips `compatStarted` and disconnects; the tally effect
+   * runs off `compatStarted` exactly like the sheet's runs off `open`.
+   * Fallback: no IntersectionObserver (old browsers/test DOM) → started
+   * flips immediately on mount. Reduced motion needs no observer — the
+   * static final state renders from the start.
+   */
+  $effect(() => {
+    if (reducedMotion()) {
+      tally = COMPAT_SCORE;
+      return;
+    }
+    if (!compatStarted) {
+      if (typeof IntersectionObserver !== 'function') {
+        compatStarted = true;
+        return;
+      }
+      const el = compatRingEl;
+      if (!el) return;
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) {
+            compatStarted = true;
+            observer.disconnect();
+          }
+        },
+        { threshold: 0.4 }
+      );
+      observer.observe(el);
+      return () => observer.disconnect();
+    }
+    /* The tally count-up — the SummarySheet $effect ported verbatim:
+     * one-shot rAF loop 0 → COMPAT_SCORE over TALLY_MS, integer steps via
+     * tallyValue (cubic ease-out), landing EXACTLY on 96. */
+    tally = 0;
+    if (typeof requestAnimationFrame !== 'function') {
+      tally = COMPAT_SCORE;
+      return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const step = (now: number): void => {
+      tally = tallyValue(now - start, COMPAT_SCORE);
+      if (tally < COMPAT_SCORE && now - start < TALLY_MS) {
+        raf = requestAnimationFrame(step);
+      } else {
+        tally = COMPAT_SCORE; // land EXACTLY on the final integer
+      }
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  });
 </script>
 
 <!-- §4.22.F: the full-bleed landing page background — --color-landing-bg
@@ -364,13 +469,15 @@
         </ol>
       </section>
 
-      <!-- SECTION 4 — LIVE AGENT SIMULATION (§4.26.F): id="sim" — no nav
-           anchor targets it (§4.26.O.6). One wide glass container: the
-           BLEAK personage (purple glow) + YOUR AGENT / Status: Scanning...
-           with the blinking pixel cursor on the left, the NEW SCOUT figure
-           (cyan glow) + NEARBY AGENT / Distance: 15m on the right, and the
-           opaque dark pixel-frame chat window in the center — exactly 3
-           rows + the glowing green ICE BROKEN badge. -->
+      <!-- SECTION 4 — LIVE AGENT SIMULATION (§4.26.F as amended by
+           §4.27.C–D): id="sim" — no nav anchor targets it (§4.26.O.6). One
+           wide glass container: the BLEAK personage (purple glow) + YOUR
+           AGENT / Status: Scanning... with the blinking pixel cursor on the
+           left, the NEW SCOUT figure (cyan glow) + NEARBY AGENT /
+           Distance: 15m on the right, and the COMPATIBILITY CIRCLE in the
+           center — the /chats summary-sheet ring pattern reused (the 96%
+           count-up + arc fill) — with the glowing green ICE BROKEN badge
+           BELOW it. The §4.26.F 3-message chat window is REMOVED. -->
       <section class="area-sim" id="sim">
         <article class="sim-card">
           <h2 class="section-title">{translate($locale, 'landing.sim.title')}</h2>
@@ -394,21 +501,31 @@
                 {translate($locale, 'landing.sim.nearby.status')}
               </span>
             </div>
-            <!-- the chat is the "screen" — opaque, it does not blur -->
-            <div class="sim-chat pixel-corners pixel-frame pixel-frame--strong">
-              <div class="sim-chat-body pixel-corners">
-                <div class="sim-row sim-row--left">
-                  <span class="sim-who">{translate($locale, 'landing.sim.who1')}</span>
-                  <p class="sim-msg">{translate($locale, 'landing.sim.msg1')}</p>
-                </div>
-                <div class="sim-row sim-row--right">
-                  <span class="sim-who">{translate($locale, 'landing.sim.who2')}</span>
-                  <p class="sim-msg">{translate($locale, 'landing.sim.msg2')}</p>
-                </div>
-                <div class="sim-row sim-row--badge">
-                  <span class="sim-badge">{translate($locale, 'landing.sim.badge')}</span>
-                </div>
-              </div>
+            <!-- the center column (§4.27.C): EXACTLY two children — the
+                 compatibility ring on top, the ICE BROKEN badge below. -->
+            <div class="sim-center">
+              <svg
+                class="compat-ring"
+                bind:this={compatRingEl}
+                viewBox="0 0 160 160"
+                width="160"
+                height="160"
+                role="img"
+                aria-label={compatAria}
+                shape-rendering="crispEdges"
+              >
+                <circle class="track" cx="80" cy="80" r={RING_RADIUS} />
+                <circle
+                  class="arc"
+                  cx="80"
+                  cy="80"
+                  r={RING_RADIUS}
+                  style:--ring-c={RING_C}
+                  style:--ring-target={RING_TARGET}
+                />
+                <text class="compat-score" x="80" y="80">{tally}%</text>
+              </svg>
+              <span class="sim-badge">{translate($locale, 'landing.sim.badge')}</span>
             </div>
           </div>
         </article>
@@ -657,7 +774,7 @@
   .top-nav a {
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 12px;
+    font-size: 14px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-text-muted);
@@ -983,7 +1100,7 @@
   .agent-quote {
     margin: 0;
     font-family: var(--font-body);
-    font-size: 13px;
+    font-size: 15px;
     color: var(--color-text);
   }
 
@@ -1042,7 +1159,7 @@
   .stat-line {
     margin: 0 0 2px;
     font-family: var(--font-body);
-    font-size: 13px;
+    font-size: 15px;
     line-height: 1.35;
     color: var(--color-text-muted);
   }
@@ -1185,7 +1302,7 @@
   .step-desc {
     margin: 0;
     font-family: var(--font-body);
-    font-size: 13px;
+    font-size: 15px;
     color: var(--color-text-muted);
   }
   /* the §4.26.L bottom micro-pill: a chip (§4.5 — pills are NOT
@@ -1366,7 +1483,7 @@
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
       'you nearby'
-      'chat chat';
+      'center center';
     gap: var(--space-4);
     align-items: center;
   }
@@ -1375,9 +1492,6 @@
   }
   .sim-nearby {
     grid-area: nearby;
-  }
-  .sim-chat {
-    grid-area: chat;
   }
   .sim-agent {
     display: flex;
@@ -1437,39 +1551,69 @@
       opacity: 0;
     }
   }
-  /* the dark pixel chat window: the established card pattern — opaque
-   * (the chat is the "screen", it does not blur), stepped square frame. */
-  .sim-chat {
-    width: min(100%, 420px);
-    margin-inline: auto;
-  }
-  .sim-chat-body {
-    background: var(--color-surface);
-    padding: 12px 16px;
+  /* the §4.27.C center column: a flex column holding EXACTLY two
+   * children, top → bottom — the compatibility circle (§4.27.D) and the
+   * ICE BROKEN badge (relocated below the ring; styles unchanged). */
+  .sim-center {
+    grid-area: center;
     display: flex;
     flex-direction: column;
-    gap: var(--space-2);
+    align-items: center;
+    gap: var(--space-3);
   }
-  .sim-row--right {
-    text-align: right;
+  /* the §4.27.D compatibility circle — the /chats summary-sheet ring
+   * pattern reused (SummarySheet.svelte): SVG viewBox 0 0 160 160 at
+   * 160×160px, r 66 (RING_RADIUS, imported), stroke-width 12, butt caps
+   * (square ends — the pixel aesthetic), crispEdges; the arc + numeral
+   * read the landing text ink (no --sheet-* scope here — the sheet's
+   * whites map to var(--color-text), the track at 25% of it). */
+  .compat-ring {
+    width: 160px;
+    height: 160px;
+    flex-shrink: 0;
+    shape-rendering: crispEdges;
   }
-  .sim-row--badge {
-    text-align: center;
+  .compat-ring circle {
+    fill: none;
+    stroke: var(--color-text);
+    stroke-width: 12;
   }
-  .sim-who {
-    display: block;
+  .compat-ring .track {
+    stroke: color-mix(in srgb, var(--color-text) 25%, transparent);
+  }
+  /* The arc starts at 12 o'clock and sweeps clockwise with the score:
+   * dasharray = the full circumference (--ring-c), dashoffset animated
+   * from the full C (empty) to --ring-target = ringScoreOffset(96) over
+   * 900ms ease-out (the sheet's exact duration/easing — the sanctioned
+   * §4.13.5/§4.15.C-5 stroke-geometry exception, carried by the pattern). */
+  .compat-ring .arc {
+    stroke-linecap: butt;
+    stroke-dasharray: var(--ring-c) var(--ring-c);
+    stroke-dashoffset: var(--ring-target);
+    transform: rotate(-90deg);
+    transform-origin: 80px 80px;
+    animation: ring-fill 900ms ease-out both;
+  }
+  @keyframes ring-fill {
+    from {
+      stroke-dashoffset: var(--ring-c);
+    }
+    to {
+      stroke-dashoffset: var(--ring-target);
+    }
+  }
+  /* The numeral: Handjet 600 40px, letter-spacing 0 (the sheet's 28px PS2P
+   * equivalent — Handjet is narrow, 40px fills the 132px ring interior),
+   * centered at x 80 / y 80 (the sheet's technique), the text ink. */
+  .compat-ring .compat-score {
+    stroke: none;
+    fill: var(--color-text);
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-  }
-  .sim-msg {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 13px;
-    color: var(--color-text);
+    font-size: 40px;
+    letter-spacing: 0;
+    text-anchor: middle;
+    dominant-baseline: central;
   }
   .sim-badge {
     display: inline-flex;
@@ -1494,7 +1638,7 @@
   @media (min-width: 720px) {
     .sim-grid {
       grid-template-columns: 1fr auto 1fr;
-      grid-template-areas: 'you chat nearby';
+      grid-template-areas: 'you center nearby';
       gap: var(--space-5);
     }
     .sim-card {
@@ -1540,7 +1684,7 @@
   .privacy-desc {
     margin: 0;
     font-family: var(--font-body);
-    font-size: 13px;
+    font-size: 15px;
     color: var(--color-text-muted);
   }
   @media (min-width: 720px) {
