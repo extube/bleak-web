@@ -72,12 +72,12 @@
   .node {
     position: absolute;
     transform: translate(-50%, -50%);
-    /* Circular hit area: 52px = NODE_AVATAR_PX (44) + 2×4px padding —
-     * the lib/room/radar.ts NODE_HIT_DIAMETER_PX constant (≥ 48px touch
-     * target). The circle keeps every spacing guarantee from radar.ts
-     * rotation-invariant — nodes ride the ring spin (§4.8.3c). */
-    width: 52px;
-    height: 52px;
+    /* Circular hit area: 48px = NODE_AVATAR_PX (40) + 2×4px padding —
+     * the lib/room/radar.ts NODE_HIT_DIAMETER_PX constant (= the 48px
+     * touch target). The circle keeps every spacing guarantee from
+     * radar.ts rotation-invariant — nodes ride the ring spin (§4.8.3c). */
+    width: 48px;
+    height: 48px;
     display: inline-flex;
     align-items: center;
     justify-content: center;

@@ -127,7 +127,9 @@ describe('locale store', () => {
  * (TZ-01 technical criterion).
  */
 const DESIGN_4_7_KEYS: string[] = [
-  // navigation ('nav.host' retired — Concept §10.1.8: Host left the tab bar)
+  // navigation ('nav.host' retired — Concept §10.1.8: Host left the tab bar;
+  // 'nav.contacts' + the dot-aria clauses added by §4.14.2, asserted in the
+  // dedicated describe below)
   'nav.room', 'nav.people', 'nav.chats', 'nav.profile',
   // join
   'join.title', 'join.enter', 'join.error.unknown', 'join.scan.open',
@@ -144,9 +146,9 @@ const DESIGN_4_7_KEYS: string[] = [
   // handshake states
   'hs.send', 'hs.sent', 'hs.waiting', 'hs.back', 'hs.added_you',
   'hs.chatting', 'hs.agents_talking', 'hs.open_dialog',
-  // people
-  'people.empty', 'people.search.placeholder', 'people.filter.all',
-  'people.filter.sent', 'people.filter.added', 'people.filter.chatting',
+  // people ('people.filter.*' retired — Concept §19.2: the filter chips are
+  // gone, the list is just sorted; asserted in the v3.6 describe below)
+  'people.empty', 'people.search.placeholder',
   // chats
   'chats.empty', 'chats.find_people',
   // chat transcript — the kickoff button left the dialog view (Concept
@@ -195,7 +197,7 @@ describe('DESIGN §4.7 copy table coverage', () => {
       expect((ru as Record<string, string>)[key]?.trim().length).toBeGreaterThan(0);
       expect((en as Record<string, string>)[key]?.trim().length).toBeGreaterThan(0);
     }
-    expect(DESIGN_4_7_KEYS).toHaveLength(98);
+    expect(DESIGN_4_7_KEYS).toHaveLength(94);
   });
 
   it('the retired v1 key host.token.label is gone (renamed to host.gate.label)', () => {
@@ -255,14 +257,154 @@ describe('v2.1 UI-polish round keys (DESIGN §4.8)', () => {
   });
 });
 
+describe('§4.13.3 contact-share keys (Concept §13.1.3, DESIGN §4.13.3)', () => {
+  it('the slide and contact-card field copy exist in BOTH dictionaries (RU/EN parity)', () => {
+    for (const key of [
+      'chat.contact_share.label',
+      'chat.contact_share.shared',
+      'chat.contact_share.locked',
+      'chat.contact_share.no_card',
+      'chat.contact_share.error',
+      'profile.contact.edit',
+      'profile.contact.label',
+      'profile.contact.note'
+    ] as const) {
+      expect(en[key]?.trim().length).toBeGreaterThan(0);
+      expect(ru[key]?.trim().length).toBeGreaterThan(0);
+    }
+    // verbatim spot-checks
+    expect(ru['chat.contact_share.shared']).toBe('Контакт уже передан');
+    expect(en['chat.contact_share.shared']).toBe('Contact already shared');
+    expect(ru['chat.contact_share.label']).toBe('Свайп вправо — поделиться контактом');
+    expect(en['chat.contact_share.locked']).toBe('Available once the dialog is finished');
+    expect(ru['profile.contact.note']).toContain('telegram');
+    expect(en['profile.contact.note']).toContain('telegram');
+  });
+});
+
+describe('§4.14.2 contacts footer page keys (Concept §14.1.2)', () => {
+  it('the tab label, dot aria, page title/subtitle and empty state exist in BOTH dictionaries', () => {
+    for (const key of [
+      'nav.contacts',
+      'nav.contacts.dot_aria',
+      'nav.chats.dot_aria',
+      'contacts.title',
+      'contacts.subtitle',
+      'contacts.empty'
+    ] as const) {
+      expect(en[key]?.trim().length).toBeGreaterThan(0);
+      expect(ru[key]?.trim().length).toBeGreaterThan(0);
+    }
+    // verbatim spot-checks
+    expect(ru['nav.contacts']).toBe('Контакты');
+    expect(en['nav.contacts']).toBe('Contacts');
+    expect(ru['nav.contacts.dot_aria']).toBe('есть новые контакты');
+    expect(en['nav.contacts.dot_aria']).toBe('new contacts');
+    expect(ru['nav.chats.dot_aria']).toBe('есть новые диалоги');
+    expect(en['nav.chats.dot_aria']).toBe('new chats');
+    expect(ru['contacts.title']).toBe('Контакты');
+    expect(en['contacts.title']).toBe('Contacts');
+    expect(ru['contacts.empty']).toBe('Пока никто не поделился с вами контактом.');
+    expect(en['contacts.empty']).toBe('Nobody has shared a contact with you yet.');
+  });
+
+  it('the superseded §4.13.3 settings-list keys are retired from BOTH dictionaries', () => {
+    expect(en).not.toHaveProperty('profile.shared.title');
+    expect(ru).not.toHaveProperty('profile.shared.title');
+    expect(en).not.toHaveProperty('profile.shared.empty');
+    expect(ru).not.toHaveProperty('profile.shared.empty');
+  });
+});
+
+describe('§4.13.5 summary-sheet keys (Concept §13.1.5, DESIGN §4.13.5)', () => {
+  it('the sheet heading, checklist heading, donut aria and loading copy exist in BOTH dictionaries (RU/EN parity)', () => {
+    for (const key of [
+      'chat.summary.title',
+      'chat.summary.checklist',
+      'chat.summary.score.aria',
+      'chat.summary.loading'
+    ] as const) {
+      expect(en[key]?.trim().length).toBeGreaterThan(0);
+      expect(ru[key]?.trim().length).toBeGreaterThan(0);
+    }
+    // verbatim spot-checks (DESIGN §4.14.5 bug round: ALL four sheet keys
+    // asserted verbatim in BOTH locales); the {score} placeholder interpolates
+    expect(ru['chat.summary.title']).toBe('Итоги встречи');
+    expect(en['chat.summary.title']).toBe('Meeting summary');
+    expect(ru['chat.summary.checklist']).toBe('Сетевой чек-лист');
+    expect(en['chat.summary.checklist']).toBe('Networking checklist');
+    expect(ru['chat.summary.loading']).toBe('Считаем итог диалога…');
+    expect(en['chat.summary.loading']).toBe('Summarizing the dialog…');
+    expect(translate('ru', 'chat.summary.score.aria', { score: '87' })).toBe(
+      'Совпадение: 87 из 100'
+    );
+    expect(translate('en', 'chat.summary.score.aria', { score: '87' })).toBe(
+      'Match: 87 out of 100'
+    );
+  });
+});
+
+describe('§4.15.E arcade-sheet keys (Concept §15.3, DESIGN §4.15.C/E)', () => {
+  it('the tier labels, the sheet-variant slide copy and the completion text exist in BOTH dictionaries (RU/EN parity)', () => {
+    for (const key of [
+      'chat.summary.tier.great',
+      'chat.summary.tier.good',
+      'chat.summary.tier.low',
+      'chat.contact_share.sheet_label',
+      'chat.contact_share.shared_done'
+    ] as const) {
+      expect(en[key]?.trim().length).toBeGreaterThan(0);
+      expect(ru[key]?.trim().length).toBeGreaterThan(0);
+    }
+    // verbatim spot-checks (§4.15.E table, owner copy)
+    expect(ru['chat.summary.tier.great']).toBe('Отличное совпадение');
+    expect(en['chat.summary.tier.great']).toBe('Great match');
+    expect(ru['chat.summary.tier.good']).toBe('Хороший разговор');
+    expect(en['chat.summary.tier.good']).toBe('Good chat');
+    expect(ru['chat.summary.tier.low']).toBe('Разные вибрации');
+    expect(en['chat.summary.tier.low']).toBe('Different vibes');
+    expect(ru['chat.contact_share.sheet_label']).toBe('Смахните, чтобы поделиться');
+    expect(en['chat.contact_share.sheet_label']).toBe('Slide to share contact');
+    // the completion text swaps in on a gesture-made share (§4.15.C-8);
+    // the 409 "already shared" label keeps its own copy
+    expect(ru['chat.contact_share.shared_done']).toBe('Контакт отправлен!');
+    expect(en['chat.contact_share.shared_done']).toBe('Contact shared!');
+    expect(ru['chat.contact_share.shared']).toBe('Контакт уже передан');
+    expect(en['chat.contact_share.shared']).toBe('Contact already shared');
+  });
+});
+
 describe('v2.5 copy sweep (Concept §11.1.3, DESIGN §4.12.3)', () => {
-  it('edit-screen titles drop the word "Edit" (values only — key names intact)', () => {
+  it('the interests badge copy is RU/EN paired (DESIGN §4.13.1; §23.2 5.6 — the settings picker copy is gone, interests are creation-only)', () => {
+    for (const key of [
+      'profile.interests.title',
+      'profile.interests.empty'
+    ] as const) {
+      expect(en[key]?.trim().length).toBeGreaterThan(0);
+      expect(ru[key]?.trim().length).toBeGreaterThan(0);
+    }
+    // §23.2 5.6: the removed settings-picker keys must not come back.
+    expect(en['profile.interests.edit' as keyof typeof en]).toBeUndefined();
+    expect(ru['profile.interests.note' as keyof typeof ru]).toBeUndefined();
+  });
+
+  it('the §23.2 5.5 themes catalog title keys resolve in both dictionaries (all 48 topics + 8 themes)', async () => {
+    const { INTEREST_CATALOG, INTEREST_GROUPS } = await import('../src/lib/interests/catalog');
+    for (const entry of INTEREST_CATALOG) {
+      expect(en[entry.titleKey]?.trim().length).toBeGreaterThan(0);
+      expect(ru[entry.titleKey]?.trim().length).toBeGreaterThan(0);
+    }
+    for (const group of INTEREST_GROUPS) {
+      expect(en[group.titleKey]?.trim().length).toBeGreaterThan(0);
+      expect(ru[group.titleKey]?.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('edit-screen titles drop the word "Edit" (values only — key names intact; §23.2 5.6 removed the interests row)', () => {
     expect(en['profile.persona.edit']).toBe('Profile');
     expect(ru['profile.persona.edit']).toBe('Профиль');
     expect(en['profile.greeting.edit']).toBe('Greeting');
     expect(ru['profile.greeting.edit']).toBe('Приветствие');
-    expect(en['profile.interests.edit']).toBe('Interests');
-    expect(ru['profile.interests.edit']).toBe('Интересы');
   });
 
   it('the persona section heading is retitled "My profile" / «Мой профиль» (owner change request)', () => {
@@ -308,6 +450,44 @@ describe('v2.5 leave copy (Concept §11.1.1, DESIGN §4.12.1)', () => {
     // The copy no longer implies server-side deletion of the persona.
     expect(ru['profile.leave.confirm_body']).not.toMatch(/удал/i);
     expect(en['profile.leave.confirm_body']).not.toMatch(/remov|delet/i);
+  });
+});
+
+describe('v3.6 people-page rework keys (Concept §19.2+§19.3, DESIGN §4.15.4.2/4.15.4.3)', () => {
+  it('the handshake! + Open-chat copy exists in BOTH dictionaries (RU/EN parity)', () => {
+    for (const key of ['people.action.back', 'people.action.open_chat'] as const) {
+      expect(en[key]?.trim().length).toBeGreaterThan(0);
+      expect(ru[key]?.trim().length).toBeGreaterThan(0);
+    }
+    // verbatim owner copy (Concept §19.3)
+    expect(ru['people.action.back']).toBe('Привет!');
+    expect(en['people.action.back']).toBe('handshake!');
+    expect(ru['people.action.open_chat']).toBe('Открыть чат');
+    expect(en['people.action.open_chat']).toBe('Open chat');
+  });
+
+  it('the filter-chip keys are retired from BOTH dictionaries (no chips — v3.6)', () => {
+    for (const key of [
+      'people.filter.all',
+      'people.filter.sent',
+      'people.filter.added',
+      'people.filter.chatting',
+      'people.filters'
+    ] as const) {
+      expect(en).not.toHaveProperty(key);
+      expect(ru).not.toHaveProperty(key);
+    }
+  });
+
+  it('the removed right-icon copy is retired; hs.back stays for the sheet (task 88)', () => {
+    expect(en).not.toHaveProperty('people.action.dialog');
+    expect(ru).not.toHaveProperty('people.action.dialog');
+    expect(en).not.toHaveProperty('people.action.expand');
+    expect(ru).not.toHaveProperty('people.action.expand');
+    expect(en).not.toHaveProperty('people.action.collapse');
+    expect(ru).not.toHaveProperty('people.action.collapse');
+    expect(ru['hs.back']).toBe('Ответить хендшейком');
+    expect(en['hs.back']).toBe('Handshake back');
   });
 });
 

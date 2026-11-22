@@ -1,0 +1,15 @@
+Owner correction (chat, 2026-11-20, relayed via concept agent — Concept.md §17.2):
+
+The §17.2 color dot is for FINISHED chats only. An unfinished chat item must
+show NO dot — only the loading circle; the dot and the spinner must never
+coexist on an unfinished item.
+
+Task 82 (dc0620f) landed the dot rendered for BOTH states before this
+correction arrived. The corrected behavior: Deepa-hue dot on finished cards
+only; unfinished cards show the loading circle alone. Test contracts updated
+accordingly (dot present on finished cards only; unfinished cards assert no
+dot AND the spinner present).
+
+Routing note: task 82 was already merged when the correction arrived, so the
+correction routes through the bug flow (this file = the bug context), not a
+post-merge branch amend.

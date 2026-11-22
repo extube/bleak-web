@@ -24,11 +24,15 @@ Thumbs.db
 *~
 
 # Runtime state — task DB is not committed (durable trail: task_log,
-# docs/sessions/, docs/logs/)
+# docs/sessions/)
 tasks.db
 tasks.db-wal
 tasks.db-shm
 __pycache__/
+
+# Agent log files — local runtime trail, not committed (2026-11-20; tracked
+# files stay in git history, no git rm --cached yet)
+docs/logs/
 
 # Design reference images — kept locally in docs/refs/, not committed
 docs/refs/*.png

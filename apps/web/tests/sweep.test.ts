@@ -50,6 +50,7 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
     expect(pollingRoutes).toEqual([
       'src/routes/chats/+page.svelte',
       'src/routes/chats/[address]/+page.svelte',
+      'src/routes/contacts/+page.svelte',
       'src/routes/host/+page.svelte',
       'src/routes/people/+page.svelte',
       'src/routes/profile/+page.svelte',
@@ -57,18 +58,26 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
     ]);
   });
 
-  it('the `/` join page uses NO poller (§2.2 cadence table — mount-time fetches only)', () => {
-    const file = 'src/routes/+page.svelte';
-    const source = readFileSync(join(WEB_ROOT, file), 'utf8');
-    expect(source, `${file} must not poll`).not.toMatch(/new\s+Poller\b/);
+  it('the landing `/`, the join entry `/income` and the create route use NO poller (§2.2 cadence table — mount-time fetches only; tz12-02 re-homing)', () => {
+    for (const file of [
+      'src/routes/+page.svelte',
+      'src/routes/income/+page.svelte',
+      'src/routes/income/[room]/create/+page.svelte'
+    ]) {
+      const source = readFileSync(join(WEB_ROOT, file), 'utf8');
+      expect(source, `${file} must not poll`).not.toMatch(/new\s+Poller\b/);
+    }
   });
 
-  it('poll cadences match the §2.2 table (4s room/people/chats/profile, 2s transcript, 5s host)', () => {
+  it('poll cadences match the §2.2 table (4s room/people/chats/contacts/profile, 2s transcript, 5s host)', () => {
     const expected: Record<string, string> = {
       'src/routes/room/+page.svelte': '4000',
       'src/routes/people/+page.svelte': '4000',
       'src/routes/chats/+page.svelte': '4000',
       'src/routes/chats/[address]/+page.svelte': '2000',
+      // §4.14.2 row: /contacts polls the recipient-only listContactsSharedWith
+      // (+ the roster for name resolution) at 4 s.
+      'src/routes/contacts/+page.svelte': '4000',
       'src/routes/host/+page.svelte': '5000',
       // rev. 3 §2.2 row: /profile polls the token-gated getRoomUser at 4 s
       // for the badge live-QR liveness flag (TZ2-07 Part A).
@@ -112,31 +121,37 @@ describe('sweep: no-composer invariant (Concept §1c ruling 4 — permanent)', (
   });
 });
 
-describe('sweep: mock-shape adherence (ARCHITECTURE §8.1)', () => {
-  it('selectedInterests renders EXACTLY the {id, label, emoji} shape — no extra keys', async () => {
-    const { INTEREST_CATALOG, selectedInterests, toInterest } = await import('#lib/stores/interests');
-    if (!INTEREST_CATALOG[0] || !INTEREST_CATALOG[1]) throw new Error('catalog must have entries');
-    const [first, second] = [INTEREST_CATALOG[0], INTEREST_CATALOG[1]] as const;
-    const flat = toInterest(first, 'ru');
-    expect(Object.keys(flat).sort()).toEqual(['emoji', 'id', 'label']);
-    const list = selectedInterests([first.id, second.id], 'en');
-    for (const interest of list) {
-      expect(Object.keys(interest).sort()).toEqual(['emoji', 'id', 'label']);
-      expect(typeof interest.id).toBe('string');
-      expect(typeof interest.label).toBe('string');
-      expect(typeof interest.emoji).toBe('string');
+describe('sweep: interests v3 shape adherence (DESIGN §4.13.1 + §23.2 5.5 themes model)', () => {
+  it('displayInterests renders EXACTLY the {key, title, emoji} chip shape — no extra keys', async () => {
+    const { displayInterests } = await import('#lib/stores/interests');
+    const rows = [
+      { title: 'food:coffee', group: 2, key: 13, user_address: '0xme' },
+      { title: 'art:books', group: 3, key: 22, user_address: '0xme' }
+    ];
+    const chips = displayInterests(rows, 'en');
+    expect(chips).toHaveLength(2);
+    for (const chip of chips) {
+      expect(Object.keys(chip).sort()).toEqual(['emoji', 'key', 'title']);
+      expect(typeof chip.key).toBe('number');
+      expect(typeof chip.title).toBe('string');
+      expect(typeof chip.emoji).toBe('string');
     }
   });
 
-  it('every catalog entry carries id + emoji + RU/EN labels (backend adapter target)', async () => {
-    const { INTEREST_CATALOG } = await import('#lib/stores/interests');
+  it('every catalog entry carries group + key + slug + emoji + titleKey (numeric API pair + the §23.2 5.5 slug)', async () => {
+    const { INTEREST_CATALOG, INTEREST_GROUPS } = await import('#lib/interests/catalog');
+    // §23.2 5.5: 6–10 theme badges; the catalog ships 8 themes × 6 topics.
+    expect(INTEREST_GROUPS.length).toBeGreaterThanOrEqual(6);
+    expect(INTEREST_GROUPS.length).toBeLessThanOrEqual(10);
     expect(INTEREST_CATALOG.length).toBeGreaterThanOrEqual(8);
     for (const entry of INTEREST_CATALOG) {
-      expect(Object.keys(entry).sort()).toEqual(['emoji', 'id', 'labels']);
-      expect(typeof entry.id).toBe('string');
+      expect(Object.keys(entry).sort()).toEqual(['emoji', 'group', 'key', 'slug', 'titleKey']);
+      expect(typeof entry.group).toBe('number');
+      expect(typeof entry.key).toBe('number');
       expect(entry.emoji.length).toBeGreaterThan(0);
-      expect(entry.labels.ru.trim().length).toBeGreaterThan(0);
-      expect(entry.labels.en.trim().length).toBeGreaterThan(0);
+      expect(entry.titleKey.startsWith('interests.')).toBe(true);
+      // The §23.2 5.5 slugs are lowercase ids (theme:topic composition).
+      expect(entry.slug).toMatch(/^[a-z_]+$/);
     }
   });
 });
@@ -159,11 +174,51 @@ describe('sweep: QR module placement (DESIGN §3.8 AC 14, §3.6 AC 13)', () => {
 });
 
 describe('sweep: token discipline (DESIGN §2.4 — no hardcoded hex in components)', () => {
-  it('no .svelte file contains a raw color literal', () => {
+  /* §4.15.5 (2026-11-20 owner amendment, Concept §15.3 + §15.4): the sheet
+   * background is token-driven again (the derived Deepa hue) — the former
+   * whole-`.arcade-sheet`-block hex exception is DISSOLVED (the superseded
+   * #8a12ff purple is gone from the component). The sheet-variant slide's
+   * charcoal/yellow palette (§4.15.C-8, self-contained contrast on any
+   * hue) remains the sheet's ONLY sanctioned raw hexes — the four locked
+   * declarations below, still confined to SummarySheet's scope block.
+   * Every other file, and every other line, obeys §2.4. */
+  const SHEET_SCOPE_FILE = 'src/lib/components/SummarySheet.svelte';
+  const LOCKED_SHEET_DECLARATIONS = [
+    '--sheet-charcoal: #18181b',
+    '--sheet-yellow: #facc15',
+    '--sheet-white: #ffffff',
+    '--sheet-orange: #ff8a00'
+  ];
+  const withoutLockedHexes = (file: string, src: string): string =>
+    rel(file) === SHEET_SCOPE_FILE
+      ? LOCKED_SHEET_DECLARATIONS.reduce(
+          (acc, line) => acc.split(line).join(''),
+          // comments are prose (they may cite the hexes) — stripped, same
+          // pattern as the summary-sheet source assertions
+          src.replace(/\/\*[\s\S]*?\*\//g, '')
+        )
+      : src;
+
+  it('no .svelte file contains a raw color literal outside the four sanctioned slide-palette declarations (§4.15.C-8)', () => {
     const offenders = SVELTE_FILES
-      .filter((f) => /#[0-9a-fA-F]{3,8}\b/.test(readFileSync(f, 'utf8')))
+      .filter(
+        (f) =>
+          /#[0-9a-fA-F]{3,8}\b/.test(withoutLockedHexes(f, readFileSync(f, 'utf8')))
+      )
       .map(rel);
     expect(offenders, `hardcoded hex in: ${offenders.join(', ')}`).toEqual([]);
+  });
+
+  it('the remaining locked hexes are exactly the slide palette; the superseded #8a12ff background is gone', () => {
+    const src = readFileSync(join(WEB_ROOT, SHEET_SCOPE_FILE), 'utf8');
+    // §4.15.5: the owner-locked purple background is superseded — no
+    // #8a12ff in the component (comments are prose — stripped)
+    expect(src.replace(/\/\*[\s\S]*?\*\//g, '')).not.toContain('#8a12ff');
+    // the slide palette's locked declarations stay verbatim in the scope
+    const scopeBlock = src.match(/\.arcade-sheet\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    for (const declaration of LOCKED_SHEET_DECLARATIONS) {
+      expect(scopeBlock).toContain(declaration);
+    }
   });
 
   it('the only light-surface exception (--color-qr-frame) is declared in tokens.css', () => {

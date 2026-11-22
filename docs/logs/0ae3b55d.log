@@ -1,0 +1,4 @@
+2026-11-19T18:29:43Z [worker] task 72 started (in-progress); verification-only sweep v3.1
+2026-11-19T18:31:46Z [worker] source evidence gathered for all 5 items; spot-run kit/transcript-page/contacts-page/join-flow/summary-sheet/tabbar/i18n = 155 tests green
+2026-11-19T18:32:59Z [worker] docs/verification-v31.md written: 5/5 items PASS with evidence; spot-run 155 tests green; DELTA-WAVE CI placeholder left for the process
+2026-11-19T18:33:19Z [worker] handover: commit 8178bb5 (doc + session + log only) on feature/0ae3b55d-tz6-05-verify-v31; task 72 set ready-for-merge

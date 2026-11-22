@@ -1,10 +1,13 @@
 <script lang="ts">
   /**
-   * JoinFlow (TZ-03 + TZ2-06 Part B) — the Step 1 → 3a/3b state machine for
-   * `/` (DESIGN §3.1 rev. 3). The route page passes deep-link values; this
-   * component owns the steps, the mount-time API calls (NO Poller on `/`,
-   * §2.2), the scanner mount point (context *a*, QrScanner public API only)
-   * and every §3.1 interaction state.
+   * JoinFlow (TZ-03 + TZ2-06 Part B) — the Step 1 → 3a/3b state machine
+   * for the join flow (DESIGN §3.1 rev. 3; tz12-02 re-homing, Concept
+   * §31: the entry steps run on `/income`, the persona (wizard) step on
+   * `/income/[room]/create` — seeded via `roomParam`). The route page
+   * passes deep-link values; this
+   * component owns the steps, the mount-time API calls (NO Poller,
+   * §2.2), the scanner mount point (context *a*, QrScanner public API
+   * only) and every §3.1 interaction state.
    *
    * v2 (Concept §6.2 / ARCHITECTURE §10.6): persona creation generates the
    * client-side token and sends `invite_code` + the raw token in the body
@@ -20,11 +23,39 @@
    * same post-join `/room` path a normal join takes. No re-creation, no
    * persona POST. A dead/stale entry (404/401/403) shows the dead-note on
    * the row and does not enter (a 401 also trips the global §2.8 gate).
+   *
+   * v3.9 (Concept §22.3 item 2, DESIGN §4.16.2): the single-form persona
+   * step is replaced by the chat-style CreationWizard; the interview's
+   * selected interests are flushed through ONE bulk addUserInterests call
+   * AFTER the persona 2xx (identity saved first — the auto-injected
+   * persona credential carries the Bearer; §13.1.1). A flush failure does
+   * not undo the creation: the flow still enters the room, no mirror row
+   * is written, and interests stay editable later in /profile.
+   *
+   * §23.2 5.9 (owner amendment, Concept §23.2.5.9 / DESIGN §4.15.6.4): the
+   * fade treatment covers EVERY step boundary of the creation path — the
+   * join card's content fades in on every flow-step swap (form → wizard
+   * intro included) and fades out into /room after the creation 2xx.
+   *
+   * tz12-02 route re-homing (Concept §31): the creation process lives
+   * under its own route — `/income/[room]/create`. The entry flow (this
+   * component on `/income`) navigates there when "Create profile" is
+   * chosen; the route page mounts this same component with `roomParam`
+   * (the room context via the route param) + the `?code=` query, seeding
+   * the flow directly into the persona (wizard) step. The forms and the
+   * machine (lib/join.ts) are unchanged — only the routing wiring moved.
    */
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { locale, translate } from '#lib/i18n/locale';
   import { saveIdentity } from '#lib/stores/identity';
+  import { saveContactCard } from '#lib/stores/contactCard';
+  import { saveInterests } from '#lib/stores/interests';
+  // §23.2 5.5: the stored title is the THEMES composition
+  // `'<theme slug>:<topic slug>'` (e.g. `sport:hockey`) — the numeric
+  // (group, key) pair keeps the server contract.
+  import { interestApiTitle, INTEREST_CATALOG } from '#lib/interests/catalog';
+  import { api } from '#lib/api/client';
   import { appendVaultEntry, listVaultEntries, type VaultEntry } from '#lib/stores/tokenVault';
   import {
     codeErrorOf,
@@ -40,26 +71,52 @@
     type PersonaDraft,
     type PersonaError
   } from '#lib/join';
+  import type { Room } from '@bleak/api-client';
   import ErrorBanner from '#lib/components/ErrorBanner.svelte';
   import QrScanner from '#lib/components/QrScanner.svelte';
   import CodeEntry from './CodeEntry.svelte';
   import RoomPreview from './RoomPreview.svelte';
-  import PersonaForm from './PersonaForm.svelte';
+  import CreationWizard from './CreationWizard.svelte';
   import VaultList from './VaultList.svelte';
 
   interface Props {
-    /** ?code=NNNNNN deep link (invite QR / link): prefill + auto-submit. */
+    /** ?code=NNNNNN deep link (invite QR / link): prefill + auto-submit.
+     * On the create route it is ALSO the seeded invite code. */
     deepLinkCode?: string | null;
+    /** /income/[room]/create route param (tz12-02): seed the flow
+     * directly into the persona (wizard) step — the room context rides
+     * the URL; the invite code comes from deepLinkCode (?code=). */
+    roomParam?: string | null;
   }
 
-  let { deepLinkCode = null }: Props = $props();
+  let { deepLinkCode = null, roomParam = null }: Props = $props();
 
   // Deep-link prefill (?code=NNNNNN): captured once — the auto-submit runs
   // exactly once (the effect below guards it).
   const initialCode: string =
     deepLinkCode !== null && isValidInviteCode(deepLinkCode) ? deepLinkCode : '';
 
-  let flow: JoinState = $state({ ...initialJoinState, code: initialCode });
+  // Seeded entry (tz12-02): mounted at /income/[room]/create — the flow
+  // starts AT the creation wizard step. The room stub carries only the
+  // address the persona submit needs (the full preview lives on /income);
+  // seeded mode never resolves the code and never shows the entry steps.
+  const seeded: boolean = typeof roomParam === 'string' && roomParam !== '';
+  const seededRoom: Room = {
+    address: roomParam ?? '',
+    name: '',
+    description: '',
+    language: '',
+    max_user: 0,
+    created_at: '',
+    updated_at: '',
+    deleted_at: null
+  };
+
+  let flow: JoinState = $state(
+    seeded
+      ? { ...initialJoinState, step: 'persona', code: initialCode, room: seededRoom }
+      : { ...initialJoinState, code: initialCode }
+  );
 
   let resolving = $state(false);
   let creating = $state(false);
@@ -72,6 +129,19 @@
   let vaultLoading = $state(false);
   let vaultDead = $state<{ address: string; text: string | null } | null>(null);
   let scannerOpen = $state(false);
+  // §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the boundary OUT of the
+  // loading step — the card fades out (the same opacity treatment) before
+  // the route hand-off into /room. The /room page mount itself is outside
+  // this card's scope; the fade-out IS the join-side treatment.
+  let enteringRoom = $state(false);
+  // §24 item 5: the step fades run slower (the 1.5s opacity treatment —
+  // owner amendment recorded in Concept §24 item 5; the goto waits out
+  // the fade so the boundary stays one motion).
+  const FADE_MS = 1500;
+  const reducedMotion =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let codeEntry: { focusCode(): void } | null = $state(null);
 
@@ -80,6 +150,12 @@
   }
 
   function backToStep1(): void {
+    if (seeded) {
+      // The gone card on the create route: back to the ENTRY page (the
+      // code is dead — Step 1 opens empty there).
+      void goto(resolve('/income'));
+      return;
+    }
     gone = false;
     banner = null;
     codeError = null;
@@ -142,8 +218,27 @@
   // --- Step 2: room options -------------------------------------------------
 
   function chooseCreate(): void {
+    const room = flow.room;
+    if (!room) return;
     personaError = null;
-    flow = reduce(flow, { type: 'choose-create' });
+    // tz12-02 re-homing (Concept §31): the creation process lives under
+    // /income/[room]/create — the room address rides the route param, the
+    // entered code the ?code= query (the create route's seed).
+    // eslint-disable-next-line svelte/no-navigation-without-resolve
+    void goto(`${resolve('/income/[room]/create', { room: room.address })}?code=${flow.code}`);
+  }
+
+  /** Wizard back: on the create route the room intro is re-reached via
+   * the ENTRY page with the code preserved (the ?code= prefill +
+   * auto-submit re-resolves the room preview); inline (unseeded) the
+   * machine's own back step applies. */
+  function wizardBack(): void {
+    if (seeded) {
+      // eslint-disable-next-line svelte/no-navigation-without-resolve
+      void goto(`${resolve('/income')}?code=${flow.code}`);
+      return;
+    }
+    flow = reduce(flow, { type: 'back' });
   }
 
   // --- The return screen (Step 1 entry point, Concept §10.1.1) --------------
@@ -204,10 +299,16 @@
     creating = true;
     try {
       // generateTokenSecret() → POST createRoomUser (invite_code + raw
-      // token in the body, NO auth header).
+      // token in the body, NO auth header; the wizard draft adds NOTHING
+      // to the wire — same request shape as before the wizard).
       const { user, token } = await createPersona(room.address, flow.code, draft);
       // Identity + vault entry written ONLY after the 2xx (§10.6).
       saveIdentity({ roomAddress: room.address, userAddress: user.address, token });
+      // §4.14.3 (Concept §14.1.3): the contact field is client-LOCAL —
+      // persisted to the contactCard store (room|user scope) only after
+      // the 2xx; a failed creation persists nothing. The store clamps to
+      // the 255 cap again; never sent to the backend.
+      saveContactCard(room.address, user.address, draft.contact ?? '');
       appendVaultEntry({
         roomAddress: room.address,
         userAddress: user.address,
@@ -215,6 +316,37 @@
         name: user.name,
         savedAt: new Date().toISOString()
       });
+      // §13.1.1 + §23.2 5.5: the interview's topics are flushed AFTER the
+      // 2xx — one bulk addUserInterests (the just-saved identity carries
+      // the auto-injected Bearer) with the THEMES title composition; the
+      // 201 FULL list mirrors into the local store. A flush failure does
+      // not undo the creation: the flow still enters the room, no mirror
+      // row is written (interests are creation-only per §23.2 5.6 — the
+      // badge renders whatever was mirrored).
+      const keys = draft.interests ?? [];
+      if (keys.length > 0) {
+        const rows = keys.flatMap((key) => {
+          const entry = INTEREST_CATALOG.find((e) => e.key === key);
+          return entry
+            ? [{ title: interestApiTitle(entry), group: entry.group, key: entry.key }]
+            : [];
+        });
+        if (rows.length > 0) {
+          try {
+            const list = await api.addUserInterests(room.address, user.address, rows);
+            saveInterests(room.address, user.address, list);
+          } catch {
+            /* interests are optional — the creation stands */
+          }
+        }
+      }
+      // §23.2 5.9: the loading → /room boundary — the card fades out with
+      // the SAME 1.5s opacity treatment (§24 item 5), then the route
+      // hands off into
+      // /room. Under prefers-reduced-motion the base.css catch-all
+      // collapses the fade, so the navigation is immediate.
+      enteringRoom = true;
+      if (!reducedMotion) await new Promise((r) => setTimeout(r, FADE_MS));
       void goto(resolve('/room'));
     } catch (err) {
       const mapped = personaErrorOf(err);
@@ -245,7 +377,15 @@
   }
 </script>
 
-<div class="join">
+<!-- Concept §30 (DESIGN §4.19): the non-chat join forms (code/room/vault)
+     mount the three-block FormShell — the root carries the form-step key
+     that engages the §29 viewport-bounded wrapper gate below (the
+     persona gate above stays the §24–§29 contract). -->
+<div
+  class="join"
+  class:persona-step={flow.step === 'persona'}
+  class:form-step={flow.step !== 'persona'}
+>
   {#if gone}
     <section class="card pixel-corners gone-card">
       <h2>{translate($locale, 'join.error.gone')}</h2>
@@ -268,41 +408,55 @@
       <h1 class="vh">{translate($locale, 'join.title')}</h1>
     {/if}
 
-    <section class="card pixel-corners">
-      {#if flow.step === 'code'}
-        <CodeEntry
-          bind:this={codeEntry}
-          bind:code={flow.code}
-          disabled={resolving}
-          error={codeError}
-          {shakeKey}
-          onsubmit={(code) => void submitCode(code)}
-          onscan={() => (scannerOpen = true)}
-          onreturn={canReturn ? chooseReturn : undefined}
-        />
-      {:else if flow.step === 'room' && flow.room}
-        <RoomPreview
-          room={flow.room}
-          memberCount={flow.members.length}
-          oncreate={chooseCreate}
-          onchange={backToStep1}
-        />
-      {:else if flow.step === 'persona'}
-        <PersonaForm
-          error={personaError}
-          pending={creating}
-          onsubmit={(draft) => void submitPersona(draft)}
-          onback={() => (flow = reduce(flow, { type: 'back' }))}
-        />
-      {:else if flow.step === 'vault'}
-        <VaultList
-          entries={vaultEntries}
-          loading={vaultLoading}
-          dead={vaultDead}
-          onpick={(entry) => void pickVaultEntry(entry)}
-          onback={() => (flow = reduce(flow, { type: 'back' }))}
-        />
-      {/if}
+    <!-- §23.2 5.2: the wizard's persona card is a flex column — the
+         composer pins to its bottom and the chat log scrolls. -->
+    <section
+      class="card pixel-corners"
+      class:composer-card={flow.step === 'persona'}
+      class:form-card={flow.step !== 'persona'}
+      class:leaving={enteringRoom}
+    >
+      <!-- §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the card content
+           mounts fresh on every join-step swap (code ⇄ preview ⇄ wizard ⇄
+           vault) and replays the fade there. -->
+      {#key flow.step}
+        <div class="stage">
+        {#if flow.step === 'code'}
+          <CodeEntry
+            bind:this={codeEntry}
+            bind:code={flow.code}
+            disabled={resolving}
+            error={codeError}
+            {shakeKey}
+            onsubmit={(code) => void submitCode(code)}
+            onscan={() => (scannerOpen = true)}
+            onreturn={canReturn ? chooseReturn : undefined}
+          />
+        {:else if flow.step === 'room' && flow.room}
+          <RoomPreview
+            room={flow.room}
+            memberCount={flow.members.length}
+            oncreate={chooseCreate}
+            onchange={backToStep1}
+          />
+        {:else if flow.step === 'persona'}
+          <CreationWizard
+            error={personaError}
+            pending={creating}
+            onsubmit={(draft) => void submitPersona(draft)}
+            onback={wizardBack}
+          />
+        {:else if flow.step === 'vault'}
+          <VaultList
+            entries={vaultEntries}
+            loading={vaultLoading}
+            dead={vaultDead}
+            onpick={(entry) => void pickVaultEntry(entry)}
+            onback={() => (flow = reduce(flow, { type: 'back' }))}
+          />
+        {/if}
+        </div>
+      {/key}
     </section>
   {/if}
 </div>
@@ -327,12 +481,209 @@
     gap: var(--space-5);
     padding: var(--space-7) var(--space-5) var(--space-6);
     width: 100%;
-    max-width: 480px;
+    /* Concept §30 geometry unification (owner amendment): the width is
+     * the SHARED FormShell constant (the canonical container geometry). */
+    max-width: var(--form-shell-max-width);
     margin: 0 auto;
   }
   .card {
     width: 100%;
     padding: var(--space-5);
+  }
+  /* tz11-06 bug round (task 107, DESIGN §4.16.1 item 12): the persona chat
+   * bounds its height to the viewport. `.join` is a flex item of the
+   * min-height:100dvh app-shell — without min-height: 0 its automatic
+   * minimum size grows with the chat's content, so the PAGE scrolled (the
+   * log's flex:1 never engaged, logEl.scrollTo was a no-op) and the sticky
+   * composer overlayed the newest bubble. Scoped to the persona step only:
+   * the other join steps keep their content-driven block layout. */
+  .join.persona-step {
+    min-height: 0;
+  }
+  /* Concept §30 (DESIGN §4.19): the non-chat join forms (code/room/vault)
+   * are viewport-bounded too — the JoinFlow root is the flex link between
+   * the definite-height route wrapper and the form card; min-height: 0
+   * keeps its automatic minimum size from growing with the form's
+   * content (the task-107 lesson, applied to the §30 steps). */
+  .join.form-step {
+    min-height: 0;
+  }
+  /* tz11-08 (task 109, bug round 2 — the task-107 RECURRENCE): task 107
+   * bounded this component's own flex links (above), but the real rendered
+   * app has ONE more flex item above this component: routes/+page.svelte
+   * renders JoinFlow inside its own <div class="join"> wrapper (flex: 1,
+   * max-width: 480px, vertical paddings — no min-height). That wrapper's
+   * automatic minimum size still grew with the transcript, so the
+   * min-height: 100dvh app-shell resolved taller than the viewport, the
+   * PAGE was the scroll container, the log's flex: 1 + overflow-y never
+   * engaged and logEl.scrollTo stayed a visual no-op (scrollHeight ==
+   * clientHeight) — the owner saw the bug again. The wrapper is outside
+   * this component's DOM and :has() is the only parent-reach a child
+   * stylesheet has; the persona-step gate keeps the OTHER join steps'
+   * content-driven wrapper geometry untouched (code/vault/resume). This
+   * also frees the Concept §25 conduit: the wrapper's 480px cap + desktop
+   * vertical paddings were clipping the 750–850px full-height column. */
+  :global(.app-shell > .join:has(> .persona-step)) {
+    min-height: 0;
+    max-width: none;
+    padding: 0;
+    /* tz11-10 (bug round 3, task 111 — Concept §27, THE STRUCTURAL ORDER):
+     * the owner's TWO FIXED AREAS need the region geometry to resolve
+     * against the available screen area ITSELF — min-height: 0 above still
+     * left the wrapper's main size content-driven (a min-height alone
+     * never makes a flex chain definite), so a transcript taller than the
+     * screen could still grow the shell and hand scrolling back to the
+     * PAGE. The wrapper (the creation-chat screen root) now carries the
+     * DEFINITE viewport height — `100dvh`, the dynamic viewport (the
+     * area left after the keyboard), with the `100vh` fallback for
+     * engines without dvh (the later supported declaration wins):
+     * every flex: 1 link below it resolves against a definite height,
+     * the messages area becomes the ONLY scrollable region with its own
+     * scroll-port, and the form area (flex: none) sits fixed at the
+     * bottom of that area — geometry from the layout itself, no
+     * measuring JS.
+     *
+     * tz11-12 (task 113 — Concept §28, DESIGN §4.17.1): this wrapper IS
+     * the MAIN BLOCK (the space between the bottom/keyboard and the
+     * header — nothing sits above it on the creation screen): a
+     * fixed-height flex container holding EXACTLY two inner blocks —
+     * the MESSENGER (the log: flex: 1 + min-height: 0, the single
+     * scroll-port) and the USER-INPUT-FORM BLOCK (the composer:
+     * flex: none, pinned at the block's bottom; ALL step-specific
+     * forms — answer input, contact choices, theme badges, topic
+     * chips — live in it, so SWITCHING STEPS NEVER SCROLLS THE MAIN).
+     * The overflow clip below closes the last hand-off path: content
+     * that cannot shrink into the two inner regions (the messenger
+     * absorbs the growth; the form block keeps its height — it cannot
+     * scroll) is CLIPPED at the main block instead of growing the shell
+     * and handing scrolling back to the PAGE.
+     *
+     * tz11-13 (task 114 — Concept §29, DESIGN §4.17.2, the clip
+     * reconciliation): the clip stays as the outer GUARD only. The form
+     * block (the composer, flex: none below) keeps its full content
+     * height — the messenger (flex: 1, min-height: 0) absorbs ALL the
+     * shrinkage first, and the wizard's stage packs its two regions at
+     * the END, so a form block taller than the stage overflows UPWARD:
+     * the form's bottom edge stays flush with the main block's bottom
+     * (the viewport bottom / the keyboard top — see the shell lock
+     * below) and the clip cuts the excess at the main block's TOP,
+     * never at the form block's bottom edge. The form block itself is
+     * never clipped at its bottom and never scrolls (no overflow of its
+     * own). */
+    height: 100vh;
+    height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: hidden;
+  }
+  /* tz11-13 (task 114 — Concept §29, DESIGN §4.17.2 item 1): the ROOT
+   * PAGE WRAPPER is locked to the viewport too, while the creation chat
+   * is mounted — the app-shell's min-height alone leaves it
+   * content-growable in principle; a definite height closes that path.
+   * Same 100vh fallback + 100dvh pair as the main block above: dvh IS
+   * the keyboard/visualViewport handling — the dynamic viewport unit
+   * tracks the visible screen area (below the fixed header, above the
+   * virtual keyboard when it is open), so the bound follows the
+   * keyboard without any measuring JS (the later supported declaration
+   * wins). :has-gated on the persona step: /chats, /room and the other
+   * join steps keep the content-driven shell. */
+  :global(.app-shell:has(> .join > .persona-step)) {
+    height: 100vh;
+    height: 100dvh;
+  }
+  /* Concept §30 (DESIGN §4.19): the §29 viewport rule generalized to the
+   * non-chat join forms — the SAME wrapper gate geometry as the persona
+   * gate above, keyed on the form-step (code/room/vault): the
+   * route wrapper carries the DEFINITE viewport height (100vh fallback +
+   * 100dvh — the dynamic viewport, i.e. the keyboard/visualViewport
+   * handling), the no-scroll clip, and the full-width gutter-free
+   * conduit; the app-shell is height-locked while a form step is
+   * mounted. The form never overlays beyond the area between the top of
+   * the screen and the bottom/keyboard and never grows content-driven —
+   * the FormShell middle is the ONLY scroll region inside the bounded
+   * card. The persona gate above stays the untouched §24–§29 contract. */
+  :global(.app-shell > .join:has(> .form-step)) {
+    min-height: 0;
+    max-width: none;
+    padding: 0;
+    height: 100vh;
+    height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: hidden;
+  }
+  :global(.app-shell:has(> .join > .form-step)) {
+    height: 100vh;
+    height: 100dvh;
+  }
+  /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the card content
+   * mounts fresh on every join-step swap (code ⇄ preview ⇄ wizard ⇄
+   * vault) and replays the ONE fade treatment — 1.5s opacity-only
+   * (§24 item 5, owner amendment: the concrete slower-fade value), the
+   * sheets' established fade (base.css reduced-motion catch-all). */
+  .stage {
+    animation: fade-in 1.5s ease-out;
+    min-width: 0;
+  }
+  /* §23.2 5.9: the boundary OUT of the loading step — the card fades out
+   * with the same 1.5s opacity treatment before the route hand-off into
+   * /room (JoinFlow delays the goto by the fade duration; reduced motion
+   * navigates immediately — see submitPersona). */
+  .card.leaving {
+    animation: fade-out 1.5s ease-out forwards;
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  /* §23.2 5.2: the wizard's card is a flex column — the CreationWizard
+   * fills it (flex: 1), the chat log scrolls and the composer sticks to
+   * the bottom. Only the persona step gets the treatment (the other join
+   * steps keep their content-driven block layout). tz11-06 (task 107):
+   * flex: 1 + min-height: 0 — the card FILLS the viewport height the
+   * bounded .join gives it instead of growing with the transcript, so the
+   * log (not the page) scrolls and the composer sits BELOW it in normal
+   * flow (never overlaying the newest bubble). */
+  .card.composer-card {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  /* §23.2 5.2: the §23.2 5.9 stage wrapper carries the flex column into
+   * the wizard — the chat log scrolls and the composer pins to the card
+   * bottom exactly as before the wrapper existed. */
+  .card.composer-card .stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  /* Concept §30 (DESIGN §4.19): the form steps fill the bounded card the
+   * same way the composer-card does (flex: 1 + min-height: 0) — the
+   * FormShell inside is then a three-region flex column: fixed header,
+   * the middle as the only scroll-port, fixed footer. */
+  .card.form-card {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .card.form-card .stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
   .gone-card {
     display: flex;
@@ -356,7 +707,26 @@
   @media (min-width: 720px) {
     .join {
       justify-content: center;
-      max-width: 480px;
+      /* Concept §30 geometry unification (owner amendment): the width is
+       * the SHARED FormShell constant — every screen in the join/intro/
+       * creation flow is dimensioned and positioned identically. */
+      max-width: var(--form-shell-max-width);
+    }
+    /* §24 item 7b → §25 → Concept §30 geometry unification (owner
+     * amendment, 2026-11-21): the persona desktop width is NO LONGER its
+     * own 750–850px rule — the creation chat and the mascot intro adopt
+     * the SHARED FormShell container geometry (the same width, centering
+     * and viewport bounding as the unified forms; the exact geometry is
+     * whatever the shared shell defines). It still spans the FULL screen
+     * height (no vertical gutter; the flex: 1 card fills the bounded
+     * height and the composer anchors at the bottom edge). Phone (<720px)
+     * keeps the §12 full-screen treatment; size/proportions only — every
+     * visual style is untouched. The §24–§29 INTERNAL layout contracts
+     * (two fixed areas, main block, messenger-only scroll, viewport
+     * rule, 1.5s fades) are unchanged. */
+    .join.persona-step {
+      max-width: var(--form-shell-max-width);
+      padding: 0;
     }
   }
   /* v2.6 (Concept §12, DESIGN §4.12.1 item 5): phone (<720px) full-screen

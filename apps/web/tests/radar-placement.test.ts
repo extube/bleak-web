@@ -13,7 +13,10 @@ import {
   MAX_RADAR_NODES,
   MIN_CENTER_GAP_PX,
   MIN_NODE_DIST_PX,
+  NODE_AVATAR_PX,
+  NODE_HIT_DIAMETER_PX,
   RING_FRACTIONS,
+  RING_ORBIT_DURATIONS_S,
   capRadarNodes,
   layoutRadarNodes,
   moreCounterPlacement,
@@ -190,6 +193,28 @@ describe('RING_FRACTIONS — §4.8.3 scaled-up inner rings', () => {
   });
 });
 
+describe('RING_ORBIT_DURATIONS_S / sizes — v3 tuning (§13.1.6, §4.13.6)', () => {
+  it('durations slowed ×1.5 with the per-ring differences preserved exactly', () => {
+    // v2.2 owner example was 60/90/20; v3 scales every ring ×1.5 — ring 1
+    // still fastest, ring 2 still a bit slower, ring 3 still very fast.
+    expect(RING_ORBIT_DURATIONS_S[0]).toBe(90);
+    expect(RING_ORBIT_DURATIONS_S[1]).toBe(135);
+    expect(RING_ORBIT_DURATIONS_S[2]).toBe(30);
+    expect(RING_ORBIT_DURATIONS_S[1] / RING_ORBIT_DURATIONS_S[0]).toBeCloseTo(1.5, 9);
+    expect(RING_ORBIT_DURATIONS_S[0] / RING_ORBIT_DURATIONS_S[2]).toBeCloseTo(3, 9);
+    // distinct speeds per ring
+    expect(new Set(RING_ORBIT_DURATIONS_S).size).toBe(3);
+  });
+
+  it('node icon a little smaller, hit areas stay ≥ the 48px touch target (§2.6)', () => {
+    expect(NODE_AVATAR_PX).toBe(40); // was 44
+    // circular button = avatar + 2×4px padding
+    expect(NODE_HIT_DIAMETER_PX).toBe(NODE_AVATAR_PX + 8);
+    expect(NODE_HIT_DIAMETER_PX).toBeGreaterThanOrEqual(48);
+    expect(MIN_NODE_DIST_PX).toBe(NODE_HIT_DIAMETER_PX + 8);
+  });
+});
+
 /**
  * Parametrized stage sizes (§4.8.3e): the smallest phone stage first —
  * placement must stay non-overlapping and on-canvas at 320px width.
@@ -291,17 +316,17 @@ describe('layoutRadarNodes — collision-avoided layout (§4.8.3b/d/e)', () => {
     assertInvariants(points, 320, 480);
   });
 
-  it('v2.4: a node clamped to the inner exclusion edge sits at the reduced 88px gap (§10.1.2)', () => {
-    // 0xedge-4: angle 245°, jitter −6% → base = 0.56 × 160 × 0.94 ≈ 84.2px
-    // on the 320×320 stage — below the exclusion edge, so the layout clamps
-    // it to MIN_CENTER_GAP_PX. Under the v2.1 value (128) the same node sat
-    // 40px farther out; the collision probing now lets it use the smaller
-    // edge while every no-overlap invariant still holds.
-    const [point] = layoutRadarNodes([{ address: '0xedge-4', state: 'chat' }], 320, 320);
+  it('v3: a node clamped to the inner exclusion edge sits at the 74px gap (§13.1.6)', () => {
+    // 0xedge-4: angle 245°, jitter −6% → on the 240×240 stage the inner
+    // ring base = 0.56 × 120 × 0.94 ≈ 63.2px — below the exclusion edge,
+    // so the layout clamps it to MIN_CENTER_GAP_PX. Under the v2.4 value
+    // (88) the same node sat farther out; the collision probing now lets
+    // it use the smaller edge while every no-overlap invariant holds.
+    const [point] = layoutRadarNodes([{ address: '0xedge-4', state: 'chat' }], 240, 240);
     if (!point) throw new Error('missing layout point');
     expect(point.radiusPx).toBe(MIN_CENTER_GAP_PX);
-    expect(Math.hypot(point.x - 160, point.y - 160)).toBeCloseTo(MIN_CENTER_GAP_PX, 6);
-    assertInvariants([point], 320, 320);
+    expect(Math.hypot(point.x - 120, point.y - 120)).toBeCloseTo(MIN_CENTER_GAP_PX, 6);
+    assertInvariants([point], 240, 240);
   });
 
   it('ring mapping is preserved through the layout pass', () => {
@@ -349,13 +374,15 @@ describe('layoutRadarNodes — collision-avoided layout (§4.8.3b/d/e)', () => {
 
   it('the cap constants stay intact (§4.8.3 does not change the >14 rule)', () => {
     expect(MAX_RADAR_NODES).toBe(14);
-    // v2.4 reduced "you"-chip distance (Concept §10.1.2, DESIGN §4.11.2):
-    // chip's worst visible-content offset from the stage center (truncated
-    // name line end ≈ 61px: half of the 120px name cap + ≈10px line
-    // half-height) + node hit radius (26px), rounded up — smaller than the
-    // v2.1 corner-clearance value (128). The no-overlap rule stays.
-    expect(MIN_CENTER_GAP_PX).toBe(88);
-    expect(MIN_CENTER_GAP_PX).toBeLessThan(128);
-    expect(MIN_NODE_DIST_PX).toBeGreaterThanOrEqual(60);
+    // v2.4 reduced "you"-chip distance (Concept §10.1.2, DESIGN §4.11.2);
+    // v3 closes the gap closer still (Concept §13.1.6, DESIGN §4.13.6):
+    // chip's opaque avatar core (64px circle → 32px radius) + node hit
+    // radius (24px) + 18px buffer = 74 — the visible avatar (20px radius)
+    // keeps a 22px visible gap from the chip's avatar edge; only the
+    // transparent hit-padding may graze the name line's outer end. The
+    // no-overlap rule stays (hit diameter 48 + 8px gap = 56).
+    expect(MIN_CENTER_GAP_PX).toBe(74);
+    expect(MIN_CENTER_GAP_PX).toBeLessThan(88); // still closer than v2.4's 88
+    expect(MIN_NODE_DIST_PX).toBeGreaterThanOrEqual(56);
   });
 });

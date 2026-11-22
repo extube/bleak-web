@@ -9,11 +9,15 @@
    *
    * Concept §10.1.4 / DESIGN §4.11.4: ALL persona editing lives here — the
    * PersonaEditor (name/public/private bio), the GreetingEditor and the
-   * InterestsEditor moved wholesale from /profile with their logic intact
-   * (same handlers/stores; the profile page itself is read-only display
-   * now). The persona section swaps to one editor at a time (the same
-   * inline-swap pattern the profile page used) and returns to the settings
-   * rows after save/cancel.
+   * LOCAL contact-card field (ContactCardEditor, DESIGN §4.13.3:
+   * `bleak.contactCard`, no backend field) — the same inline-swap pattern
+   * (one editor at a time), returning to the settings rows after
+   * save/cancel. §23.2 5.6: the interests EDITOR is REMOVED — interests
+   * are set at creation only (the wizard's themes); the local mirror
+   * (stores/interests.ts) stays as the badge display source. §4.13.3's
+   * minimal "Shared with you" list lived here once — DESIGN §4.14.2
+   * supersedes it with the /contacts footer tab (the PRIMARY surface), so
+   * the list was REMOVED to avoid a duplicate surface.
    *
    * Token rotation (§3.6 settings): confirm dialog (other-device lockout
    * copy) → generate the new secret → `rotateUserToken` (Bearer = current,
@@ -41,6 +45,10 @@
   import { api } from '#lib/api/client';
   import { generateTokenSecret } from '#lib/crypto/secrets';
   import { backTarget } from '#lib/chats/view';
+  import {
+    loadContactCard,
+    saveContactCard
+  } from '#lib/stores/contactCard';
   import type { PersonaDraft } from '#lib/join';
   import { locale, translate } from '#lib/i18n/locale';
   import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
@@ -48,7 +56,7 @@
   import LocaleControl from '#lib/components/join/LocaleControl.svelte';
   import PersonaEditor from '#lib/components/profile/PersonaEditor.svelte';
   import GreetingEditor from '#lib/components/profile/GreetingEditor.svelte';
-  import InterestsEditor from '#lib/components/profile/InterestsEditor.svelte';
+  import ContactCardEditor from '#lib/components/profile/ContactCardEditor.svelte';
   import ErrorBanner from '#lib/components/ErrorBanner.svelte';
 
   // Hard reload on a guarded route: hydrate identity defensively (idempotent).
@@ -58,7 +66,7 @@
   const me = $derived($identity);
 
   // --- persona editing (moved from /profile, Concept §10.1.4) ------------------
-  type View = 'rows' | 'persona' | 'greeting' | 'interests';
+  type View = 'rows' | 'persona' | 'greeting' | 'contact';
 
   let view = $state<View>('rows');
   let user = $state<User | null>(null);
@@ -203,6 +211,25 @@
     }
   }
 
+  // --- contact card (DESIGN §4.13.3, Concept §13.1.3) --------------------------
+  //
+  // A purely LOCAL field: the persona's card text (≤255 symbols) is stored
+  // per room|user in `bleak.contactCard` — no backend user field, no API
+  // call on save. The dialog's share slide composes it into
+  // POST /api/contact content.
+
+  function openContact(): void {
+    view = 'contact';
+  }
+
+  function saveContact(text: string): void {
+    const id = me;
+    if (!id) return;
+    saveContactCard(id.roomAddress, id.userAddress, text);
+    view = 'rows';
+    flashSaved();
+  }
+
   // --- token rotation (v2, §3.6 settings) --------------------------------------
   let rotateOpen = $state(false);
   let pendingRotate = $state(false);
@@ -253,7 +280,9 @@
     if (!me) return;
     clearIdentity();
     leaveOpen = false;
-    void goto(resolve('/'));
+    // tz12-02 re-homing: the return-to-event entry (the vault) lives on
+    // the join entry page now.
+    void goto(resolve('/income'));
   }
 
   // --- back control (§1.3): history back, fallback /profile --------------------
@@ -310,11 +339,15 @@
         <button type="button" class="row" onclick={openGreeting}>
           {translate($locale, 'profile.greeting.edit')}
         </button>
-        <button type="button" class="row" onclick={() => (view = 'interests')}>
-          {translate($locale, 'profile.interests.edit')}
+        <!-- §23.2 5.6: no interests row — interests are set at creation
+             only (the wizard's themes); the badge renders the mirror. -->
+        <button type="button" class="row" onclick={openContact}>
+          {translate($locale, 'profile.contact.edit')}
         </button>
       </section>
 
+      <!-- Received contacts (DESIGN §4.14.2): the §4.13.3 minimal list was
+           REMOVED — the /contacts footer tab is the PRIMARY surface. -->
       <section class="settings pixel-corners" aria-label={translate($locale, 'profile.settings.title')}>
         <div class="setting">
           <span class="setting-label">{translate($locale, 'common.locale')}</span>
@@ -367,8 +400,12 @@
           oncancel={() => (view = 'rows')}
         />
       {/key}
-    {:else if view === 'interests'}
-      <InterestsEditor ondone={() => (view = 'rows')} />
+    {:else if view === 'contact'}
+      <ContactCardEditor
+        initial={me ? loadContactCard(me.roomAddress, me.userAddress) : ''}
+        onsave={saveContact}
+        oncancel={() => (view = 'rows')}
+      />
     {/if}
   </main>
 
@@ -529,4 +566,5 @@
       align-self: center;
     }
   }
+
 </style>

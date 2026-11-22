@@ -1,11 +1,16 @@
 /** People page + PersonCard tests — LEAN suite (2026-11-17 slimming pass,
- * owner directive): one block per distinct behavior, micro asserts removed
- * (recorded in docs/verification-v2.md). Covers: state-pill mapping
- * (parametrized), card actions (send/expand/outgoing-none), page render
- * order + pills + chats-badge write-through, skeleton→cards→poll mutation,
- * «+» send flip, §2.9 income rejection, handshake-back, dismiss (local
- * only), search + filter chips, empty room, error banners, poller teardown
- * + visibility regain, relationships module contract. */
+ * owner directive; reworked §4.15.4.2/4.15.4.3, Concept §19.2+§19.3).
+ * Covers: state-pill mapping (parametrized; the chatting badge is REPLACED
+ * by the Open-chat button), card actions (send / expanded incoming panel /
+ * outgoing-none), the deterministic bucket sort (no filter chips — v3.6),
+ * mount auto-open of the first card's handshake-back panel (ONLY the
+ * first), the §4.15.4.3 addendum tap contracts (tapping an added-you card
+ * toggles ITS form — single-expanded; non-added-you rows are inert;
+ * dismissal intact), «Привет!» copy, page render order + pills + chats-badge
+ * write-through, skeleton→cards→poll mutation, «+» send flip, §2.9 income
+ * rejection, dismiss (local only, never re-opened by polls), search,
+ * empty room, error banners, poller teardown + visibility regain,
+ * relationships module contract. */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -122,7 +127,7 @@ async function renderPage(): Promise<void> {
   await tick();
 }
 
-describe('PersonCard — pills, actions, expand (§3.3)', () => {
+describe('PersonCard — pills, actions, expanded panel (§3.3, §4.15.4.3)', () => {
   const alice = person('0xa', 'Алиса', 2, 'Поттер из Питера');
 
   it.each([
@@ -151,7 +156,7 @@ describe('PersonCard — pills, actions, expand (§3.3)', () => {
       state: 'chat',
       handshakes: [] as Handshake[],
       chats: [chat('0xchat1', [ME, '0xa'], 9)],
-      pill: ru['hs.chatting'],
+      pill: null,
       time: '9 мин'
     }
   ])('$state: pill + timestamp derive correctly', ({ handshakes, chats, pill, time }) => {
@@ -163,6 +168,19 @@ describe('PersonCard — pills, actions, expand (§3.3)', () => {
       expect(screen.getByText(pill)).toBeTruthy();
     }
     expect(screen.getByText(time)).toBeTruthy();
+    // §4.15.4.3 item layout: the chatting badge is GONE — the chat state
+    // carries the Open-chat button instead; other states never do.
+    if (relationship.state === 'chat') {
+      expect(screen.getByText(ru['people.action.open_chat'])).toBeTruthy();
+    } else {
+      expect(screen.queryByText(ru['people.action.open_chat'])).toBeNull();
+    }
+    // the right-edge action column exists ONLY for the direct «+» send
+    if (relationship.state === 'none') {
+      expect(container.querySelector('.action')).toBeTruthy();
+    } else {
+      expect(container.querySelector('.action')).toBeNull();
+    }
   });
 
   it('«+» action fires onsend with a person-named label and disables while sending; outgoing has NO card action', async () => {
@@ -190,29 +208,65 @@ describe('PersonCard — pills, actions, expand (§3.3)', () => {
     expect(document.querySelectorAll('.action button, .action a')).toHaveLength(0);
   });
 
-  it('incoming expand: «Ответить хендшейком» + «Закрыть»; collapse collapses back', async () => {
+  it('tap target (§4.15.4.3 addendum): the incoming row is role=button with aria-expanded + ontoggle; non-incoming rows are inert', async () => {
     const ontoggle = vi.fn();
+    render(PersonCard, {
+      props: {
+        user: alice,
+        relationship: deriveRelationship('0xa', ME, [handshake('0xa', ME, 7)], []),
+        ontoggle
+      }
+    });
+    const row = document.querySelector('.row[role="button"]') as HTMLElement;
+    expect(row).toBeTruthy();
+    expect(row.getAttribute('aria-expanded')).toBe('false');
+    row.click();
+    await tick();
+    expect(ontoggle).toHaveBeenCalledTimes(1);
+    // keyboard parity: Enter activates the row's tap toggle
+    row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(ontoggle).toHaveBeenCalledTimes(2);
+
+    cleanup();
+    // non-incoming ("none"): no tap target at all — nothing new happens
+    const untouchedToggle = vi.fn();
+    render(PersonCard, {
+      props: {
+        user: alice,
+        relationship: deriveRelationship('0xa', ME, [], []),
+        ontoggle: untouchedToggle
+      }
+    });
+    expect(document.querySelector('.row[role="button"]')).toBeNull();
+    (document.querySelector('.row') as HTMLElement).click();
+    await tick();
+    expect(untouchedToggle).not.toHaveBeenCalled();
+  });
+
+  it('incoming panel is expanded-prop driven: «Привет!» + «Закрыть»; no toggle icon exists (v3.6)', async () => {
+    const onback = vi.fn();
     const { rerender } = render(PersonCard, {
       props: {
         user: alice,
         relationship: deriveRelationship('0xa', ME, [handshake('0xa', ME, 7)], []),
-        ontoggle,
+        onback,
         expanded: false
       }
     });
-    await screen
-      .getByRole('button', { name: ru['people.action.expand'].replace('{name}', 'Алиса') })
-      .click();
-    expect(ontoggle).toHaveBeenCalledTimes(1);
+    // the handshake-form toggle icon is removed — the panel is closed and
+    // there is NO right-edge affordance to open it
+    expect(screen.queryByRole('button', { name: ru['people.action.back'] })).toBeNull();
+    expect(document.querySelectorAll('.action button')).toHaveLength(0);
 
     await rerender({ expanded: true });
-    expect(screen.getByRole('button', { name: ru['hs.back'] })).toBeTruthy();
+    await screen.getByRole('button', { name: ru['people.action.back'] }).click();
+    expect(onback).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button', { name: ru['people.dismiss'] })).toBeTruthy();
   });
 });
 
-describe('/people — rendering, order, badge (§3.3)', () => {
-  it('one card per attendee (excluding me), newest first, pills present, badge write-through', async () => {
+describe('/people — rendering, order, badge (§3.3, §4.15.4.2)', () => {
+  it('one card per attendee (excluding me) in bucket order, pills present, badge write-through', async () => {
     fixture.users = [
       person('0xa', 'Алиса', 10, 'Поттер'),
       person('0xb', 'Борис', 2, 'Трамвайщик'),
@@ -224,13 +278,15 @@ describe('/people — rendering, order, badge (§3.3)', () => {
     await renderPage();
 
     const names = screen.getAllByText(/Алиса|Борис/).map((el) => el.textContent);
-    // newest created_at first: Борис (2 min) before Алиса (10 min)
-    expect(names.indexOf('Борис')).toBeLessThan(names.indexOf('Алиса'));
+    // §4.15.4.2 bucket sort: who added you (Алиса) BEFORE chatting (Борис) —
+    // the old newest-first roster order no longer rules the list
+    expect(names.indexOf('Алиса')).toBeLessThan(names.indexOf('Борис'));
     expect(screen.queryByText('Я')).toBeNull();
     expect(screen.getByText('Участников: 3')).toBeTruthy();
-    // state pills live on the cards (the filter chip «Общаемся» shares wording)
+    // state pills live on the cards; the chatting badge is GONE (§4.15.4.3)
     expect(document.querySelector('.cards')?.textContent?.includes(ru['hs.added_you'])).toBe(true);
-    expect(document.querySelector('.cards')?.textContent?.includes(ru['hs.chatting'])).toBe(true);
+    expect(document.querySelector('.cards')?.textContent?.includes(ru['hs.chatting'])).toBe(false);
+    expect(screen.getByText(ru['people.action.open_chat'])).toBeTruthy();
     // chat newness writes through to the chatsSeen store (badge dot)
     await waitFor(() => expect(get(chatsUnseen)).toBe(true));
   });
@@ -294,7 +350,7 @@ describe('/people — card actions', () => {
     expect(mockedApi.createHandshake).toHaveBeenCalledTimes(1);
   });
 
-  it('incoming card: handshake back sends the reverse POST, card becomes «Общаемся» (AC 5)', async () => {
+  it('incoming first card: the handshake-back panel auto-opens (§4.15.4.3); «Привет!» sends the reverse POST, the card becomes Open chat (AC 5)', async () => {
     fixture.users = [person('0xa', 'Алиса', 10)];
     fixture.handshakes = [handshake('0xa', ME, 6)];
     mockedApi.createHandshake.mockImplementation(async (request) => {
@@ -305,29 +361,48 @@ describe('/people — card actions', () => {
     });
 
     await renderPage();
-    await screen
-      .getByRole('button', { name: ru['people.action.expand'].replace('{name}', 'Алиса') })
-      .click();
-    await screen.getByRole('button', { name: ru['hs.back'] }).click();
+    // auto-open: the panel is already expanded on mount — no click needed
+    expect(screen.getByRole('button', { name: ru['people.action.back'] })).toBeTruthy();
+    await screen.getByRole('button', { name: ru['people.action.back'] }).click();
 
-    await waitFor(() =>
-      expect(
-        document.querySelector('.cards')?.textContent?.includes(ru['hs.chatting'])
-      ).toBe(true)
-    );
+    await waitFor(() => expect(screen.getByText(ru['people.action.open_chat'])).toBeTruthy());
+    // the chatting badge is gone (v3.6); no right-edge icon remains
+    expect(screen.queryByText(ru['hs.chatting'])).toBeNull();
+    expect(document.querySelector('.action')).toBeNull();
     expect(
-      screen.getByRole('link', { name: ru['people.action.dialog'].replace('{name}', 'Алиса') })
+      screen.getByRole('link', { name: ru['people.action.open_chat'] })
     ).toBeTruthy();
   });
 
-  it('dismiss collapses the card and sends NOTHING to the server (ruling 2, AC 6)', async () => {
+  it('auto-open applies ONLY to the FIRST card of the sorted list; non-first incoming cards stay closed (§4.15.4.3)', async () => {
+    fixture.users = [
+      person('0xa', 'Алиса', 2),
+      person('0xb', 'Борис', 10)
+    ];
+    fixture.handshakes = [handshake('0xa', ME, 6), handshake('0xb', ME, 7)];
+
+    await renderPage();
+
+    const cards = document.querySelectorAll('.person-card');
+    expect(cards).toHaveLength(2);
+    expect(cards[0]?.textContent).toContain('Алиса');
+    expect(cards[0]?.querySelector('.expanded-actions')).toBeTruthy();
+    expect(cards[1]?.querySelector('.expanded-actions')).toBeNull();
+  });
+
+  it('no auto-open when the first card is not an incoming request (§4.15.4.3)', async () => {
+    fixture.users = [person('0xa', 'Алиса', 2)];
+    await renderPage();
+    expect(document.querySelector('.expanded-actions')).toBeNull();
+  });
+
+  it('dismiss collapses the auto-opened card, sends NOTHING to the server (ruling 2, AC 6) and is never re-opened by polls', async () => {
     fixture.users = [person('0xa', 'Алиса', 10)];
     fixture.handshakes = [handshake('0xa', ME, 6)];
 
     await renderPage();
-    await screen
-      .getByRole('button', { name: ru['people.action.expand'].replace('{name}', 'Алиса') })
-      .click();
+    // the panel is open on mount (first card, who added you)
+    expect(screen.getByRole('button', { name: ru['people.action.back'] })).toBeTruthy();
     await screen.getByRole('button', { name: ru['people.dismiss'] }).click();
     await tick();
 
@@ -335,12 +410,111 @@ describe('/people — card actions', () => {
     // collapsed again: the expanded actions are gone; the card remains with
     // its pill (nothing in the copy or state implies it was declined —
     // ruling 2)
-    expect(screen.queryByRole('button', { name: ru['hs.back'] })).toBeNull();
+    expect(screen.queryByRole('button', { name: ru['people.action.back'] })).toBeNull();
     expect(screen.getByText(ru['hs.added_you'])).toBeTruthy();
+
+    // the auto-open is one-shot: a later poll tick never re-opens the
+    // dismissed card (no toggle exists anymore to re-open it either)
+    const callsBefore = mockedApi.listRoomUsers.mock.calls.length;
+    await waitFor(
+      () => expect(mockedApi.listRoomUsers.mock.calls.length).toBeGreaterThan(callsBefore),
+      { timeout: 5000 }
+    );
+    await tick();
+    expect(document.querySelector('.expanded-actions')).toBeNull();
   });
 });
 
-describe('/people — search + filter chips (AC 2, AC 3)', () => {
+describe('/people — tap on an added-you item opens the form (§4.15.4.3 addendum, Concept §19.3)', () => {
+  it('tapping a non-first added-you card opens ITS form (the form moves — single-expanded); tapping the expanded card collapses it', async () => {
+    fixture.users = [
+      person('0xa', 'Алиса', 2),
+      person('0xb', 'Борис', 10)
+    ];
+    fixture.handshakes = [handshake('0xa', ME, 6), handshake('0xb', ME, 7)];
+
+    await renderPage();
+
+    // auto-open stays: the FIRST added-you card starts expanded
+    const cards = () => document.querySelectorAll('.person-card');
+    expect(cards()[0]?.querySelector('.expanded-actions')).toBeTruthy();
+    expect(cards()[1]?.querySelector('.expanded-actions')).toBeNull();
+
+    // only the two incoming rows are button-role tap targets
+    const rows = document.querySelectorAll('.row[role="button"]');
+    expect(rows).toHaveLength(2);
+
+    // tap Борис → the open form MOVES from Алиса to Борис (single-expanded)
+    (rows[1] as HTMLElement).click();
+    await tick();
+    expect(cards()[1]?.querySelector('.expanded-actions')).toBeTruthy();
+    expect(cards()[1]?.querySelector('.expanded-actions')?.textContent).toContain(
+      ru['people.action.back']
+    );
+    expect(cards()[0]?.querySelector('.expanded-actions')).toBeNull();
+
+    // tap Борис again → the tap toggle collapses the form
+    (rows[1] as HTMLElement).click();
+    await tick();
+    expect(document.querySelector('.expanded-actions')).toBeNull();
+
+    // keyboard parity on the page too: Enter on Алиса's row re-opens it
+    (rows[0] as HTMLElement).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+    );
+    await tick();
+    expect(cards()[0]?.querySelector('.expanded-actions')).toBeTruthy();
+  });
+
+  it('tapping a non-added-you row opens NO handshake form (none / outgoing / chat)', async () => {
+    fixture.users = [
+      person('0xa', 'Алиса', 20), // none
+      person('0xb', 'Борис', 10), // outgoing
+      person('0xc', 'Вера', 2) // chat
+    ];
+    fixture.handshakes = [handshake(ME, '0xb', 8)];
+    fixture.chats = [chat('0xchat1', [ME, '0xc'], 3)];
+
+    await renderPage();
+
+    expect(document.querySelectorAll('.row[role="button"]')).toHaveLength(0);
+    for (const row of document.querySelectorAll('.person-card .row')) {
+      (row as HTMLElement).click();
+    }
+    await tick();
+    expect(document.querySelector('.expanded-actions')).toBeNull();
+    // the non-added-you surfaces are unchanged: Open chat link + sent pill
+    expect(screen.getByRole('link', { name: ru['people.action.open_chat'] })).toBeTruthy();
+    expect(screen.getByText(ru['hs.sent'])).toBeTruthy();
+  });
+
+  it('tap-opened form keeps the dismissal flow intact: local collapse only, and a dismissed card never re-opens (ruling 2)', async () => {
+    fixture.users = [person('0xa', 'Алиса', 10), person('0xb', 'Борис', 2)];
+    fixture.handshakes = [handshake('0xa', ME, 6), handshake('0xb', ME, 7)];
+
+    await renderPage();
+
+    const rows = document.querySelectorAll('.row[role="button"]');
+    (rows[0] as HTMLElement).click(); // toggle the auto-opened first card closed
+    await tick();
+    (rows[1] as HTMLElement).click(); // tap-open the second added-you card
+    await tick();
+    const cards = document.querySelectorAll('.person-card');
+    expect(cards[1]?.querySelector('.expanded-actions')).toBeTruthy();
+
+    await (cards[1]?.querySelector('.dismiss') as HTMLButtonElement).click();
+    await tick();
+    expect(mockedApi.createHandshake).not.toHaveBeenCalled();
+    expect(document.querySelector('.expanded-actions')).toBeNull();
+
+    // a dismissed card is never re-opened by tapping it either
+    (rows[1] as HTMLElement).click();
+    await tick();
+    expect(document.querySelector('.expanded-actions')).toBeNull();
+  });
+});
+
+describe('/people — search (AC 2; filter chips are gone — v3.6)', () => {
   beforeEach(() => {
     fixture.users = [
       person('0xa', 'Алиса', 10, 'Поттер из Питера'),
@@ -367,15 +541,10 @@ describe('/people — search + filter chips (AC 2, AC 3)', () => {
     await waitFor(() => expect(screen.getByText('Борис')).toBeTruthy());
   });
 
-  it('filter chips reduce the list to the selected state (AC 3)', async () => {
+  it('no filter chips render and every card stays listed (the list is just sorted)', async () => {
     await renderPage();
-    await screen.getByRole('radio', { name: ru['people.filter.added'] }).click();
-    await waitFor(() => expect(screen.queryByText('Борис')).toBeNull());
-    expect(screen.queryByText('Алиса')).toBeNull();
-
-    await screen.getByRole('radio', { name: ru['people.filter.sent'] }).click();
-    await waitFor(() => expect(screen.getByText('Вера')).toBeTruthy());
-    expect(screen.queryByText('Алиса')).toBeNull();
+    expect(screen.queryByRole('radio')).toBeNull();
+    expect(document.querySelectorAll('.person-card')).toHaveLength(3);
   });
 });
 

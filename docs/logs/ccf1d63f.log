@@ -1,0 +1,3 @@
+2026-11-19T21:12:44Z [worker] task 81 in-progress: sheet line removal started
+2026-11-19T21:14:26Z [worker] connector removed (element+styles+keyframes), tests updated; targeted summary-sheet suite 57/57 green
+2026-11-19T21:15:17Z [worker] all gates green (targeted 57/57, full make test 807 passed, make lint clean, make build ok); committed a4e53e4 on feature/ccf1d63f-tz8-01-sheet-line-removal; setting ready-for-merge

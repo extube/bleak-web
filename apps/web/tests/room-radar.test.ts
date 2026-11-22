@@ -248,9 +248,9 @@ describe('/room — v2.2 radar motion (DESIGN §4.9.1/4.9.2/4.9.12)', () => {
 
     // ring semantics (radar.ts ringFor): chat → 0, pending → 1, none → 2.
     const expected: Array<[string, string, string]> = [
-      [ru['room.node.chat'].replace('{name}', 'Алиса'), 'ring-0', '60s'],
-      [ru['room.node.outgoing'].replace('{name}', 'Боб'), 'ring-1', '90s'],
-      [ru['room.node.none'].replace('{name}', 'Кэрол'), 'ring-2', '20s']
+      [ru['room.node.chat'].replace('{name}', 'Алиса'), 'ring-0', '90s'],
+      [ru['room.node.outgoing'].replace('{name}', 'Боб'), 'ring-1', '135s'],
+      [ru['room.node.none'].replace('{name}', 'Кэрол'), 'ring-2', '30s']
     ];
     const durations = new Set<string>();
     for (const [label, ringClass, duration] of expected) {
@@ -279,10 +279,21 @@ describe('/room — v2.2 radar motion (DESIGN §4.9.1/4.9.2/4.9.12)', () => {
     const groups = document.querySelectorAll('svg.rings g');
     expect(groups).toHaveLength(3);
     const durations = Array.from(groups).map((g) => g.getAttribute('style') ?? '');
-    expect(durations[0]).toContain('animation-duration: 60s');
-    expect(durations[1]).toContain('animation-duration: 90s');
-    expect(durations[2]).toContain('animation-duration: 20s');
+    expect(durations[0]).toContain('animation-duration: 90s');
+    expect(durations[1]).toContain('animation-duration: 135s');
+    expect(durations[2]).toContain('animation-duration: 30s');
     for (const g of groups) expect(g.classList.contains('animate')).toBe(true); // spin after data
+  });
+
+  it('v3 tuning: the node hit circle is 48px — 40px avatar + 2×4px padding (§4.13.6, §2.6)', () => {
+    // Smaller icons per Concept §13.1.6 / DESIGN §4.13.6: the avatar drops
+    // 44 → 40px and the circular button (hit area) drops 52 → 48px —
+    // exactly the §2.6 touch target. Component CSS is not injected under
+    // happy-dom, so the size contract is pinned against the source.
+    const nodeCss = source('src/lib/components/radar/RadarNode.svelte');
+    expect(nodeCss).toMatch(/\.node[^{]*\{[^}]*width:\s*48px/);
+    expect(nodeCss).toMatch(/\.node[^{]*\{[^}]*height:\s*48px/);
+    expect(nodeCss).toMatch(/NODE_AVATAR_PX \(40\)/);
   });
 
   it('node content counter-rotates so icons stay upright (§4.9.1)', async () => {
@@ -314,7 +325,7 @@ describe('/room — v2.2 radar motion (DESIGN §4.9.1/4.9.2/4.9.12)', () => {
     const counter = screen.getByText('+6 ещё');
     const unit = counter.closest('.orbit-unit');
     expect(unit?.classList.contains('ring-2')).toBe(true);
-    expect(unit?.getAttribute('style')).toContain('--orbit-duration: 20s');
+    expect(unit?.getAttribute('style')).toContain('--orbit-duration: 30s');
     expect(document.querySelector('.nodes-orbit')?.contains(unit as Node)).toBe(true);
     // Composed counter-rotation keyframes keep the centering translate.
     const pageCss = source('src/routes/room/+page.svelte');
@@ -353,9 +364,9 @@ describe('/room — v2.2 radar motion (DESIGN §4.9.1/4.9.2/4.9.12)', () => {
     });
     expect(carolAfter).toBe(carolBefore);
     expect(carolAfter.closest('.orbit-unit')).toBe(unitBefore);
-    // The unit now carries the inner ring's speed (60s).
+    // The unit now carries the inner ring's speed (90s).
     expect(unitBefore?.classList.contains('ring-0')).toBe(true);
-    expect(unitBefore?.getAttribute('style')).toContain('--orbit-duration: 60s');
+    expect(unitBefore?.getAttribute('style')).toContain('--orbit-duration: 90s');
     vi.useRealTimers();
   });
 
@@ -602,11 +613,11 @@ describe('/room — scanner mount (AC 13) + identity guard', () => {
     );
   });
 
-  it('without an identity the guard redirects to / and renders nothing', async () => {
+  it('without an identity the guard redirects to the join entry /income (tz12-02) and renders nothing', async () => {
     localStorage.clear();
     identity.set(null);
     render(RoomPage, { props: {} });
-    await waitFor(() => expect(goto).toHaveBeenCalledWith('/'));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income'));
     expect(screen.queryByText(room.name)).toBeNull();
   });
 });

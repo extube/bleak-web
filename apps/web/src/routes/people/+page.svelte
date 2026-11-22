@@ -1,10 +1,15 @@
 <script lang="ts">
   /**
-   * `/people` — Attendee list (DESIGN §3.3, TZ-06). The canonical, accessible
-   * list backing the radar: search, status filters, per-card handshake
-   * actions, 4 s poller trio (users + handshakes + chats), stable in-place
-   * updates. Dismiss on an incoming card is a LOCAL collapse only (owner
-   * ruling 2 — nothing is sent to the server). Chats-badge write-through on
+   * `/people` — Attendee list (DESIGN §3.3; reworked §4.15.4.2/4.15.4.3,
+   * Concept §19.2+§19.3). The canonical, accessible list backing the radar:
+   * search, the deterministic relationship-bucket sort (no filter chips —
+   * v3.6), per-card handshake actions, 4 s poller trio (users + handshakes +
+   * chats), stable in-place updates. Dismiss on an incoming card is a LOCAL
+   * collapse only (owner ruling 2 — nothing is sent to the server). The
+   * FIRST card of the sorted list (who added you) auto-expands its
+   * handshake-back panel on mount (§4.15.4.3). §4.15.4.3 addendum: tapping
+   * any "added you" card toggles the form for THAT user (single-expanded —
+   * opening another card moves the form). Chats-badge write-through on
    * every chats poll (§1.2).
    */
   import { get } from 'svelte/store';
@@ -19,18 +24,16 @@
   import { locale, translate } from '#lib/i18n/locale';
   import {
     isDismissed,
-    matchesFilter,
     matchesQuery,
     mergeRoster,
-    stableRoster,
-    type PeopleFilter
+    sortedPeople,
+    stableRoster
   } from '#lib/people/view';
   import PersonCard from '#lib/components/people/PersonCard.svelte';
   import type { Relationship } from '#lib/room/relationships';
   import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
   import ErrorBanner from '#lib/components/ErrorBanner.svelte';
   import EmptyState from '#lib/components/EmptyState.svelte';
-  import SegmentedControl from '#lib/components/SegmentedControl.svelte';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
 
   // --- live data (polled snapshots stay in the owning route) ----------------
@@ -40,10 +43,9 @@
   let loading = $state(true);
   let pollError = $state<null | { kind: 'network' | 'api'; message: string | null }>(null);
 
-  // --- search + filter chips (§3.3) -----------------------------------------
+  // --- search (§3.3) ----------------------------------------------------------
   let query = $state('');
   let debouncedQuery = $state('');
-  let filter = $state<PeopleFilter>('all');
 
   // --- per-card interaction state (component state, per page visit) ---------
   let expandedAddress = $state<string | null>(null);
@@ -137,13 +139,12 @@
 
   const cards = $derived(
     me
-      ? stableRoster(users)
-          .filter((user) => !user.deleted_at && user.address !== me.userAddress)
-          .filter((user) => {
-            const relationship = relationships.get(user.address);
-            return relationship ? matchesFilter(relationship.state, filter) : false;
-          })
-          .filter((user) => matchesQuery(user, debouncedQuery))
+      ? sortedPeople(
+          stableRoster(users)
+            .filter((user) => !user.deleted_at && user.address !== me.userAddress)
+            .filter((user) => matchesQuery(user, debouncedQuery)),
+          relationships
+        )
       : []
   );
 
@@ -158,6 +159,23 @@
       isDismissed(dismissals, relationship)
     ) {
       expandedAddress = null;
+    }
+  });
+
+  // §4.15.4.3 auto-open: on the FIRST data arrival, the first card of the
+  // sorted list (who added you — bucket 1) has its handshake-back panel
+  // open without a click; ONLY the first — every other card (including the
+  // other bucket-1 ones) stays closed, and a mount-time dismissal is never
+  // re-opened by later polls (the flag makes this one-shot).
+  let autoOpenDone = $state(false);
+  $effect(() => {
+    if (autoOpenDone || loading) return;
+    const first = cards[0];
+    if (!first) return;
+    autoOpenDone = true;
+    const relationship = relationships.get(first.address);
+    if (relationship?.state === 'incoming' && !isDismissed(dismissals, relationship)) {
+      expandedAddress = first.address;
     }
   });
 
@@ -181,31 +199,34 @@
       });
   }
 
-  function toggleExpand(address: string): void {
-    expandedAddress = expandedAddress === address ? null : address;
-  }
-
   /** Local dismissal ONLY (ruling 2): collapse + record; no server call. */
   function dismiss(address: string, incomingAt: string | null): void {
     if (incomingAt) dismissals.set(address, incomingAt);
     if (expandedAddress === address) expandedAddress = null;
   }
 
+  /**
+   * §4.15.4.3 addendum: tap on an "added you" card toggles the Handshake!/
+   * Dismiss form for THAT user — the removed right icon's toggle role moved
+   * to the card tap. Single-expanded pattern: opening another added-you card
+   * MOVES the open form to it; tapping the expanded card collapses it.
+   * A dismissed card never re-opens (the `expanded={!dismissed && …}` guard
+   * plus the collapse effect keep it closed).
+   */
+  function toggleIncoming(address: string): void {
+    const relationship = relationships.get(address);
+    if (!relationship || relationship.state !== 'incoming') return;
+    if (isDismissed(dismissals, relationship)) return; // never re-open (ruling 2)
+    expandedAddress = expandedAddress === address ? null : address;
+  }
+
   function resetSearch(): void {
     query = '';
     debouncedQuery = '';
-    filter = 'all';
   }
 
-  const filterOptions = $derived([
-    { value: 'all', label: translate($locale, 'people.filter.all') },
-    { value: 'sent', label: translate($locale, 'people.filter.sent') },
-    { value: 'added', label: translate($locale, 'people.filter.added') },
-    { value: 'chatting', label: translate($locale, 'people.filter.chatting') }
-  ]);
   const searchPlaceholder = $derived(translate($locale, 'people.search.placeholder'));
   const searchLabel = $derived(translate($locale, 'people.search.label'));
-  const filtersLabel = $derived(translate($locale, 'people.filters'));
   const emptyRoomMessage = $derived(translate($locale, 'people.empty'));
   const emptySearchMessage = $derived(
     translate($locale, 'people.empty_search', { q: debouncedQuery })
@@ -234,9 +255,6 @@
     <div class="search pill">
       <PixelIcon name="search" size={16} />
       <input type="search" placeholder={searchPlaceholder} aria-label={searchLabel} bind:value={query} />
-    </div>
-    <div class="filters">
-      <SegmentedControl options={filterOptions} value={filter} label={filtersLabel} onchange={(next) => (filter = next as PeopleFilter)} />
     </div>
   </div>
 
@@ -277,8 +295,8 @@
           errorMessage={cardError?.message ?? null}
           onsend={() => handshake(user.address)}
           onback={() => handshake(user.address)}
-          ontoggle={() => toggleExpand(user.address)}
           ondismiss={() => dismiss(user.address, relationship?.incomingAt ?? null)}
+          ontoggle={() => toggleIncoming(user.address)}
         />
       {/each}
     </ul>
@@ -310,9 +328,6 @@
     color: var(--color-text-muted);
   }
   .controls {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
     margin-top: var(--space-4);
   }
   .search {
@@ -341,9 +356,6 @@
   }
   .search input::placeholder {
     color: var(--color-text-muted);
-  }
-  .filters {
-    overflow-x: auto;
   }
   .cards {
     list-style: none;

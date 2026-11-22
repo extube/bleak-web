@@ -1,51 +1,72 @@
 <script lang="ts">
   /**
    * MessageBubble (DESIGN §3.5 as amended by Concept §9.1.5 /
-   * DESIGN §4.10.5): one transcript entry. mine (my persona is a speaker
-   * when agents quote it) right-aligned; theirs left. Only THEIR bubbles
-   * carry the speaker's Deepa hue — fnv1a(address) % 5
-   * (lib/avatar/traits.ts) → full-opacity `--color-deepa-<n>` background;
-   * the bubble text pairs with the hue's ink token
-   * (`--color-deepa-ink-<n>`, AA ≥4.5:1 — verified in
+   * DESIGN §4.10.5; generalized in §4.18 — tz11-09): ONE transcript
+   * entry — the single bubble implementation for every chat surface.
+   * mine (my persona is a speaker when agents quote it) right-aligned;
+   * theirs left. Only THEIR bubbles carry the speaker's Deepa hue —
+   * fnv1a(seed) % 5 (lib/avatar/traits.ts) → full-opacity
+   * `--color-deepa-<n>` background; the bubble text pairs with the
+   * hue's ink token (`--color-deepa-ink-<n>`, AA ≥4.5:1 — verified in
    * tests/bubble-contrast.test.ts). OWN bubbles stay muted
    * (--color-surface-elevated with --color-text, unchanged from tz4-06);
    * mine never take MY code hue. Both .pixel-corners, 14px Inter,
-   * max-width 80%. Speaker name (11px muted) + absolute time under each
-   * bubble. The accessible <li> name is «{speaker}: {first 60 chars}»
-   * (route computes it via lib/chats/view.bubbleAriaLabel). Plain text
-   * only — pre-wrap.
+   * max-width 80%. Plain text only — pre-wrap.
+   *
+   * The line model is surface-agnostic (ChatTranscript.ChatLine, the
+   * §4.18 shared chat machinery): the main room passes the speaker
+   * address as the hue seed + the meta row (11px muted speaker name +
+   * absolute hh:mm time under the bubble, Concept §8.1.8) and the
+   * accessible <li> name «{speaker}: {first 60 chars}»
+   * (lib/chats/view.bubbleAriaLabel); the creation wizard passes the
+   * mascot's stable id as the seed and asks for the mascot avatar row
+   * beside its agent bubbles (tz11-09) with no meta (the interviewer
+   * has no message times).
    */
-  import type { Message } from '@bleak/api-client';
   import { codeHue } from '#lib/avatar/traits';
+  import BleakMascot from '#lib/components/BleakMascot.svelte';
 
   interface Props {
-    message: Message;
-    /** `message.from === identity.userAddress` (mine → right). */
+    /** The line's plain text (the bubble content). */
+    text: string;
+    /** mine → right-aligned muted bubble; theirs → left. */
     mine: boolean;
-    /** Resolved speaker name (raw address fallback). */
-    speaker: string;
-    /** Absolute time of `created_at`. */
-    time: string;
+    /** The Deepa hue seed for THEIR bubbles (theirs only — mine never
+     *  take a hue): the speaker's address in the main room, the
+     *  mascot's stable id in the creation chat. */
+    hueSeed?: string;
+    /** The meta row under the bubble: speaker name + hh:mm time (the
+     *  main room). The creation chat omits it. */
+    meta?: { speaker: string; time: string } | null;
+    /** The creation mascot avatar beside agent bubbles (tz11-09). */
+    mascot?: boolean;
     /** Accessible name: «{speaker}: {first 60 chars}». */
-    label: string;
+    label?: string;
   }
 
-  let { message, mine, speaker, time, label }: Props = $props();
+  let { text, mine, hueSeed = undefined, meta = null, mascot = false, label = undefined }: Props = $props();
 
   // §4.10.5: the Deepa hue applies to theirs only; mine stays muted — no
   // `deepa-*` class is emitted for own bubbles at all. The hue string IS
   // the class name (deepa-1…deepa-5).
-  const hueClass = $derived(mine ? '' : codeHue(message.from));
+  const hueClass = $derived(mine || hueSeed === undefined ? '' : codeHue(hueSeed));
 </script>
 
-<li class="row" class:mine aria-label={label}>
+<li class="row" class:mine class:animated={mascot && !mine} aria-label={label}>
+  {#if mascot && !mine}
+    <span class="avatar" aria-hidden="true">
+      <BleakMascot size={28} idle />
+    </span>
+  {/if}
   <div class="bubble pixel-corners {hueClass}" class:mine class:theirs={!mine}>
-    <p class="content">{message.content}</p>
+    <p class="content">{text}</p>
   </div>
-  <p class="meta">
-    <span class="speaker">{speaker}</span>
-    <span class="time" title={time} aria-hidden="true">{time}</span>
-  </p>
+  {#if meta}
+    <p class="meta">
+      <span class="speaker">{meta.speaker}</span>
+      <span class="time" title={meta.time} aria-hidden="true">{meta.time}</span>
+    </p>
+  {/if}
 </li>
 
 <style>
@@ -63,6 +84,11 @@
   .row:not(.mine) {
     align-self: flex-start;
     align-items: flex-start;
+  }
+  /* The creation mascot avatar row (tz11-09): pulled left to hug the
+   * bubble edge, the interviewer is present in every question. */
+  .avatar {
+    margin-left: calc(var(--space-2) * -1);
   }
   .bubble {
     padding: var(--space-3) var(--space-4);
@@ -110,6 +136,22 @@
     color: inherit; /* the bubble's pairing: --color-text (mine) / ink token (theirs) */
     white-space: pre-wrap; /* plain text; a 255-symbol message never overflows (AC 10) */
     overflow-wrap: anywhere;
+  }
+  /* The shared bubbles' entrance: the creation chat's small rise —
+   * carried by the mascot-gated class so the main room's transcript
+   * never animates on poll arrivals (behavior-neutral). */
+  .row.animated {
+    animation: bubble-in 180ms ease-out;
+  }
+  @keyframes bubble-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   .meta {
     margin: 0;

@@ -1,0 +1,6 @@
+2026-11-19T16:50:30Z [worker] task 61 in-progress; reading card + DESIGN 4.13.2
+2026-11-19T16:52:17Z [worker] implemented: chatStatus reads Chat.done; isChatDone selector exported; dialog finished indicator; doc comments updated
+2026-11-19T16:54:22Z [worker] targeted gates green: chats-view/chats-page/transcript-page/i18n 88 passed; last-message 8 passed
+2026-11-19T16:54:50Z [worker] full make test green (49+8+589); make lint green; running make build at handover
+2026-11-19T16:55:07Z [worker] gates: make test 646 passed, make lint clean, make build OK (0 errors, 8 pre-existing warnings in untouched files) — committing handover
+2026-11-19T16:55:20Z [worker] commit db02d3b on feature/353fcf8e-tz5-03-chat-done-integration; setting ready-for-merge

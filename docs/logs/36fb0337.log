@@ -1,0 +1,5 @@
+2026-11-19T18:22:46Z [worker] task 71 in-progress; branch checked out
+2026-11-19T18:27:33Z [worker] tz6-04 implemented: sheet width mirrors transcript column (calc inset + 640px/720px cap), ceil score helper + aria, square checkboxes with green token; targeted suites green (24+59)
+2026-11-19T18:28:06Z [worker] gates: full make test 699 green, make lint green (2 regex-space errors fixed), make build green (pre-existing warnings only); committing
+2026-11-19T18:28:15Z [worker] committed 08bef7d on feature/36fb0337-tz6-04-sheet-polish; handing over ready-for-merge
+2026-11-19T18:28:30Z [worker] session closed done; task 71 ready-for-merge; final commits 08bef7d, eb9de7f, 18adfca

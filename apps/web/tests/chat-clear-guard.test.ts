@@ -68,13 +68,18 @@ const CLEAR_LABELS = [ru['host.drill.clear'], en['host.drill.clear']];
 
 /** Allowed interactive-control labels per attendee state (Concept §7.1.4;
  * the kickoff button left the dialog view — Concept §8.1.9 — so the allowed
- * set shrank to the back control, the jump chip and the not-found link). */
+ * set shrank to the back control, the jump chip and the not-found link;
+ * §4.15.B (Concept §15.2) adds the footer SUMMARIZATION button — disabled
+ * with the "dialog in progress" phrase while the dialog is not done; the
+ * footer share slide is removed, the slide lives only in the sheet). */
+const SUMMARY_LOCKED = ru['chat.summary.open.disabled'];
 const PINS = {
-  transcript: [ru['common.back']],
-  chip: [ru['common.back'], ru['chat.scroll_bottom']],
-  // The footer (contact stub) renders in every state, not-found included.
-  notFound: [ru['common.back'], ru['chat.back_to_list']],
-  hostView: [ru['common.back']]
+  transcript: [ru['common.back'], SUMMARY_LOCKED],
+  chip: [ru['common.back'], ru['chat.scroll_bottom'], SUMMARY_LOCKED],
+  // The footer (summarization button, disabled while not done) renders in
+  // every state, not-found included.
+  notFound: [ru['common.back'], ru['chat.back_to_list'], SUMMARY_LOCKED],
+  hostView: [ru['common.back'], SUMMARY_LOCKED]
 };
 
 const fixture = {
@@ -217,12 +222,12 @@ describe('attendee chat clear guard (Concept §7.1.4 — no clear-history contro
 
     expectExactly(PINS[state as keyof typeof PINS]);
 
-    if (state !== 'notFound') {
-      // The disabled contact stub is present and stays non-interactive.
-      const stub = document.querySelector('.contact-stub');
-      expect(stub?.getAttribute('aria-disabled')).toBe('true');
-      expect(stub?.querySelector('button, a, input')).toBeNull();
-    }
+    // The §4.15.B footer summarization button is present in every state and
+    // disabled while the dialog is not finished; the share slide lives only
+    // inside the summary sheet — none in the footer.
+    const button = document.querySelector('.summary-open') as HTMLButtonElement;
+    expect(button.hasAttribute('disabled')).toBe(true);
+    expect(document.querySelector('footer .slide')).toBeNull();
   });
 
   it('scrolled-up transcript: only the jump-to-bottom chip is added; still no clear', async () => {

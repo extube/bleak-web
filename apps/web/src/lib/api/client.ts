@@ -34,6 +34,7 @@ import { BleakClient, ApiError } from '@bleak/api-client';
 import type {
   Chat,
   ClearChatResponse,
+  Contact,
   CreateHandshakeRequest,
   CreateRoomRequestV2,
   CreateUserRequest,
@@ -41,9 +42,13 @@ import type {
   CredentialOptions,
   Greeting,
   Handshake,
+  HardMatchResult,
+  Interest,
+  InterestInput,
   Invite,
   InviteMintRequest,
   KickoffResponse,
+  MatchResult,
   Message,
   MutualHandshakeRequest,
   MutualHandshakeResponse,
@@ -70,7 +75,8 @@ export const apiRaw = new BleakClient({ baseUrl: API_BASE, fetch: lateFetch });
  * Methods whose calls auto-carry the persona Bearer (`identity.token`) on
  * the attendee `api` context. Mirrors ARCHITECTURE §10.2:
  * persona mutations, gated reads, handshake sends, the mutual call,
- * rotations and (attendee-context) chat reads/clear/kickoff.
+ * rotations and (attendee-context) chat reads/clear/kickoff, plus the v3
+ * interests upsert/delete (DESIGN §4.13.1 — the persona's own rows).
  * `getRoomUser` is the documented context-dependent case: the Bearer is
  * attached only for the attendee's OWN address (the gated read returning
  * `private_bio` / `mutual_code_live`); reads of other personas stay public
@@ -92,7 +98,22 @@ export const PERSONA_TOKEN_METHODS = [
   'getChat',
   'listChatMessages',
   'kickoffChat',
-  'clearChatHistory'
+  'clearChatHistory',
+  // v3 interests (DESIGN §4.13.1): the persona's own rows
+  'addUserInterests',
+  'deleteUserInterests',
+  // v3 contact share (DESIGN §4.13.3): the FROM persona's Bearer on the
+  // share; the RECIPIENT-only read is called with the attendee's own
+  // persona token ("me") — both auto-inject the identity token.
+  'shareContact',
+  'listContactsSharedWith',
+  // v3 match score (DESIGN §4.13.4): the caller grades AS itself — the
+  // persona passes ITSELF as first_user_address, its own Bearer auto-injected.
+  'matchV2',
+  // v3 hard match (DESIGN §4.13.5): the once-per-pair chat summarization —
+  // the caller passes ITSELF as first_user_address, its own Bearer
+  // auto-injected (the pair is order-agnostic server-side).
+  'hardMatch'
 ] as const;
 
 /**
@@ -144,7 +165,9 @@ async function personaGate<T>(run: () => Promise<T>): Promise<T> {
     if (cause instanceof ApiError && cause.status === 401) {
       clearIdentity(); // also clears the one-time mutual code (§10.4)
       setFlag(AUTH_NOTICE_KEY);
-      await goto(resolve('/')); // navigation queued; the error is rethrown below
+      // tz12-02 re-homing: the notice card + the 6-digit entry live on
+      // /income now (the §2.8 gate lands on the join entry).
+      await goto(resolve('/income')); // navigation queued; the error is rethrown below
     }
     throw cause;
   }
@@ -318,6 +341,68 @@ export const api = {
     return personaGate(() =>
       apiRaw.rotateUserToken(room, address, personaCredential() ?? '', newRawToken)
     );
+  },
+
+  // Interests (DESIGN §4.13.1): bulk upsert (→ 201 FULL list) and delete by
+  // keys (→ 200 REMAINING, idempotent) — the persona's own Bearer, and the
+  // only writes feeding the local mirror (the API has no interests GET).
+  addUserInterests(
+    room: string,
+    address: string,
+    interests: InterestInput[],
+    options?: CredentialOptions
+  ): Promise<Interest[]> {
+    return personaGate(() =>
+      apiRaw.addUserInterests(room, address, interests, credential(personaCredential, options))
+    );
+  },
+  deleteUserInterests(
+    room: string,
+    address: string,
+    keys: number[],
+    options?: CredentialOptions
+  ): Promise<Interest[]> {
+    return personaGate(() =>
+      apiRaw.deleteUserInterests(room, address, keys, credential(personaCredential, options))
+    );
+  },
+
+  // Contact share (DESIGN §4.13.3): POST /api/contact carries the FROM
+  // persona's Bearer (auto-injected); GET /api/contact/{me} is the
+  // recipient-only read — the attendee's own persona token (auto-injected).
+  // A repeated share answers 409 (once per pair) — pages map it to the
+  // "already shared" state, never an error.
+  shareContact(
+    to: string,
+    content: string,
+    from: string,
+    options?: CredentialOptions
+  ): Promise<Contact> {
+    return personaGate(() =>
+      apiRaw.shareContact(to, content, from, credential(personaCredential, options))
+    );
+  },
+  listContactsSharedWith(address: string, options?: CredentialOptions): Promise<Contact[]> {
+    return personaGate(() =>
+      apiRaw.listContactsSharedWith(address, credential(personaCredential, options))
+    );
+  },
+
+  // Match score (DESIGN §4.13.4): POST /api/match/v2 graded AS the caller —
+  // the attendee passes ITSELF as `first_user_address` (its own Bearer,
+  // auto-injected). Feeds the score-first /chats ordering (finished pairs
+  // only, fetched from the matchScores session cache's refresh cadence).
+  matchV2(room: string, first: string, second: string): Promise<MatchResult> {
+    return personaGate(() => apiRaw.matchV2(room, first, second, credential(personaCredential)));
+  },
+
+  // Hard match (DESIGN §4.13.5): POST /api/hard-match — the once-per-pair
+  // chat summarization. The attendee passes ITSELF as `first_user_address`
+  // (its own Bearer, auto-injected); the pair is order-agnostic server-side
+  // and a repeat request returns the STORED Summary (200/201 both carry the
+  // body) — the sheet re-shows the record without re-summarizing.
+  hardMatch(room: string, first: string, second: string): Promise<HardMatchResult> {
+    return personaGate(() => apiRaw.hardMatch(room, first, second, credential(personaCredential)));
   }
 };
 

@@ -14,13 +14,27 @@
    * button + confirm left the dialog view entirely (host drill-down keeps
    * its own), message times are absolute hh:mm, a locale date label sits
    * atop the transcript, and the theme chips gave way to the counterpart's
-   * public bio in the header.
+   * public bio in the header. §4.13.2 (CONCEPT §13 R2): the dialog reflects
+   * the AUTHORITATIVE Chat.done — a subtle finished indicator beside the
+   * header name (the attendee dialog displays only; kickoff resets done
+   * server-side via the host drill-down). §4.13.5 (CONCEPT §13.1.5) →
+   * §4.15.3.3 (Concept §18.3, owner microchange): opening a FINISHED chat
+   * no longer fires the hard-match at open — the Summary is fetched LAZILY
+   * IN THE BACKGROUND (when the chat is known finished, the
+   * lastMessage/matchScores cadence pattern) and cached per chat in the
+   * session store; the sheet still auto-opens for finished chats, reads the
+   * cached Summary when present and shows the animated loading state while
+   * the fetch is pending. §4.15.B (Concept §15.2): the footer
+   * share slide is REMOVED — the slide lives only inside the sheet — and
+   * the footer slot holds the SUMMARIZATION BUTTON (done → enabled, opens
+   * the sheet on demand; !done → disabled with the in-progress phrase);
+   * the tz5-06 auto-open trigger stays as landed.
    */
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { get } from 'svelte/store';
-  import { ApiError, NetworkError, type Chat, type Message, type User } from '@bleak/api-client';
+  import { ApiError, NetworkError, type Chat, type Message, type Summary, type User } from '@bleak/api-client';
   import { identity, initIdentity } from '#lib/stores/identity';
   import { requireIdentityOrRedirect } from '#lib/nav/guard';
   import { api, apiRaw, HOST_RESET_KEY } from '#lib/api/client';
@@ -30,19 +44,31 @@
     backTarget,
     bubbleAriaLabel,
     chatDateLabel,
+    chatStatus,
+    isChatDone,
     isMyMessage,
-    isNearBottom,
     mergeMessages,
     messageTime,
     speakerName
   } from '#lib/chats/view';
+  // §4.18 (tz11-09): the transcript core — the message list rendering +
+  // the scrolling/autoscroll machinery + the jump chip — is the SHARED
+  // ChatTranscript (the same machinery the creation chat drives). The
+  // page keeps its own .scroll/.column chrome (page-owned geometry, the
+  // §4.14.4 sheet width contract) and the states around the transcript.
+  import ChatTranscript, { type ChatLine } from '#lib/components/chats/ChatTranscript.svelte';
   import { locale, translate } from '#lib/i18n/locale';
   import { counterpartAddress } from '#lib/room/relationships';
-  import MessageBubble from '#lib/components/chats/MessageBubble.svelte';
+  import {
+    isPairShared,
+    loadContactCard,
+    markPairShared
+  } from '#lib/stores/contactCard';
+  import { ensureSummary, summaries, type SummaryRequest } from '#lib/stores/summaryCache';
+  import SummarySheet from '#lib/components/SummarySheet.svelte';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import Chip from '#lib/components/Chip.svelte';
-  import ContactStub from '#lib/components/ContactStub.svelte';
   import ErrorBanner from '#lib/components/ErrorBanner.svelte';
   import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
 
@@ -60,10 +86,11 @@
   let notFound = $state(false);
   let banner = $state<null | { kind: 'network' | 'api'; message: string | null }>(null);
 
-  // --- transcript scroll state (§3.5) --------------------------------------
+  // --- transcript scroll container (§3.5) -----------------------------------
+  // The element is BOUND by the page (the .scroll chrome stays page-owned)
+  // and handed to the shared ChatTranscript, which owns the stick/autoscroll
+  // machinery on it (§4.18).
   let scrollEl: HTMLElement | null = $state(null);
-  /** Near the bottom ⇒ auto-scroll on new messages; else the chip shows. */
-  let stick = $state(true);
   /** aria-live announcement for newly polled messages. */
   let announcedName = $state<string | null>(null);
 
@@ -87,6 +114,14 @@
       ? counterpart.public_bio.trim()
       : null
   );
+  /**
+   * Dialog UI state (CONCEPT §13 R2 / DESIGN §4.13.2): the dialog reflects
+   * the AUTHORITATIVE Chat.done signal — finished → the status chip near
+   * the header (reuses the list's status wording; minimal treatment). The
+   * attendee dialog has NO kickoff (removed in v2.2): kickoff resets done
+   * SERVER-side via the host drill-down only — the attendee side displays.
+   */
+  const dialogStatus = $derived(chat === null ? null : chatStatus(chat));
 
   // --- transcript viewer fallback (ARCHITECTURE §10.3 escape hatch) --------
   //
@@ -209,7 +244,6 @@
     loading = true;
     notFound = false;
     banner = null;
-    stick = true;
     (async () => {
       try {
         await syncChat();
@@ -285,25 +319,9 @@
     return () => document.removeEventListener('visibilitychange', onVisibilityChange);
   });
 
-  // --- auto-scroll (AC 3) ---------------------------------------------------
-  function onScroll(): void {
-    const el = scrollEl;
-    if (!el) return;
-    stick = isNearBottom(el.scrollTop, el.clientHeight, el.scrollHeight);
-  }
-  $effect(() => {
-    const el = scrollEl;
-    if (!el) return;
-    void messages; // dependency: auto-scroll when new messages land
-    if (stick) el.scrollTop = el.scrollHeight;
-  });
-
-  function jumpToBottom(): void {
-    const el = scrollEl;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-    stick = true;
-  }
+  // --- transcript rendering: the shared ChatTranscript (§4.18) ------------
+  // The stick/autoscroll machinery (isNearBottom, the instant bottom pin,
+  // the jump chip) lives in the shared component, wired onto scrollEl.
 
   // --- back control (§1.3): history back, fallback /chats --------------------
   function goBack(): void {
@@ -317,7 +335,6 @@
   // --- derived presentation ---------------------------------------------------
   const nameOf = $derived((addr: string): string => speakerName(addr, users));
   const warmingUp = $derived(!loading && !notFound && messages.length === 0);
-  const showChip = $derived(!stick && messages.length > 0);
 
   /** hh:mm message time (Concept §8.1.8) — absolute, active locale. */
   function timeOf(iso: string): string {
@@ -328,6 +345,193 @@
   const dateLabel = $derived(
     messages[0] ? chatDateLabel(messages[0].created_at, $locale) : null
   );
+
+  /**
+   * The transcript lines, mapped onto the shared ChatLine model (§4.18):
+   * mine → right-aligned muted; theirs → the speaker's Deepa hue with
+   * the speaker + hh:mm meta row and the «speaker: text» accessible
+   * name — exactly the rendering the page owned before the extraction.
+   */
+  const chatLines = $derived.by(
+    (): ChatLine[] =>
+      messages.map((message) => {
+        const speaker = nameOf(message.from);
+        return {
+          key: message.tx_id,
+          who:
+            me !== null && isMyMessage(message, me.userAddress) ? ('me' as const) : ('agent' as const),
+          text: message.content,
+          hueSeed: message.from,
+          meta: { speaker, time: timeOf(message.created_at) },
+          label: bubbleAriaLabel(speaker, message.content)
+        };
+      })
+  );
+
+  // --- contact share (§4.13.3 → §4.15.B / Concept §15.2 cutover) ------------
+  //
+  // The dialog-footer slide instance is REMOVED (§4.15.B.1 supersedes the
+  // §4.13.3 footer placement): the slide lives ONLY inside the summary
+  // sheet. The page keeps the share plumbing the sheet's embedded slide
+  // consumes — the local contact card, the pair marks and the shareCard
+  // handler (shareContact(to=counterpart, content=card, from=me)). The
+  // sheet arms its own slide variant (disabled only when the local card is
+  // non-empty check fails). 201 AND 409 (once per pair) both land the
+  // shared state — the local mark (bleak.contactShared) mirrors it; server
+  // truth is the 409 on any later attempt. Any other failure leaves the
+  // sheet's slide armed for a retry — the share error surfaces exclusively
+  // through the sheet (§4.15.B.1; the footer alert is gone with the slide).
+  let card = $state('');
+  let cardShared = $state(false);
+  let sharing = $state(false);
+
+  $effect(() => {
+    const id = me;
+    if (!id) return;
+    // Re-hydrate on mount and when the identity/chat counterpart changes —
+    // the card + the pair marks are local stores, read directly.
+    card = loadContactCard(id.roomAddress, id.userAddress);
+    cardShared =
+      counterpartAddr !== null &&
+      isPairShared(id.roomAddress, id.userAddress, counterpartAddr);
+  });
+
+  const done = $derived(chat !== null && isChatDone(chat));
+  const hasCard = $derived(card.trim() !== '');
+
+  async function shareCard(): Promise<void> {
+    const id = me;
+    if (!id || !counterpartAddr || sharing) return; // double-submit prevented
+    sharing = true;
+    try {
+      await api.shareContact(counterpartAddr, card.trim(), id.userAddress);
+      markPairShared(id.roomAddress, id.userAddress, counterpartAddr);
+      cardShared = true;
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 409) {
+        // ONCE PER PAIR: the server says already shared — the shared state,
+        // never an error (server truth over the local mark).
+        markPairShared(id.roomAddress, id.userAddress, counterpartAddr);
+        cardShared = true;
+      }
+      // Other failures (network / 400 / …): no footer alert — the sheet's
+      // slide returns to its armed state and stays available for a retry
+      // (§4.15.B.1: the share error surfaces exclusively through the sheet).
+    } finally {
+      sharing = false;
+    }
+  }
+
+  // --- finished-chat summary sheet (DESIGN §4.13.5 → §4.15.3.3) -------------
+  //
+  // LAZY BACKGROUND FETCH (owner microchange, Concept §18.3): for a FINISHED
+  // chat the once-only hardMatch runs in the BACKGROUND — the caller passes
+  // ITSELF as `first` (me) with the counterpart as `second`; the pair is
+  // order-agnostic server-side and stored once per pair (201 created / 200
+  // stored, both carry the Summary). The fetch starts when the chat is known
+  // finished (the tick that observes `done`, like the lastMessage/matchScores
+  // background-cadence pattern) and caches per chat in the session store —
+  // the store's guards (ready / pending / failed entries) keep it ONE fetch
+  // per finished chat unless it failed. Opening the sheet (auto-open or the
+  // footer button) NEVER fires the request: the sheet reads the cached
+  // Summary when present and shows the animated loading state while the
+  // background fetch is pending, swapping to the content when it lands.
+  // Failure surfaces inline in the sheet with a retry affordance (a force
+  // re-fetch through the same store); a 401 is the §2.8 global gate and
+  // renders no sheet error (`failure.gate`).
+  const summaryEntry = $derived(
+    me && counterpartAddr ? ($summaries.get(address) ?? null) : null
+  );
+  const summary = $derived(
+    summaryEntry !== null && summaryEntry.status === 'ready' ? summaryEntry.summary : null
+  );
+  /** Pending = no entry yet or the background fetch is running. */
+  const summaryLoading = $derived(
+    summaryEntry === null || summaryEntry.status === 'pending'
+  );
+  const summaryError = $derived(
+    summaryEntry !== null &&
+    summaryEntry.status === 'failed' &&
+    !summaryEntry.failure.gate
+      ? summaryEntry.failure.kind
+      : null
+  );
+  const summaryErrorMessage = $derived(
+    summaryEntry !== null &&
+    summaryEntry.status === 'failed' &&
+    !summaryEntry.failure.gate
+      ? summaryEntry.failure.message
+      : null
+  );
+
+  /** The injected hardMatch call — the store owns the guards, not the page. */
+  function fetchSummaryFor(first: string): (request: SummaryRequest) => Promise<Summary> {
+    return (request) =>
+      api
+        .hardMatch(request.room, first, request.counterpart)
+        .then((result) => result.summary);
+  }
+
+  /**
+   * The sheet's retry affordance (§4.15.3.3): a failed background fetch
+   * re-runs ON DEMAND — `force` bypasses the store's failed-entry guard
+   * (never the in-flight one), so a retry while pending stays a no-op.
+   */
+  function retrySummary(): void {
+    const id = me;
+    if (!id || !counterpartAddr) return;
+    void ensureSummary(
+      [{ address, room: id.roomAddress, counterpart: counterpartAddr }],
+      id.userAddress,
+      fetchSummaryFor(id.userAddress),
+      { force: true }
+    );
+  }
+
+  // Per-chat reset (the mount effect below owns it) + the auto-open trigger:
+  // the sheet opens itself over the transcript when the chat is (or becomes)
+  // finished — the tz5-06 landed behavior — but it no longer fires the fetch
+  // (§4.15.3.3: opening never blocks on the background call).
+  let summaryOpen = $state(false);
+  let summaryAutoOpened = $state(false);
+
+  $effect(() => {
+    const addr = address;
+    if (!addr) return;
+    summaryOpen = false;
+    summaryAutoOpened = false;
+  });
+
+  // The lazy background fetch: fires when the chat is known finished — NOT
+  // at sheet open. The store's entry guards make repeat ticks no-ops.
+  $effect(() => {
+    const id = me;
+    if (!done || !id || !counterpartAddr) return;
+    void ensureSummary(
+      [{ address, room: id.roomAddress, counterpart: counterpartAddr }],
+      id.userAddress,
+      fetchSummaryFor(id.userAddress)
+    );
+  });
+
+  $effect(() => {
+    if (!done || !me || !counterpartAddr || summaryAutoOpened) return;
+    summaryAutoOpened = true;
+    summaryOpen = true; // the sheet opens itself over the transcript
+  });
+
+  /**
+   * §4.15.B.2 (Concept §15.2): the footer summarization button — the
+   * ON-DEMAND re-open path beside the auto-open trigger. It opens the sheet
+   * over the pending/arrived state and NEVER forces a second request
+   * (§4.15.3.3): a cached Summary re-shows instantly; a pending background
+   * fetch keeps the loading state; a failed one shows the inline error with
+   * the sheet's retry affordance.
+   */
+  function openSummary(): void {
+    if (!done) return;
+    summaryOpen = true;
+  }
 </script>
 
 <svelte:head>
@@ -365,6 +569,17 @@
                    (ARCHITECTURE §10.3 escape hatch, §3.5). -->
               <Chip variant="outline-muted">{translate($locale, 'chat.host_view')}</Chip>
             {/if}
+            {#if dialogStatus === 'finished'}
+              <!-- §4.13.2 dialog finished state: the status icon/wording
+                   reused near the header (the list card's status wording). -->
+              <span
+                class="finished-indicator"
+                title={translate($locale, 'chats.status.finished')}
+              >
+                <PixelIcon name="status-finished" size={12} />
+                {translate($locale, 'chats.status.finished')}
+              </span>
+            {/if}
           </div>
           {#if publicBio !== null}
             <!-- Concept §8.1.10: the interlocutor's public info replaces the
@@ -385,7 +600,7 @@
       </div>
     {/if}
 
-    <main class="scroll" bind:this={scrollEl} onscroll={onScroll}>
+    <main class="scroll" bind:this={scrollEl}>
       <div class="column">
         {#if notFound}
           <div class="not-found">
@@ -404,49 +619,72 @@
               </li>
             {/each}
           </ul>
+        {:else if warmingUp}
+          <div class="warming" role="status">
+            <span class="warming-glyph"><PixelIcon name="dialog-lines" size={16} /></span>
+            <p>{translate($locale, 'chat.warming_up')}</p>
+          </div>
         {:else}
-          {#if warmingUp}
-            <div class="warming" role="status">
-              <span class="warming-glyph"><PixelIcon name="dialog-lines" size={16} /></span>
-              <p>{translate($locale, 'chat.warming_up')}</p>
-            </div>
-          {:else}
-            {#if dateLabel !== null}
-              <!-- Concept §8.1.8: the locale date label sits centered at the
-                   top of the transcript, above the first message. -->
-              <p class="date-label">{dateLabel}</p>
-            {/if}
-            <ol class="transcript">
-              {#each messages as message (message.tx_id)}
-                {@const mine = me !== null && isMyMessage(message, me.userAddress)}
-                {@const speaker = nameOf(message.from)}
-                <MessageBubble
-                  {message}
-                  {mine}
-                  speaker={speaker}
-                  time={timeOf(message.created_at)}
-                  label={bubbleAriaLabel(speaker, message.content)}
-                />
-              {/each}
-            </ol>
-          {/if}
+          <!-- §4.18 (tz11-09): the shared transcript core — the date label,
+               the message list and the jump chip render here; the stick/
+               autoscroll machinery is wired onto THIS page's .scroll
+               container (behavior-neutral: the same DOM the page rendered
+               before the extraction). -->
+          <ChatTranscript
+            lines={chatLines}
+            scroller={scrollEl}
+            dateLabel={dateLabel}
+            resetKey={address}
+          />
         {/if}
       </div>
-      {#if showChip}
-        <button type="button" class="jump-chip" onclick={jumpToBottom}>
-          <PixelIcon name="back" size={16} />
-          {translate($locale, 'chat.scroll_bottom')}
-        </button>
-      {/if}
     </main>
 
     <footer class="footer">
-      <ContactStub />
+      <!-- §4.15.B.2 (Concept §15.2): the summarization button took the
+           footer slot from the removed share slide (the slide lives only
+           inside the sheet now). `done` → enabled, opens the sheet again
+           on demand — over the cached/pending/failed summary state with NO
+           new hard-match call (§4.15.3.3: the background cadence owns the
+           fetch); `!done` → disabled with the "dialog in progress" phrase. -->
+      <button
+        type="button"
+        class="summary-open"
+        disabled={!done}
+        onclick={openSummary}
+      >
+        {done
+          ? translate($locale, 'chat.summary.open')
+          : translate($locale, 'chat.summary.open.disabled')}
+      </button>
     </footer>
 
-    <!-- NO-COMPOSER (ruling 4): the only interactive elements in this UI are
-         the back control, the scroll chip and the disabled contact stub —
-         the kickoff button left the dialog view (Concept §8.1.9). -->
+    <!-- §4.13.5 → §4.15.C summary sheet: the overlay over the transcript;
+         closing it (X / Escape) returns the dialog to its normal rendering.
+         The embedded slide shares to the same counterpart via the page's
+         shareCard handler — the ONLY slide instance since the §4.15.B.1
+         footer cutover. -->
+    <SummarySheet
+      bind:open={summaryOpen}
+      user={counterpart}
+      summary={summary}
+      loading={summaryLoading}
+      error={summaryError}
+      errorMessage={summaryErrorMessage}
+      slideSharedLabel={translate($locale, 'chat.contact_share.shared')}
+      slideDisabledHint={translate($locale, 'chat.contact_share.no_card')}
+      slideDisabled={!hasCard}
+      slidePending={sharing}
+      slideShared={cardShared}
+      onshare={() => void shareCard()}
+      onretry={retrySummary}
+    />
+
+    <!-- NO-COMPOSER (ruling 4): no input/textarea/send control anywhere —
+         the interactive elements are the back control, the scroll chip and
+         the summarization button (the footer share slide left in the
+         §4.15.B cutover; the kickoff button left the dialog view, Concept
+         §8.1.9 — none of these is a composer). -->
 
     <div class="vh" aria-live="polite">
       {#if announcedName}
@@ -545,6 +783,17 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  /* §4.13.2: the dialog finished indicator — the status glyph + wording
+   * beside the name row; muted so it stays a subtle state mark (the
+   * interactive accent discipline is untouched: it is not a control). */
+  .finished-indicator {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
   .banner {
     position: fixed;
     top: calc(56px + var(--space-3));
@@ -571,6 +820,9 @@
     margin: 0 auto;
     width: 100%;
   }
+  /* The skeleton transcript list (§3.5 states): the real transcript
+   * styling lives in the shared ChatTranscript (§4.18); this rule only
+   * dresses the skeleton's placeholder list while loading. */
   .transcript {
     list-style: none;
     margin: 0;
@@ -578,12 +830,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-  }
-  .date-label {
-    margin: 0 0 var(--space-3);
-    text-align: center;
-    font-size: 12px;
-    color: var(--color-text-muted);
   }
   .warming {
     flex: 1;
@@ -641,23 +887,6 @@
     font-size: 14px;
     transition: opacity 120ms ease-out;
   }
-  .jump-chip {
-    position: sticky;
-    bottom: var(--space-2);
-    align-self: center;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    min-height: 40px;
-    padding: 0 var(--space-4);
-    background: var(--color-surface-elevated);
-    border: 1px solid var(--color-text-disabled-strong);
-    color: var(--color-text);
-    border-radius: var(--radius-pill);
-    font-size: 14px;
-    font-weight: 600;
-    transition: opacity 120ms ease-out;
-  }
   .footer {
     display: flex;
     flex-direction: column;
@@ -667,8 +896,32 @@
     width: 100%;
     margin: 0 auto;
   }
-  .footer > :global(.contact-stub) {
+  /* §4.15.B.2: the summarization button — the footer slot the slide
+   * occupied (below the transcript scroll, above the tab bar), the page's
+   * standard inset width. 48px touch target, pill radius. Disabled:
+   * transparent surface + 1px --color-text-disabled-strong border + the
+   * disabled-strong ink; enabled: the accent-soft treatment (the yellow
+   * interactive/active discipline holds — it IS a control). */
+  .summary-open {
     width: 100%;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-4);
+    border-radius: var(--radius-pill);
+    border: 1px solid transparent;
+    background: var(--color-accent-soft);
+    color: var(--color-text);
+    font-size: 14px;
+    font-weight: 600;
+    transition: opacity 120ms ease-out;
+  }
+  .summary-open:disabled {
+    background: transparent;
+    border-color: var(--color-text-disabled-strong);
+    color: var(--color-text-disabled-strong);
+    cursor: default;
+  }
+  .summary-open:not(:disabled):active {
+    opacity: 0.85;
   }
   @media (min-width: 720px) {
     .column {

@@ -115,7 +115,20 @@ describe('injection maps (ARCHITECTURE §10.2 policy table, web-layer form)', ()
         'getChat',
         'listChatMessages',
         'kickoffChat',
-        'clearChatHistory'
+        'clearChatHistory',
+        // v3 interests (DESIGN §4.13.1): the persona's own rows
+        'addUserInterests',
+        'deleteUserInterests',
+        // v3 contact share (DESIGN §4.13.3): the FROM persona's share +
+        // the recipient-only read (called with the attendee's own token)
+        'shareContact',
+        'listContactsSharedWith',
+        // v3 match score (DESIGN §4.13.4): the caller grades AS itself —
+        // the persona passes ITSELF as first_user_address
+        'matchV2',
+        // v3 hard match (DESIGN §4.13.5): the once-per-pair summary — the
+        // persona passes ITSELF as first_user_address
+        'hardMatch'
       ].sort()
     );
   });
@@ -159,6 +172,19 @@ describe('credential attachment (behavioral)', () => {
     await api.listHandshakesOfUser('0xme');
     await api.listChatsOfUser('0xme');
     await api.getUserGreeting('0xroom', '0xme');
+    // v3 interests (DESIGN §4.13.1): the persona's own rows carry the token.
+    await api.addUserInterests('0xroom', '0xme', [{ title: 'Coffee', group: 0, key: 1 }]);
+    await api.deleteUserInterests('0xroom', '0xme', [1]);
+    // v3 contact share (DESIGN §4.13.3): the share (from = me) + the
+    // recipient-only read of my own inbox both carry the persona token.
+    await api.shareContact('0xb', 'telegram: @me', '0xme');
+    await api.listContactsSharedWith('0xme');
+    // v3 match score (DESIGN §4.13.4): the pair graded AS the attendee
+    // (itself as first_user_address) carries the persona token.
+    await api.matchV2('0xroom', '0xme', '0xb');
+    // v3 hard match (DESIGN §4.13.5): the once-per-pair summary call also
+    // carries the persona token (caller = first = me).
+    await api.hardMatch('0xroom', '0xme', '0xb');
 
     for (const call of calls) {
       expect(authOf(call), `${call.url}`).toBe('Bearer p-tok');
@@ -325,10 +351,12 @@ describe('global 401 gate (attendee)', () => {
     // identity + one-time mutual code cleared (store + storage)
     expect(localStorage.getItem('bleak.identity')).toBeNull();
     expect(localStorage.getItem('bleak.mutualCode')).toBeNull();
-    // the notice flag is set and navigation to `/` is queued
+    // the notice flag is set and navigation to the join entry is queued
+    // (tz12-02 re-homing: the §2.8 notice + the 6-digit entry live on
+    // /income now)
     expect(sessionStorage.getItem(AUTH_NOTICE_KEY)).toBe('1');
     expect(goto).toHaveBeenCalledTimes(1);
-    expect(goto).toHaveBeenCalledWith('/');
+    expect(goto).toHaveBeenCalledWith('/income');
   });
 
   it('403 does NOT fire the attendee gate (identity kept, no notice)', async () => {

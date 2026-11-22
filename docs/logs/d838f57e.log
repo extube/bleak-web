@@ -1,0 +1,12 @@
+2026-11-19T21:16:15Z [worker] task 82 started: chat-list color dot
+2026-11-19T21:19:29Z [worker] chat dot implemented in ChatCard.svelte; chats-page targeted suite green (28/28)
+2026-11-19T21:20:03Z [worker] gates: full make test green (749 web + 57 pkg tests), make lint green; running build
+2026-11-19T21:20:25Z [worker] handover: commit b99cb92 on feature/d838f57e-tz8-02-chat-list-dot; ready-for-merge next
+2026-11-19T21:39:14Z [worker] owner-correction continuation: task 82 already MERGED (mr #83, dev dc0620f) before the correction landed; corrected edits intact in working tree; checkout to feature/d838f57e-tz8-02-chat-list-dot blocked by foreign uncommitted docs/logs/c1f2512b.log (worker c1f2512b active) — waiting/retrying, no force/no stash
+2026-11-20T06:14:18Z [worker] step (a) blocked: git checkout bug/d838f57e-chat-dot-finished-only refused — foreign uncommitted line in docs/logs/c1f2512b.log (task 83 handover note, worker c1f2512b, uncommitted since 21:23:52Z; my bug branch does not track that file) would be deleted by the switch; waited+retried 6x incl. full-gate waits, never force/stash; my fix edits verified intact (ChatCard.svelte finished-only dot, tests 27/27) and ALL gates green in-tree (targeted chats-page 27/27, make test 805, make lint clean, make build ok); ADVICE NEEDED: land mr #84 (task 83) or commit the orphan line to free the shared checkout — then I complete (a)-(e) immediately
+2026-11-20T06:16:12Z [worker] finished-only dot fix committed on the bug branch at process direction
+2026-11-20T06:18:15Z [worker] handover: commit 159b7fa on bug/d838f57e-chat-dot-finished-only (ChatCard.svelte dot finished-only + chats-page test contracts + instance log); gates green on the bug branch (chats-page 27/27, make test 805, make lint clean, make build ok); task 82 set ready-for-merge (fresh MR opened)
+2026-11-20T17:10:22Z [worker] task 97 in-progress (worker_hash 913d1694); checked out feature/913d1694-tz10-01-chats-time-sort
+2026-11-20T17:11:08Z [worker] task 97: retirement check done — matchScores consumed only by chats page (other refs are comments); starting edits
+2026-11-20T17:16:00Z [worker] task 97: full make test green (765 web + 49 api-client + 8 helper), make lint green; running make build at handover
+2026-11-20T17:16:51Z [worker] task 97 handed ready-for-merge: commit b061795 on feature/913d1694-tz10-01-chats-time-sort; gates all green (targeted 50/50, full test 822, lint, build)

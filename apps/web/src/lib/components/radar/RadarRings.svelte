@@ -7,7 +7,8 @@
    * exclusion zone, matching lib/room/radar.ts). §4.9.2: each ring rotates
    * at its ring's distinct speed ("each ring with its items" — the ring
    * line shares the speed of the nodes riding it, RING_ORBIT_DURATIONS_S:
-   * 60s / 90s / 20s). The ambient rotation (§4.6, transform-only) starts
+   * 90s / 135s / 30s — slowed overall in v3, Concept §13.1.6 / §4.13.6,
+   * per-ring differences preserved). The ambient rotation (§4.6, transform-only) starts
    * only when data has arrived (loading state shows static rings) and is
    * disabled under prefers-reduced-motion by the base.css rule. Token-only
    * colors; `.pixel-corners` is never applied here (§4.5).

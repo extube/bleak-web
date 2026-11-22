@@ -1,0 +1,3 @@
+2026-11-20T06:34:24Z [worker] task 84 started: GREAT-tier cleanup (dotted line out, names stronger+centered)
+2026-11-20T06:38:12Z [worker] implemented: GREAT beam element + styles/keyframes removed (Concept §18.1 / DESIGN §4.15.3.1), .who bumped to 16px semibold centered (chat-surface treatment), tests updated
+2026-11-20T06:39:45Z [worker] gates green: targeted 57/57, make test 805 pass, make lint clean, make build 0 errors; handing over for merge

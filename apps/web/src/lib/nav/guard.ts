@@ -8,8 +8,10 @@ import { resolve } from '$app/paths';
 import { identity } from '#lib/stores/identity';
 
 /**
- * True when an identity exists; otherwise redirects to `/` (never a dead
- * screen, §1.3) and returns false. `redirect` is injectable for tests.
+ * True when an identity exists; otherwise redirects to the join entry
+ * `/income` (tz12-02 re-homing: the pre-room 6-digit entry lives there —
+ * never a dead screen, §1.3) and returns false. `redirect` is injectable
+ * for tests.
  */
 export function requireIdentityOrRedirect(redirect: () => void = defaultRedirect): boolean {
   if (get(identity) !== null) return true;
@@ -18,5 +20,5 @@ export function requireIdentityOrRedirect(redirect: () => void = defaultRedirect
 }
 
 function defaultRedirect(): void {
-  void goto(resolve('/'));
+  void goto(resolve('/income'));
 }

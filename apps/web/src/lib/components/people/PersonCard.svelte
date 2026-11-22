@@ -1,17 +1,22 @@
 <script lang="ts">
   /**
-   * PersonCard (DESIGN §3.3): one stacked attendee card. Presentational —
-   * the route owns the API call and passes relationship state (pure module
-   * lib/room/relationships.ts), pending/error flags and per-state callbacks
-   * in as data.
+   * PersonCard (DESIGN §3.3; reworked §4.15.4.3, Concept §19.3): one stacked
+   * attendee card. Presentational — the route owns the API call and passes
+   * relationship state (pure module lib/room/relationships.ts), pending/
+   * error flags and per-state callbacks in as data.
    *
-   * Per-state right-edge action (48px):
-   *  - none        → «+» sends POST /api/handshake directly (no sheet);
-   *  - incoming    → expand toggle: «Ответить хендшейком» + «Закрыть»
-   *                  (dismiss = LOCAL collapse only — owner ruling 2; copy
-   *                  never implies rejection);
-   *  - chat        → ▤ opens the existing dialog;
-   *  - outgoing    → no action (waits for the reciprocal handshake).
+   * v3.6 item rework: the right icon (chat-open / handshake-form toggle) is
+   * REMOVED — the handshake-back panel is driven purely by the route's
+   * `expanded` flag (the FIRST card of the sorted list auto-opens on mount,
+   * §4.15.4.3). The «+» direct-send stays for untouched cards (state none).
+   * The "chatting" badge is replaced by an "Open chat" button navigating to
+   * the existing dialog.
+   *
+   * §4.15.4.3 addendum (Concept §19.3): the removed icon's toggle role moves
+   * to the card itself — for an "added you" (incoming) card the whole row is
+   * the tap target: tapping it fires `ontoggle` and the route opens/collapses
+   * the Handshake!/Dismiss form for THAT user (single-expanded pattern).
+   * Non-incoming rows are not tap targets.
    */
   import { resolve } from '$app/paths';
   import type { User } from '@bleak/api-client';
@@ -25,7 +30,7 @@
   interface Props {
     user: User;
     relationship: Relationship | null;
-    /** Incoming card expanded in place («Ответить хендшейком» + «Закрыть»). */
+    /** Incoming card expanded in place («Привет!» + «Закрыть»). */
     expanded?: boolean;
     /** POST in flight for this card (spinner, double-submit guard). */
     sending?: boolean;
@@ -38,8 +43,9 @@
     errorMessage?: string | null;
     onsend?: () => void;
     onback?: () => void;
-    ontoggle?: () => void;
     ondismiss?: () => void;
+    /** Tap on an incoming row (§4.15.4.3 addendum): toggle the form. */
+    ontoggle?: () => void;
   }
 
   let {
@@ -51,34 +57,31 @@
     errorMessage = null,
     onsend,
     onback,
-    ontoggle,
-    ondismiss
+    ondismiss,
+    ontoggle
   }: Props = $props();
 
   const state = $derived(relationship?.state ?? 'none');
   const incoming = $derived(state === 'incoming');
 
   const sendLabel = $derived(translate($locale, 'people.action.send', { name: user.name }));
-  const dialogLabel = $derived(translate($locale, 'people.action.dialog', { name: user.name }));
-  const expandLabel = $derived(translate($locale, 'people.action.expand', { name: user.name }));
-  const collapseLabel = $derived(translate($locale, 'people.action.collapse', { name: user.name }));
-  const backLabel = $derived(translate($locale, 'hs.back'));
+  const backLabel = $derived(translate($locale, 'people.action.back'));
+  const openChatLabel = $derived(translate($locale, 'people.action.open_chat'));
   const dismissLabel = $derived(translate($locale, 'people.dismiss'));
   const sentLabel = $derived(translate($locale, 'hs.sent'));
   const addedYouLabel = $derived(translate($locale, 'hs.added_you'));
-  const chattingLabel = $derived(translate($locale, 'hs.chatting'));
   const networkErrorText = $derived(translate($locale, 'hs.error.network'));
   const incomeErrorText = $derived(translate($locale, 'hs.income_limit'));
   const apiErrorTitle = $derived(translate($locale, 'common.error.api'));
 
+  // §4.15.4.3: the "chatting" badge is gone — the chat state carries no
+  // pill; it renders the "Open chat" button instead.
   const pill = $derived(
-    state === 'chat'
-      ? { text: chattingLabel, variant: 'outline-accent' as const }
-      : state === 'incoming'
-        ? { text: addedYouLabel, variant: 'fill-accent' as const }
-        : state === 'outgoing'
-          ? { text: sentLabel, variant: 'outline-muted' as const }
-          : null
+    state === 'incoming'
+      ? { text: addedYouLabel, variant: 'fill-accent' as const }
+      : state === 'outgoing'
+        ? { text: sentLabel, variant: 'outline-muted' as const }
+        : null
   );
 
   const timeIso = $derived(
@@ -95,10 +98,19 @@
   );
 
   const chatAddress = $derived(relationship?.chatAddress ?? null);
+
+  // §4.15.4.3 addendum: Enter/Space activates the incoming row's tap toggle
+  // (the row is a role="button" tap target only for the incoming state).
+  function onRowKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      ontoggle?.();
+    }
+  }
 </script>
 
 <li class="person-card pixel-corners" class:expanded>
-  <div class="row">
+  {#snippet rowBody()}
     <PixelAvatar address={user.address} size={56} label={user.name} />
     <div class="main">
       <p class="name">{user.name}</p>
@@ -107,7 +119,18 @@
       {/if}
     </div>
     <div class="meta">
-      {#if pill}
+      {#if state === 'chat'}
+        <!-- §4.15.4.3: the "chatting" badge is replaced by the Open-chat
+             button (navigates the way the removed icon did). -->
+        <a
+          class="open-chat"
+          href={chatAddress
+            ? resolve('/chats/[address]', { address: chatAddress })
+            : resolve('/chats')}
+        >
+          {openChatLabel}
+        </a>
+      {:else if pill}
         <Chip variant={pill.variant}>{pill.text}</Chip>
       {/if}
       {#if time}
@@ -115,8 +138,10 @@
         <span class="time" title={time} aria-hidden="true">{time}</span>
       {/if}
     </div>
-    <div class="action">
-      {#if state === 'none'}
+    {#if state === 'none'}
+      <!-- The only remaining right-edge icon: the direct «+» send (§3.3).
+           The chat-open / handshake-form toggle icon is REMOVED (v3.6). -->
+      <div class="action">
         <button
           type="button"
           class="icon-button"
@@ -126,43 +151,28 @@
         >
           <PixelIcon name="plus" size={16} />
         </button>
-      {:else if incoming}
-        <button
-          type="button"
-          class="icon-button toggle"
-          class:open={expanded}
-          aria-expanded={expanded}
-          aria-label={expanded ? collapseLabel : expandLabel}
-          onclick={() => ontoggle?.()}
-        >
-          <svg
-            viewBox="0 0 16 16"
-            width={16}
-            height={16}
-            shape-rendering="crispEdges"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <rect x="3" y="5" width="2" height="2" />
-            <rect x="5" y="7" width="2" height="2" />
-            <rect x="7" y="9" width="2" height="2" />
-            <rect x="9" y="7" width="2" height="2" />
-            <rect x="11" y="5" width="2" height="2" />
-          </svg>
-        </button>
-      {:else if state === 'chat'}
-        <a
-          class="icon-button"
-          href={chatAddress
-            ? resolve('/chats/[address]', { address: chatAddress })
-            : resolve('/chats')}
-          aria-label={dialogLabel}
-        >
-          <PixelIcon name="dialog-lines" size={16} />
-        </a>
-      {/if}
+      </div>
+    {/if}
+  {/snippet}
+  <!-- §4.15.4.3 addendum: an incoming ("added you") row is the tap target
+       that toggles the Handshake!/Dismiss form (the removed right icon's
+       role); non-incoming rows stay inert (no tap behavior added). -->
+  {#if incoming}
+    <div
+      class="row tappable"
+      role="button"
+      tabindex={0}
+      aria-expanded={expanded}
+      onclick={() => ontoggle?.()}
+      onkeydown={onRowKeydown}
+    >
+      {@render rowBody()}
     </div>
-  </div>
+  {:else}
+    <div class="row">
+      {@render rowBody()}
+    </div>
+  {/if}
 
   {#if expanded && incoming}
     <div class="expanded-actions">
@@ -175,7 +185,6 @@
       </button>
     </div>
   {/if}
-
   {#if error}
     <p class="error" role="alert" aria-live="polite">
       {#if error === 'income'}
@@ -205,6 +214,19 @@
     align-items: center;
     gap: var(--space-3);
     min-width: 0;
+  }
+  /* §4.15.4.3 addendum: the incoming row is the form's tap target. */
+  .row.tappable {
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: opacity 120ms ease-out;
+  }
+  .row.tappable:active {
+    opacity: 0.85;
+  }
+  .row.tappable:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
   }
   .main {
     flex: 1;
@@ -261,8 +283,25 @@
   .icon-button:disabled {
     color: var(--color-text-disabled);
   }
-  .toggle.open {
-    transform: rotate(180deg);
+  .open-chat {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-3);
+    background: transparent;
+    border: 1px solid var(--color-accent);
+    color: var(--color-accent);
+    border-radius: var(--radius-pill);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: opacity 120ms ease-out;
+  }
+  .open-chat:hover,
+  .open-chat:focus-visible {
+    opacity: 0.85;
   }
   .expanded-actions {
     display: flex;

@@ -7,9 +7,19 @@
    * v2.4 (Concept §10.1.1): the device-vault screen is RETURN TO EVENT —
    * reachable from Step 1; the old "Import from this device" copy-flow
    * option is removed from the room preview.
+   *
+   * Concept §30 (DESIGN §4.19): the form mounts the SHARED FormShell —
+   * header (fixed): app icon + language switch; middle (the ONLY
+   * scrollable region): the mascot, the room name, the description text
+   * and the meta row (top-anchored, text ≤ 75% of the form width);
+   * footer (fixed): the buttons for the user to pick — BOTH the
+   * create-profile and change-code actions (the multi-button footer
+   * case; existing styles reused).
    */
   import { locale, translate } from '#lib/i18n/locale';
   import type { Room } from '@bleak/api-client';
+  import BleakMascot from '#lib/components/BleakMascot.svelte';
+  import FormShell from './FormShell.svelte';
 
   interface Props {
     room: Room;
@@ -21,32 +31,45 @@
   let { room, memberCount, oncreate, onchange }: Props = $props();
 </script>
 
-<div class="step">
-  <h2 class="room-name">{room.name}</h2>
-  {#if room.description}
-    <p class="description">{room.description}</p>
-  {/if}
-  <p class="meta">
-    {translate($locale, 'join.room.language', { language: room.language })}
-    <span aria-hidden="true">·</span>
-    {translate($locale, 'join.room.members', { n: String(memberCount) })}
-  </p>
-
-  <button type="button" class="cta" onclick={() => oncreate?.()}>
-    {translate($locale, 'join.create_persona')}
-  </button>
-  <button type="button" class="link" onclick={() => onchange?.()}>
-    {translate($locale, 'join.change_code')}
-  </button>
-</div>
+<FormShell>
+  <div class="body">
+    <!-- §23.1 item 3 content order (now the §30 MIDDLE block): mascot
+         → title → content. -->
+    <div class="mascot-row">
+      <BleakMascot size={96} idle />
+    </div>
+    <h2 class="room-name">{room.name}</h2>
+    {#if room.description}
+      <p class="description">{room.description}</p>
+    {/if}
+    <p class="meta">
+      {translate($locale, 'join.room.language', { language: room.language })}
+      <span aria-hidden="true">·</span>
+      {translate($locale, 'join.room.members', { n: String(memberCount) })}
+    </p>
+  </div>
+  {#snippet footer()}
+    <!-- §30 footer: 1..n action buttons — BOTH choices live here. -->
+    <button type="button" class="cta" onclick={() => oncreate?.()}>
+      {translate($locale, 'join.create_persona')}
+    </button>
+    <button type="button" class="link" onclick={() => onchange?.()}>
+      {translate($locale, 'join.change_code')}
+    </button>
+  {/snippet}
+</FormShell>
 
 <style>
-  .step {
+  .body {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
     align-items: stretch;
     text-align: left;
+  }
+  .mascot-row {
+    display: flex;
+    justify-content: center;
   }
   .room-name {
     font-size: 36px;

@@ -11,10 +11,11 @@
  * and no tab bar (sub-page pattern).
  *
  * ALL persona editing lives here now (Concept §10.1.4): the persona section
- * hosts the PersonaEditor (name/public/private bio), GreetingEditor and
- * InterestsEditor moved wholesale from /profile — the same handler logic,
- * asserted with the same behaviors the old /profile suites pinned (editor
- * suites moved from tests/profile-page.test.ts). */
+ * hosts the PersonaEditor (name/public/private bio), GreetingEditor and the
+ * contact-card field. §23.2 5.6: the interests picker was REMOVED —
+ * interests are set at creation only (the wizard's themes); the local
+ * mirror store stays the badge display source.
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
@@ -40,7 +41,9 @@ vi.mock('#lib/api/client', () => ({
     putUserGreeting: vi.fn(),
     regenerateGreeting: vi.fn(),
     deleteRoomUser: vi.fn(),
-    rotateUserToken: vi.fn()
+    rotateUserToken: vi.fn(),
+    addUserInterests: vi.fn(),
+    deleteUserInterests: vi.fn()
   }
 }));
 
@@ -147,8 +150,8 @@ describe('settings route renders (AC: heading, locale, rows; RU + EN)', () => {
   });
 });
 
-describe('persona editing section (Concept §10.1.4, DESIGN §4.11.4)', () => {
-  it('renders the persona section with the three editor rows (RU + EN)', async () => {
+describe('persona editing section (Concept §10.1.4, DESIGN §4.11.4; §23.2 5.6)', () => {
+  it('renders the persona section with the editor rows — NO interests row (§23.2 5.6: interests are creation-only)', async () => {
     const { setLocale } = await import('../src/lib/i18n/locale');
     const { en } = await import('../src/lib/i18n/en');
     await renderPage();
@@ -157,7 +160,9 @@ describe('persona editing section (Concept §10.1.4, DESIGN §4.11.4)', () => {
     expect(screen.getByRole('heading', { level: 2, name: ru['profile.settings.persona'] })).toBeTruthy();
     expect(screen.getByRole('button', { name: ru['profile.persona.edit'] })).toBeTruthy();
     expect(screen.getByRole('button', { name: ru['profile.greeting.edit'] })).toBeTruthy();
-    expect(screen.getByRole('button', { name: ru['profile.interests.edit'] })).toBeTruthy();
+    // §23.2 5.6: the interests EDITOR row is REMOVED from the settings —
+    // the wizard's themes set the interests; the mirror stays for the badge.
+    expect(screen.queryByRole('button', { name: 'Интересы' })).toBeNull();
     // EN parity through the locale store.
     setLocale('en');
     await tick();
@@ -282,28 +287,73 @@ describe('greeting editor (AC 3, 4, moved from /profile)', () => {
   });
 });
 
-describe('interests editor (AC 5, moved from /profile)', () => {
-  it('toggling chips persists locally and NEVER issues a network request; Done returns to the rows', async () => {
+// §23.2 5.6 (2026-11-20 owner amendment): the interests PICKER was REMOVED
+// from the settings — interests are set at creation only (the wizard's
+// themes); the mirror store stays the badge display source. The removed
+// endpoint-driven picker tests lived here (addUserInterests/deleteUserInterests
+// toggles) and are superseded by the wizard flush tests in join-flow.test.ts.
+
+describe('contact card field (DESIGN §4.13.3 item 1 — purely local, no API)', () => {
+  it('the persona section carries the contact-card row; the editor prefills from bleak.contactCard', async () => {
+    localStorage.setItem(
+      'bleak.contactCard',
+      JSON.stringify({ '0xroom|0xme': 'telegram: @me' })
+    );
     await renderPage();
-    await screen.getByRole('button', { name: ru['profile.interests.edit'] }).click();
+    expect(screen.getByRole('button', { name: ru['profile.contact.edit'] })).toBeTruthy();
+    await screen.getByRole('button', { name: ru['profile.contact.edit'] }).click();
     await tick();
+    const input = screen.getByLabelText(ru['profile.contact.label']) as HTMLInputElement;
+    expect(input.value).toBe('telegram: @me');
+    expect(input.maxLength).toBe(255);
+    // caption + counter rendered
+    expect(screen.getByText(ru['profile.contact.note'])).toBeTruthy();
+    expect(screen.getByText('13/255')).toBeTruthy();
+  });
 
-    const callsBefore = mockedApi.getRoomUser.mock.calls.length;
-    const chip = screen.getByRole('button', { name: /Велосипед/ });
-    await chip.click();
+  it('saving persists locally per room|user and returns to the rows — NO API call', async () => {
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.contact.edit'] }).click();
     await tick();
-
-    expect(JSON.parse(localStorage.getItem('bleak.interests') ?? '[]')).toEqual(['cycling']);
-    // no api call was made by editing interests
-    expect(mockedApi.getRoomUser.mock.calls.length).toBe(callsBefore);
-
-    // Done returns to the settings rows.
-    await screen.getByRole('button', { name: ru['profile.interests.done'] }).click();
+    const input = screen.getByLabelText(ru['profile.contact.label']) as HTMLInputElement;
+    input.value = '  telegram: @handle  ';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await screen.getByRole('button', { name: ru['common.save'] }).click();
     await tick();
+    expect(JSON.parse(localStorage.getItem('bleak.contactCard') ?? '{}')).toMatchObject({
+      '0xroom|0xme': 'telegram: @handle' // trimmed by the store
+    });
+    // back to the rows with the saved flash; mockedApi untouched
+    await waitFor(() =>
+      expect(screen.getByText(ru['profile.saved'], { exact: false })).toBeTruthy()
+    );
+    expect(mockedApi.updateRoomUser).not.toHaveBeenCalled();
+    expect(mockedApi.putUserGreeting).not.toHaveBeenCalled();
+  });
+
+  it('cancel returns without changing the stored card', async () => {
+    localStorage.setItem(
+      'bleak.contactCard',
+      JSON.stringify({ '0xroom|0xme': 'telegram: @me' })
+    );
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.contact.edit'] }).click();
+    await tick();
+    const input = screen.getByLabelText(ru['profile.contact.label']) as HTMLInputElement;
+    input.value = 'changed but not saved';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await screen.getByRole('button', { name: ru['common.cancel'] }).click();
+    await tick();
+    expect(JSON.parse(localStorage.getItem('bleak.contactCard') ?? '{}')).toMatchObject({
+      '0xroom|0xme': 'telegram: @me'
+    });
     expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
   });
 });
 
+// DESIGN §4.14.2: the §4.13.3 minimal "Shared with you" list was REMOVED
+// from the settings page — the /contacts footer tab is the PRIMARY surface
+// (tests: tests/contacts-page.test.ts).
 describe('token rotation (AC 15, moved from /profile)', () => {
   function seedVault(): void {
     localStorage.setItem(
@@ -380,7 +430,7 @@ describe('leave room (AC 7, moved from /profile; Concept §11.1.1 local-only exi
     expect(mockedApi.deleteRoomUser).not.toHaveBeenCalled();
   });
 
-  it('confirms, clears identity + the one-time mutual code, and navigates to / — purely local, NO server delete (Concept §11.1.1)', async () => {
+  it('confirms, clears identity + the one-time mutual code, and navigates to the join entry /income (tz12-02) — purely local, NO server delete (Concept §11.1.1)', async () => {
     localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
     mutualCode.set({ userAddress: ME, code: 'LIVE' });
     await renderPage();
@@ -395,7 +445,7 @@ describe('leave room (AC 7, moved from /profile; Concept §11.1.1 local-only exi
     await waitFor(() => expect(localStorage.getItem('bleak.mutualCode')).toBeNull());
     expect(get(mutualCode)).toBeNull();
     const { goto } = await import('$app/navigation');
-    await waitFor(() => expect(goto).toHaveBeenCalledWith('/'));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income'));
   });
 
   it('owner round-trip (§11.1.1 + §10.1.1): the vault entry survives the leave; the return-to-event pick validates the stored token and restores the identity', async () => {

@@ -39,7 +39,17 @@ export default defineConfig({
         target: process.env.BLEAK_NODE_URL || 'http://localhost:8080',
         changeOrigin: true
       },
-      '/h': {
+      // The helper proxy is anchored (^\/h\/) so it cannot swallow /host —
+      // the host-console route (vite 2026-11-18: plain '/h' prefix matching
+      // proxied /host to the helper, whose bare 404 broke the console in
+      // dev). Helper URLs are always /h/<segment>/…, so the anchored form
+      // is behavior-identical for the helper.
+      // The helper proxy key MUST start with '^' (vite compiles such keys to
+      // RegExp; others are plain prefixes) — a plain '/h' prefix swallowed
+      // /host, the host-console route, proxying it to the helper whose bare
+      // 404 broke the console in dev (fixed 2026-11-18). Helper URLs are
+      // always /h/<segment>/…, so the anchored form is behavior-identical.
+      '^/h/': {
         target: process.env.HELPER_DEV_URL || 'http://localhost:8787',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/h/, '')

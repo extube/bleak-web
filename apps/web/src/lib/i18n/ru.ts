@@ -6,10 +6,13 @@ import type { MessageKey } from './en';
  * keys must match en.ts exactly (parity is CI-enforced).
  */
 export const ru: Record<MessageKey, string> = {
-  /* --- shell / navigation --- */
+  /* --- shell / navigation (DESIGN §1.2, §4.7, §4.14.2) --- */
   'nav.room': 'Рядом',
   'nav.people': 'Люди',
+  'nav.contacts': 'Контакты',
+  'nav.contacts.dot_aria': 'есть новые контакты',
   'nav.chats': 'Диалоги',
+  'nav.chats.dot_aria': 'есть новые диалоги',
   'nav.profile': 'Профиль',
   'nav.aria': 'Основная навигация',
 
@@ -30,6 +33,53 @@ export const ru: Record<MessageKey, string> = {
   'join.form.name': 'Имя',
   'join.form.public_bio': 'Кто вы — увидят другие',
   'join.form.private_bio': 'Только для вашего агента',
+  // §4.14.3 поле контакта в форме создания (Concept §14.1.3): только
+  // локально, отправится лишь при жесте «поделиться».
+  'join.form.contact': 'Ваш контакт',
+  // §24 item 10: the device-storage footer note removed from the chat
+  // (the old `join.form.contact_hint` key is deleted from BOTH
+  // dictionaries — RU/EN parity kept).
+  // §4.16.2 мастер создания (Concept §22.3 item 2): копия авто-чат-интервью
+  // — маскот задаёт каждый вопрос в облачке диалога.
+  'join.wizard.agent.name': 'Блик',
+  'join.wizard.log': 'Интервью профиля',
+  'join.wizard.intro.title': 'Привет! Я Блик.',
+  // §24 item 6: calm and friendly — the agent explains its role (the
+  // necessary context) and prepares the user for a simple dialog.
+  'join.wizard.intro.line':
+    'Я ваш агент — представлю вас в комнате и пообщаюсь с другими участниками за вас. Спокойно ответим на несколько коротких вопросов — необязательные можно пропустить.',
+  'join.wizard.intro.start': 'Начать',
+  'join.wizard.name.question': 'Как вас зовут?',
+  'join.wizard.name.answer': 'Приятно познакомиться, {name}!',
+  'join.wizard.public.question': 'Пара слов о вас — это увидят другие участники.',
+  'join.wizard.private.question': 'Теперь приватно — только для вашего агента.',
+  'join.wizard.contact.question': 'Оставите контакт? Выберите, какой.',
+  'join.wizard.contact.skip': 'Пропустить',
+  'join.wizard.contact.phone': 'Телефон',
+  'join.wizard.contact.email': 'Почта',
+  // §23.2 5.4: вместо «Мессенджера» — поле ника с префиксами-подсказками
+  // (tg:@ / signal:@ / inst:@), префикс добавляется к нику.
+  'join.wizard.contact.nickname': 'Ник',
+  'join.wizard.contact.enter': 'Введите {kind}.',
+  'join.wizard.interests.question': 'Что вам интересно? Выберите тему.',
+  'join.wizard.interests.pick_question': 'Что нравится из «{group}»? Можно несколько.',
+  // §23.2 5.7: закончив тему — возвращаемся к бейджам тем, пока не «Готов».
+  'join.wizard.interests.done': 'Готово с темой',
+  'join.wizard.interests.skip': 'Пропустить',
+  'join.wizard.themes.ready': 'Готов',
+  // §23.2 5.1: отправка — Enter или кнопка справа от поля (стиль iOS
+  // Messages); счётчик «текущее/максимум» у каждого поля.
+  'join.wizard.send': 'Отправить',
+  'join.wizard.counter': '{n}/{max}',
+  // §24 item 8: the quick-clear "x" in the input pill.
+  'join.wizard.clear': 'Очистить',
+  // §23.2 5.3: подсказка-пример для каждого поля ввода.
+  'join.wizard.placeholder.name': 'Например: Аня',
+  'join.wizard.placeholder.public': 'Я бэкенд-разработчик',
+  'join.wizard.placeholder.private': 'Ищу команду на хакатон',
+  'join.wizard.placeholder.contact_value': '+7 999 123-45-67',
+  'join.wizard.placeholder.contact_nick': 'например, durov',
+  'join.wizard.creating': 'Создаём ваш профиль…',
   'join.error.name_taken': 'Такое имя в комнате уже занято.',
   'join.error.gone': 'Событие больше не доступно.',
   'join.error.name_required': 'Введите имя.',
@@ -103,19 +153,16 @@ export const ru: Record<MessageKey, string> = {
   'people.subtitle': 'Все участники комнаты.',
   'people.empty': 'Комната пока пуста.',
   'people.search.placeholder': 'Поиск по имени или био…',
-  'people.filter.all': 'Все',
-  'people.filter.sent': 'Отправлены',
-  'people.filter.added': 'Добавили вас',
-  'people.filter.chatting': 'Общаемся',
   'people.empty_search': 'Никого не найдено по «{q}»',
   'people.reset': 'Сбросить',
   'people.search.label': 'Поиск участников',
-  'people.filters': 'Фильтр статусов',
   'people.action.send': 'Отправить хендшейк {name}',
-  'people.action.dialog': 'Открыть диалог с {name}',
-  'people.action.expand': '{name} — показать действия',
-  'people.action.collapse': '{name} — скрыть',
   'people.dismiss': 'Закрыть',
+  // §4.15.4.3 (Concept §19.3): «handshake back» → «handshake!» — копия
+  // кнопки ответа хендшейком; «chatting»-бейдж заменён кнопкой «Открыть
+  // чат» (ведёт в существующий диалог, как убранная иконка).
+  'people.action.back': 'Привет!',
+  'people.action.open_chat': 'Открыть чат',
 
   /* --- chats --- */
   'chats.title': 'Диалоги',
@@ -135,6 +182,46 @@ export const ru: Record<MessageKey, string> = {
     'История диалога будет очищена, и агенты начнут сначала. Первым говорит отправитель самого раннего хендшейка.',
   'chat.kickoff.confirm_run': 'Запустить',
   'chat.contact_stub': 'Поделиться контактом — скоро',
+  // §4.13.3 contact share (Concept §13.1.3): the dialog footer's slide
+  // control + the local contact-card field + the received list.
+  'chat.contact_share.label': 'Свайп вправо — поделиться контактом',
+  'chat.contact_share.shared': 'Контакт уже передан',
+  // §4.15.C-8/§4.15.E (Concept §15.3): the SHEET-variant slide's copy —
+  // «Смахните, чтобы поделиться» + текст после завершения жеста; метка 409
+  // «уже передано» остаётся выше без изменений (reused unchanged).
+  'chat.contact_share.sheet_label': 'Смахните, чтобы поделиться',
+  'chat.contact_share.shared_done': 'Контакт отправлен!',
+  'chat.contact_share.locked': 'Станет доступно, когда диалог завершится',
+  'chat.contact_share.no_card': 'Добавьте контактную карточку в настройках профиля',
+  'chat.contact_share.error': 'Не удалось передать контакт — попробуйте ещё раз.',
+  // §4.13.5 summary sheet (Concept §13.1.5): метки чек-листа приходят с
+  // сервера на английском и показываются как есть — локализуются только
+  // заголовки и доступные имена.
+  'chat.summary.title': 'Итоги встречи',
+  'chat.summary.checklist': 'Сетевой чек-лист',
+  'chat.summary.score.aria': 'Совпадение: {score} из 100',
+  'chat.summary.loading': 'Считаем итог диалога…',
+  // §4.15.B/E (Concept §15.2): кнопка итогов в футере — активная («Итоги
+  // встречи») снова открывает шторку; неактивная показывает фразу
+  // «диалог ещё идёт».
+  'chat.summary.open': 'Итоги встречи',
+  'chat.summary.open.disabled': 'Диалог ещё идёт',
+  // §4.15.C-5/C-6 (Concept §15.3): метки уровней совпадения (пороги 80/50
+  // по решению владельца, 2026-11-20); подпись chat.summary.me удалена —
+  // v3.7 поправка владельца, подписи под аватарами убраны (2026-11-20).
+  'chat.summary.tier.great': 'Отличное совпадение',
+  'chat.summary.tier.good': 'Хороший разговор',
+  'chat.summary.tier.low': 'Разные вибрации',
+  'profile.contact.edit': 'Контактная карточка',
+  'profile.contact.label': 'Ваша контактная карточка',
+  'profile.contact.note':
+    'Например: telegram: @handle. Видят только те, кому вы её передадите.',
+  // §4.14.2 contacts footer page (Concept §14.1.2): вкладка «Контакты» —
+  // основная поверхность «поделились с вами»; минимальный список в
+  // настройках (§4.13.3) заменён ею (ключи retired вместе со списком).
+  'contacts.title': 'Контакты',
+  'contacts.subtitle': 'Контактами с вами поделились',
+  'contacts.empty': 'Пока никто не поделился с вами контактом.',
   'chat.not_found': 'Диалог не найден — возможно, он был удалён.',
   'chat.back_to_list': 'К списку диалогов',
   'chat.scroll_bottom': 'К последним сообщениям',
@@ -159,11 +246,77 @@ export const ru: Record<MessageKey, string> = {
   'profile.badge.for_agent': 'Для агента',
   'profile.private_bio.caption': 'видно только вашему агенту',
   'profile.interests.title': 'Интересы',
-  'profile.interests.edit': 'Интересы',
-  'profile.interests.add': 'Добавить интересы',
-  'profile.interests.done': 'Готово',
-  'profile.interests.note': 'Интересы видны только в вашем профиле.',
+  // §23.2 5.6: интересы задаются ТОЛЬКО при создании (мастер, темы) —
+  // редактор из настроек профиля удалён; зеркало осталось для бейджа.
   'profile.interests.empty': 'Интересы не выбраны',
+
+  // §23.2 5.5 модель тем (interests group → theme; слаги живут в строке
+  // title `theme:topic_key`, числовая пара group/key — серверный контракт;
+  // ключи использует apps/web/src/lib/interests/catalog.ts).
+  'interests.group.0': 'Музыка',
+  'interests.group.1': 'Спорт',
+  'interests.group.2': 'Еда и напитки',
+  'interests.group.3': 'Искусство',
+  'interests.group.4': 'Компьютеры',
+  'interests.group.5': 'Наука',
+  'interests.group.6': 'Архитектура',
+  'interests.group.7': 'Путешествия',
+  // 0 — music
+  'interests.k1': 'Классика',
+  'interests.k2': 'Рок',
+  'interests.k3': 'Джаз',
+  'interests.k4': 'Рэп',
+  'interests.k5': 'Электроника',
+  'interests.k6': 'Инди',
+  // 1 — sport
+  'interests.k7': 'Хоккей',
+  'interests.k8': 'Бег',
+  'interests.k9': 'Футбол',
+  'interests.k10': 'Йога',
+  'interests.k11': 'Походы',
+  'interests.k12': 'Велосипед',
+  // 2 — food & drinks
+  'interests.k13': 'Кофе',
+  'interests.k14': 'Чай',
+  'interests.k15': 'Кулинария',
+  'interests.k16': 'Вино',
+  'interests.k17': 'Десерты',
+  'interests.k18': 'Стритфуд',
+  // 3 — art
+  'interests.k19': 'Живопись',
+  'interests.k20': 'Фото',
+  'interests.k21': 'Кино',
+  'interests.k22': 'Книги',
+  'interests.k23': 'Театр',
+  'interests.k24': 'Дизайн',
+  // 4 — computers
+  'interests.k25': 'Программирование',
+  'interests.k26': 'ИИ',
+  'interests.k27': 'Игры',
+  'interests.k28': 'Гаджеты',
+  'interests.k29': 'Open source',
+  'interests.k30': 'Железо',
+  // 5 — science
+  'interests.k31': 'Физика',
+  'interests.k32': 'Биология',
+  'interests.k33': 'Космос',
+  'interests.k34': 'Математика',
+  'interests.k35': 'Химия',
+  'interests.k36': 'Робототехника',
+  // 6 — architecture
+  'interests.k37': 'Модернизм',
+  'interests.k38': 'Готика',
+  'interests.k39': 'Урбанистика',
+  'interests.k40': 'Интерьеры',
+  'interests.k41': 'Мосты',
+  'interests.k42': 'Памятники',
+  // 7 — travel
+  'interests.k43': 'Рюкзак',
+  'interests.k44': 'Автопутешествия',
+  'interests.k45': 'Кемпинг',
+  'interests.k46': 'Море',
+  'interests.k47': 'Города',
+  'interests.k48': 'Горы',
   // §8.1.5: ровно три метрики — «Отправлено» (б. «Хендшейки»),
   // «Добавили вас», «В диалогах» (б. «Диалоги»).
   'profile.stats.handshakes_label': 'Отправлено',
@@ -250,6 +403,48 @@ export const ru: Record<MessageKey, string> = {
     'Список диалогов участника появится вместе с серверным обновлением (флаг 6.9a).',
   'host.drill.kickoff': 'Запустить заново',
   'host.drill.dialogs': 'Диалоги',
+
+  /* --- лендинг v3.14 (Concept §31+§32, DESIGN §4.20.M — владелец отклонил
+   --- лендинг §31 и заказал пересборку с нуля по своему образцу; все 35
+   --- ключей — дословно из таблицы §4.20.M, RU/EN паритет) --- */
+  'landing.tagline.left.1': 'ЗНАКОМСТВА — ЭТО ИГРА.',
+  'landing.tagline.left.2': 'АГЕНТ ИГРАЕТ ЗА ВАС.',
+  'landing.tagline.top': 'БЕЗ СМОЛТОЛКА. ТОЛЬКО РЕАЛЬНЫЕ ЗНАКОМСТВА.',
+  'landing.tagline.right.1': 'СДЕЛАНО ДЛЯ ЛЮДЕЙ.',
+  'landing.tagline.right.2': 'РАБОТАЮТ АГЕНТЫ.',
+  'landing.headline.1': 'НУЖНЫЕ',
+  'landing.headline.2': 'ЗНАКОМСТВА',
+  'landing.headline.accent': 'ВАС',
+  'landing.sub':
+    'Приложение события, где ИИ-агенты заводят разговор за вас — вы приходите к знакомству уже готовым.',
+  'landing.cta': 'НАЧАТЬ',
+  'landing.dialog.line1': '* Агент здоровается…',
+  'landing.dialog.line2': '* Ваш агент уже нашёл три совпадения.',
+  'landing.dialog.line3': '* Совпадение принято. Обмен контактами через минуту.',
+  'landing.hero.aria':
+    'Пиксельная сцена: человек встречает своего ИИ-агента под светящимся узлом сети',
+  'landing.stat.title': 'РЕАЛЬНЫЕ ЛЮДИ. РЕАЛЬНЫЕ РЕЗУЛЬТАТЫ.',
+  'landing.stat.line1': 'Никаких пустых чатов.',
+  'landing.stat.line2': 'Никаких холодных сообщений.',
+  'landing.stat.line3': 'Только встречи, которые важны.',
+  'landing.agent.name': 'ВЕКТОР',
+  'landing.agent.badge': 'АГЕНТ · УР 1',
+  'landing.agent.traits': 'БЫСТРЫЙ · ТОЧНЫЙ · НАДЁЖНЫЙ',
+  'landing.agent.quote': '«Я начинаю разговор. Вы сохраняете контакт.»',
+  'landing.agent.cta': 'ПОГОВОРИТЬ',
+  'landing.chat.label': 'ЖИВОЙ ЧАТ АГЕНТА',
+  'landing.chat.bubble1': 'Привет! Я Глитч — агент Даши.',
+  'landing.chat.bubble2': 'Привет. Я здесь ради трека по ИИ.',
+  'landing.chat.bubble3': 'Тогда вам по пути. Даша собрала демо, которое вы лайкнули.',
+  'landing.chat.bubble4': 'Передайте ей мои контакты!',
+  'landing.chat.aria':
+    'Анимация: агент Глитч и участник Пип обмениваются сообщениями',
+  'landing.tutorial.search': 'НАЙДИ',
+  'landing.tutorial.chat': 'ОБЩАЙСЯ',
+  'landing.tutorial.share': 'ПОДЕЛИСЬ',
+  'landing.footer.line': 'КАЖДЫЙ КОНТАКТ ВАЖЕН.',
+  'landing.footer.badge': 'СТАРТ СЕЙЧАС — 6 ЦИФР ДЛЯ ВХОДА',
+  'landing.footer.copyright': 'bleak-web · 2026',
 
   /* --- глобальный гейт 401 (DESIGN rev. 3 §2.8, §4.7) --- */
   'auth.401.notice':

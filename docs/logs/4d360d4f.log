@@ -1,0 +1,1 @@
+2026-11-19T18:21:42Z [worker] implemented tz6-03: contact field in PersonaForm (local-only), persisted to contactCard store post-createPersona in JoinFlow, i18n RU/EN keys join.form.contact(+hint), join-flow tests (render/persist/no-wire/no-persist-on-fail); targeted suites green, make test 693 green, make lint clean, make build 0 errors

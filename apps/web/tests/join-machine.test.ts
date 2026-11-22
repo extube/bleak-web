@@ -35,14 +35,19 @@ import {
   codeErrorOf,
   createPersona,
   initialJoinState,
+  initialWizardState,
   isValidInviteCode,
   parseJoinDeepLink,
   personaErrorOf,
   reduce,
+  reduceWizard,
   resolveRoomByCode,
   vaultErrorOf,
   verifyVaultEntry,
-  type PersonaDraft
+  wizardOrderIndex,
+  wizardPersonaDraft,
+  type PersonaDraft,
+  type WizardState
 } from '#lib/join';
 import type { VaultEntry } from '#lib/stores/tokenVault';
 
@@ -299,5 +304,184 @@ describe('services against the mocked clients (v2)', () => {
     expect(mockedApi.getRoomUser).toHaveBeenCalledWith('0xoldroom', '0xold', {
       token: 'stored-vault-token'
     });
+  });
+});
+
+describe('creation wizard step machine (Concept §22.3 item 2, DESIGN §4.16.2)', () => {
+  const walked = (
+    ...events: Parameters<typeof reduceWizard>[1][]
+  ): WizardState => events.reduce(reduceWizard, { ...initialWizardState });
+
+  /** The interview walked to the contact-value question, answers filled. */
+  const toContactValue = (): WizardState =>
+    walked(
+      { type: 'start' },
+      { type: 'name', name: 'Я' },
+      { type: 'next' },
+      { type: 'public-bio', value: 'виден' },
+      { type: 'next' },
+      { type: 'private-bio', value: 'секрет' },
+      { type: 'next' },
+      { type: 'contact-kind', kind: 'phone' as const },
+      { type: 'contact-value', value: '+7 999' }
+    );
+
+  /** …then advanced past the contact question (at the theme badges). */
+  const toThemes = (): WizardState => reduceWizard(toContactValue(), { type: 'next' });
+
+  it('starts at the intro and walks the interview order name → bios → contact → interests', () => {
+    expect(initialWizardState.step).toBe('intro');
+    const atName = reduceWizard(initialWizardState, { type: 'start' });
+    expect(atName.step).toBe('name');
+    const atPublic = reduceWizard({ ...atName, name: 'Я' }, { type: 'next' });
+    expect(atPublic.step).toBe('public_bio');
+    expect(reduceWizard(atPublic, { type: 'next' }).step).toBe('private_bio');
+    const atPrivate = reduceWizard(atPublic, { type: 'next' });
+    expect(reduceWizard(atPrivate, { type: 'next' }).step).toBe('contact_type');
+  });
+
+  it('stores the name/bio answers verbatim and ignores answer events at other steps', () => {
+    const atPublic = reduceWizard(reduceWizard(initialWizardState, { type: 'start' }), {
+      type: 'name',
+      name: 'Я'
+    });
+    expect(atPublic.step).toBe('name');
+    expect(atPublic.name).toBe('Я');
+    const named = reduceWizard(atPublic, { type: 'next' });
+    const answered = reduceWizard(named, { type: 'public-bio', value: 'художник' });
+    expect(answered.publicBio).toBe('художник');
+    // The private-bio answer is only stored at the private-bio step.
+    expect(reduceWizard(answered, { type: 'private-bio', value: 'x' }).privateBio).toBe('');
+  });
+
+  it('contact: the KIND is chosen first, then the value; skip clears both (§14.1.3 — local-only, optional)', () => {
+    const atContact = walked(
+      { type: 'start' },
+      { type: 'name', name: 'Я' },
+      { type: 'next' },
+      { type: 'next' },
+      { type: 'next' }
+    );
+    expect(atContact.step).toBe('contact_type');
+    const atValue = reduceWizard(atContact, { type: 'contact-kind', kind: 'nickname' });
+    expect(atValue.step).toBe('contact_value');
+    expect(atValue.contactKind).toBe('nickname');
+    expect(atValue.contactValue).toBe('');
+    const valued = reduceWizard(atValue, { type: 'contact-value', value: 'tg:@me' });
+    expect(valued.contactValue).toBe('tg:@me');
+    const atThemes = reduceWizard(valued, { type: 'next' });
+    expect(atThemes.step).toBe('themes');
+    // Skip (from the type question) jumps past the whole contact question.
+    const skipped = walked(
+      { type: 'start' },
+      { type: 'next' },
+      { type: 'next' },
+      { type: 'next' },
+      { type: 'skip' }
+    );
+    expect(skipped.step).toBe('themes');
+    expect(skipped.contactKind).toBeNull();
+    expect(skipped.contactValue).toBe('');
+  });
+
+  it('themes: a theme opens its topics; toggles are a multi-select set capped at MAX_INTERESTS (§23.2 5.5)', () => {
+    const atThemes = toThemes();
+    const atTopics = reduceWizard(atThemes, { type: 'interest-group', group: 1 });
+    expect(atTopics.step).toBe('topics');
+    expect(atTopics.interestGroup).toBe(1);
+    const one = reduceWizard(atTopics, { type: 'toggle-interest', key: 8 });
+    expect(one.interestKeys).toEqual([8]);
+    const two = reduceWizard(one, { type: 'toggle-interest', key: 7 });
+    expect(two.interestKeys).toEqual([8, 7]);
+    // Re-toggle removes.
+    expect(reduceWizard(two, { type: 'toggle-interest', key: 8 }).interestKeys).toEqual([7]);
+    // Toggle events at other steps are ignored.
+    expect(reduceWizard(atThemes, { type: 'toggle-interest', key: 999 })).toBe(atThemes);
+  });
+
+  it('the themes loop (§23.2 5.7): theme-done returns to the badges with the keys kept; only Ready (or skip) reaches creating', () => {
+    const atThemes = toThemes();
+    const atTopics = reduceWizard(atThemes, { type: 'interest-group', group: 0 });
+    const picked = reduceWizard(atTopics, { type: 'toggle-interest', key: 2 });
+    // Done with the theme → BACK to the badges, keys accumulate.
+    const backAtThemes = reduceWizard(picked, { type: 'theme-done' });
+    expect(backAtThemes.step).toBe('themes');
+    expect(backAtThemes.interestKeys).toEqual([2]);
+    expect(backAtThemes.interestGroup).toBe(0);
+    // Another theme, more topics — still no creating.
+    const secondTopics = reduceWizard(backAtThemes, { type: 'interest-group', group: 1 });
+    const secondPicked = reduceWizard(secondTopics, { type: 'toggle-interest', key: 8 });
+    const themesAgain = reduceWizard(secondPicked, { type: 'theme-done' });
+    expect(themesAgain.step).toBe('themes');
+    expect(themesAgain.interestKeys).toEqual([2, 8]);
+    // topics' next/theme-done never jumps forward; only Ready/skip/finish do.
+    expect(reduceWizard(themesAgain, { type: 'ready' }).step).toBe('creating');
+    expect(reduceWizard(themesAgain, { type: 'skip' }).step).toBe('creating');
+    expect(reduceWizard(themesAgain, { type: 'finish' }).step).toBe('creating');
+    // 'next' at themes is inert (the Ready button is the forward path).
+    expect(reduceWizard(themesAgain, { type: 'next' }).step).toBe('themes');
+  });
+
+  it('back navigation walks the interview backwards; a skipped contact reopens the type question; creating returns to the badges', () => {
+    expect(reduceWizard({ ...initialWizardState }, { type: 'back' }).step).toBe('intro');
+    const atContactValue = toContactValue();
+    expect(reduceWizard(atContactValue, { type: 'back' }).step).toBe('contact_type');
+    const atThemes = reduceWizard(atContactValue, { type: 'next' });
+    expect(reduceWizard(atThemes, { type: 'back' }).step).toBe('contact_value');
+    const atTopics = reduceWizard(atThemes, { type: 'interest-group', group: 1 });
+    expect(reduceWizard(atTopics, { type: 'back' }).step).toBe('themes');
+    // A skipped contact: back from the themes badges reopens the type pick.
+    const skipped = walked(
+      { type: 'start' },
+      { type: 'next' },
+      { type: 'next' },
+      { type: 'next' },
+      { type: 'skip' }
+    );
+    expect(reduceWizard(skipped, { type: 'back' }).step).toBe('contact_type');
+  });
+
+  it('wizardOrderIndex sorts creating past the whole interview', () => {
+    expect(wizardOrderIndex('intro')).toBe(0);
+    expect(wizardOrderIndex('themes')).toBe(6);
+    expect(wizardOrderIndex('topics')).toBe(7);
+    expect(wizardOrderIndex('creating')).toBe(8);
+  });
+
+  it('wizardPersonaDraft composes the draft: interests ride as topic keys, contact is the caller text', () => {
+    const state = reduceWizard(reduceWizard(toThemes(), { type: 'interest-group', group: 1 }), {
+      type: 'toggle-interest',
+      key: 8
+    });
+    const draft = wizardPersonaDraft(state, 'Телефон: +7 999');
+    expect(draft).toEqual({
+      name: 'Я',
+      publicBio: 'виден',
+      privateBio: 'секрет',
+      contact: 'Телефон: +7 999',
+      interests: [8]
+    });
+    const empty = wizardPersonaDraft({ ...initialWizardState });
+    expect(empty.contact).toBeUndefined();
+    expect(empty.interests).toBeUndefined();
+  });
+
+  it('the composed draft keeps the createPersona body UNCHANGED (no contact, no interests on the wire)', async () => {
+    mockedApi.createRoomUser.mockResolvedValue(user('0xme', 'Я'));
+    const draft = wizardPersonaDraft(toContactValue(), 'Телефон: +7 999');
+    await createPersona(room.address, '123456', draft);
+    const body = mockedApi.createRoomUser.mock.calls[0]?.[1] as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(body).toEqual({
+      name: 'Я',
+      public_bio: 'виден',
+      private_bio: 'секрет',
+      invite_code: '123456',
+      token: 'generated-raw-token'
+    });
+    expect('contact' in body).toBe(false);
+    expect('interests' in body).toBe(false);
   });
 });

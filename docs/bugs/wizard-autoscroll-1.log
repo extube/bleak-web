@@ -1,0 +1,24 @@
+Owner bug report (chat, 2026-11-21, relayed via concept agent — Concept.md §24 item 12 amendment):
+
+On the creation-wizard chat, the message list currently STAYS SCROLLED TO
+THE TOP / shows the first message when the dialog is longer than the
+available screen height.
+
+Required behavior:
+- auto-scroll to the bottom whenever a new message is added or the chat
+  opens;
+- the latest message fully visible right above the input field — never
+  stuck at the top, never PARTIALLY CUT OFF behind the input bar;
+- smooth scrolling;
+- proper BOTTOM PADDING of the chat container (so the newest message
+  clears the fixed input + suggestion badges area).
+
+Process note: the §24 item-12 auto-scroll effect (task 105) reads
+transcript.length + wizard.step but evidently does not reach the bottom —
+diagnose the real cause (effect timing vs the {#key} remount, scroll
+container identity, height settle before scrollTop is set, the pinned
+input/prefix geometry) and fix structurally.
+
+Test contract (owner): assert scroll-to-bottom on new message and on chat
+open, and that the newest message's bottom edge is not obscured by the
+input bar.

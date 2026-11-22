@@ -1,0 +1,16 @@
+2026-11-20T08:04:38Z [worker] task 91 in-progress; branch checked out
+2026-11-20T08:12:26Z [worker] component+tests implemented; targeted suites green (111/111: summary-sheet, sweep, transcript-page)
+2026-11-20T08:13:14Z [worker] full make test green (775 web + 57 pkg/helper), make lint green; ready for build gate
+2026-11-20T08:14:14Z [worker] handover: waiting for shared-checkout branch switch (foreign 5d5256a9.log edit blocks checkout; retrying per protocol)
+2026-11-20T08:14:48Z [worker] retry: shared checkout still on feature/5d5256a9-people-rework, foreign log line uncommitted
+2026-11-20T08:14:59Z [worker] retry 4: waiting for worker 5d5256a9 session close to commit its last log line
+2026-11-20T08:15:17Z [worker] retry 5: foreign checkout conflict persists; waiting per shared-checkout protocol
+2026-11-20T08:15:52Z [worker] retry 6: blocked on foreign 5d5256a9.log edit; worker 90 session closed, awaiting process landing to clear the shared checkout
+2026-11-20T08:16:08Z [worker] retry 7: still blocked; dev head unchanged (process has not landed task 90 yet)
+2026-11-20T08:16:24Z [worker] retry 8: still blocked; ADVICE may be needed if the shared checkout stays wedged
+2026-11-20T08:16:36Z [worker] retry 10: shared checkout wedged on foreign docs/logs/5d5256a9.log edit; 10 checkout attempts over ~10 min
+2026-11-20T08:16:56Z [worker] retry 12: still wedged; work complete + all gates green, only the branch commit is blocked by the foreign edit
+2026-11-20T08:25:33Z [worker] gates re-run green on re-homed tree (targeted 111/111, full 832, lint, build); committing handover
+2026-11-20T08:25:53Z [worker] handover complete: commit a394fc1 on feature/cff2cd18-tz9-03-sheet-hue-background (6 files: component + 3 test suites + my session/log records); task 91 ready-for-merge (MR auto-opened); all gates green
+2026-11-20T08:46:12Z [worker] diagnosis complete: landed animation wiring verified correct in source+compiled CSS+JS (GOOD=nod/wave only, GREAT=18px pull); owner cancelled the no-pull restriction, so animations stay as landed; folded in: .who name captions removed both tiers, chat.summary.me key removed from RU/EN, GREAT tier-label now the 'Great match' title in common ink (yellow override removed), X close reads per-hue ink over 12% ink chip + ink focus ring; tests updated (no-pull contract removed per reversal, removal contracts added)
+2026-11-20T08:47:45Z [worker] handover: commit 810c27c on feature/cff2cd18-good-tier-pull-refix ready for merge (v3.7 amendments folded; animations unchanged per owner reversal; gates green)

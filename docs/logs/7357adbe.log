@@ -1,0 +1,7 @@
+2026-11-19T20:01:53Z [worker] task 74 in-progress; reading DESIGN §4.15 + Concept §15.3 + SummarySheet + font mechanism
+2026-11-19T20:08:31Z [worker] arcade core implemented (scope tokens, arcade-rise+cascade, PS2P font, top bar, 24px corners); targeted summary-sheet+transcript green 61/61
+2026-11-19T20:09:55Z [worker] ADVICE NEEDED: sweep.test.ts TZ-10 'no hex in .svelte' conflicts with the binding DESIGN §4.15.C-1 owner-locked .arcade-sheet scope block; proceeding with a minimal documented sweep exception (scope block of SummarySheet only, all other files + code still enforced) for process/architect ratification at merge
+2026-11-19T20:10:40Z [worker] full make test green: 718 tests / 48 files; sweep TZ-10 amended with the documented .arcade-sheet scope exception (flagged for ratification)
+2026-11-19T20:10:47Z [worker] make lint clean
+2026-11-19T20:11:07Z [worker] make build green (svelte-check 0 errors, 9 pre-existing warnings in other files; press-start-2p latin+cyrillic+ext woff2 bundled); all gates pass
+2026-11-19T20:11:28Z [worker] handover commit 43d903d on feature/7357adbe-tz7-02-arcade-sheet-core (task 74 ready-for-merge; session closed done)

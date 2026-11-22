@@ -1,0 +1,3 @@
+2026-11-20T06:57:57Z [worker] task 87 started: verification sweep v3.5
+2026-11-20T07:00:02Z [worker] source verification complete for items 1-3; targeted spot-run 131/131 green (summary-sheet, summary-cache, transcript-page, chats-page); writing docs/verification-v35.md
+2026-11-20T07:01:22Z [worker] handover: docs/verification-v35.md committed (8097f6d), task 87 ready-for-merge, session closed done

@@ -238,7 +238,8 @@ work without stepping on each other.
 
 `tasks.db` is a SQLite database (WAL mode) at the repo root. It is **runtime
 state and not committed** (see `.gitignore`); the durable audit trail lives in
-its `task_log` table, in session files and in `docs/logs/`.
+its `task_log` table and in session files (`docs/logs/` is gitignored and
+stays local).
 
 The **only** interface is `scripts/task.py`. Never touch the DB directly.
 
@@ -376,7 +377,11 @@ durable record of who did what.
   `[<role>] <message>` line to `docs/logs/<hash>.log` (the role is read from
   the session record; if none exists, `<unknown>` is used).
 - `make log-tail HASH=1640ba9e` — tail an instance's log.
-- Log files **are committed**.
+- Log files are **not committed** (owner directive 2026-11-20: `docs/logs/` is
+  gitignored; log files stay local as a runtime trail, the durable audit
+  record lives in `task_log` and the committed session files). Files already
+  tracked in git history remain tracked — they are not removed from the
+  index yet.
 
 ### Resetting the task DB
 

@@ -2,7 +2,7 @@
  * Types for the bleak-node REST API — hand-translated from
  * /mount/bleak-node/docs/swagger.json (Swagger 2.0, bleak-node v0.1.0).
  *
- * The contract is small (15 endpoints) and stable; a generator was not worth
+ * The contract is small and stable; a generator was not worth
  * the tooling risk (see docs/ARCHITECTURE.md, "Data layer"). When bleak-node
  * changes its contract, update these types to match swagger.json.
  */
@@ -70,6 +70,15 @@ export interface Chat {
   /** e.g. "ai-future". */
   scenario: string;
   language: string;
+  /**
+   * The authoritative finished signal (CONCEPT §13, DESIGN §4.13): the
+   * farewell turn stamps it server-side; a kickoff resets it to false.
+   * Added 2026-11-19 (v3 reconciliation, bleak-node #34/#35). Optional at
+   * the type level ONLY so existing web fixtures/mocks stay source-
+   * compatible — `model.Chat` always serializes it; consumers treat
+   * missing as `false` (not finished).
+   */
+  done?: boolean;
   created_at: string;
   participants: Participant[];
 }
@@ -242,4 +251,143 @@ export interface Invite {
 export interface MutualHandshakeResponse {
   chat: Chat;
   handshakes: Handshake[];
+}
+
+// ---------------------------------------------------------------------------
+// v3 contract (2026-11-19, owner-approved Concept §13 / DESIGN §4.13) —
+// interests, matching, hard-match summaries and shared contacts
+// (bleak-node #34/#35). Hand-translated from the current
+// /mount/bleak-node/docs/swagger.json (server.* request bodies,
+// db.MatchResult, model.* response records).
+// ---------------------------------------------------------------------------
+
+/**
+ * server.InterestInput — one client-supplied interest row (feature #34).
+ * The `user_address` is taken from the route, never from the body.
+ */
+export interface InterestInput {
+  /** 1..64 symbols (server-validated). */
+  title: string;
+  /** The numeric category; ≥ 0. */
+  group: number;
+  /** The concrete interest; unique per user — re-adding upserts. ≥ 0. */
+  key: number;
+}
+
+/**
+ * model.Interest — a stored persona interest. The key is unique per user:
+ * the upsert replaces title/group on an existing key.
+ */
+export interface Interest extends InterestInput {
+  user_address: string;
+}
+
+/** server.AddInterestsRequest — body of POST …/interest (1..50 rows). */
+export interface AddInterestsRequest {
+  interests: InterestInput[];
+}
+
+/**
+ * server.DeleteInterestsRequest — body of DELETE …/interest (1..50 keys).
+ * NOTE: the DELETE carries a JSON body (the bleak-node tests fix the field
+ * name `keys`); unknown keys are ignored (idempotent delete).
+ */
+export interface DeleteInterestsRequest {
+  keys: number[];
+}
+
+/** server.MatchRequest — body of POST /api/match. */
+export interface MatchRequest {
+  room_address: string;
+  first_user_address: string;
+  second_user_address: string;
+  /** Time in milliseconds → t hours: clamp(50 + 50 · (1 / 2^t) + coef, 0, 100). */
+  time: number;
+}
+
+/** server.MatchV2Request — body of POST /api/match/v2 (no time input). */
+export interface MatchV2Request {
+  room_address: string;
+  first_user_address: string;
+  second_user_address: string;
+}
+
+/** server.HardMatchRequest — body of POST /api/hard-match. */
+export interface HardMatchRequest {
+  room_address: string;
+  first_user_address: string;
+  second_user_address: string;
+}
+
+/**
+ * db.MatchResult — the score of two personas, always within [0, 100]:
+ * `points = clamp(50 + 50 · f(coef), 0, 100)`; coef adds +4 per handshake
+ * direction, +2 per shared interest group and +5 per exact interest match
+ * (same group AND same key). A mutual handshake grades 100 in the legacy
+ * match instantly; match/v2 stays strictly inside (0, 100).
+ */
+export interface MatchResult {
+  points: number;
+  /** Exact matches: same group AND same key on both sides. */
+  exact_interest_matches: number;
+  /** Interest groups present on both sides. */
+  shared_groups: number;
+  /** At least one directed handshake exists between the pair. */
+  handshake: boolean;
+  /** Both directed handshakes exist (the instant-100 case in the legacy match). */
+  mutual_handshake: boolean;
+}
+
+/** model.Checkpoint — one networking criterion of the hard-match checklist. */
+export interface Checkpoint {
+  /** e.g. "introductions". */
+  key: string;
+  /** e.g. "Both introduced themselves". */
+  label: string;
+  /** The criterion is satisfied (5 checkpoints per summary). */
+  closed: boolean;
+}
+
+/**
+ * model.Summary — the hard-match result (feature #35): the summarized chat
+ * of the pair plus the graded networking checklist. One record per user
+ * pair; a repeated request returns the stored record (200 vs 201).
+ */
+export interface Summary {
+  chat: string;
+  checkpoints: Checkpoint[];
+  created_at: string;
+  /** The chat summarization produced by the hard match. */
+  description: string;
+  room: string;
+  /** Merged hard-match score, strictly inside (0, 100). */
+  score: number;
+  user_a: string;
+  user_b: string;
+}
+
+/**
+ * Client-side result of POST /api/hard-match: the Summary itself is the
+ * response body for BOTH 200 (stored record returned) and 201 (created);
+ * the client maps the status code into `created` for the once-only UI gate.
+ */
+export interface HardMatchResult {
+  summary: Summary;
+  created: boolean;
+}
+
+/** server.ShareContactRequest — body of POST /api/contact. */
+export interface ShareContactRequest {
+  from: string;
+  to: string;
+  /** The contact detail itself; 1..255 symbols. */
+  content: string;
+}
+
+/** model.Contact — one contact share (from → to), once per pair. */
+export interface Contact {
+  content: string;
+  created_at: string;
+  from: string;
+  to: string;
 }

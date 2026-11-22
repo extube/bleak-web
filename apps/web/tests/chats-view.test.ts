@@ -13,6 +13,7 @@ import {
   chatDateLabel,
   chatStatus,
   describeChat,
+  isChatDone,
   isMyMessage,
   isNearBottom,
   mergeChats,
@@ -95,6 +96,18 @@ describe('stableChats + mergeChats (poll diffing, §2.2)', () => {
   it('newest created_at first, deduped by address', () => {
     const ordered = stableChats([older, newer, { ...older }]);
     expect(ordered.map((c) => c.address)).toEqual(['0xchat2', '0xchat1']);
+  });
+
+  it('single time sort (Concept §20, DESIGN §4.15.7): finished chats do NOT float first — done and active sort together, newest first', () => {
+    const a1 = chat('0xa1', [ME, '0xc'], '2026-01-01T00:00:00Z');
+    const a2 = chat('0xa2', [ME, '0xd'], '2026-01-03T00:00:00Z');
+    const d1 = { ...chat('0xd1', [ME, '0xe'], '2026-01-02T00:00:00Z'), done: true };
+    const d2 = { ...chat('0xd2', [ME, '0xf'], '2026-01-04T00:00:00Z'), done: true };
+    // input order deliberately scrambled across the done/active split
+    const ordered = stableChats([a1, d2, a2, d1]);
+    // pure created_at DESCENDING: 0xd2 (Jan 4) → 0xa2 (Jan 3) → 0xd1 (Jan 2,
+    // FINISHED — it does not float above the newer active 0xa2) → 0xa1 (Jan 1)
+    expect(ordered.map((c) => c.address)).toEqual(['0xd2', '0xa2', '0xd1', '0xa1']);
   });
 
   it('identical (address, created_at) sequence keeps the current reference (no re-render)', () => {
@@ -181,18 +194,41 @@ describe('backTarget (§1.3: history back → fallback /chats)', () => {
   });
 });
 
-describe('chatStatus (Concept §10.1.7, DESIGN §4.11.7 — RECORDED GAP)', () => {
-  it('derives ACTIVE for every real payload shape: bleak-node exposes no lifecycle signal', () => {
-    // The payloads are inspected against the real contract: ChatResponse
-    // carries only the free agent-work `phase` («networking»/«debate»),
-    // `phase_started_at`, `scenario` and timestamps; Message has no status;
-    // kickoff/history-clear leaves the chat in place. Until the backend
-    // grows a lifecycle field (backend TODO ledger), every chat is ACTIVE.
+describe('chatStatus + isChatDone (CONCEPT §13 R2, DESIGN §4.13.2 — Chat.done is the AUTHORITATIVE finished signal)', () => {
+  it('done === true → FINISHED (the reminder mark)', () => {
+    const finished = { ...chat('0xchat1', [ME, '0xa'], '2026-01-01T00:00:00Z'), done: true };
+    expect(chatStatus(finished)).toBe('finished');
+    expect(isChatDone(finished)).toBe(true);
+  });
+
+  it('done false / missing / undefined → ACTIVE (missing means not-finished)', () => {
     const started = chat('0xchat1', [ME, '0xa'], '2026-01-01T00:00:00Z');
+    // explicit false
+    expect(chatStatus({ ...started, done: false })).toBe('active');
+    expect(isChatDone({ ...started, done: false })).toBe(false);
+    // missing (the type keeps done optional only for fixture compatibility)
     expect(chatStatus(started)).toBe('active');
-    // an unknown/odd phase string is a theme, not a lifecycle state
+    expect(isChatDone(started)).toBe(false);
+    // explicit undefined
+    expect(chatStatus({ ...started, done: undefined })).toBe('active');
+    expect(isChatDone({ ...started, done: undefined })).toBe(false);
+    // the free agent-work `phase` («networking»/«debate») is a theme, not a
+    // lifecycle state — it never flips the status (the §10.1.7 phase-era
+    // assumption is retired; done alone decides)
     expect(chatStatus({ ...started, phase: 'debate' })).toBe('active');
     expect(chatStatus({ ...started, phase: '' })).toBe('active');
+  });
+
+  it('kickoff reset semantics: done false after true returns to ACTIVE', () => {
+    const finished = { ...chat('0x1', [ME, '0xa'], '2026-01-01T00:00:00Z'), done: true };
+    const reset = { ...finished, done: false };
+    expect(chatStatus(finished)).toBe('finished');
+    expect(chatStatus(reset)).toBe('active');
+  });
+
+  it('isChatDone is the tz5-04 contact-share gate selector (done-derived, pure)', () => {
+    expect(isChatDone({ ...chat('0x2', [ME, '0xa'], '2026-01-01T00:00:00Z'), done: true })).toBe(true);
+    expect(isChatDone({ ...chat('0x3', [ME, '0xa'], '2026-01-01T00:00:00Z'), done: false })).toBe(false);
   });
 });
 

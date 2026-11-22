@@ -97,6 +97,10 @@
   --color-ring: color-mix(in srgb, var(--color-text-disabled-strong) 40%, transparent);
   /* sheet/dialog backdrop over the page (§2.1) */
   --color-scrim: color-mix(in srgb, var(--color-bg) 65%, transparent);
+  /* Summary-sheet checklist check signs (DESIGN §4.14.4): the green check
+   * glyph inside the closed square checkboxes — sourced from the approved
+   * Deepa green, no new palette hex. */
+  --color-check-green: var(--color-deepa-1);
 
   /* --- typography --------------------------------------------------------- */
   /* Handjet (variable pixel font, Cyrillic-safe) — titles/logo ONLY. */

@@ -628,6 +628,408 @@ task, verification updated, autonomous mode, RU/EN parity, suite green).
 
 ---
 
+## 13. v3 reconciliation round — bleak-node #34/#35 client integration — ✅ APPROVED (2026-11-19)
+
+The owner shipped bleak-node features #34 (interests + match score) and #35
+(hard match, chat done, shared contacts) — see the exploration list recorded
+in the concept agent's report (2026-11-19). Six owner-approved client items:
+
+### 13.1 Decisions
+
+1. **Interests — real API (mock retired).** Interests management switches
+   from the §1 mock model to the real endpoints
+   (`POST/DELETE /api/room/{room}/user/{address}/interest`, persona
+   Bearer): upsert by numeric `key` (re-add replaces title/group),
+   `title` 1–64 chars, 1–50 rows, idempotent delete. The client keeps an
+   **interest catalog** (group → key → title + emoji, per the §1 owner
+   note "icon with short hobby + emoji") so the user picks from a curated
+   set; the picker lives in **profile/settings**. Interests are displayed
+   on the profile badge and consumed by the score features.
+2. **`Chat.done` integration.** The chat's `done` boolean (farewell turn
+   stamps it; kickoff resets it) is the authoritative **finished** signal:
+   chat-list status icons (finished → red reminder mark; active → animated
+   loading), dialog UI states, and gating for the contact-share flow (§13.1.3).
+   The §10.1.7 "default active when no signal" fallback is retired.
+3. **Share contact — swipe-right slide.** In the dialog footer there is a
+   **slide (swipe-right) control** that shares the user's contact
+   (`POST /api/contact`, ≤255 chars, once per pair — repeat = 409 handled
+   gracefully: state "already shared"). The control is **enabled only when
+   the dialog is finished** (`Chat.done`). The shared **content is composed
+   client-side from the persona's contact card** — a new local field in
+   profile/settings (e.g. "telegram: @handle"); the backend stores only
+   the share record. *Open design point (flagged): where the recipient
+   sees received contacts (minimal: a small "shared contacts" surface).*
+   The same slide control also appears in the summary sheet (§13.1.5).
+4. **Chats list — score-first sorting.** Order: **finished chats first,
+   sorted by their match/v2 score descending** (only finished chats carry
+   the score — the client fetches `POST /api/match/v2` per finished pair,
+   its own Bearer); **unfinished dialogs after, sorted by time (newest
+   first, the existing default)**. Unfinished dialog items render
+   **darker, with opacity**, plus the **animated circular loader** (spinning
+   circle, standard web loading style).
+5. **Summary sheet modal (finished chat).** Opening a **finished** chat
+   triggers the **once-only hard-match** (`POST /api/hard-match`) and opens
+   a **sheet modal** with the pair's statistics: a **round (donut) diagram
+   showing the score value** and the **networking checklist** (the 5
+   checkpoints, closed/open states). If **score > 80 → fireworks and a
+   brightness effect**. The sheet has **round corners**, an **X close
+   button top-right**, and the **share-contact slide** (§13.1.3). Its
+   **background color is the interlocutor's message color** (the user-id-
+   derived Deepa hue, §10.1.5) — text contrast stays readable on it.
+6. **Radar tuning:** the **center-to-nearest-ring distance becomes closer
+   still** (building on §10.1.2), **user icons a little smaller**, and the
+   **ring rotation speed slower** overall (per-ring speed *differences*
+   from §8.1.2 remain).
+
+### 13.2 Ledger updates (§1c backend TODO ledger)
+
+- [x] ~~Private contact exchange~~ — **implemented** in bleak-node #35; client feature per §13.1.3.
+- [x] ~~Interests field on the user profile~~ — **implemented** in #34; mock retired per §13.1.1.
+- [x] ~~Auto-matchmaking score mechanic~~ — exists as the API score surface (#34/#35: match, match/v2, hard-match); client display per §13.1.4–5. The *agent-side auto-handshake* variant remains a backend idea, not needed by the client.
+- [x] Chat status semantics — `Chat.done` closes the §10.1.7 gap.
+
+### 13.3 Task plan (concept level; `tz5-*`)
+
+| # | Suggested slug | Scope | Items |
+| --- | --- | --- | --- |
+| R1 | `interests-api-integration` | Catalog + settings picker + badge display | 1 |
+| R2 | `chat-done-integration` | done flag everywhere + gating | 2 |
+| R3 | `contact-share-flow` | Slide control (footer + sheet), contact card field, 409 state, (minimal received view) | 3 |
+| R4 | `chats-sort-scores` | Sorting, score fetches, unfinished styling + loader | 4 |
+| R5 | `summary-sheet-modal` | Donut + checklist + fireworks + share slide | 5 |
+| R6 | `radar-tuning` | Gap, icon size, speeds | 6 |
+| R7 | `verify-v3` | Verification sweep | all |
+
+Dependencies: R2 gates R3/R5 (finished states); R4/R5 consume match/v2 and
+hard-match (R1's interests also feed the score inputs). The process orders
+and parallelizes per its standing method.
+
+---
+
+## 14. v3.1 addendum — share animation, contacts page, sheet polish — ✅ APPROVED (2026-11-19)
+
+Five owner items (chat, 2026-11-19) queued **after all §13 tasks complete**
+(owner's wording). The owner has already run the summary sheet build —
+item 5 is a live bug in it.
+
+### 14.1 Decisions
+
+1. **Share-contact slide polish.** The slide track/knob becomes **candy-cane
+   style with animation** (animated red-white striped bar around/behind the
+   circle). When the swipe completes, a **confetti animation plays from the
+   top** (share success moment).
+2. **New footer page — "Contacts".** A new bottom-nav tab showing the
+   **list of contacts shared with the user** (`GET /api/contact/{address}`,
+   newest first — replaces the §13 minimal settings list as the primary
+   surface). The tab icon is **marked with a dot when new contacts arrive**
+   (unseen-since-last-view marker).
+3. **Contact input in the user-creation form.** The join flow gains a
+   **contact field**; the entered contact info is stored **only in
+   localStorage** (the client's contact card) until the user actually
+   shares it (nothing is sent to the backend at creation).
+4. **Sheet modal polish.** The summary sheet's width matches the **dialog
+   content width** (aligned with the messages' left/right borders). The
+   **score displays as a ceil (integer) number**. The checklist renders as
+   **square checkboxes with green check signs**.
+5. **Bug (i18n):** the sheet modal shows hardcoded Russian strings
+   ("итоги встречи", "сетевой чек лист") while the owner is in the English
+   room/interface. All sheet copy must come from the i18n table — **English
+   in the EN interface, Russian when RU is chosen**; the RU/EN parity test
+   covers the sheet.
+
+### 14.2 Routing note
+
+Item 5 routes as a **bug round** attributed to the summary-sheet worker
+(`97ddd53e`). Items 1–4 open after the v3 wave (task 66 + CI) lands. The
+contacts-page tab (item 2) touches the footer nav — coordinate with the
+§10.1.8 Host-removal layout. Verification extended to §14.
+
+---
+
+## 15. v3.2 addendum — arcade sheet redesign + Slide-to-Share component — ✅ APPROVED (2026-11-20)
+
+Owner items (chat, 2026-11-20, after running the v3.1 build), including two
+**full component specifications** given verbatim by the owner. These specs
+are binding; the design phase treats them as the primary brief.
+
+### 15.1 ShareContactSlide — full component spec (owner text, structured)
+
+Modern iOS-style "Slide to Answer" button:
+
+- **Track:** pill-shaped, aspect ratio ~3.8:1, height ~76px, full
+  border-radius. Dark translucent glassmorphism background
+  (`backdrop-filter: blur`) with centered shimmering "slide to answer"
+  placeholder text that fades out as the thumb moves right.
+- **Thumb:** circular draggable, diameter ~68px with 4px internal padding;
+  crisp white circle with a green phone icon; smooth touch **and mouse**
+  drag.
+- **Candy-cane trail (owner notes: brighter colors, wider stripe lines;
+  the trail fills the area beside/behind the circle as it travels):**
+  a dynamic fill bar revealed as the thumb drags — extending from the
+  track edge up to the thumb's near edge — styled as a vibrant
+  candy-cane / barber-pole pattern: **alternating diagonal stripes
+  (45°)** of two contrasting shades with a **continuous smooth scrolling
+  marquee animation** along the track.
+- **Behavior:** release before **85%** of the track width → thumb + trail
+  **spring back** smoothly; past 85% → **snap to end**, trigger the
+  "answered" state, and **fire a celebratory confetti burst**.
+
+**Sheet variant** (see 15.3): same component mechanics with the
+sheet-specific palette (#FACC15 thumb, charcoal track, yellow/white-oranger
+stripes, pixel-accented text, "Contact shared!" completion).
+
+### 15.2 Placement & chat-page changes
+
+1. **The share-contact slide lives ONLY in the summary sheet** — the
+   dialog-footer instance (§13.1.3) is **removed**. The sheet's slide is
+   **bigger: height ratio 3.5:1 to 4:1**.
+2. **Summarization button on the chat page:** when the chat **is finished**
+   (`Chat.done`), a button opens the summary sheet; when **not finished**,
+   the button renders disabled with the phrase that the **dialog is still
+   in progress** (RU/EN).
+
+### 15.3 Summary sheet — full redesign spec (owner text, structured)
+
+Interactive mobile **modal bottom sheet** styled with a **1980s
+retro-arcade aesthetic** — animated pixel-art avatars, score-reactive
+interactions, animated candy-cane slider.
+
+- **Container & palette:** bottom sheet with rounded **top corners
+  24px**, dark backdrop scrim. *Owner amendment (2026-11-20, supersedes
+  the originally specified electric-purple #8A12FF): the **background
+  color must be the same as the background color of the chat's
+  interlocutor's messages** — the user-id-derived Deepa hue (§10.1.5) —
+  with text/ink contrast kept readable (per-hue ink pairings per
+  DESIGN §4.10). The rest of the palette accents (yellow #FACC15 slide,
+  charcoal track) stay as specified.*
+- **Entrance motion:** the sheet slides up with a slight **retro-arcade
+  spring bounce**; content **cascades in sequentially** (staggered
+  fade-and-slide-up, ~50ms per section).
+- **Typography:** authentic **8-bit pixel font (Press Start 2P or
+  Silkscreen)** for headers, titles and numeric scores, paired with
+  clean sans-serif (**Inter**) for readable paragraphs and checklist
+  text. *Cyrillic caveat (design resolves): Press Start 2P/Silkscreen are
+  Latin-only — RU strings need the Cyrillic-safe pixel face (Handjet, §4)
+  or per-locale font mapping; RU/EN parity is mandatory.*
+- **Top bar:** small uppercase pixel label **MEETING SUMMARY** on the
+  left; interactive **pixel-art X close button** on the right (subtle
+  pixel scale-down press state). *Owner fix (2026-11-20): the close
+  button must be **visible on any background** — the sheet bg is now the
+  interlocutor's hue (yellow makes a fixed-color X invisible) — so the X
+  takes the **per-hue ink/contrast color** (e.g. scrim chip or the
+  dark-ink pairing for light hues) per DESIGN §4.10.*
+- **Dual pixel avatars & score ring (centerpiece):** **both users'**
+  8-bit pixel-art avatars (**56×56px square frames**) facing each other
+  on opposite sides of the **circular Interest Matching Score gauge**
+  (score example: 70 inside a **thick white animated progress ring**
+  that **fills clockwise from 0 to the score** on open, numbers
+  **counting up rapidly like an arcade score tally**).
+- **Score-tier avatar reactions** *(thresholds revised by the owner,
+  2026-11-20: **80–100 = GREAT match, 50–79 = the next tier, everything
+  below follows the pattern** — amending the originally specified 70/40
+  cutoffs):*
+  - **High (80–100, "Great Match"):** both avatars animate **toward the
+    center** on open, **bouncing joyfully** in idle 2-frame pixel loops;
+    an animated **pixelated energy beam / sparkling pixel hearts & stars**
+    bridges the gap between them across the ring.
+  - **Medium (50–79, "Good Chat"):** avatars perform a friendly **pixel
+    nod/wave** with a steady **glowing pixel dotted line** connecting
+    them across the ring.
+  - **Low (0–49, "Different Vibes"):** avatars **stay spaced apart** with
+    a playful retro **"sweat drop"** or neutral idle blink.
+  *(Supersedes §13.1.5's single ">80 fireworks" rule — celebration is now
+  the high tier; the fireworks/brightness effect folds into it.)*
+- **Conversation summary & checklist:** left-aligned crisp white
+  sans-serif paragraph (the hard-match summary text); under the pixel
+  header **NETWORKING CHECKLIST**, the 5 items render as **pixel-art
+  checkboxes** that **pop in sequentially with a retro flash** and **draw
+  their pixel checkmarks one by one** on open (square shape + green check
+  per §14.1.4).
+- **Bottom action — "Slide to share contact":** full pill-shaped **dark
+  charcoal track (#18181B, height 64px)** with a **2px bright yellow
+  border (#FACC15)** and shimmering pixel-accented text that fades out on
+  drag. Thumb: **bright yellow circle (#FACC15)** with a **subtly pulsing
+  pixel arrow icon**. Trail: candy-cane/barber-pole **45° diagonal stripes
+  of bright yellow #FACC15 and white/orange**, **continuously scrolling
+  forward**, expanding beside the circle while dragging. Release <85% →
+  spring back; ≥85% → **lock**, **8-bit square pixel confetti explosion
+  across the modal**, **both avatars do a celebratory victory jump**, and
+  the text changes to **"Contact shared!"**.
+
+### 15.4 Flags for the owner (concept report)
+
+- Sheet background: originally switched to #8A12FF purple per spec, then
+  **amended back by the owner (2026-11-20) to the interlocutor's message
+  color** (Deepa hue, §13.1.5 restored) — see the §15.3 container bullet.
+- Tier thresholds: originally 70/40, **revised to 80/50** (see §15.3).
+
+---
+
+## 16. v3.3 addendum — slide + sheet layout fixes — ✅ APPROVED (2026-11-20)
+
+Owner fix list (chat, 2026-11-20) while the §15 wave runs. **Only the
+"Slide to Share" button component and the sheet's layout/scrolling change —
+the rest of the arcade sheet stays as specified in §15.3.**
+
+### 16.1 ShareContactSlide fixes (component-only)
+
+1. **Wider proportions:** the pill track spans **88–92% of the modal's
+   width** (horizontally aligned with the checklist and summary text
+   edges), **height 64px**, full **9999px** pill radius.
+2. **Candy-cane fill wraps around the circle:** no abrupt vertical flat
+   edge behind the thumb — the striped container extends from the left
+   edge of the track **all the way around the draggable circle**, ending
+   with a **matching rounded pill cap (9999px)** hugging the thumb's right
+   edge, with **uniform 4px padding** between the circle and the striped
+   fill's outer edge.
+3. **Placeholder & layering:** the placeholder text ("Swipe right to share
+   your contact") stays **strictly centered** horizontally and vertically
+   in the full track width. **Z-index:** candy-cane fill renders **above**
+   the placeholder (covering/clipping it as it expands — stripes never
+   clash with light text), the **thumb renders on top** of the fill;
+   optionally the placeholder **fades smoothly as the thumb passes
+   center**.
+4. **Completed state:** consistent padding/alignment when locked right —
+   thumb neatly nested inside the track's right end with **4px uniform
+   margin**.
+
+### 16.2 Modal sheet layout, scrolling & positioning
+
+1. **Fixed height & anchor:** the sheet is **88–90% of the screen height**,
+   anchored to the bottom of the viewport so its **top edge sits just
+   below the main chat header** (the header stays visible).
+2. **Pinned top / scrollable middle / pinned bottom:**
+   - **Pinned top:** MEETING SUMMARY header + X close, the user avatar(s)
+     and name, and the score ring — **fixed, never scroll**.
+   - **Scrollable middle:** only the **conversation summary text** and the
+     **NETWORKING CHECKLIST** scroll vertically (smooth, however long the
+     text).
+   - **Pinned bottom:** the **slide button stays fixed** at the sheet
+     bottom, always visible.
+3. **Exact vertical alignment:** the slide button sits at the **exact
+   same vertical level from the bottom of the screen** as the
+   **Summarization button** in the chat view behind it — both occupy the
+   same on-screen position.
+
+### 16.3 Routing note
+
+The slide-v2 scope (§15 wave task tz7-01) and sheet-core (tz7-02) are
+landed; the centerpiece (tz7-03) is running. The process routes §16.1 as a
+fix round attributed to the slide component's owning worker, folds
+§16.2 into the running/next sheet tasks where possible, and keeps the
+locked §15.3 palette untouched (these fixes are layout/geometry only).
+Verification extended to §16.
+
+---
+
+## 17. v3.4 microchanges — sheet line, chat-list dot — ✅ APPROVED (2026-11-20)
+
+Three owner microchanges (chat, 2026-11-20), queued **after the last
+running task finishes**:
+
+1. **Modal sheet:** remove the **dotted line between the two users**
+   (the medium-tier connector from §15.3) — the tier animations themselves
+   stay.
+2. **Chat list:** remove the **right-side status marks** (§10.1.7 icons)
+   and instead render a **color dot** in the same palette (the
+   interlocutor's user-id-derived Deepa hue, §10.1.5).
+   *Owner correction (2026-11-20): the dot is for **finished** chats only
+   — an **unfinished** chat item shows **no dot**, only the loading
+   circle (item 3).*
+3. **Chat list:** remove the **old rotated-dots loading indicator** but
+   **keep the newest loading circle** (the §13.1.4 spinner for unfinished
+   dialogs).
+
+Verification extended to §17; the process sequences these after the
+in-flight wave per its standing method.
+
+---
+
+## 18. v3.5 addendum — sheet/summary & chat-dot refinements — ✅ APPROVED (2026-11-20)
+
+Three owner items (chat, 2026-11-20), sequenced after the in-flight
+recovery work (tasks 82+83):
+
+1. **Great-match tier cleanup:** in the summary sheet's GREAT-match
+   layout, **remove the dotted line between the two users** (as already
+   done for the good-chat tier, §17.1) and render the **user's name
+   stronger and centered below its avatar — matching the good-chat
+   styling**. *Owner amendment (2026-11-20): the **avatar names are
+   removed from the sheet entirely** — the name labels under both
+   avatars are gone (avatars alone, both tiers).* *Owner addition
+   (2026-11-20): add a **"Great match" tier title** in the GREAT-match
+   tier, styled with the **same font color as the sheet's common text**
+   (no special color). RU/EN parity applies — RU wording per the i18n
+   table (e.g. «Отличное совпадение»); placement follows the sheet
+   layout (design decides, e.g. near the score ring).*
+2. **Finished-chat dot size:** the chat list's finished-dot becomes
+   **bigger — the same size as the round loading circle** it replaced.
+3. **Summary lazy background loading:** for **finished** chats the
+   summary is **lazily fetched in the background** (not blocking the
+   open). If the user opens the sheet **while summarization is still in
+   progress**, the sheet shows a **loading state with animation** until
+   the summary arrives.
+
+---
+
+## 19. v3.6 addendum — people-page rework + sheet tweaks — ✅ APPROVED (2026-11-20)
+
+Four owner items (chat, 2026-11-20):
+
+1. **Good-chat tier (summary sheet):** ~~the avatars must **not pull
+   toward each other** in this tier — they stay spaced apart while
+   **keeping the same animation**~~ *Owner reversal (2026-11-20): the
+   no-pull restriction is **cancelled** — avatars may converge/pull
+   together in the sheet animation (all tiers). The §19.1 regression bug
+   round therefore drops its no-pull fix portion; the other folded fixes
+   (names removal, GREAT-match title, X-close visibility) stay.*
+2. **/people page — no filter chips; deterministic sort:** remove the
+   filter chips entirely; the list is just **sorted**: first **who added
+   you**, then **those without any handshakes**, then **those chatting
+   with you**, then **those you sent a handshake to**.
+3. **/people page item rework:** remove the **right icon** (the one that
+   opened the chat or toggled the handshake form). For the **first user
+   in the list (who added you)**, the **"handshake back" state is
+   automatically opened**. Rename **"handshake back" → "handshake!"**
+   (RU: **«Привет!»**). Remove the **"chatting" badge** — instead render
+   a **button with text like "Open chat"** (RU/EN). *Owner addition
+   (2026-11-20, final): tapping/clicking an item whose status is
+   **"added you"** opens the **Handshake! / Dismiss form** for that user
+   (the handshake-back send and the local dismissal action side by
+   side).*
+4. **Sheet loading state (refines §18.1.3):** add **more loading items**
+   to the in-progress loading view and **move the text below the loading
+   animation image, centered** in the modal sheet.
+
+---
+
+## 20. v3.7 addendum — chats list time sort — ✅ APPROVED (2026-11-20)
+
+Owner change (chat, 2026-11-20): **chat items are sorted by time, from
+new to old** (newest first). This **supersedes §13.1.4's score-first
+ordering** (finished-by-score first, then unfinished by time) — the list
+becomes a single time-based sort. The unfinished-item styling (opacity +
+spinner), the finished dot, previews, and the Deepa hue coding are
+unaffected.
+
+---
+
+## 21. v3.8 addendum — chats list common block + thin dividers — ✅ APPROVED (2026-11-20)
+
+Owner change (chat, 2026-11-20): chat list items share a **common
+background block** (one surface container behind the items), and the items
+are **split by thin divider lines** in the **website background color**
+(the §4 page background, `#1A1C20`). Each divider is **horizontally
+centered** and **no wider than 95% of the chats box width**. Per-item
+styling (dot, spinner, preview, hue coding) is unchanged.
+*Owner decision (2026-11-20, in-progress items inside the block): an
+**unfinished** chat item keeps its muted look **as dimmed content** —
+name, preview and time render at **reduced opacity**, the **spinner
+stays**, and the common block background is untouched (no per-item
+background panel; the dimming applies to content, Option A).*
+
+---
+
 ## Approval
 
 - [x] Topics 1–5 decided (all ✅ approved above)
@@ -651,3 +1053,499 @@ task, verification updated, autonomous mode, RU/EN parity, suite green).
 - [x] Owner approved **§10 v2.4 addendum** (8 refinements incl. import="return to event" redefinition, chat 2026-11-18) → folded into the running loop by the process agent.
 - [x] Owner approved **§11 v2.5 addendum** (4 refinements: leave≠delete fix, chat-list restyle, copy sweep, join-form layout, chat 2026-11-18) → folded into the running loop by the process agent.
 - [x] Owner approved **§12 v2.6 addendum** (phone full-screen forms for enter/import/return/profile; join overflow re-fixed as a bug round, chat 2026-11-18) → routed to the process agent.
+- [x] bleak-node features **#34 (interests + match) and #35 (hard match, chat done, contacts)** explored and reported to the owner (2026-11-19).
+- [x] Owner approved **§13 v3 reconciliation round** (6 items: real interests, Chat.done, share-contact swipe, score-sorted chats, summary sheet modal, radar tuning; 3 ledger gaps closed, 2026-11-19) → build loop authorized (process agent, autonomous mode).
+- [x] Owner approved **§14 v3.1 addendum** (candy-cane/confetti share slide, Contacts footer page with new-dot, creation-form contact input, sheet width/score/checkbox polish, sheet i18n bug; 2026-11-19) → queued by the process agent after the §13 wave completes.
+- [x] Owner approved **§15 v3.2 addendum** (ShareContactSlide component spec, share slide only in sheet, chat-page summarization button, full retro-arcade sheet redesign with locked palette, 2026-11-20) → routed to the process agent.
+- [x] Owner approved **§16 v3.3 addendum** (slide wrap-around/centering/completed-state fixes, sheet 88–90% pinned-top/scrollable-middle/pinned-bottom layout, exact bottom alignment with the Summarization button, 2026-11-20) → routed to the process agent.
+- [x] Owner approved **§17 v3.4 microchanges** (remove sheet dotted line, chat-list color dot instead of status marks, drop old dots loader keep circle spinner, 2026-11-20) → queued after the in-flight wave.
+- [x] Owner approved **§18 v3.5 addendum** (great-match line removal + centered name, bigger finished-dot, lazy background summary loading with in-progress loading state, 2026-11-20) → queued after the recovery work.
+- [x] Owner approved **§19 v3.6 addendum** (good-chat avatars stay spaced, people-page sort replaces filter chips, people-item rework with "handshake!"/«Привет!» + Open-chat button, sheet loading view polish, 2026-11-20) → queued.
+- [x] Owner approved **§20 v3.7 addendum** (chats list = single time sort, newest first; supersedes §13.1.4 score-first ordering, 2026-11-20) → queued behind task 95.
+
+---
+
+## 22. Token-efficiency analysis & protocol — ✅ DECIDED (owner directive, 2026-11-20)
+
+The owner asked: why did the weekly model limit burn in roughly one day,
+and to fix consumption **before** starting the §22.3 todo list (no owner
+questions during this task).
+
+### 22.1 Root-cause analysis (measured on repo data)
+
+- **106 sub-agent sessions** and **101 task cards** were created in ~5
+  days — most for one-to-three-line owner tweaks.
+- **Fixed injection cost dominates:** `AGENTS.md` (403 lines, ~9–10k
+  tokens) plus `DOCS-INDEX.md` are auto-injected into **every** session.
+  106 sessions × ~11k ≈ **~1.2M tokens of pure boilerplate** — before any
+  actual work.
+- **Per-task full-session overhead:** a one-line CSS change cost a full
+  session boot + doc reads + handover + gates (~50–80k tokens) because
+  every owner micro-item got its own worker instance.
+- **Tick loops:** each process resume re-read its state (task DB, logs,
+  git) and wrote long interim reports; dozens of ticks per round.
+- **Full-CI output in context:** every wave re-read multi-hundred-line
+  test outputs (765–830 tests) into context.
+- **Verification-sweep workers:** every round spent a full session only
+  to re-check what CI already proves.
+
+### 22.2 Binding protocol (effective immediately; owner directives included)
+
+1. **No final-checker worker (owner directive 1):** the dedicated
+   verification-sweep worker role is **removed**. The process itself runs
+   `make lint && make test && make build` at round end and may append a
+   short note to the existing verification doc directly — no separate
+   card/session for sweeps.
+2. **Logs are never committed (owner directive 2):** `docs/logs/` is
+   gitignored; log lines stay local. The committed audit trail = the task
+   DB's `task_log` + session records. Workers/process must not stage
+   `docs/logs/**`.
+3. **Batch microchanges:** 2–5 related small owner items = **one** worker
+   session on **one** branch (lineage resume preferred) instead of one
+   session per item.
+4. **Self-contained spawn prompts:** the process pastes the exact task
+   brief into the spawn prompt; workers read **only** the named
+   Concept/DESIGN sections, never whole documents.
+5. **Concise cards:** criteria reference Concept sections; no restating.
+6. **Tick discipline (concept):** no drive-by ticks; rely on wake
+   notifications; one summary per wave, not per task.
+7. **Targeted tests while iterating:** `make test-smoke` / named suites
+   during work; the full three-gate run only at the final gate. CI output
+   is summarized (tail/exit code), not re-read in full.
+8. **Devops recommendations (owner directs devops; biggest lever):** slim
+   the auto-injected `AGENTS.md` (the ~9k-token boilerplate × every
+   session is the single largest cost); per-role minimal injection.
+
+### 22.3 Queued feature todo list (owner, held until §22.2 is active — now active)
+
+- [ ] **Bleak mascot** on the enter-invite-code form
+- [ ] **Step-by-step user creation (entering room) (P1)**
+  - [ ] intro theme
+  - [ ] enter your name
+  - [ ] enter information about you through **auto chat**:
+    - [ ] public bio
+    - [ ] private bio
+    - [ ] contact info form (phone / email / nickname from a messenger — choose)
+    - [ ] interests (first choose the **group**, then **generated interests by group**: sport → ice hockey, running, football…; music → jazz, rap, reggae…)
+  - [ ] loading creation-user step
+  - [ ] style of chat and transition
+
+Execution note: this is a feature round (`tz11-*`) under the lean protocol
+— target **2–3 worker sessions max** (mascot; creation wizard incl. the
+auto-chat interview; then the process's own gates). The creation wizard is
+a **P1** replacement of the current single-form persona creation; the
+auto-chat interview mimics a dialog with the mascot/agent asking the
+questions (public bio → private bio → contact → interests).
+
+---
+
+## 23. tz11 design-review amendments — ✅ APPROVED (2026-11-20)
+
+Owner design review of the delivered tz11-01/tz11-02 state (batch of
+numbered changes). Items 1–4 amend the **mascot** (tz11-01 scope, in
+flight); items 5.1–5.9 amend the **creation wizard** (tz11-02 scope).
+RU/EN parity applies everywhere.
+
+### 23.1 Mascot amendments (fold into tz11-01)
+
+1. **No background:** the mascot must **not have a background** (no
+   plate/box behind it — the pixel figure sits directly on the page).
+2. **Join-the-event form placement:** mascot at the **top of the page**,
+   then the **title**, then the other elements. The same mascot-at-top
+   pattern applies to **all other forms** (consistent header order:
+   mascot → title → content).
+3. **Room form:** on the room form (where you choose between
+   **create profile** / join), **also add the mascot** (top, per item 2).
+4. **"Hi! I'm Bleak" bubble:** its background is removed too (same
+   no-background treatment as the mascot itself).
+
+### 23.2 Creation-wizard amendments (fold into tz11-02)
+
+- **5.1 Input send UX:** do **not** send/double-message on tapping
+  something in the input. Add a **send button on the right of the input**
+  (iOS Messages style). Send happens on **Enter or the button**. Also add
+  a **character counter** (current/max symbols) for the input.
+- **5.2 Layout:** **remove the "Next" button**. The chat **input form is
+  fixed at the bottom** (rises when the keyboard opens). The **chat
+  content is scrollable** when it overflows the available screen height.
+  **Keep the "back" button below the input, centered.**
+- **5.3 Placeholder suggestions:** each input case gets a **suggestion
+  (placeholder) with an example** of what the user may write here — e.g.
+  "I am a backend dev" for the **"What others see" (public bio)** input.
+- **5.4 Contact field:** instead of a "Messenger" choice add a **nickname
+  field** with **suggested messenger prefixes**: `tg:@…`, `signal:@…`,
+  `inst:@…` (user types the nickname; prefix suggestions offered).
+- **5.5 Themes model (interests rework):** rename everything — each
+  **interest group is now a "theme"**. Render **6–10 theme badges** (emoji
+  + text). After picking a theme, **generate dedicated topics** for that
+  group (e.g. Music → composer names, rock groups, jazz bands, rap acts).
+  Interests are saved as **`group: '<theme id>'`**, **`key: '<topic
+  key>'`**, **`title: 'theme:topic_key'`** (e.g. `music:the_sex_pistols`).
+  The same generation applies for sport, computer, science, architecture
+  and the other groups.
+- **5.6 Profile settings:** **remove changing interests** from the
+  profile settings (interests are set at creation only).
+- **5.7 Multi-theme selection:** fix the current single-theme lock — the
+  user **must be able to choose several themes** and several interests
+  each. After finishing one theme's interests, the flow **returns to the
+  theme-badges step** (not the next wizard step) and repeats until the
+  user presses a **"Ready" button**.
+- **5.8 Loading step animation:** the "Creating your profile" loading
+  step gets **animations like the modal sheet page** (the arcade-sheet
+  loading treatment, §18.1.3/§15).
+- **5.9 Transitions:** **fade transitions** between the creation-chat
+  steps. *Owner amendment (2026-11-20): fades apply to **every step
+  boundary of the whole creation path** — form → intro theme → chat
+  (interview) → "creating your profile" loading → app main page — not
+  just the chat steps.*
+
+---
+
+## 24. tz11 wizard review, second batch — ✅ APPROVED (2026-11-21)
+
+Owner design review of the wizard state (batch, 2026-11-21). All items
+amend the **creation wizard** scope (tz11-02 lineage). RU/EN parity
+applies. The owner's numbering is preserved (their "7" appears twice —
+here split into 7 and 7b).
+
+1. **No echo of the input:** the chat must **not repeat as a message**
+   what the user is writing in the input form (no live/echo bubble of
+   the typed text).
+2. **Revert arrow instead of "back":** remove the **"back" button**;
+   add a **revert arrow in the input form** shown **when the input is
+   empty** (no symbols yet); when the user **starts typing**, the current
+   **send button appears** in its place (arrow swaps to send).
+3. **Keep all chat history:** everything the interlocutor (mascot) sends
+   is **saved in the chat**, and the user's answers are saved too —
+   including the **theme/interest picks** (groups and interests appear
+   in the history as the user's messages/answers).
+4. **Counter position:** the symbol counter is **centered below the
+   button** (below the input row).
+5. **Slower fades:** the fade transition **takes more time**.
+   *Owner amendment (2026-11-21): the transition duration is exactly
+   **1.5 s**.*
+6. **Calm intro form:** the mascot intro form must be **calm and
+   friendly** — calming the user, **preparing them for a simple
+   dialog**, and giving the **necessary context** before the interview.
+7. **Pixel font for the greeting:** "Hi! I'm Bleak" on the intro form
+   uses the **pixel font** (not the standard body font).
+7b. **Desktop dimensions:** on a computer screen the creation chat has
+   the **same dimensions as the room chats on the /chats page** (not
+   full-width).
+8. **Clear button:** add an **"x" on the right in the input form** to
+   quickly clear the input block.
+9. **Strongly fixed input height:** the input form must be **strongly
+   fixed in height above the keyboard/bottom** (no height jitter).
+   **Suggestions — e.g. the messenger prefixes — are located ABOVE the
+   input** (never below it).
+10. **Remove footer note:** remove "**stored on your device. Shared when
+   you slide to share**" from the chat.
+11. **Autofocus after send:** after **Enter** (sending the previous
+    message), the input is **auto-focused** again.
+12. **Latest message visibility:** the **last message must sit
+    automatically strictly above the input form + suggestion badges**
+    (if any) — auto-scroll keeps the newest message pinned right above
+    the input area. *Owner fix report (2026-11-21): currently the
+    creation dialog **keeps showing the first message** when the dialog
+    is longer than the available screen height — the message list must
+    **automatically scroll to the bottom** whenever a **new message is
+    added** or the **chat opens**; the latest message must be **fully
+    visible right above the input field**, never staying scrolled to the
+    top or getting **partially cut off behind the input bar**. Use
+    **smooth scrolling** and **proper bottom padding** of the chat
+    container. *Owner scoping note (2026-11-21): this fix concerns the
+    **creation chat ONLY** — the main-room chat (/chats page) behavior
+    must not change.* *Owner recurrence report (2026-11-21, after the
+    first fix landed merged+CI-green): **the creation dialog still does
+    not autoscroll to the last message.** The unit tests pass while the
+    real app misbehaves — the test contract does not reproduce the
+    actual runtime geometry. The next fix round must diagnose against
+    the real rendered app (not just jsdom assertions): verify the scroll
+    fires on the actual scroll container at runtime, survives the step
+    remounts and font/layout settling, and is not canceled by smooth-
+    scroll interruptions; strengthen the test to a real-geometry
+    contract.*
+13. **Back button placement:** **keep the right back button** in
+    non-standard forms (theme choosing, contact choosing, etc.).
+    **Remove the bottom back button everywhere.**
+
+---
+
+## 25. Creation chat desktop layout — ✅ APPROVED (2026-11-21)
+
+Owner spec (2026-11-21) for the **creation chat on desktop** — layout
+and dimension changes only:
+
+1. **Full screen height:** the chat container stretches **from the very
+   top edge to the very bottom edge** of the browser window — no
+   vertical centering, no empty space above or below the chat box.
+2. **Wider desktop container:** the chat column spans the center of the
+   page at roughly **750–850 px wide** (instead of the narrow
+   mobile-sized box; this supersedes the §24 7b "same dimensions as
+   room chats" approximation with the explicit target).
+3. **Pinned bottom input:** the input bar stays **anchored at the bottom
+   edge of the screen**, and the message area above it **expands to fill
+   all remaining vertical space**.
+4. **Visual styles untouched:** no changes to colors, dark background
+   shades, message bubble colors, fonts, borders, or button styles —
+   **size and layout proportions only**.
+
+---
+
+## 26. Owner order: stop the simulated chat round — reuse the main-room chat — ✅ APPROVED (2026-11-21)
+
+Owner order (2026-11-21): the bug-round worker is "making shit" by
+**simulating everything with happy-dom** — stop it.
+
+1. **Stop the running bug round** (task 109, `c1266ebd` lineage):
+   stop the worker, **delete its branch**,
+   close the card as cancelled — no happy-dom-based simulation work is
+   wanted.
+2. **New task:** **remove the chat implementation in the creation form**
+   (the wizard's hand-rolled chat). Instead make the creation chat
+   **the same chat as the main room** — reuse the real chat component /
+   behavior from the `/chats` main room (rendering, scrolling, input
+   bar, message list) so the creation dialog inherits the proven chat
+   behavior (including autoscroll) instead of a simulated replica. The
+   wizard then only feeds its messages/steps/answers into the real chat
+   machinery.
+
+---
+
+## 27. Owner order: two fixed areas for the creation chat — ✅ APPROVED (2026-11-21)
+
+The auto-scroll is **still not working** (second recurrence after the
+real-chat reuse round). Owner structural order (2026-11-21): **split the
+creation-chat screen into two separate screens/areas (no visible
+separation)**:
+
+1. **Messages area** — the top region, **fixed** within the available
+   screen (the area left after the keyboard).
+2. **User-form area** — the bottom region (suggestion badges, input,
+   counter, send/revert) — also **fixed** at the bottom of the available
+   screen.
+3. **Bounded scroll:** when the message list **overflows the messages
+   area**, it scrolls **within that bounded area** and **autoscrolls to
+   the bottom of this area** (set this as the scroll behavior/option —
+   not a measured hack against the whole page). The result: the last
+   message always sits **strictly above the user-input form area**.
+4. No visible boundary between the two areas — they only partition the
+   layout geometry. All visual styles (§25 item 4) stay untouched.
+
+---
+
+## 28. Owner refinement: header + main structure for the creation dialog — ✅ APPROVED (2026-11-21)
+
+Further refinement of §27 (owner, 2026-11-21) — the creation-dialog
+screen structure:
+
+- **Main block** = the space **between the bottom (or keyboard) and the
+  header**. The main block **never scrolls itself** (no page/main
+  scrolling at all).
+- Inside the main block exactly **two blocks**:
+  1. **Messenger** (messages area) — **can be scrolled** (its own
+     internal scroll, per §27).
+  2. **User-input-form block** — the answer input, **theme choosing**,
+     **contacts form** and the rest of the step-specific form UI —
+     **cannot be scrolled** and is **fixed at the bottom of the main
+     block**.
+- Everything outside (header, keyboard area) stays fixed; only the
+  messenger block scrolls. All visual styles unchanged (§25 item 4).
+
+---
+
+## 29. Owner refinement: viewport-height constraint on the MAIN BLOCK — ✅ APPROVED (2026-11-21)
+
+Fix to the §28 contract so the **user-input-form block is always
+completely visible** above the bottom edge of the screen and never gets
+pushed off-screen:
+
+1. **Lock outer & main container to the viewport:** the root page
+   wrapper and the MAIN BLOCK are **strictly bounded by the visible
+   browser window height** (from below the fixed header down to the
+   bottom edge of the screen or virtual keyboard). The MAIN BLOCK must
+   **never grow taller than the visible screen space**.
+2. **Messenger shrinks, form grows upward:** when a **tall
+   user-input-form block** appears (multi-button choice forms, contact
+   forms), the form block sits **completely inside the visible bottom
+   area**, growing **upward from the bottom edge**, while the
+   **messenger block above it shrinks in height** and scrolls internally
+   to fit the remaining space.
+3. **Never clip the form block:** the bottom of the user-input-form
+   block always aligns **flush with the bottom of the visible viewport**
+   (or the top of the keyboard); **every button and input inside it is
+   100% visible** without scrolling the outer page.
+4. **Preserve styles:** all existing colors, button designs, spacing,
+   and visual styling untouched.
+
+---
+
+## 30. New feature: unified form UX structure — ✅ APPROVED (2026-11-21)
+
+New feature (owner, 2026-11-21): the forms — **"Join the Event"**,
+**"Room intro"** (where the user may pick **create profile / change
+code**), and the **other forms** — all share the **same three-block
+structure**:
+
+1. **Header (not scrollable):** on the left the **app icon**, on the
+   right the **language switching**.
+   *Owner amendment (2026-11-21, header sizing): the **EN/RU switcher
+   is smaller** — its height equals the **web-app icon's height**; the
+   icon is made a **little bigger**. Keep the proportions (the switcher
+   visually matches the icon's height; nothing oversized).*
+   *Owner amendment (2026-11-21, icon rendering): the header web-app
+   icon is used **without background** (the icon graphic itself, no
+   background plate/badge behind it).*
+2. **Footer (not scrollable):** the footer block holds the **buttons
+   for the user** to pick (the form's action buttons).
+3. **Middle block (scrollable):** contains the **content** — the
+   **title** and the **text**; the text fills **no more than 75% of the
+   form width**; and the form's main interactive element — the
+   **6-digit input**, or the **scan-QR link**, or the **resume session**
+   option. The middle block **may be scrolled**.
+
+**Viewport constraint (same rule as §29):** all these blocks live
+inside the form, and the form **cannot overlay the area between the top
+of the screen and the bottom of the screen** (the bottom being the
+keyboard, if the keyboard is opened) — the form is strictly
+viewport-bounded, never content-driven in height.
+
+This generalizes the §28/§29 structure (fixed header, fixed non-scroll
+regions at top/bottom, single internal scroll region in the middle,
+viewport-bounded) to the non-chat forms.
+
+*Owner refinement (2026-11-21): the middle block's content is centered
+**only horizontally** (or not centered at all — beginning on the left);
+it always **starts at the top** and flows **top-to-bottom** with some
+**paddings** — never vertically centered within the middle block.*
+
+**Concrete example — the "Enter the Room" form (owner, 2026-11-21):**
+
+- **Header:** web-app icon on the left side, language switching on the
+  right side.
+- **Middle content:** the **mascot**, the **"Join the Event"** title,
+  the **6-digit input**, and the **links to QR-scan** and **"Return to
+  event"**.
+- **Footer (from the bottom):** one button — **"Enter the room"** — with
+  the same (existing primary) button styles. *Owner amendment
+  (2026-11-21): the **"Return to event"** button moves out of the
+  middle content into the **footer**, **below the "Enter the room"
+  button**, with the same styles — so the footer of this form has two
+  stacked buttons: **"Enter the room"** on top, **"Return to event"**
+  below it.*
+
+*Owner clarification (2026-11-21): the footer is **not** limited to one
+button — it holds **the buttons for the user to pick** (as per §30 item
+2), one or several depending on the form. "Enter the Room" was only a
+concrete example where that form happens to have a single action
+(e.g. the "Room intro" form's footer has both **create profile** and
+**change code**).*
+
+**Scope extension (owner, 2026-11-21):** the same §30 form structure
+and styles also apply to the **"Hi! I'm Bleak" intro page** — fixed
+header (app icon left, EN/RU switcher right, sized per the header
+amendment), the scrollable middle with the mascot and the calm/friendly
+greeting content ("Hi! I'm Bleak" in the pixel font per §24 items 6–7),
+and the fixed footer with the form's action buttons, all strictly
+viewport-bounded (§29 rule).
+
+**Geometry unification (owner, 2026-11-21):** the **creation chat** and
+the **mascot intro** get the **same dimensions and position** as the
+**"Enter the event" form** and the **"Room intro" form** — the
+unified-form shell's container geometry (width, centering, viewport
+bounding) is the shared standard for all these screens. This refines
+the §25 desktop approximation (750–850 px full-height column): the
+exact geometry is now defined by the shared form shell, so every screen
+in the join/intro/creation flow looks consistently sized and
+positioned.
+
+---
+
+## 31. New feature: landing page — ✅ APPROVED (2026-11-21)
+
+New feature (owner, 2026-11-21): a **landing page for the web app**.
+
+1. **Routes:** `/` — the landing page; `/income` — the room-income
+   (entry) page; `/income/<room>/create` — the creation process (intro;
+   chat; etc.).
+2. **Landing page content:** a **modern, relative design with pixel
+   mascots**, some **words about the project**, **navigation**, and a
+   **button to start and enter a room**.
+3. **Design template:** the owner's reference is
+   `https://dribbble.com/shots/27317590-Mobile-App-Pixel-Art-Dating-Interface`
+   (use as the template/mood reference).
+4. **Positioning:** the main purpose of the web app — **effective
+   networking with AI agents** (this is the story the landing tells).
+5. **Mobile-first design.**
+6. **Tutorial section:** how it works — **search → chatting → contacts
+   sharing**.
+7. **Palette:** keep the palette as in the other pages (no new colors).
+8. **Localization:** both **Russian and English** (the language
+   switching applies to the landing too).
+9. **First view:** the **Start button** opens the **`/income` page**
+   with the **6-digit input**.
+
+---
+
+## 32. Owner order: landing page redesign from zero — ✅ APPROVED (2026-11-22)
+
+The §31 landing design is **rejected** ("bad"). Create the landing page
+**again from zero**. The owner provided a design example in the
+workspace: **`landing-design-example.png`** — use it as the design
+template. Requirements:
+
+1. **Follow the example's mood and structure** (adapt, don't copy
+   content): near-black background with the project's **purple
+   accent/glow palette**; **large pixel headline** with a highlighted
+   accent word; short **tagline lines in pixel font** at the top
+   corners; a **centered hero pixel-art scene** with a glowing focal
+   element; a **retro dialogue-box** element (framed box with an
+   asterisk line of text) as a signature element; **framed pixel-border
+   cards** (feature/stat cards, character-style cards with action
+   buttons); a **row of pixel icons with labels** at the bottom
+   (feature navigation); small **badge/footer blocks** in pixel frames.
+2. **Something special, modern** — not a generic template; the pixel
+   style executed with modern web polish.
+3. **Do NOT use the same mascot everywhere** — vary the pixel mascots/
+   characters across the page (different figures for the hero, cards,
+   tutorial steps).
+4. **Adaptive for both computer screens and phone screens** — desktop
+   gets the multi-column layout as in the example; mobile stacks it
+   sensibly (mobile-first stacking, then enrich on desktop).
+5. All §31 requirements still apply: the routes (`/`, `/income`,
+   `/income/<room>/create`), the positioning copy (**effective
+   networking with AI agents**), the tutorial (search → chatting →
+   contacts sharing), the unchanged palette (dark + purple matches the
+   example), RU/EN parity, and the **Start button → `/income`** with
+   the 6-digit input.
+
+*Owner additions (2026-11-22):*
+
+- **Design-first workflow:** the **design agent describes the design
+  first** (a DESIGN.md section for the landing, derived from the
+  example) before the worker builds it.
+- **Mascot chat animation:** the landing also shows an **animation of
+  two mascots chatting** — they interact with **pixel messages
+  (speech-bubble style), like in 80s games** (retro typewriter/
+  bubble-exchange feel).
+
+---
+
+
+---
+
+
+---
+
+
+---
+
+
+---
+
+
+---
+
+
+---
+

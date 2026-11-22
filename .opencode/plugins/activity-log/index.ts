@@ -1,6 +1,9 @@
 // activity-log — OpenCode server plugin (V2, local directory plugin).
 //
-// Appends one line per agent action to docs/logs/activity.log:
+// Appends one line per agent action to data/logs/activity.log (gitignored
+// runtime dir — owner directive 2026-11-18: the log records every tool call,
+// so keeping it in docs/logs made `git status` permanently dirty; the
+// durable per-instance audit trail remains in docs/logs/<hash>.log):
 //   UTC-timestamp | session-id | agent-role/id | tool-or-action | short target summary
 //
 // Sources of actions:
@@ -13,7 +16,7 @@ import { Plugin } from "@opencode/plugin"
 import { appendFile, mkdir } from "node:fs/promises"
 import path from "node:path"
 
-const LOG_REL = path.join("docs", "logs", "activity.log")
+const LOG_REL = path.join("data", "logs", "activity.log")
 const SUMMARY_MAX = 160
 
 function utcNow(): string {

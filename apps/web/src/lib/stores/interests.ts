@@ -1,105 +1,130 @@
 /**
- * Mock interests model (ARCHITECTURE §8.1, owner plan): the future backend
- * field is an array of short hobby labels + emoji; v1 ships the SAME shape
- * client-side only — a preset catalog (RU/EN label pairs shipped with the
- * app) and the user's selection persisted in localStorage
- * (`bleak.interests`, ids only — labels follow the UI locale).
+ * Local interests MIRROR (DESIGN §4.13.1 item 3): the v3 API carries the
+ * real interests endpoints (bulk upsert → 201 with the user's FULL list,
+ * delete by keys → 200 with the REMAINING list) but has NO interests GET,
+ * so this per-device store is the read source — a documented limitation.
+ * Every write goes through the real endpoints; the endpoint responses are
+ * mirrored here per room+user under `bleak.interests` (the §1 mock ids
+ * store this key held is retired — same key, new scope-mapped shape).
  *
- * NO network request is ever issued from here (DESIGN §3.6 AC 5): when
- * bleak-node ships the real field, the API value replaces the selection and
- * `Interest { id, label, emoji }` stays the adapter target.
+ * The badge reads the mirror; titles are stored as sent (the active UI
+ * locale at add time) and re-localized through the catalog for display
+ * (`displayInterests`), with the stored title as the fallback for keys
+ * missing from the catalog.
  */
+import type { Interest } from '@bleak/api-client';
 import type { Locale } from '#lib/i18n/index';
+import { translate } from '#lib/i18n/locale';
+import { catalogByKey } from '#lib/interests/catalog';
 
-/** The shape the future backend field takes (architecture §8.1). */
-export interface Interest {
-  id: string;
-  label: string;
+export type { Interest } from '@bleak/api-client';
+
+/** One badge chip: numeric key + localized title + emoji. */
+export interface InterestChip {
+  key: number;
+  title: string;
   emoji: string;
 }
 
-/** One preset catalog entry: locale-independent id + per-locale labels. */
-export interface InterestEntry {
-  id: string;
-  emoji: string;
-  labels: Record<Locale, string>;
-}
-
-export const INTEREST_CATALOG: readonly InterestEntry[] = [
-  { id: 'coffee', emoji: '☕', labels: { ru: 'Кофе', en: 'Coffee' } },
-  { id: 'music', emoji: '🎵', labels: { ru: 'Музыка', en: 'Music' } },
-  { id: 'sport', emoji: '⚽', labels: { ru: 'Спорт', en: 'Sport' } },
-  { id: 'travel', emoji: '✈️', labels: { ru: 'Путешествия', en: 'Travel' } },
-  { id: 'books', emoji: '📚', labels: { ru: 'Книги', en: 'Books' } },
-  { id: 'cooking', emoji: '🍳', labels: { ru: 'Кулинария', en: 'Cooking' } },
-  { id: 'photo', emoji: '📷', labels: { ru: 'Фото', en: 'Photography' } },
-  { id: 'games', emoji: '🎮', labels: { ru: 'Игры', en: 'Games' } },
-  { id: 'cycling', emoji: '🚲', labels: { ru: 'Велосипед', en: 'Cycling' } },
-  { id: 'hiking', emoji: '🥾', labels: { ru: 'Походы', en: 'Hiking' } },
-  { id: 'art', emoji: '🎨', labels: { ru: 'Искусство', en: 'Art' } },
-  { id: 'tech', emoji: '💻', labels: { ru: 'Технологии', en: 'Technology' } }
-];
+/** Client-side mirror of the 1..50 rows cap (client pre-flight `ValidationError`). */
+export const MAX_INTERESTS = 50;
 
 const STORAGE_KEY = 'bleak.interests';
 
-function readStorage(): string[] {
+/** Mirror map: `${roomAddress}|${userAddress}` → the persona's interests. */
+type InterestMirror = Record<string, Interest[]>;
+
+function scopeKey(room: string, user: string): string {
+  return `${room}|${user}`;
+}
+
+function isValidRow(row: Partial<Interest>): row is Interest {
+  return (
+    typeof row.title === 'string' &&
+    typeof row.group === 'number' &&
+    Number.isFinite(row.group) &&
+    row.group >= 0 &&
+    typeof row.key === 'number' &&
+    Number.isFinite(row.key) &&
+    row.key >= 0 &&
+    typeof row.user_address === 'string'
+  );
+}
+
+function readStorage(): InterestMirror {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === null) return [];
+    if (raw === null) return {};
     const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((id): id is string => typeof id === 'string');
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const map: InterestMirror = {};
+    for (const [scope, rows] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!Array.isArray(rows)) continue;
+      const valid = rows.filter((row): row is Interest => isValidRow(row as Partial<Interest>));
+      if (valid.length > 0) map[scope] = valid;
+    }
+    return map;
   } catch {
     /* corrupted or unavailable storage — treat as empty */
-    return [];
+    return {};
   }
 }
 
-function writeStorage(ids: readonly string[]): void {
+function writeStorage(map: InterestMirror): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
   } catch {
     /* ignore */
   }
 }
 
-/** Restored selection (ids, insertion order, deduped). */
-export function loadInterestIds(): string[] {
-  const ids = readStorage();
-  return [...new Set(ids)];
+/** The persona's mirrored interests, in stored order (empty when none). */
+export function loadInterests(room: string, user: string): Interest[] {
+  return readStorage()[scopeKey(room, user)] ?? [];
 }
 
-/** Persist a selection; returns the normalized (deduped) list. */
-export function saveInterestIds(ids: readonly string[]): string[] {
-  const next = [...new Set(ids)];
-  writeStorage(next);
+/** Current row count in the mirror (the 1..50 picker cap source). */
+export function interestCount(room: string, user: string): number {
+  return loadInterests(room, user).length;
+}
+
+/**
+ * Mirror write-through: persist an endpoint response (the 201 FULL list or
+ * the 200 REMAINING list) for this persona. Dedupes by key (the server
+ * upserts per user on the key) and clamps to the 1..50 cap; returns the
+ * normalized list.
+ */
+export function saveInterests(room: string, user: string, list: readonly Interest[]): Interest[] {
+  const byKey = new Map<number, Interest>();
+  for (const row of list) {
+    if (isValidRow(row) && !byKey.has(row.key)) byKey.set(row.key, row);
+  }
+  const next = [...byKey.values()].slice(0, MAX_INTERESTS);
+  const map = readStorage();
+  map[scopeKey(room, user)] = next;
+  writeStorage(map);
   return next;
 }
 
-/** Toggle one catalog id in the selection and persist it. */
-export function toggleInterestId(ids: readonly string[], id: string): string[] {
-  return saveInterestIds(
-    ids.includes(id) ? ids.filter((current) => current !== id) : [...ids, id]
-  );
+/** Remove one persona's mirror (used by tests; the API never lists interests). */
+export function clearInterests(room: string, user: string): void {
+  const map = readStorage();
+  delete map[scopeKey(room, user)];
+  writeStorage(map);
 }
 
-export function clearInterests(): void {
-  writeStorage([]);
-}
-
-/** One catalog entry as the flat `Interest` shape for the given locale. */
-export function toInterest(entry: InterestEntry, locale: Locale): Interest {
-  const label = entry.labels[locale] ?? entry.labels.ru;
-  return { id: entry.id, label, emoji: entry.emoji };
-}
-
-/** Selection rendered as `Interest[]` in the given UI locale. */
-export function selectedInterests(ids: readonly string[], locale: Locale): Interest[] {
-  const byId = new Map(INTEREST_CATALOG.map((entry) => [entry.id, entry]));
-  const interests: Interest[] = [];
-  for (const id of ids) {
-    const entry = byId.get(id);
-    if (entry) interests.push(toInterest(entry, locale));
-  }
-  return interests;
+/**
+ * Mirror rows as display chips for the given UI locale: catalog keys are
+ * re-localized (title follows the CURRENT locale, not the one at add time);
+ * unknown keys fall back to the stored title without an emoji.
+ */
+export function displayInterests(rows: readonly Interest[], locale: Locale): InterestChip[] {
+  return rows.map((row) => {
+    const entry = catalogByKey(row.key);
+    return {
+      key: row.key,
+      emoji: entry?.emoji ?? '',
+      title: entry ? translate(locale, entry.titleKey) : row.title
+    };
+  });
 }

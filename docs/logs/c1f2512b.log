@@ -1,0 +1,5 @@
+2026-11-19T21:21:24Z [worker] task 83 in-progress; verification sweep v3.4 started
+2026-11-19T21:23:24Z [worker] verification sweep complete: 3/3 items PASS (sheet-line removal, chat-list dot, spinner); spot-run summary-sheet+chats-page 85/85 green; docs/verification-v34.md written
+2026-11-19T21:23:41Z [worker] NOTE: uncommitted foreign edit observed on apps/web/src/lib/components/chats/ChatCard.svelte during commit prep (dot moved to finished-only, cites owner correction Concept §17.2) — NOT staged, NOT evaluated as a delivered-state finding; recorded in verification-v34.md §3.2 for the process
+2026-11-19T21:23:52Z [worker] handover: commit 359498c on feature/c1f2512b-tz8-03-verify-v34 (doc + session + log); task 83 set ready-for-merge
+2026-11-20T06:22:02Z [worker] correction note appended to verification-v34.md item 2: dot renders FINISHED-only per owner correction (bug #2, bug/d838f57e-chat-dot-finished-only, dev f658f69); state-agnostic rows superseded; corrected chats-page contracts cited; chats-page spot-run green post-correction

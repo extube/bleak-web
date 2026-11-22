@@ -4,8 +4,9 @@
  * state, angle and radius jitter derived from the user address hash, then
  * a collision-avoided layout pass that guarantees distinct hit areas (no
  * node overlap), an exclusion zone around the static "you" chip (reduced
- * in v2.4 — Concept §10.1.2, DESIGN §4.11.2) and on-canvas placement down
- * to phone widths. Same data ⇒ same layout
+ * in v2.4 — Concept §10.1.2, DESIGN §4.11.2; closer still in v3 — Concept
+ * §13.1.6, DESIGN §4.13.6) and on-canvas placement down to phone widths.
+ * Same data ⇒ same layout
  * across polls (AC 2); no DOM access here
  * (unit tests: tests/radar-placement.test.ts).
  *
@@ -26,13 +27,15 @@ import type { RelationshipState } from './relationships';
 export const MAX_RADAR_NODES = 14;
 
 /**
- * Per-ring orbit durations in seconds (DESIGN §4.9.2, owner example): ring
- * 1 (inner, chat) fastest, ring 2 (middle, pending handshakes) a bit
- * slower, ring 3 (outer, none-state) very fast. Motion constants only —
+ * Per-ring orbit durations in seconds (DESIGN §4.9.2, owner example;
+ * SLOWED OVERALL in v3 — Concept §13.1.6, DESIGN §4.13.6: every duration
+ * scaled ×1.5, preserving the per-ring differences exactly — ring 1
+ * (inner, chat) fastest, ring 2 (middle, pending handshakes) a bit
+ * slower, ring 3 (outer, none-state) very fast). Motion constants only —
  * the placement math above is untouched; the page's orbit layers and
  * RadarRings' ring lines read this single source.
  */
-export const RING_ORBIT_DURATIONS_S: readonly [number, number, number] = [60, 90, 20];
+export const RING_ORBIT_DURATIONS_S: readonly [number, number, number] = [90, 135, 30];
 
 /**
  * Ring radii as fractions of the radar's half MAX-dimension (§4.8.3: the
@@ -49,37 +52,38 @@ export const RING_FRACTIONS: readonly [number, number, number] = [0.56, 0.7, 0.8
 /** Radius jitter span: ±6% of the ring radius, derived from the hash. */
 const JITTER_HALF_STEPS = 6; // (hash >>> 8) % 13 - 6 → -6..+6
 
-/** Rendered node avatar (PixelAvatar size, DESIGN §3.2). */
-export const NODE_AVATAR_PX = 44;
+/** Rendered node avatar (PixelAvatar size, DESIGN §3.2; a little smaller
+ * in v3 — Concept §13.1.6, DESIGN §4.13.6: 44 → 40px). */
+export const NODE_AVATAR_PX = 40;
 
 /**
- * Node hit area diameter: circular button = 44px avatar + 2×4px padding
- * (≥ the 48px touch target, §2.6). Circular, so every clearance below is
+ * Node hit area diameter: circular button = 40px avatar + 2×4px padding
+ * (= the 48px touch target, §2.6). Circular, so every clearance below is
  * rotation-invariant — nodes ride the ring spin (§4.8.3c) without ever
  * invalidating a spacing guarantee.
  */
-export const NODE_HIT_DIAMETER_PX = 52;
+export const NODE_HIT_DIAMETER_PX = 48;
 
 /** Minimum center-to-center distance between two nodes: hit area + 8px gap. */
-export const MIN_NODE_DIST_PX = NODE_HIT_DIAMETER_PX + 8; // 60
+export const MIN_NODE_DIST_PX = NODE_HIT_DIAMETER_PX + 8; // 56
 
 /**
  * Minimum distance between the stage center and any node center (§4.8.3b,
- * REDUCED in v2.4 — owner request, Concept §10.1.2, DESIGN §4.11.2): the
- * chip's worst visible-content offset from the stage center — the truncated
- * name line end (name capped at 120px → half 60px, sitting ≈10px off the
- * line's centerline from the chip anchor) ≈ 61px — plus the node hit
- * radius (26px), rounded up. The v2.1 value (128) instead cleared the chip
- * block's empty corners (bounding half-diagonal ≈ 101px + 26px); at 88px a
- * node hit disk still clears every opaque chip element (the 64px avatar
- * circle and the name line) and only the dithered corner padding of the
- * chip background can be grazed. The no-overlap rule between nodes
- * (MIN_NODE_DIST_PX) is untouched.
+ * REDUCED in v2.4 — owner request, Concept §10.1.2, DESIGN §4.11.2 — and
+ * CLOSER STILL in v3 — Concept §13.1.6, DESIGN §4.13.6): the chip's opaque
+ * avatar core is a 64px circle → 32px radius from the stage center; plus
+ * the node's hit radius (24px) = 56px where the two opaque cores exactly
+ * touch, plus an 18px buffer → 74px. At 74px the node's *visible* avatar
+ * (40px → 20px radius) keeps a 22px visible gap from the chip's avatar
+ * circle edge (74 − 32 − 20), while only the transparent hit-padding may
+ * graze the name line's outer end (≈61px from center, text) — the same
+ * grazing policy v2.4 already accepted for the chip background. The
+ * no-overlap rule between nodes (MIN_NODE_DIST_PX) is untouched.
  */
-export const MIN_CENTER_GAP_PX = 88;
+export const MIN_CENTER_GAP_PX = 74;
 
-/** On-canvas margin: node hit radius (26px) + 2px breathing room. */
-export const EDGE_MARGIN_PX = 28;
+/** On-canvas margin: node hit radius (24px) + 2px breathing room. */
+export const EDGE_MARGIN_PX = 26;
 
 export type RingIndex = 0 | 1 | 2;
 

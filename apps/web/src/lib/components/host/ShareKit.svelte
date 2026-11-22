@@ -3,8 +3,9 @@
    * Share kit (DESIGN §3.7 item 4): big 6-digit Handjet code with a copy
    * chip, helper QR PNG in the pixel-cornered light frame
    * (`--color-qr-frame` — the declared functional light exception), the
-   * copyable invite link, "join as attendee" (deep link `/?code=`) and
-   * "create another room". Presentational — the page computes qrSrc.
+   * copyable invite link, "join as attendee" (deep link `/income?code=` —
+   * tz12-02 re-homing) and "create another room". Presentational — the
+   * page computes qrSrc.
    */
   import { resolve } from '$app/paths';
   import { locale, translate } from '#lib/i18n/locale';
@@ -47,7 +48,7 @@
        the route only — the query is appended intentionally, so this one
        href is exempted from svelte/no-navigation-without-resolve. -->
   <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-  <a class="cta" href={`${resolve('/')}?code=${code}`}>{joinLabel}</a>
+  <a class="cta" href={`${resolve('/income')}?code=${code}`}>{joinLabel}</a>
   <button type="button" class="link" onclick={() => oncreateAnother?.()}>{anotherLabel}</button>
 </div>
 

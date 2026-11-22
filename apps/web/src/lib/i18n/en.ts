@@ -5,10 +5,13 @@
  * (parity is CI-enforced, see tests/i18n.test.ts).
  */
 export const en = {
-  /* --- shell / navigation (DESIGN §1.2, §4.7) --- */
+  /* --- shell / navigation (DESIGN §1.2, §4.7, §4.14.2) --- */
   'nav.room': 'Around',
   'nav.people': 'People',
+  'nav.contacts': 'Contacts',
+  'nav.contacts.dot_aria': 'new contacts',
   'nav.chats': 'Chats',
+  'nav.chats.dot_aria': 'new chats',
   'nav.profile': 'Profile',
   'nav.aria': 'Main navigation',
 
@@ -29,6 +32,54 @@ export const en = {
   'join.form.name': 'Name',
   'join.form.public_bio': 'What others see',
   'join.form.private_bio': 'For your agent only',
+  // §4.14.3 creation-form contact input (Concept §14.1.3): local-only
+  // contact card — stored on the device after creation, shared only on
+  // the share slide (never sent at creation).
+  'join.form.contact': 'Your contact',
+  // §24 item 10: the device-storage footer note removed from the chat
+  // (the old `join.form.contact_hint` key is deleted from BOTH
+  // dictionaries — RU/EN parity kept).
+  // §4.16.2 creation wizard (Concept §22.3 item 2): the chat-style
+  // auto-chat interview copy — the mascot asks every question in a bubble.
+  'join.wizard.agent.name': 'Bleak',
+  'join.wizard.log': 'Profile interview',
+  'join.wizard.intro.title': "Hi! I'm Bleak.",
+  // §24 item 6: calm and friendly — the agent explains its role (the
+  // necessary context) and prepares the user for a simple dialog.
+  'join.wizard.intro.line':
+    "I'm your agent — I'll introduce you to the room and talk to other attendees for you. We'll go through a few short questions, no rush — skip anything optional.",
+  'join.wizard.intro.start': 'Start',
+  'join.wizard.name.question': 'What shall we call you?',
+  'join.wizard.name.answer': 'Nice to meet you, {name}!',
+  'join.wizard.public.question': 'A few words about you — other attendees will see this.',
+  'join.wizard.private.question': 'Now something private — for your agent only.',
+  'join.wizard.contact.question': 'Want to leave a contact? Pick which kind.',
+  'join.wizard.contact.skip': 'Skip',
+  'join.wizard.contact.phone': 'Phone',
+  'join.wizard.contact.email': 'Email',
+  // §23.2 5.4: instead of a "Messenger" kind — a nickname field with the
+  // suggested prefixes (tg:@ / signal:@ / inst:@), appendable.
+  'join.wizard.contact.nickname': 'Nickname',
+  'join.wizard.contact.enter': 'Enter your {kind}.',
+  'join.wizard.interests.question': 'What are you into? Pick a theme.',
+  'join.wizard.interests.pick_question': 'What do you like in {group}? Pick as many as you like.',
+  // §23.2 5.7: a finished theme returns to the theme badges until "Ready".
+  'join.wizard.interests.done': 'Done with theme',
+  'join.wizard.interests.skip': 'Skip',
+  'join.wizard.themes.ready': 'Ready',
+  // §23.2 5.1: send happens on Enter or the button right of the input
+  // (iOS Messages style); each input carries a current/max counter.
+  'join.wizard.send': 'Send',
+  'join.wizard.counter': '{n}/{max}',
+  // §24 item 8: the quick-clear "x" in the input pill.
+  'join.wizard.clear': 'Clear',
+  // §23.2 5.3: a placeholder example for every input case.
+  'join.wizard.placeholder.name': 'e.g. Ann',
+  'join.wizard.placeholder.public': 'I am a backend dev',
+  'join.wizard.placeholder.private': 'Looking for a hackathon team',
+  'join.wizard.placeholder.contact_value': '+1 555 010 1234',
+  'join.wizard.placeholder.contact_nick': 'e.g. durov',
+  'join.wizard.creating': 'Creating your profile…',
   'join.error.name_taken': 'That name is already taken in the room.',
   'join.error.gone': 'This event is no longer available.',
   'join.error.name_required': 'Enter your name.',
@@ -97,24 +148,21 @@ export const en = {
   'hs.income_limit': 'Outgoing handshake limit reached — receive handshakes first.',
   'hs.error.network': 'Connection lost. Check the Wi-Fi.',
 
-  /* --- people (DESIGN §3.3, §4.7) --- */
+  /* --- people (DESIGN §3.3, §4.7; reworked §4.15.4.3) --- */
   'people.title': 'People',
   'people.subtitle': 'Everyone in the room.',
   'people.empty': 'The room is empty so far.',
   'people.search.placeholder': 'Search by name or bio…',
-  'people.filter.all': 'All',
-  'people.filter.sent': 'Sent',
-  'people.filter.added': 'Added you',
-  'people.filter.chatting': 'Chatting',
   'people.empty_search': 'Nobody matches “{q}”',
   'people.reset': 'Reset',
   'people.search.label': 'Search people',
-  'people.filters': 'Status filter',
   'people.action.send': 'Send handshake to {name}',
-  'people.action.dialog': 'Open dialog with {name}',
-  'people.action.expand': '{name} — show actions',
-  'people.action.collapse': '{name} — hide actions',
   'people.dismiss': 'Dismiss',
+  // §4.15.4.3 (Concept §19.3): "handshake back" → "handshake!" — the
+  // handshake-back button copy; the "chatting" badge is replaced by the
+  // "Open chat" button (navigates the way the removed icon did).
+  'people.action.back': 'handshake!',
+  'people.action.open_chat': 'Open chat',
 
   /* --- chats (DESIGN §3.4/§3.5, §4.7) --- */
   'chats.title': 'Chats',
@@ -134,6 +182,47 @@ export const en = {
     'The dialog history will be cleared and the agents will start over. The sender of the earliest handshake speaks first.',
   'chat.kickoff.confirm_run': 'Restart',
   'chat.contact_stub': 'Share contact — coming later',
+  // §4.13.3 contact share (Concept §13.1.3): the dialog footer's slide
+  // control + the local contact-card field + the received list.
+  'chat.contact_share.label': 'Swipe right to share your contact',
+  'chat.contact_share.shared': 'Contact already shared',
+  // §4.15.C-8/§4.15.E (Concept §15.3): the SHEET-variant slide's copy —
+  // "Slide to share contact" + the completion text; the 409 "already
+  // shared" label above stays unchanged (reused unchanged).
+  'chat.contact_share.sheet_label': 'Slide to share contact',
+  'chat.contact_share.shared_done': 'Contact shared!',
+  'chat.contact_share.locked': 'Available once the dialog is finished',
+  'chat.contact_share.no_card': 'Add your contact card in profile settings',
+  'chat.contact_share.error': 'Could not share the contact — try again.',
+  // §4.13.5 summary sheet (Concept §13.1.5): the finished-chat sheet heading,
+  // its checklist heading and the donut's accessible name. The checkpoint
+  // LABELS are server-provided English — displayed verbatim, never i18n'd.
+  'chat.summary.title': 'Meeting summary',
+  'chat.summary.checklist': 'Networking checklist',
+  'chat.summary.score.aria': 'Match: {score} out of 100',
+  'chat.summary.loading': 'Summarizing the dialog…',
+  // §4.15.B/E (Concept §15.2): the footer summarization button — enabled
+  // ("Meeting summary") it opens the summary sheet on demand; disabled it
+  // carries the "dialog in progress" phrase.
+  'chat.summary.open': 'Meeting summary',
+  'chat.summary.open.disabled': 'Dialog in progress',
+  // §4.15.C-5/C-6 (Concept §15.3): the match-tier labels (80/50 thresholds
+  // per the owner revision, 2026-11-20); the chat.summary.me caption key is
+  // removed — v3.7 owner amendment, the name captions under the avatars are
+  // gone (2026-11-20).
+  'chat.summary.tier.great': 'Great match',
+  'chat.summary.tier.good': 'Good chat',
+  'chat.summary.tier.low': 'Different vibes',
+  'profile.contact.edit': 'Contact card',
+  'profile.contact.label': 'Your contact card',
+  'profile.contact.note':
+    'For example: telegram: @handle. Only people you share it with see it.',
+  // §4.14.2 contacts footer page (Concept §14.1.2): the /contacts tab is the
+  // PRIMARY "shared with you" surface — the §4.13.3 settings-side list is
+  // superseded (its keys retired with the list).
+  'contacts.title': 'Contacts',
+  'contacts.subtitle': 'Contacts shared with you',
+  'contacts.empty': 'Nobody has shared a contact with you yet.',
   'chat.not_found': 'Dialog not found — it may have been deleted.',
   'chat.back_to_list': 'Back to dialogs',
   'chat.scroll_bottom': 'Jump to latest',
@@ -158,11 +247,77 @@ export const en = {
   'profile.badge.for_agent': 'For your agent',
   'profile.private_bio.caption': 'only your agent sees this',
   'profile.interests.title': 'Interests',
-  'profile.interests.edit': 'Interests',
-  'profile.interests.add': 'Add interests',
-  'profile.interests.done': 'Done',
-  'profile.interests.note': 'Interests are visible on your profile only.',
+  // §23.2 5.6: interests are set AT CREATION ONLY (the wizard's themes) —
+  // the settings editor is removed; the mirror stays for the badge.
   'profile.interests.empty': 'No interests yet',
+
+  // §23.2 5.5 THEMES model (interest group → theme; the slugs live in the
+  // title string `theme:topic_key`, the numeric group/key pair stays the
+  // server contract; keys referenced by the catalog module).
+  'interests.group.0': 'Music',
+  'interests.group.1': 'Sport',
+  'interests.group.2': 'Food & drinks',
+  'interests.group.3': 'Art',
+  'interests.group.4': 'Computers',
+  'interests.group.5': 'Science',
+  'interests.group.6': 'Architecture',
+  'interests.group.7': 'Travel',
+  // 0 — music
+  'interests.k1': 'Classical',
+  'interests.k2': 'Rock',
+  'interests.k3': 'Jazz',
+  'interests.k4': 'Rap',
+  'interests.k5': 'Electronic',
+  'interests.k6': 'Indie',
+  // 1 — sport
+  'interests.k7': 'Ice hockey',
+  'interests.k8': 'Running',
+  'interests.k9': 'Football',
+  'interests.k10': 'Yoga',
+  'interests.k11': 'Hiking',
+  'interests.k12': 'Cycling',
+  // 2 — food & drinks
+  'interests.k13': 'Coffee',
+  'interests.k14': 'Tea',
+  'interests.k15': 'Cooking',
+  'interests.k16': 'Wine',
+  'interests.k17': 'Desserts',
+  'interests.k18': 'Street food',
+  // 3 — art
+  'interests.k19': 'Painting',
+  'interests.k20': 'Photography',
+  'interests.k21': 'Cinema',
+  'interests.k22': 'Books',
+  'interests.k23': 'Theatre',
+  'interests.k24': 'Design',
+  // 4 — computers
+  'interests.k25': 'Programming',
+  'interests.k26': 'AI',
+  'interests.k27': 'Games',
+  'interests.k28': 'Gadgets',
+  'interests.k29': 'Open source',
+  'interests.k30': 'Hardware',
+  // 5 — science
+  'interests.k31': 'Physics',
+  'interests.k32': 'Biology',
+  'interests.k33': 'Space',
+  'interests.k34': 'Math',
+  'interests.k35': 'Chemistry',
+  'interests.k36': 'Robotics',
+  // 6 — architecture
+  'interests.k37': 'Modernism',
+  'interests.k38': 'Gothic',
+  'interests.k39': 'Urbanism',
+  'interests.k40': 'Interiors',
+  'interests.k41': 'Bridges',
+  'interests.k42': 'Monuments',
+  // 7 — travel
+  'interests.k43': 'Backpacking',
+  'interests.k44': 'Road trips',
+  'interests.k45': 'Camping',
+  'interests.k46': 'Sea',
+  'interests.k47': 'Cities',
+  'interests.k48': 'Mountains',
   // §8.1.5: exactly three stats — Sent (ex "Handshakes"), Added you,
   // Chatting (ex "Dialogs").
   'profile.stats.handshakes_label': 'Sent',
@@ -248,6 +403,48 @@ export const en = {
     "The member's dialog list arrives with the server-side amendment (flag 6.9a).",
   'host.drill.kickoff': 'Restart',
   'host.drill.dialogs': 'Dialogs',
+
+  /* --- landing v3.14 (Concept §31+§32, DESIGN §4.20.M — the owner rejected
+   --- the §31 landing and ordered a rebuild from zero per their example;
+   --- all 35 keys verbatim from the §4.20.M table, RU/EN parity) --- */
+  'landing.tagline.left.1': 'NETWORKING IS A GAME.',
+  'landing.tagline.left.2': 'THE AGENT PLAYS IT FOR YOU.',
+  'landing.tagline.top': 'NO SMALL TALK. JUST REAL CONNECTIONS.',
+  'landing.tagline.right.1': 'BUILT FOR PEOPLE.',
+  'landing.tagline.right.2': 'RUN BY AGENTS.',
+  'landing.headline.1': 'THE RIGHT',
+  'landing.headline.2': 'CONNECTIONS',
+  'landing.headline.accent': 'YOU',
+  'landing.sub':
+    'An event app where AI agents break the ice for you — you arrive at every meeting already warmed up.',
+  'landing.cta': 'START',
+  'landing.dialog.line1': '* The agent says hello…',
+  'landing.dialog.line2': '* Your agent already found three matches.',
+  'landing.dialog.line3': '* Match accepted. Contact exchange in a minute.',
+  'landing.hero.aria':
+    'Pixel scene: a person meets their AI agent under a glowing network node',
+  'landing.stat.title': 'REAL PEOPLE. REAL RESULTS.',
+  'landing.stat.line1': 'No empty chats.',
+  'landing.stat.line2': 'No cold DMs.',
+  'landing.stat.line3': 'Only encounters that matter.',
+  'landing.agent.name': 'VECTOR',
+  'landing.agent.badge': 'AGENT · Lv 1',
+  'landing.agent.traits': 'SWIFT · SHARP · LOYAL',
+  'landing.agent.quote': '"I break the ice. You keep the contact."',
+  'landing.agent.cta': 'TALK',
+  'landing.chat.label': 'LIVE AGENT CHAT',
+  'landing.chat.bubble1': "Hi! I'm Glitch — Dana's agent.",
+  'landing.chat.bubble2': "Hey. I'm here for the AI track.",
+  'landing.chat.bubble3': "Then you'll get along. Dana built the demo you starred.",
+  'landing.chat.bubble4': 'Send her my contacts!',
+  'landing.chat.aria':
+    'Animation: the agent Glitch and the attendee Pip exchange messages',
+  'landing.tutorial.search': 'FIND',
+  'landing.tutorial.chat': 'CHAT',
+  'landing.tutorial.share': 'SHARE',
+  'landing.footer.line': 'EVERY CONNECTION MATTERS.',
+  'landing.footer.badge': 'START NOW — 6 DIGITS TO JOIN',
+  'landing.footer.copyright': 'bleak-web · 2026',
 
   /* --- global 401 gate (DESIGN rev. 3 §2.8, §4.7) --- */
   'auth.401.notice':
