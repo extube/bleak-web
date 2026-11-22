@@ -1,5 +1,57 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.19 ROUND NOTE (§37 owner correction — "Not, is not what I want":
+> open state + transparent lead + true liquid-glass header, Concept §37 —
+> appended by the process 2026-11-22, post-round three-gate run GREEN:
+> lint clean · 967 tests total (49 api-client + 8 helper + 910 web, 52
+> files; landing suite 52) · build 0 errors, dev `6263fb4`):**
+> **Landing adjusted per ALL 3 §37 items** (task 125, worker `221c49f3`;
+> design-first — design instance `2e68e6a5` wrote DESIGN §4.25; item 3
+> carries the owner's EXACT css values verbatim): (1) **default open
+> state** — header `position: fixed; top: 0` (video scrolls directly
+> underneath; flow height zero), hero row `min-height: 100dvh` +
+> `align-content/align-items: center` — desktop shows ONLY the lead
+> (col 1) + BLEAK (col 3) vertically centered with the middle third empty;
+> phone: `.area-lead` = the 100dvh first screen (Start block centered),
+> BLEAK next in flow; stat/steps/footer below the fold (scroll-only); the
+> §36 `calc(200dvh / 3)` spacer DELETED (negative AC); (2) **transparent
+> borderless lead** — all pixel-frame classes dropped, transparent body,
+> no border/fill/radius/shadow; legibility = token text-shadow halo on
+> headline+sub (accent keeps its violet glow); Start pill unchanged →
+> /income; supersedes §36 item 2 opaque+pixel-frame for this block; (3)
+> **true liquid-glass header — the owner's exact values, verbatim**:
+> `background: rgba(20, 20, 30, 0.25)`; `backdrop-filter: blur(16px)
+> saturate(180%)` (+-webkit-); `border-top/bottom: 1px solid
+> rgba(255, 255, 255, 0.15)` (sides none); `box-shadow: inset 0 1px 0
+> rgba(255, 255, 255, 0.15)` inner highlight; rounding kept (radius-lg/md
+> — owner silent); width `max(80%, 280px)` centered (breakout math
+> retired); keep-list unchanged; the §4.24 two-tier 92/88% fill DELETED;
+> `@supports not(...)` fallback `rgba(20, 20, 30, 0.85)`. i18n zero delta
+> (23/23). Keep: fixed video layer + attrs/gating, dissolve + dots,
+> thirds-with-empty-middle, BLEAK/БЛИК, step blocks, contact footer,
+> income surfaces, RU/EN.
+> **AA tradeoff recorded (§4.25.C — owner-order exception):** at 0.25 tint
+> + blur, worst-case bright video frames put muted nav ≈1.1:1 / text
+> ≈2.5:1 (FAIL); over the owner's near-black video ≥4.5:1 holds. The
+> owner's exact values win; residual risk routed to the owner's real-
+> device smoke — remedies (higher tint opacity / nav text treatment) need
+> owner sign-off if smoke fails (§4.25.H flag 1). Smoke notes: the rounded
+> top corners sit flush at `top: 0`; short viewports tuck content under
+> the glass on scroll. §4.24.J statuses updated (1 resolved — clamp stands;
+> 2 moot — 88% band replaced; 3 moot — spacer gone).
+> Manual checks for the owner: the landing on phone + desktop (first
+> viewport = ONLY lead + BLEAK vertically centered over the video, third
+> thirds column empty, glass header with the exact blur/tint/border over
+> the scrolling video, transparent borderless lead legible in BOTH
+> locales, everything else below the fold), Start/TALK → /income,
+> reduced-motion (static near-black + halo reads).
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — this round
+> the worker committed code-only and the process's pathspec landing folded
+> the doc amendments in (verified clean); devops `-D` branch-cleanup list
+> adds `feature/221c49f3-tz12-09-open-state-glass` (8 branches total);
+> owner refs stay untracked.
+
 > **v3.18 ROUND NOTE (§36 80% widths + opaque narrower lead + thirds layout
 > + phone open state, Concept §36 — appended by the process 2026-11-22,
 > post-round three-gate run GREEN: lint clean · 966 tests total (49
