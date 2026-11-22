@@ -1,8 +1,13 @@
-/** Landing page tests (tz12-10, Concept §38 owner batch, DESIGN §4.26
- * amending §4.25 item by item): the §38 batch lands on the video-background
- * landing — (1) §4.26.A the DETACHED floating glass header: the owner's
+/** Landing page tests (tz12-12, Concept §40 owner batch, DESIGN §4.28
+ * amending §4.27 item by item — building on the §4.26/§4.27 rounds):
+ * §4.28 adds the v3.22 font ladder (titles/descriptions/captions/
+ * badges-pills, the negatives §4.28.E) + the §40 phone widths
+ * (.landing/.top share max(90%, 280px), the dropped inline padding,
+ * desktop 80/90 unchanged). Earlier rounds' contracts below: (1) §4.26.A
+ * the DETACHED floating glass header: the owner's
  * EXACT §38.1 values verbatim — position: fixed; top: 24px, left/right 0 +
- * margin-inline auto, width 90% max-width 1200px, border-radius
+ * margin-inline auto, width max(90%, 280px) (§4.28.F shared floor)
+ * max-width 1200px, border-radius
  * var(--radius-md) (20px) at every width, background rgba(18, 15, 28, 0.35),
  * backdrop-filter blur(18px) saturate(180%) (both prefixes), the FULL 1px
  * rgba(255, 255, 255, 0.2) border + the inset white highlight, the
@@ -239,24 +244,30 @@ describe('/ — the §4.26.A detached floating glass header (icon + nav + switch
     expect(container.querySelector('header.top .start-link')).toBeNull();
   });
 
-  it('the header is FIXED, DETACHED from the top edge (§4.26.A): position: fixed; top: 24px — out of the content flow (the video scrolls through the 24px gap above it and directly underneath), z-index 10, sized against the viewport: width 90% + max-width 1200px + margin-inline auto with left/right 0 (deliberately WIDER than the 80% content column, §4.26.O.5 — do not "harmonize")', () => {
+  it('the header is FIXED, DETACHED from the top edge (§4.26.A): position: fixed; top: 24px — out of the content flow (the video scrolls through the 24px gap above it and directly underneath), z-index 10, sized against the viewport: width max(90%, 280px) (§4.28.F — the SHARED floor, the same expression as .landing on phone so the edges align) + max-width 1200px + margin-inline auto with left/right 0; desktop keeps the 80% content / 90% header split (§4.26.O.5, the floor is inert ≥720px)', () => {
     const css = source('src/routes/+page.svelte');
     expect(css).toMatch(/\.top\s*\{[^}]*position:\s*fixed/);
     expect(css).toMatch(/\.top\s*\{[^}]*top:\s*24px/);
     // NOT sticky — the sticky position retires (§4.25.D.5)
     expect(css).not.toMatch(/\.top\s*\{[^}]*position:\s*sticky/);
     expect(css).toMatch(/\.top\s*\{[^}]*z-index:\s*10/);
-    // the owner's §38 width: 90% capped at 1200px, centered
-    expect(css).toMatch(/\.top\s*\{[^}]*width:\s*90%/);
+    // §4.28.F: the header carries the SAME max(90%, 280px) expression as
+    // .landing on phone (the shared floor) + the §38 cap and centering
+    expect(css).toMatch(/\.top\s*\{[^}]*width:\s*max\(90%, 280px\)/);
     expect(css).toMatch(/\.top\s*\{[^}]*max-width:\s*1200px/);
     expect(css).toMatch(/\.top\s*\{[^}]*margin-inline:\s*auto/);
     expect(css).toMatch(/\.top\s*\{[^}]*left:\s*0/);
     expect(css).toMatch(/\.top\s*\{[^}]*right:\s*0/);
-    // the §4.25.C header width expression is SUPERSEDED (§4.26.K.2)...
+    // the §4.26.O.5 header width expression is SUPERSEDED (§4.28.G.9)...
     const topRule = css.match(/\.top\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(topRule).not.toMatch(/width:\s*90%/);
     expect(topRule).not.toMatch(/max\(80%, 280px\)/);
-    // ...while the CONTENT container rule stands (§4.24.A unchanged)
-    expect(css).toMatch(/\.landing\s*\{[^}]*width:\s*max\(80%, 280px\)/);
+    // ...while the CONTENT container carries the shared phone width
+    // (§4.28.F) and restores the §4.24.A 80% at ≥720px
+    expect(css).toMatch(/\.landing\s*\{[^}]*width:\s*max\(90%, 280px\)/);
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.landing\s*\{[^}]*width:\s*max\(80%, 280px\)/
+    );
     // no vw units anywhere in the header geometry
     expect(topRule).not.toMatch(/vw/);
     // desktop row height + padding (§4.23.B) — unchanged inner chrome
@@ -692,9 +703,9 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     const baseStage = css.match(/\.stage\s*\{[\s\S]*?\n\s*\}/)?.[0] ?? '';
     expect(baseStage).toMatch(/display:\s*flex/);
     expect(baseStage).not.toMatch(/grid|position/);
-    // the §4.24.A container: 80% of the screen, floored at 280px (the
-    // 1000px cap retires as a width rule)
-    expect(css).toMatch(/\.landing\s*\{[^}]*width:\s*max\(80%, 280px\)/);
+    // §4.28.F the container: max(90%, 280px) on phone — the SHARED floor
+    // with the header (the 1000px cap retires as a width rule)
+    expect(css).toMatch(/\.landing\s*\{[^}]*width:\s*max\(90%, 280px\)/);
     expect(css).not.toMatch(/max-width:\s*1000px/);
     // the fixed video layer is viewport-sized (width 100% — no overflow
     // at 320px; the layer itself never scrolls)
@@ -716,14 +727,16 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     expect(canvasRules.every((r) => !r.includes('padding-top'))).toBe(true);
     const landingRules = [...css.matchAll(/\.landing\s*\{[^}]*\}/g)].map((m) => m[0]);
     expect(landingRules.every((r) => !r.includes('padding-top'))).toBe(true);
-    // the retired top padding: 0 top, inline + bottom per breakpoint
-    expect(css).toMatch(/\.landing\s*\{[^}]*padding:\s*0 var\(--space-5\) var\(--space-5\)/);
+    // the retired top padding: 0 top; §4.28.F — the phone INLINE padding
+    // is DROPPED (the blocks span edge-to-edge, aligned with the header),
+    // the bottom padding stays; desktop restores the --space-7 gutters
+    expect(css).toMatch(/\.landing\s*\{[^}]*padding:\s*0 0 var\(--space-5\)/);
     expect(css).toMatch(
       /@media \(min-width: 720px\)\s*\{[\s\S]*?\.landing\s*\{[^}]*padding:\s*0 var\(--space-7\) var\(--space-7\)/
     );
   });
 
-  it('the lead is NARROWER (§4.24.C): it fills its thirds column (≈ 288px at 1280) — the fit-content/560px sizing retires; the desktop headline adapts via clamp(22px, 3.5vw, 44px)', () => {
+  it('the lead is NARROWER (§4.24.C): it fills its thirds column (≈ 288px at 1280) — the fit-content/560px sizing retires; the desktop headline adapts via clamp(28px, 4vw, 48px) (§4.28.A — the bump forces the re-check so the lead stays dominant over the 28px .agent-name: 28.8px at 720px, capped 48px from 1200px up)', () => {
     const css = source('src/routes/+page.svelte');
     // the lead fills its grid column (100% of the third), phone full-width
     expect(css).toMatch(/\.copy\s*\{[^}]*width:\s*100%/);
@@ -731,14 +744,20 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     expect(css).not.toMatch(/fit-content/);
     const copyRule = css.match(/\.copy\s*\{[^}]*\}/)?.[0] ?? '';
     expect(copyRule).not.toMatch(/max-width/);
-    // the §4.24.C headline size amendment: clamp at ≥720px (phone sizes
-    // unchanged: 36px / 44px ≥ 480px)
-    expect(css).toMatch(/\.headline\s*\{[^}]*font-size:\s*36px/);
-    expect(css).toMatch(/@media \(min-width: 480px\)\s*\{[\s\S]*?\.headline\s*\{[^}]*font-size:\s*44px/);
+    // §4.28.A the headline ladder: 40px base (48px ≥480px) + the adjusted
+    // clamp at ≥720px
+    expect(css).toMatch(/\.headline\s*\{[^}]*font-size:\s*40px/);
+    expect(css).toMatch(/@media \(min-width: 480px\)\s*\{[\s\S]*?\.headline\s*\{[^}]*font-size:\s*48px/);
     expect(css).toMatch(
-      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.headline\s*\{[^}]*font-size:\s*clamp\(22px, 3\.5vw, 44px\)/
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.headline\s*\{[^}]*font-size:\s*clamp\(28px, 4vw, 48px\)/
     );
-    expect(css).not.toMatch(/font-size:\s*64px/);
+    // the superseded §4.27.B/§4.26 values are gone everywhere (comment-
+    // stripped: comments are prose and may name retired values)
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(stripped).not.toMatch(/font-size:\s*36px/);
+    expect(stripped).not.toMatch(/font-size:\s*44px/);
+    expect(stripped).not.toMatch(/clamp\(22px, 3\.5vw, 44px\)/);
+    expect(stripped).not.toMatch(/font-size:\s*64px/);
   });
 
   it('the fixed video layer is a decorative aria-hidden div — NO region role, NO accessible name (§4.23.E.6); the lead is TRANSPARENT and BORDERLESS (§4.25.B — §37.2): no pixel frame, no solid panel, no border, no glass — legibility via the token-only text halo ONLY', () => {
@@ -963,10 +982,11 @@ describe('/ — the §4.22.F black page background (scoped to /)', () => {
     );
     const page = source('src/routes/+page.svelte');
     expect(page).toMatch(/\.landing-page\s*\{[^}]*min-height:\s*100dvh[^}]*background:\s*var\(--color-landing-bg\)/);
-    // the §4.24.A ONE container rule: max(80%, 280px) wide, centered —
-    // every section lives inside the one 80% column (the 1000px canvas
-    // cap retires as a width rule, §4.24.F.2)
-    expect(page).toMatch(/\.landing\s*\{[^}]*width:\s*max\(80%, 280px\)[^}]*margin-inline:\s*auto/);
+    // the §4.24.A ONE container rule, §4.28.F amendment: max(90%, 280px)
+    // on phone (shared with the header), centered — every section lives
+    // inside the one column (the 1000px canvas cap retires as a width
+    // rule, §4.24.F.2; the ≥720px media restores max(80%, 280px))
+    expect(page).toMatch(/\.landing\s*\{[^}]*width:\s*max\(90%, 280px\)[^}]*margin-inline:\s*auto/);
   });
 
   it('no new hex anywhere in the landing sources; the accent is the approved violet token', () => {
@@ -1023,7 +1043,7 @@ describe('/ — the §4.20 unchanged zones (headline, cards, steps, footer) as r
     );
   });
 
-  it('renders the stat card compact (§4.21.F): minimized padding, 17px title, 44/48px BLOOM', () => {
+  it('renders the stat card compact (§4.21.F): minimized padding, 21px title (§4.28.A), 44/48px BLOOM', () => {
     const { container } = render(LandingPage, { props: {} });
     const stat = container.querySelector('.stat-card');
     expect(stat?.querySelector('.stat-title')?.textContent).toBe(ru['landing.stat.title']);
@@ -1035,9 +1055,9 @@ describe('/ — the §4.20 unchanged zones (headline, cards, steps, footer) as r
     const css = source('src/routes/+page.svelte');
     expect(css).toMatch(/\.stat-body\s*\{[^}]*padding:\s*12px 14px/);
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stat-body\s*\{[^}]*padding:\s*16px 20px/);
-    expect(css).toMatch(/\.stat-title\s*\{[^}]*font-size:\s*17px/);
-    // §4.27.B: the banner's mini-lines share the one description bump
-    expect(css).toMatch(/\.stat-line\s*\{[^}]*font-size:\s*15px/);
+    expect(css).toMatch(/\.stat-title\s*\{[^}]*font-size:\s*21px/);
+    // §4.28.B: the banner's mini-lines share the one description bump
+    expect(css).toMatch(/\.stat-line\s*\{[^}]*font-size:\s*17px/);
     expect(css).toMatch(/\.stat-line\s*\{[^}]*line-height:\s*1\.35/);
     expect(css).toMatch(/margin:\s*0 0 2px/);
     expect(css).toMatch(/\.stat-glyph :global\(svg\)\s*\{[^}]*width:\s*44px/);
@@ -1097,30 +1117,33 @@ describe('/ — the §4.20 unchanged zones (headline, cards, steps, footer) as r
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.step-block \.step-body\s*\{[^}]*min-height:\s*300px/);
   });
 
-  it('§4.27.B the description font bumps: ONE consistent +2px — .step-desc, .privacy-desc, .stat-line and .agent-quote ALL compute font-size: 15px (was 13px), with family/color/line-height otherwise unchanged; the explicit negatives hold — the lead .sub stays 14px (16px ≥720px) and the join input stays 14px', () => {
+  it('§4.28.B the description ladder: ONE consistent value — .step-desc, .privacy-desc, .stat-line and .agent-quote ALL compute font-size: 17px (§4.27.B\'s 15px superseded), with family/color/line-height otherwise unchanged; the lead .sub joins the description tier at 16px (18px ≥720px) and the join input stays 14px (§4.28.E.3)', () => {
     const css = source('src/routes/+page.svelte');
     // the four description classes carry the SAME bumped value
     for (const cls of ['step-desc', 'privacy-desc', 'stat-line', 'agent-quote']) {
       const rule = css.match(new RegExp(`\\.${cls}\\s*\\{[^}]*\\}`))?.[0] ?? '';
-      expect(rule, `.${cls} carries the 15px bump`).toMatch(/font-size:\s*15px/);
+      expect(rule, `.${cls} carries the 17px bump`).toMatch(/font-size:\s*17px/);
       expect(rule, `.${cls} keeps the Inter body family`).toMatch(
         /font-family:\s*var\(--font-body\)/
       );
       expect(rule, `.${cls} lost no color declaration`).toMatch(
         /color:\s*var\(--color-(text|text-muted)\)/
       );
-      expect(rule, `.${cls} did not keep the old 13px`).not.toMatch(/font-size:\s*13px/);
+      expect(rule, `.${cls} did not keep the old 15px`).not.toMatch(/font-size:\s*15px/);
     }
     // existing line-heights unchanged
     expect(css).toMatch(/\.stat-line\s*\{[^}]*line-height:\s*1\.35/);
-    // negatives: the lead sub and the join input are NOT card descriptions
-    expect(css).toMatch(/\.sub\s*\{[^}]*font-size:\s*14px/);
+    // the lead .sub joins the ladder: 16px (18px ≥720px) — §4.27.B's
+    // "stays 14px/16px" negative is superseded (§4.28.G.1)
+    expect(css).toMatch(/\.sub\s*\{[^}]*font-size:\s*16px/);
     expect(css).toMatch(
-      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.sub\s*\{[^}]*font-size:\s*16px/
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.sub\s*\{[^}]*font-size:\s*18px/
     );
+    expect(css).not.toMatch(/\.sub\s*\{[^}]*font-size:\s*14px/);
+    // the join input is a form control, not a description display — stays 14px
     const joinInput = css.match(/\.join-input\s*\{[^}]*\}/)?.[0] ?? '';
     expect(joinInput).toMatch(/font-size:\s*14px/);
-    expect(joinInput).not.toMatch(/font-size:\s*15px/);
+    expect(joinInput).not.toMatch(/font-size:\s*17px/);
   });
 
   it('renders ONE site contact block: the kept copyright row + EMAIL/GITHUB links, resurfaced as the dark glass pill (§4.26.D — the pixel-frame construction retired from it)', () => {
@@ -1345,7 +1368,7 @@ describe('/ — §4.26.B the banner: REAL PEOPLE. REAL RESULTS. becomes liquid g
     expect(badgeCss).toMatch(/padding:\s*2px/);
     expect(badgeCss).toMatch(/margin:\s*0 0 var\(--space-2\)/);
     const inner = css.match(/\.stat-badge > span\s*\{[^}]*\}/)?.[0] ?? '';
-    expect(inner).toMatch(/font-size:\s*11px/);
+    expect(inner).toMatch(/font-size:\s*13px/); // §4.28.D: 11→13
     expect(inner).toMatch(/letter-spacing:\s*0\.08em/);
     expect(inner).toMatch(/text-transform:\s*uppercase/);
   });
@@ -1369,7 +1392,7 @@ describe('/ — §4.26.B the banner: REAL PEOPLE. REAL RESULTS. becomes liquid g
     expect(css).toMatch(
       /@keyframes status-pulse\s*\{[\s\S]*?from\s*\{[^}]*opacity:\s*1[\s\S]*?to\s*\{[^}]*opacity:\s*0\.4/
     );
-    expect(css).toMatch(/\.stat-status\s*\{[^}]*font-size:\s*11px/);
+    expect(css).toMatch(/\.stat-status\s*\{[^}]*font-size:\s*13px/); // §4.28.C: 11→13
     expect(css).toMatch(
       /\.stat-status\s*\{[^}]*text-shadow:\s*0 0 8px color-mix\(in srgb, var\(--color-deepa-1\) 45%, transparent\)/
     );
@@ -1435,7 +1458,7 @@ describe('/ — §4.26.C the step cards: glass fill + hover glow/lift + illustra
     }
   });
 
-  it('the bottom micro-pills render EXACTLY (AC 11): RANGE: 50M • REAL-TIME GPS / AUTO-INTRO • ZERO AWKWARDNESS / INSTANT SYNC • MUTUAL OPT-IN (RU per §4.26.L), as pill chips (Handjet 10/11px uppercase, deepa-4 text + 40% border, radius-pill), pinned to the card bottom on desktop (margin-top: auto)', () => {
+  it('the bottom micro-pills render EXACTLY (AC 11): RANGE: 50M • REAL-TIME GPS / AUTO-INTRO • ZERO AWKWARDNESS / INSTANT SYNC • MUTUAL OPT-IN (RU per §4.26.L), as pill chips (Handjet 12/13px uppercase, §4.28.D — 10/11px superseded, deepa-4 text + 40% border, radius-pill), pinned to the card bottom on desktop (margin-top: auto)', () => {
     const { container } = render(LandingPage, { props: {} });
     const pills = [...container.querySelectorAll('.step-pill')];
     expect(pills.map((p) => p.textContent?.trim())).toEqual([
@@ -1452,11 +1475,14 @@ describe('/ — §4.26.C the step cards: glass fill + hover glow/lift + illustra
     expect(pill).toMatch(/border:\s*1px solid color-mix\(in srgb, var\(--color-deepa-4\) 40%, transparent\)/);
     expect(pill).toMatch(/border-radius:\s*var\(--radius-pill\)/);
     expect(pill).toMatch(/color:\s*var\(--color-deepa-4\)/);
-    expect(pill).toMatch(/font-size:\s*10px/);
+    expect(pill).toMatch(/font-size:\s*12px/);
     expect(pill).toMatch(/padding:\s*4px 10px/);
     expect(css).toMatch(/\.step-pill\s*\{[^}]*margin-top:\s*var\(--space-3\)/);
     expect(css).toMatch(
       /@media \(min-width: 720px\)\s*\{[\s\S]*?\.step-pill\s*\{[^}]*margin-top:\s*auto/
+    );
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.step-pill\s*\{[^}]*font-size:\s*13px/
     );
   });
 });
@@ -1788,6 +1814,115 @@ describe('/ — §4.26.E–I the four new sections + the GET EARLY ACCESS stub',
     expect(page).not.toMatch(/\bfetch\(/);
     expect(page).toMatch(/type="text"/);
     expect(page).toMatch(/inputmode="email"/);
+  });
+});
+
+describe('/ — §4.28 the v3.22 font ladder + the §40 phone widths (tz12-12)', () => {
+  it('§4.28.A–D the COMPLETE bump ladder: every bumped class computes exactly the tabled value — titles (.agent-name 28, .stat-title 21, .step-title 24, .section-title 24, .join-headline 24/28, .privacy-title 16, .sim-agent-name 16), descriptions (.step-desc/.privacy-desc/.stat-line/.agent-quote 17), captions (.stat-status 13, .sim-status 14, .agent-traits 13), badges/pills (.stat-badge > span 13, .agent-badge 13, .step-pill 12/13, .sim-badge 14, .usecase-label 16) and the CTA pill family (.cta-main/.talk/.cta-access 18) — with font-family/weight/letter-spacing/text-transform/color declarations byte-unchanged', () => {
+    const css = source('src/routes/+page.svelte');
+    const rule = (sel: string) => css.match(new RegExp(`${sel}\\s*\\{[^}]*\\}`))?.[0] ?? '';
+    // — titles —
+    expect(rule('\\.agent-name')).toMatch(/font-size:\s*28px/);
+    expect(rule('\\.agent-name')).toMatch(/font-family:\s*var\(--font-pixel\)/);
+    expect(rule('\\.stat-title')).toMatch(/font-size:\s*21px/);
+    expect(rule('\\.step-title')).toMatch(/font-size:\s*24px/);
+    expect(rule('\\.section-title')).toMatch(/font-size:\s*24px/);
+    expect(rule('\\.join-headline')).toMatch(/font-size:\s*24px/);
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.join-headline\s*\{[^}]*font-size:\s*28px/
+    );
+    expect(rule('\\.privacy-title')).toMatch(/font-size:\s*16px/);
+    expect(rule('\\.sim-agent-name')).toMatch(/font-size:\s*16px/);
+    // — captions —
+    expect(rule('\\.stat-status')).toMatch(/font-size:\s*13px/);
+    expect(rule('\\.sim-status')).toMatch(/font-size:\s*14px/);
+    expect(rule('\\.agent-traits')).toMatch(/font-size:\s*13px/);
+    // — badges / pills —
+    expect(rule('\\.stat-badge > span')).toMatch(/font-size:\s*13px/);
+    expect(rule('\\.agent-badge')).toMatch(/font-size:\s*13px/);
+    expect(rule('\\.agent-badge')).toMatch(/min-height:\s*24px/); // the chip still fits
+    expect(rule('\\.sim-badge')).toMatch(/font-size:\s*14px/);
+    expect(rule('\\.usecase-label')).toMatch(/font-size:\s*16px/);
+    expect(rule('\\.step-pill')).toMatch(/font-size:\s*12px/);
+    // — the CTA pill family moves together —
+    expect(rule('\\.cta-main,\\s*\\n?\\s*\\.talk')).toMatch(/font-size:\s*18px/);
+    expect(rule('\\.cta-access')).toMatch(/font-size:\s*18px/);
+    // the superseded §4.27.B/§4.26 badge values are gone everywhere
+    expect(css).not.toMatch(/\.stat-badge > span\s*\{[^}]*font-size:\s*11px/);
+    expect(css).not.toMatch(/\.agent-badge\s*\{[^}]*font-size:\s*11px/);
+    expect(css).not.toMatch(/\.agent-traits\s*\{[^}]*font-size:\s*11px/);
+    expect(css).not.toMatch(/\.stat-status\s*\{[^}]*font-size:\s*11px/);
+    expect(css).not.toMatch(/\.sim-status\s*\{[^}]*font-size:\s*12px/);
+    expect(css).not.toMatch(/\.sim-badge\s*\{[^}]*font-size:\s*12px/);
+    expect(css).not.toMatch(/\.usecase-label\s*\{[^}]*font-size:\s*14px/);
+    expect(css).not.toMatch(/\.privacy-title\s*\{[^}]*font-size:\s*14px/);
+    expect(css).not.toMatch(/\.sim-agent-name\s*\{[^}]*font-size:\s*14px/);
+    expect(css).not.toMatch(/\.step-title\s*\{[^}]*font-size:\s*20px/);
+    expect(css).not.toMatch(/\.section-title\s*\{[^}]*font-size:\s*20px/);
+    expect(css).not.toMatch(/\.join-headline\s*\{[^}]*font-size:\s*20px/);
+    expect(css).not.toMatch(/\.agent-name\s*\{[^}]*font-size:\s*24px/);
+    expect(css).not.toMatch(/\.stat-title\s*\{[^}]*font-size:\s*17px/);
+    expect(css).not.toMatch(/\.step-pill\s*\{[^}]*font-size:\s*10px/);
+    expect(css).not.toMatch(/\.cta-main,\s*\n?\s*\.talk\s*\{[^}]*font-size:\s*16px/);
+    expect(css).not.toMatch(/\.cta-access\s*\{[^}]*font-size:\s*16px/);
+  });
+
+  it('§4.28.E the negatives — UNCHANGED sizes: .top-nav a stays 14px, the language switcher is untouched (no .locale-scoped override), .join-input stays 14px, the footer block stays 14/11/12/13px, .step-num stays 40px and .compat-ring .compat-score stays 40px', () => {
+    const css = source('src/routes/+page.svelte');
+    const rule = (sel: string) => css.match(new RegExp(`${sel}\\s*\\{[^}]*\\}`))?.[0] ?? '';
+    expect(rule('\\.top-nav a')).toMatch(/font-size:\s*14px/);
+    expect(css).not.toMatch(/\.locale[^{]*\{[^}]*font-size/);
+    const segmented = source('src/lib/components/SegmentedControl.svelte');
+    expect(segmented).toMatch(/font-size:\s*14px/); // the switcher's buttons stay 14px
+    expect(rule('\\.join-input')).toMatch(/font-size:\s*14px/);
+    expect(rule('\\.brand-name')).toMatch(/font-size:\s*14px/);
+    expect(rule('\\.foot-year')).toMatch(/font-size:\s*11px/);
+    expect(rule('\\.link-label')).toMatch(/font-size:\s*12px/);
+    expect(rule('\\.link-value')).toMatch(/font-size:\s*13px/);
+    expect(rule('\\.step-num')).toMatch(/font-size:\s*40px/);
+    expect(rule('\\.compat-ring \\.compat-score')).toMatch(/font-size:\s*40px/);
+  });
+
+  it('§4.28.F phone widths: .landing and .top carry the IDENTICAL width expression max(90%, 280px) (their computed boxes are equal at 320 → 288px and at 390 → 351px; below ~311px both floor at 280px) with identical margin-inline auto — and the .landing phone rule has NO inline horizontal padding (the blocks span edge-to-edge); the ≥720px media restores the §38 values (80% content / 90% header)', () => {
+    const css = source('src/routes/+page.svelte');
+    // comment-stripped: comments are prose (they may name the shared
+    // expression or retired values)
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    const widthOf = (sel: string) =>
+      stripped.match(new RegExp(`${sel}\\s*\\{[^}]*?width:\\s*([^;]+);`))?.[1]?.trim() ?? '';
+    const landingWidth = widthOf('\\.landing');
+    const topWidth = widthOf('\\.top');
+    // the two columns are EXACTLY equal — one shared expression
+    expect(landingWidth).toBe('max(90%, 280px)');
+    expect(topWidth).toBe('max(90%, 280px)');
+    expect(landingWidth).toBe(topWidth);
+    // the alignment mechanism: the phone inline padding is dropped — the
+    // base .landing rule declares ONLY a bottom padding
+    const landingBase = stripped.match(/\.landing\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(landingBase).toMatch(/padding:\s*0 0 var\(--space-5\)/);
+    expect(landingBase).not.toMatch(/padding:\s*0\s+var\(--/);
+    // both center against the same containing block
+    expect(landingBase).toMatch(/margin-inline:\s*auto/);
+    expect(stripped).toMatch(/\.top\s*\{[^}]*margin-inline:\s*auto/);
+    // desktop ≥720px UNCHANGED: 80% content / 90% header (the 280px floor
+    // is inert there — no extra .top desktop override exists)
+    const desktopLanding = stripped.match(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.landing\s*\{[^}]*\}/
+    )?.[0] ?? '';
+    expect(desktopLanding).toMatch(/width:\s*max\(80%, 280px\)/);
+    expect(desktopLanding).toMatch(/padding:\s*0 var\(--space-7\) var\(--space-7\)/);
+    expect(topWidth).toMatch(/90%/);
+    // the floor appears in exactly two width rules (no third consumer)
+    expect((stripped.match(/max\(90%, 280px\)/g) ?? []).length).toBe(2);
+  });
+
+  it('§4.28.H i18n ZERO delta: exactly 55 landing.* keys in BOTH dictionaries — no key added, removed or edited by the sizing pass', () => {
+    const ruLanding = Object.keys(ru).filter((k) => k.startsWith('landing.'));
+    const enLanding = Object.keys(en).filter((k) => k.startsWith('landing.'));
+    expect(ruLanding).toHaveLength(55);
+    expect(enLanding).toHaveLength(55);
+    expect(ruLanding.sort()).toEqual(enLanding.sort());
+    expect(LANDING_KEYS).toHaveLength(55);
   });
 });
 

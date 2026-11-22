@@ -1,21 +1,23 @@
 <script lang="ts">
   /**
-   * `/` — the landing page (tz12-11, Concept §38 owner batch + the §39
-   * follow-up, DESIGN §4.27 amending §4.26 item by item):
+   * `/` — the landing page (tz12-12, Concept §40 owner batch + the §39
+   * follow-up, DESIGN §4.28 amending §4.27 item by item):
    *
    * - Canvas: the §4.22.F page background stays — `--color-landing-bg`
    *   painted full-bleed by the page wrapper; §4.24.A: ONE container rule
-   *   — `.landing` is `max(80%, 280px)` wide, centered (§4.26.O.5: the
-   *   header is deliberately WIDER — 90% / max 1200px — do not
-   *   "harmonize" them).
+   *   — §4.28.F: on PHONE `.landing` shares the header's EXACT width
+   *   expression `max(90%, 280px)` (the blocks' edges align with the
+   *   header's edges; the phone inline padding is dropped) and desktop
+   *   (≥720px) keeps the 80% column / 90% header split (§4.26.O.5).
    * - §4.23.A fixed background: `LandingVideoHero` stays the FIRST child
    *   of `.landing-page` — a fixed full-viewport video layer (z 0) +
    *   dissolve vignette + 30% tint (z 1) + the 12-dot purple mesh (z 2);
    *   ALL landing blocks scroll OVER it as overlays.
    * - Header (§4.26.A — the owner's EXACT §38.1 values verbatim,
    *   superseding §4.25.C): the DETACHED floating glass pill —
-   *   `position: fixed; top: 24px`, centered `width: 90%`,
-   *   `max-width: 1200px`, `border-radius: var(--radius-md)` (20px),
+   *   `position: fixed; top: 24px`, centered `width: max(90%, 280px)`
+   *   (the §4.28.F shared floor; `max-width: 1200px` + centering stand),
+   *   `border-radius: var(--radius-md)` (20px),
    *   `rgba(18, 15, 28, 0.35)` + `backdrop-filter: blur(18px)
    *   saturate(180%)`, full 1px `rgba(255, 255, 255, 0.2)` border + the
    *   inset white highlight; the no-backdrop fallback is
@@ -681,7 +683,8 @@
   /* §4.22.F: the full-bleed near-black page background (the video's own
    * near-black, 5% Deepa cast) — scoped to /; §4.24.A: .landing is the
    * z-3 scrolling content column ABOVE the fixed video layer (z 0/1/2),
-   * the ONE container rule: max(80%, 280px) wide, centered — every
+   * the ONE container rule: §4.28.F — phone width max(90%, 280px)
+   * shared with the header (desktop keeps max(80%, 280px)) — every
    * section lives inside it (the 1000px canvas cap is retired as a width
    * rule, §4.24.F.2). */
   .landing-page {
@@ -691,18 +694,29 @@
   .landing {
     position: relative;
     z-index: 3;
-    width: max(80%, 280px);
+    /* §4.28.F: phone — the content column shares the header's EXACT
+     * width expression max(90%, 280px) so the blocks' outer edges align
+     * with the header's outer edges (390px → both 351px, 320px → both
+     * 288px, below ~311px → both floored at 280px); desktop (≥720px)
+     * restores the §4.24.A max(80%, 280px). */
+    width: max(90%, 280px);
     margin-inline: auto;
     /* §4.25.A: top padding retired — the fixed header contributes no flow
      * height, and the hero region must span the full first viewport from
-     * the page top ("100dvh minus nothing"); inline + bottom padding stay */
-    padding: 0 var(--space-5) var(--space-5);
+     * the page top ("100dvh minus nothing"). §4.28.F: the phone INLINE
+     * padding is dropped — the blocks (width: 100%) span the container
+     * edge-to-edge so their edges align EXACTLY with the header's outer
+     * edges; the bottom padding stays. */
+    padding: 0 0 var(--space-5);
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
   }
   @media (min-width: 720px) {
     .landing {
+      /* the desktop 80% column + inline gutters stand (§4.24.A/§38) — the
+       * header needs NO desktop override: its 280px floor is inert ≥720px */
+      width: max(80%, 280px);
       padding: 0 var(--space-7) var(--space-7);
     }
   }
@@ -718,22 +732,23 @@
    * top/bottom-only rule is gone) and the inset white highlight — the
    * glowing purple pixel background blurs right through it. Rounding:
    * radius-md (20px) at EVERY width (the phone chip rule is DELETED).
-   * Width: the viewport is the containing block — width 90%,
-   * max-width 1200px, margin-inline auto centers it (1152px at 1280,
-   * 720px at 800, 351px at 390, 288px at 320 — deliberately WIDER than
-   * the 80% content column, §4.26.O.5). The §4.24.A container breakout
-   * retires. Where backdrop-filter cannot run the fallback is a single
-   * higher-opacity tint so text stays readable. The AA tradeoff over
-   * bright video frames is the owner's recorded owner-order exception
-   * (§4.25.C carries). Keep-list, inner paddings, min-heights and z 10
-   * unchanged. */
+   * Width: the viewport is the containing block — width max(90%, 280px)
+   * (the §4.28.F shared floor, the SAME expression as .landing on phone —
+   * the edges align), max-width 1200px, margin-inline auto centers it
+   * (1152px at 1280, 720px at 800, 351px at 390, 288px at 320; at ≥720px
+   * the floor is inert — the desktop 90% cap stands as §4.26.O.5). The
+   * §4.24.A container breakout retires. Where backdrop-filter cannot run
+   * the fallback is a single higher-opacity tint so text stays readable.
+   * The AA tradeoff over bright video frames is the owner's recorded
+   * owner-order exception (§4.25.C carries). Keep-list, inner paddings,
+   * min-heights and z 10 unchanged. */
   .top {
     position: fixed;
     top: 24px;
     left: 0;
     right: 0;
     margin-inline: auto;
-    width: 90%;
+    width: max(90%, 280px);
     max-width: 1200px;
     z-index: 10;
     display: flex;
@@ -917,7 +932,11 @@
   .headline {
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 36px;
+    /* §4.28.A: 36px → 40px on phone (≥480: 48px; ≥720: clamp(28px, 4vw,
+     * 48px) — the bump forces the clamp re-check so the lead stays the
+     * dominant title over the grown 28px .agent-name at every ≥720px
+     * width: 28.8px at 720px, capped at 48px from 1200px up) */
+    font-size: 40px;
     line-height: 1.05;
     text-transform: uppercase;
     color: var(--color-text);
@@ -932,14 +951,15 @@
   }
   @media (min-width: 480px) {
     .headline {
-      font-size: 44px;
+      font-size: 48px;
     }
   }
   @media (min-width: 720px) {
-    /* §4.24.C size amendment: 64px mid-word-breaks inside a 288px third —
-     * the clamp caps at 44px at 1280 and scales down with the third */
+    /* §4.28.A: clamp(22px, 3.5vw, 44px) → clamp(28px, 4vw, 48px) — the
+     * cap matches the ≥480px phone rule (one consistent 48px maximum);
+     * overflow-wrap: anywhere carries the mid-word breaks */
     .headline {
-      font-size: clamp(22px, 3.5vw, 44px);
+      font-size: clamp(28px, 4vw, 48px);
     }
   }
   .accent-line {
@@ -982,7 +1002,7 @@
   .sub {
     margin: 0;
     font-family: var(--font-body);
-    font-size: 14px;
+    font-size: 16px; /* §4.28.B: 14px → 16px (18px ≥720px) */
     color: var(--color-text-muted);
     max-width: 40ch;
     /* the §4.25.B legibility halo (the softer ambient tail) */
@@ -992,7 +1012,7 @@
   }
   @media (min-width: 720px) {
     .sub {
-      font-size: 16px;
+      font-size: 18px;
     }
   }
 
@@ -1006,7 +1026,7 @@
     color: var(--color-text);
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 16px;
+    font-size: 18px; /* §4.28.D: the CTA pill family moves together, 16→18 */
     letter-spacing: 0.08em;
     text-transform: uppercase;
     transition:
@@ -1067,7 +1087,7 @@
   .agent-name {
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 24px;
+    font-size: 28px; /* §4.28.A: 24→28 — still the largest block title */
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--color-text);
@@ -1083,7 +1103,7 @@
     border-radius: var(--radius-pill);
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 11px;
+    font-size: 13px; /* §4.28.D: 11→13 (13px Handjet still fits min-height 24px) */
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-deepa-4);
@@ -1092,7 +1112,7 @@
     margin: 0;
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 11px;
+    font-size: 13px; /* §4.28.C: 11→13 (the caption tier) */
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-text-muted);
@@ -1100,7 +1120,7 @@
   .agent-quote {
     margin: 0;
     font-family: var(--font-body);
-    font-size: 15px;
+    font-size: 17px; /* §4.28.B: 15→17 (the description tier) */
     color: var(--color-text);
   }
 
@@ -1141,7 +1161,7 @@
     padding: 2px 8px;
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 11px;
+    font-size: 13px; /* §4.28.D: 11→13 */
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-deepa-4);
@@ -1150,7 +1170,7 @@
   .stat-title {
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 17px;
+    font-size: 21px; /* §4.28.A: 17→21 (the compact banner row stands otherwise) */
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--color-text);
@@ -1159,7 +1179,7 @@
   .stat-line {
     margin: 0 0 2px;
     font-family: var(--font-body);
-    font-size: 15px;
+    font-size: 17px; /* §4.28.B: 15→17 */
     line-height: 1.35;
     color: var(--color-text-muted);
   }
@@ -1180,7 +1200,7 @@
     line-height: 1;
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 11px;
+    font-size: 13px; /* §4.28.C: 11→13 (the glowing caption) */
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-text);
@@ -1285,7 +1305,7 @@
   .step-title {
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 20px;
+    font-size: 24px; /* §4.28.A: 20→24 */
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-text);
@@ -1302,7 +1322,7 @@
   .step-desc {
     margin: 0;
     font-family: var(--font-body);
-    font-size: 15px;
+    font-size: 17px; /* §4.28.B: 15→17 */
     color: var(--color-text-muted);
   }
   /* the §4.26.L bottom micro-pill: a chip (§4.5 — pills are NOT
@@ -1317,7 +1337,7 @@
     border-radius: var(--radius-pill);
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 10px;
+    font-size: 12px; /* §4.28.D: 10→12 (13px ≥720px) */
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-deepa-4);
@@ -1325,7 +1345,7 @@
   @media (min-width: 720px) {
     .step-pill {
       margin-top: auto;
-      font-size: 11px;
+      font-size: 13px;
     }
   }
   @media (min-width: 720px) {
@@ -1458,11 +1478,12 @@
     box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35);
     border-radius: var(--radius-md);
   }
-  /* the shared section title: Handjet 20px uppercase, the §4.20.A glow */
+  /* the shared section title: Handjet 24px uppercase (§4.28.A: 20→24),
+   * the §4.20.A glow */
   .section-title {
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 20px;
+    font-size: 24px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     text-align: center;
@@ -1514,7 +1535,7 @@
   .sim-agent-name {
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 14px;
+    font-size: 16px; /* §4.28.A: 14→16 */
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-text);
@@ -1524,7 +1545,7 @@
     align-items: center;
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 12px;
+    font-size: 14px; /* §4.28.C: 12→14 */
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -1619,7 +1640,7 @@
     display: inline-flex;
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 12px;
+    font-size: 14px; /* §4.28.D: 12→14 */
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-deepa-1);
@@ -1675,7 +1696,7 @@
   .privacy-title {
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 14px;
+    font-size: 16px; /* §4.28.A: 14→16 (one tier under .section-title) */
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-text);
@@ -1684,7 +1705,7 @@
   .privacy-desc {
     margin: 0;
     font-family: var(--font-body);
-    font-size: 15px;
+    font-size: 17px; /* §4.28.B: 15→17 */
     color: var(--color-text-muted);
   }
   @media (min-width: 720px) {
@@ -1723,7 +1744,7 @@
   .usecase-label {
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 14px;
+    font-size: 16px; /* §4.28.D: 14→16 */
     letter-spacing: 0.08em;
     text-transform: uppercase;
     text-align: center;
@@ -1756,7 +1777,7 @@
   .join-headline {
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 20px;
+    font-size: 24px; /* §4.28.A: 20→24 (28px ≥720px) */
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-text);
@@ -1767,7 +1788,7 @@
   }
   @media (min-width: 720px) {
     .join-headline {
-      font-size: 24px;
+      font-size: 28px;
     }
   }
   .join-row {
@@ -1810,7 +1831,7 @@
     color: var(--color-accent-ink);
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 16px;
+    font-size: 18px; /* §4.28.D: 16→18 (the CTA pill family) */
     letter-spacing: 0.08em;
     text-transform: uppercase;
     text-decoration: none;

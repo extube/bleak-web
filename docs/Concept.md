@@ -1839,6 +1839,23 @@ Follow-up adjustments (owner, 2026-11-22):
    supersedes the §39.4 JS ping-pong implementation once the owner's
    ping-pong file lands in the workspace.*
 
+---
+
+## 40. Owner batch: bigger titles/descriptions/badges + phone widths — ✅ APPROVED (2026-11-22)
+
+Follow-up adjustments (owner, 2026-11-22):
+
+1. **All titles and descriptions bigger — also the badges:** another
+   clearly visible font bump across the landing — section/block
+   titles, description texts, and the badge/pill elements (the
+   micro-caption pills, [ LIVE NETWORK // IRL ],
+   [ICE BROKEN — SAY HELLO], status captions). Exact values are the
+   design's call — consistent hierarchy, everything reads bigger.
+2. **Phone view: blocks match the header width:** on phone
+   viewports, the content blocks' width equals the **header's width**
+   (90%, same as the header — so they align visually). Desktop stays
+   as-is (content 80%, header 90% per §38).
+
 All other §31–§33 contracts stay in force (routes, Start → `/income`
 with the 6-digit input, RU/EN parity, reminder box contracts, three
 step blocks, existing suites green).

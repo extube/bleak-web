@@ -7293,6 +7293,412 @@ stepper-related notes) are SUPERSEDED by this paragraph; every other §4.27
 contract (nav/description bumps, compatibility circle, 55-key RU/EN parity,
 glass sections) stands.
 
+### 4.28 v3.22 feature design (2026-11-22, owner-approved Concept §40): §40 bigger titles/descriptions/badges + phone widths
+
+The owner issued the two-item §40 follow-up batch: (1) another clearly
+visible font bump across the landing — section/block titles, description
+texts AND the badge/pill elements (the micro-caption pills,
+`[ LIVE NETWORK // IRL ]`, `[ICE BROKEN — SAY HELLO]`, status captions),
+exact values left to the design under one rule — consistent hierarchy,
+everything reads bigger; (2) on phone viewports the content blocks' width
+equals the header's width (90%) so their edges align visually — desktop
+stays as-is (content 80%, header 90%, §38). This is a **SIZING-ONLY
+pass**: no copy changes, no structural/marking changes, no new
+dependencies, palette tokens unchanged, routes untouched, `/income`
+untouched. This section amends §4.27 (→ §4.26 → … → §4.20) item by item;
+**where §4.28 is silent, the earlier specs stand** except where §4.28.G
+explicitly supersedes them. Grounded in the live code:
+`apps/web/src/routes/+page.svelte` (all current font sizes + the
+container/header width rules), `lib/styles/tokens.css`,
+`tests/landing-page.test.ts`. **API endpoints used: none** — the landing
+stays fetch-free (§4.20 preamble); the round is presentational CSS-value
+work. Task: tz12-12
+(`feature/05423c53-tz12-12-font-scale-phone-widths`).
+
+The bump ladder (the design's call, §40.1): **+4px on the display
+titles, +2–4px on the block titles, +2px on every description, +2px on
+every caption/badge/pill** — one consistent step per tier, so every
+element reads bigger while every superiority relation (headline > block
+titles > card captions > micro-captions) is preserved. Only
+`font-size` values move; **every `font-family`, `font-weight`,
+`letter-spacing`, `text-transform`, `line-height` and color declaration
+is byte-unchanged**.
+
+#### 4.28.A Titles — the master table (item 1a)
+
+| Class (role) | Current → New | Notes |
+| --- | --- | --- |
+| `.headline` (the lead headline, 3 `hl-line`s) | 36px → **40px** (base/phone); ≥480px: 44px → **48px**; ≥720px: `clamp(22px, 3.5vw, 44px)` → **`clamp(28px, 4vw, 48px)`** | see the open-state re-check below |
+| `.agent-name` (the BLEAK card title, §4.20.G) | 24px → **28px** | stays the largest block title |
+| `.stat-title` (the banner title REAL PEOPLE. REAL RESULTS., §4.26.B) | 17px → **21px** | the compact banner row keeps its contract otherwise |
+| `.step-title` (FIND / CHAT / SHARE, §4.26.C) | 20px → **24px** | |
+| `.section-title` (the shared sim/privacy/use-cases/join title, §4.26.E–I) | 20px → **24px** | one class, four sections |
+| `.join-headline` (the join card's inner headline, §4.26.I) | 20px → **24px**; ≥720px: 24px → **28px** | |
+| `.privacy-title` (GHOST MODE / MUTUAL OPT-IN / EPHEMERAL GPS, §4.26.G) | 14px → **16px** | inner card titles sit one tier under `.section-title` |
+| `.sim-agent-name` (YOUR AGENT / NEARBY AGENT, §4.26.F) | 14px → **16px** | |
+
+**The lead-headline clamp WAS adjusted — the bump forces it** (record):
+with block titles grown to 24–28px, the old `clamp(22px, 3.5vw, 44px)`
+would let the 28px `.agent-name` overtake the lead at narrow desktop
+widths (at 720px the old clamp computes 25.2px < 28px). The new
+`clamp(28px, 4vw, 48px)` keeps the lead the dominant title at every
+≥720px width — at 720px it computes 28.8px > 28px and grows from there,
+capping at 48px from 1200px up (the same cap as the ≥480px phone rule —
+one consistent maximum). The 28px clamp floor is inert on ≥720px (4vw ≥
+28.8px there); it is a defensive minimum only.
+
+**§37 open-state re-check (explicit):** the open-state geometry is
+UNTOUCHED — no §4.28 rule modifies `.stage`, `.area-lead`, `.copy-body`
+positioning or any grid/`100dvh` construction. Phone: `.area-lead` stays
+`min-height: 100dvh` + `justify-content: center` — the lead grows by
+≈ +4px per headline line (×3) + the `.sub` bump (§4.28.B, +2px) + the CTA
+bump (§4.28.D, +2px) ≈ +20px total, comfortably inside the 100dvh hero
+at every phone height ≥ 640px; the first viewport is still EXACTLY lead
++ BLEAK, vertically centered. Desktop: the thirds grid stays
+`min-height: 100dvh` + `align-content/align-items: center`; the lead
+third's interior at 720px is unchanged (≈ 139px column — identical to
+today) and the headline there computes 28.8px (was 25.2px) with
+`overflow-wrap: anywhere` carrying mid-word breaks (§4.24.C) — wrap
+sanity verified at 720/760/1280, no horizontal scroll.
+
+**Wrap sanity (desktop thirds ≈ 288px):** `.step-title`/`.section-title`
+at 24px Handjet ≈ 10.8px/char → ~22 chars per ~248px card interior; the
+longest RU titles («ПРИВАТНОСТЬ И КОНТРОЛЬ», «ПОДЕЛИСЬ КОНТАКТОМ»)
+wrap normally in normal-flow cards (nothing overflows at 320/760/1280).
+`.stat-title` at 21px in the compact banner flex row wraps to a second
+line on narrow phones — the banner is a normal-flow block, the glyph
+column is `flex: none`, no overflow.
+
+#### 4.28.B Descriptions (item 1b)
+
+One consistent +2px on every Inter body description (superseding the
+§4.27.B 15px values — the SAME four classes, one tier further):
+
+| Class | Block | From → To |
+| --- | --- | --- |
+| `.step-desc` | the three step cards (§4.26.C) | 15px → **17px** |
+| `.privacy-desc` | the three privacy cards (§4.26.G) | 15px → **17px** |
+| `.stat-line` | the banner's mini-lines (§4.26.B) | 15px → **17px** |
+| `.agent-quote` | the BLEAK agent card quote (§4.20.G) | 15px → **17px** |
+| `.sub` | the lead's supporting line (§4.20.C) | 14px → **16px**; ≥720px: 16px → **18px** |
+
+`.sub` is INCLUDED this round (record: it supersedes §4.27.B's explicit
+"the lead `.sub` stays 14px/16px" negative — §40.1 says ALL descriptions
+bigger, and the lead's supporting line is a description text; at 16px it
+still reads one tier under the 17px card descriptions' information
+density because it sits alone in the transparent lead, and under the
+headline at every width). The §4.27.B wrap-sanity analysis carries with
++2px: the longest RU privacy desc wraps to ~4 lines in a ~248px card
+interior — normal-flow growth, the step cards keep `min-height: 300px`
+with the pill pinned via `margin-top: auto`, the banner's three lines
+still fit the compact row at desktop width.
+
+#### 4.28.C Status captions (item 1c)
+
+| Class | Caption | From → To |
+| --- | --- | --- |
+| `.stat-status` | the glowing `AI Agents active nearby` caption (§4.26.B) | 11px → **13px** |
+| `.sim-status` | `Status: Scanning...` / `Distance: 15m` (§4.26.F) | 12px → **14px** |
+| `.agent-traits` | the BLEAK card's pixel traits line (§4.20.G) | 11px → **13px** |
+
+`.agent-traits` is included under the owner's "everything reads bigger"
+(§40.1): it is a micro-caption in the same band as `.stat-status`; the
+one-class +2px keeps the caption tier uniform. The `.sim-cursor` (6×2px
+block) and `.status-dot` (6×6px) decorations are UNCHANGED.
+
+#### 4.28.D Badges / pills (item 1d)
+
+| Class | Badge / pill | From → To |
+| --- | --- | --- |
+| `.stat-badge > span` | `[ LIVE NETWORK // IRL ]` (§4.26.B) | 11px → **13px** |
+| `.agent-badge` | the agent card's pixel badge (§4.20.G/§4.22.D) | 11px → **13px** |
+| `.step-pill` | the three step micro-pills (§4.26.L) | 10px → **12px**; ≥720px: 11px → **13px** |
+| `.sim-badge` | `[ICE BROKEN — SAY HELLO]` (§4.26.F/§4.27.C) | 12px → **14px** |
+| `.usecase-label` | CONFERENCES / PARTIES & BARS / COWORKINGS / FESTIVALS (§4.26.H) | 14px → **16px** |
+| `.cta-access` | GET EARLY ACCESS (§4.26.I-2) | 16px → **18px** |
+| `.cta-main` / `.talk` | START / TALK (§4.20.C/G) | 16px → **18px** |
+
+The CTA pill family moves TOGETHER (record): GET EARLY ACCESS is
+explicitly in the owner's §40 list, and START / TALK are the same
+pill-button family — leaving them at 16px while their sibling grows to
+18px would break the family's consistency, so all three labels take the
+same +2px. Chip geometry is otherwise unchanged: the `.stat-badge` 2px
+pixel-frame padding, the pill borders, `min-height: 24px` on
+`.agent-badge` (13px Handjet still fits), the `padding: 4px 10px` /
+`margin-top` mechanics of `.step-pill`, the touch-target 48px minimums
+and every hover/active treatment stand. The `badge-pulse` /
+`status-pulse` / cursor-blink / sparkle animations are untouched.
+
+#### 4.28.E Explicit negatives — UNCHANGED sizes
+
+1. **The header nav stays 14px** (`.top-nav a`): §39.1 just set 12px →
+   14px; the nav is chrome, not a section/block title, and 14px already
+   sits above the micro-caption band — the §40 ladder does not require
+   it to grow. NOT superseded (§4.27.A carries verbatim).
+2. **The language switcher is UNCHANGED** (the §39 rule, restated):
+   `LocaleControl.svelte` and `SegmentedControl.svelte` are untouched
+   files, the switcher buttons stay 14px, and NO landing style may add a
+   `.locale`-scoped size override (the negative assertion stays).
+3. **The join input stays 14px** (`.join-input`) — a form control, not a
+   description display (the §4.27.B negative carries).
+4. **The footer contact block is UNCHANGED**: `.brand-name` 14px,
+   `.foot-year` 11px, `.link-label` 12px, `.link-value` 13px — chrome-
+   level contact info, outside the §40 title/description/badge scope.
+5. **`.step-num` stays 40px** — a decorative `aria-hidden` pixel numeral,
+   not a title/description/badge.
+6. **`.compat-ring .compat-score` stays 40px** — the numeral is bound to
+   the ring's 132px interior (§4.27.D verbatim); growing it would
+   overflow the circle. The ring geometry (160×160, r 66, stroke 12) is
+   UNTOUCHED.
+7. No other landing `font-size` changed: the §4.28.A–D tables are the
+   complete list of moved values.
+
+#### 4.28.F Phone widths — the blocks match the header (item 2)
+
+**Decision: one shared width expression, `max(90%, 280px)`, for BOTH the
+content container and the header at phone; the container's phone inline
+padding is dropped so the blocks' edges == the container's edges == the
+header's edges (no mixed insets).** A shared token was considered and
+rejected — the value is used in exactly two rules with no third consumer;
+a raw shared expression is simpler and keeps the §4.24.A idiom.
+
+**Base (phone, mobile-first) rules — CHANGED:**
+
+```css
+.landing {
+  position: relative;
+  z-index: 3;
+  width: max(90%, 280px);       /* WAS max(80%, 280px) — the §40.2 match */
+  margin-inline: auto;
+  padding: 0 0 var(--space-5);  /* WAS 0 var(--space-5) var(--space-5) —
+                                   the phone INLINE padding is DROPPED: the
+                                   blocks (width: 100%) now span the
+                                   container edge-to-edge, so their edges
+                                   align EXACTLY with the header's outer
+                                   edges; the bottom padding stays */
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.top {
+  /* …every §4.26.A declaration unchanged… */
+  width: max(90%, 280px);       /* WAS 90% — the SAME expression as
+                                   .landing: the shared floor */
+  max-width: 1200px;            /* unchanged (inert on phone) */
+}
+```
+
+**Desktop ≥720px — the `.landing` override RESTORES the §38 values
+(everything else about the desktop container unchanged):**
+
+```css
+@media (min-width: 720px) {
+  .landing {
+    width: max(80%, 280px);                    /* UNCHANGED (§4.24.A) */
+    padding: 0 var(--space-7) var(--space-7);  /* UNCHANGED */
+  }
+  /* .top needs NO desktop override: at ≥720px the 280px floor is inert
+     (90% of any ≥720px viewport ≥ 648px > 280px), so .top computes 90%
+     capped at 1200px exactly as §4.26.A — the desktop 80/90 split and
+     §4.26.O.5's "deliberately wider" stand verbatim. */
+}
+```
+
+**Why the edges line up EXACTLY at every phone width:** both columns
+carry the identical `width: max(90%, 280px)` + `margin-inline: auto`
+against the same containing block (the viewport) → identical computed
+boxes: **390px → both 351px; 320px → both 288px; below ~311px → both
+floored at 280px** (the floor engages only where 90% < 280px, keeping
+the two columns equal even on sub-320 screens). No per-element width
+rules change: the cards, `.copy`, `.sim-card`, `.privacy-card`,
+`.usecase-pill`, step blocks and `.stat-card` are `width: 100%` of the
+container, so they align edge-to-edge with the header automatically;
+`.contact` (`max-width: 560px`) and `.join-card` (`max-width: 640px`)
+never bind on phone (<560px viewports) — they compute 100% of the
+container too. The transparent lead's TEXT keeps its inset: `.copy-body`
+retains its own 20px phone padding, so the copy floats 20px inside the
+block edge even as the block edge itself aligns with the header.
+
+**Wrap/overflow sanity:** at 320px the content column grows 280px →
+288px — the gutters shrink 20px → 16px per side; the no-horizontal-scroll
+invariant holds (288 < 320), and the phone header keep-list (icon +
+switcher, ≈160px) fits 288px with slack. Desktop is byte-identical to
+§4.24.A/§4.26.A behavior.
+
+#### 4.28.G Supersessions (explicit record)
+
+1. **§4.27.B's description values SUPERSEDED**: the four classes' 15px →
+   17px (§4.28.B); §4.27.B's "the lead `.sub` stays 14px/16px" negative
+   SUPERSEDED (`.sub` → 16px/18px, §4.28.B); §4.27.B's "the join input
+   stays 14px" negative CARRIES (§4.28.E.3).
+2. **§4.27.A NOT superseded**: the nav stays 14px (§4.28.E.1 — an
+   explicit decision, not an omission).
+3. **§4.26.B's banner compact-typography contract AMENDED**: the 17px
+   title → 21px and the 11px `.stat-badge`/`.stat-status` → 13px; the
+   padding contract (12px 14px / 16px 20px), the 44/48px BLOOM sizes,
+   the glass fill and every other banner value stand.
+4. **§4.20.G/§4.22.D agent-card typography AMENDED**: `.agent-name`
+   24 → 28px, `.agent-badge` 11 → 13px, `.agent-traits` 11 → 13px,
+   `.agent-quote` 15 → 17px; the card's structure, frame, portrait and
+   TALK handler untouched.
+5. **§4.26.C/§4.21.E step cards AMENDED**: title 20 → 24px, desc
+   15 → 17px, pill 10/11 → 12/13px; glass fill, art, hover, min-height
+   300px untouched.
+6. **§4.26.E–I section typography AMENDED**: `.section-title` 20 → 24px
+   (four sections), `.privacy-title` 14 → 16px, `.usecase-label`
+   14 → 16px, `.join-headline` 20/24 → 24/28px; the shared glass recipe,
+   grids, icons and the mailto stub untouched.
+7. **§4.26.F sim section AMENDED**: `.sim-agent-name` 14 → 16px,
+   `.sim-status` 12 → 14px, `.sim-badge` 12 → 14px; the ring (§4.27.D)
+   and its 40px numeral are UNTOUCHED.
+8. **§4.24.A / §4.26.O.5 phone-width reading SUPERSEDED on phone only**:
+   at <720px the content column and the header share
+   `max(90%, 280px)` (§4.28.F) — the header is no longer "deliberately
+   wider" on phone; **the desktop 80% / 90% split STANDS** (§4.26.O.5
+   carries for ≥720px verbatim). §4.24.A's phone "20px gutters at 320px"
+   note → 16px gutters at 288px. The `.landing` phone INLINE padding
+   (`--space-5`) is RETIRED (the blocks align edge-to-edge with the
+   header); the bottom padding and the desktop `--space-7` padding
+   stand.
+9. **§4.26.A's header width expression AMENDED**: `width: 90%` →
+   `width: max(90%, 280px)` (the shared floor; the desktop computed
+   value is unchanged — the floor is inert at ≥720px, and `max-width:
+   1200px` + centering + `top: 24px` + the glass recipe stand verbatim).
+10. **Superseded-but-carried (unchanged into §4.28):** the §4.23.A fixed
+    video layer + native-loop playback (§4.27.1), the §4.22.A keep-list,
+    the §4.25.A/B open state + transparent lead, the §4.27.C/D
+    compatibility circle construction, the §4.20.C copy/CTA (the STRINGS
+    are byte-identical — sizes only), the §4.20.L behavior + deep-link
+    forwarding, the §4.23.G/§4.26.M/§4.27.H reduced-motion and error
+    fallbacks.
+
+#### 4.28.H i18n: ZERO delta
+
+This is a sizing-only pass: **no key is added, removed or edited** —
+both dictionaries stay **byte-identical at 55 `landing.*` keys per
+dictionary** (the §4.27.G net count; the caller's "23…" paraphrase
+resolved: the real parity count is 55). Every rendered string —
+REAL PEOPLE. REAL RESULTS., the step descriptions, all badges and
+captions — is byte-unchanged in RU and EN; only the CSS boxes around
+them grow. The RU/EN switch re-renders every string without a reload
+(the parity + re-render pattern extends nowhere — nothing new to
+assert). `i18n.test.ts` is untouched and stays green.
+
+#### 4.28.I Reduced motion + media states
+
+**No animated sizes — nothing motion-related changes in this pass:**
+`font-size` and the width rules are static declarations; no transition,
+animation or keyframe touches them. Every existing reduced-motion
+fallback stands verbatim (§4.23.G video, §4.26.M hover/badge/cursor/
+dot/smooth-scroll fallbacks, §4.27.H ring tally + arc). Media states:
+the landing still fetches nothing — no loading/empty/error data states;
+the video media states are §4.23.G verbatim; the ring has no data
+states. No layout shift beyond the intended size growth: all bumped
+elements are normal-flow blocks (the ring's fixed 160×160 box and the
+header's fixed position are untouched).
+
+#### 4.28.J Acceptance criteria (checkable)
+
+**Font ladder (item 1):**
+1. Titles compute: `.stat-title` 21px, `.step-title` 24px,
+   `.section-title` 24px, `.privacy-title` 16px, `.join-headline` 24px
+   (28px ≥720px), `.agent-name` 28px, `.sim-agent-name` 16px — with
+   each class's `font-family`/`font-weight`/`letter-spacing`/
+   `text-transform`/color declarations unchanged (source + computed
+   assertions).
+2. The lead headline computes 40px (base), 48px (≥480px) and
+   `clamp(28px, 4vw, 48px)` (≥720px — 28.8px at a 720px viewport, 48px
+   at ≥1200px); the open-state geometry holds unchanged: phone
+   `.area-lead` is `min-height: 100dvh` + `justify-content: center`,
+   desktop `.stage` is the 100dvh thirds grid with
+   `align-content/align-items: center` (the existing §4.25/§4.27
+   assertions stay green verbatim).
+3. Descriptions compute 17px on ALL FOUR of `.step-desc`,
+   `.privacy-desc`, `.stat-line`, `.agent-quote` (the same value in all
+   four), and `.sub` computes 16px (18px ≥720px); family
+   (`var(--font-body)`), colors and existing line-heights unchanged.
+4. Captions compute: `.stat-status` 13px, `.sim-status` 14px,
+   `.agent-traits` 13px.
+5. Badges/pills compute: `.stat-badge > span` 13px, `.agent-badge`
+   13px, `.step-pill` 12px (13px ≥720px), `.sim-badge` 14px,
+   `.usecase-label` 16px, `.cta-access`/`.cta-main`/`.talk` 18px; chip
+   geometry (paddings, borders, min-heights, pulse animations)
+   unchanged.
+6. Negatives: `.top-nav a` stays 14px; the switcher files are untouched
+   with no `.locale`-scoped size override in the landing sources;
+   `.join-input` stays 14px; the footer classes stay 14/11/12/13px;
+   `.step-num` stays 40px; `.compat-ring .compat-score` stays 40px; no
+   landing `font-size` outside the §4.28.A–D tables changed (grep-audit
+   of the `<style>` block against the tables).
+
+**Phone widths (item 2):**
+7. At <720px, `.landing` and `.top` BOTH carry
+   `width: max(90%, 280px)` — their computed widths are EQUAL at a
+   320px viewport (288px) and at a 390px viewport (351px), and the
+   content blocks' outer edges align with the header's outer edges
+   (identical expression + identical `margin-inline: auto`; the
+   `.landing` phone rule has NO inline horizontal padding).
+8. The shared floor: below ~311px viewport both columns compute
+   280px and stay equal (the identical `max(…)` expression — no
+   mixed insets at any phone width).
+9. Desktop ≥720px UNCHANGED: `.landing` computes `max(80%, 280px)` with
+   `padding: 0 var(--space-7) var(--space-7)` and `.top` computes 90%
+   capped at `max-width: 1200px` (the 80/90 split stands; the header
+   floor is inert).
+10. No horizontal scroll at 320/390/760/1280; at 320px the gutters are
+    16px per side; `.contact`/`.join-card` compute 100% of the
+    container on phone (their max-widths do not bind).
+
+**Carry:**
+11. Open-state green: the §4.25/§4.27 open-state assertions (phone 100dvh
+    centered lead; desktop thirds grid; first viewport = lead + BLEAK
+    only) pass unmodified.
+12. i18n: exactly **55** `landing.*` keys in BOTH dictionaries,
+    byte-unchanged (ZERO delta — no key added, removed or edited); the
+    RU/EN switch re-renders every string without a reload.
+13. Reduced motion: nothing motion-related changed — no transition,
+    animation or keyframe references `font-size` or the width rules;
+    every §4.23.G/§4.26.M/§4.27.H static fallback passes unmodified.
+14. Suites amended and green: `landing-page.test.ts` updated — the
+    superseded §4.27.A/B font assertions rewritten to the §4.28 values
+    (nav 14px stays; the four descriptions 15→17px; `.sub` 16/18px;
+    `.top` width → `max(90%, 280px)`; the `.landing` phone-width rule →
+    `max(90%, 280px)` + no inline padding; the desktop 80% container
+    assertions stay), `i18n.test.ts` untouched green (55-key parity),
+    `sweep.test.ts` green (no new color values, the sanctioned rgba
+    family unchanged), all other suites untouched green;
+    `make lint && make test && make build` green.
+15. Constraints: no new dependencies; no copy changes (every string
+    byte-identical in both dictionaries); palette tokens unchanged (no
+    new color values anywhere); routes untouched; `/income` untouched;
+    the §37 open-state geometry holds; API endpoints used: none.
+
+#### 4.28.K Flags for the owner / concept (concept report)
+
+1. **Record — the ladder is this design's call** (§40.1 delegates the
+   exact values): +4px display titles / +2–4px block titles / +2px
+   descriptions / +2px captions-badges-pills, per the §4.28.A–D tables.
+2. **Record — the lead-headline clamp WAS adjusted** (the bump forces
+   it): `clamp(22px, 3.5vw, 44px)` → `clamp(28px, 4vw, 48px)` so the
+   lead stays dominant over the grown 28px `.agent-name` at every
+   ≥720px width (at 720px: 28.8px > 28px). The §37 open-state
+   geometry is untouched and re-verified (§4.28.A).
+3. **Record — the nav stays 14px** (§4.28.E.1): §39 just set it; the
+   chrome band is outside the §40 ladder. Growing it later is a
+   one-value change.
+4. **Record — `.sub` and the CTA pill family are INCLUDED** (they
+   supersede §4.27.B/§4.20.C size standstills): the owner's "ALL
+   descriptions / badges bigger" reading; excluding `.sub` or any CTA
+   is a one-line change each.
+5. **Record — the footer, `.step-num` and the ring numeral are
+   EXCLUDED** (§4.28.E): chrome / decorative numeral / geometry-bound,
+   respectively — none is a §40 title/description/badge.
+6. **Record — the shared floor is `max(90%, 280px)` in BOTH rules**
+   (§4.28.F), not a new token: two consumers, no third; the phone
+   inline padding drop is the alignment mechanism (the blocks'
+   edge-to-edge span). A `.copy-body`-internal 20px inset keeps the
+   transparent lead's text off the screen edge.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)
