@@ -25,7 +25,8 @@ export type IconName =
   | 'arrow-right'
   | 'phone'
   | 'contact-card'
-  | 'heart';
+  | 'heart'
+  | 'contact-share';
 
 /** Tab glyphs (§1.2) reference the same set. */
 export const TAB_ICONS = {
@@ -232,5 +233,22 @@ export const ICON_RECTS: Record<IconName, readonly Rect[]> = {
     [4, 6, 8, 2],
     [5, 8, 6, 2],
     [7, 10, 2, 3]
+  ],
+  // CONTACTS SHARING (DESIGN §4.20.H): the one added §4.4 glyph for the
+  // landing tutorial's third step — two overlapping squares (the shared
+  // contact sets) with an outbound arrow handing a contact over. Same
+  // construction rules as the rest of the set: 16×16 grid, 2px weight,
+  // currentColor.
+  'contact-share': [
+    [2, 7, 6, 2],
+    [2, 11, 6, 2],
+    [2, 9, 2, 2],
+    [6, 9, 2, 2],
+    [8, 3, 6, 2],
+    [12, 5, 2, 2],
+    [8, 5, 2, 2],
+    [11, 1, 2, 2],
+    [13, 0, 2, 2],
+    [13, 2, 2, 2]
   ]
 };

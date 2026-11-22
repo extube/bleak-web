@@ -3057,7 +3057,19 @@ mobile-first); `/income` = the entry page (the previous `/` join
 surface moved verbatim); `/income/[room]/create` = the wizard (the
 same JoinFlow seeded into the persona step, the room context via the
 route param); deep links forwarded; the tab bar hidden on all three
-pre-room routes.
+pre-room routes. **REJECTED + REBUILT (task 118, Concept §32):** the
+owner rejected the §31 landing design ("bad") — rebuilt from zero per
+the design example `landing-design-example.png` (repo root): near-black
+bg + the project's purple accent/glow; large pixel headline with a
+highlighted accent word; pixel-font taglines at the top corners; a
+centered hero pixel-art scene (a person meeting an AI agent, glowing
+focal element); a retro dialogue-box (framed, asterisk line); framed
+pixel-border cards (stat/feature cards + an AI-agent character card
+with actions); the bottom icon row = the tutorial (search → chatting →
+contacts sharing, 3 steps); badge/footer pixel blocks; varied pixel
+figures across the page (no repeated mascot); adaptive (desktop
+multi-column as the example, mobile stacks); modern web polish; Start →
+/income; RU/EN.
 
 ## 5. Design-decision rationale (short)
 5. **Auto-scroll root cause (task 107, folded):** the wizard-chat
@@ -3084,6 +3096,413 @@ container infrastructure the real chat mounts into. /chats behavior
 must stay unchanged (shared-component changes behavior-neutral for the
 main room — its contracts stay green). No happy-dom simulation of the
 chat geometry; no new dependencies.
+
+### 4.20 v3.14 feature design (2026-11-22, owner-approved Concept §32): §32 landing rebuild from zero
+
+The owner rejected the §31 landing (task 118, "bad") and ordered a rebuild
+from zero per their visual example **`landing-design-example.png`** (repo
+root) — **the visual source of truth for mood, composition and element
+types**; this section adapts it to the project's story (**effective
+networking with AI agents**, Concept §31.4) without copying its dating
+content. Every color is an existing §4.1 token or an alpha `color-mix`
+variant of one; **no new colors, no new dependencies, no canvas, no
+animation library** (§4.15.C-6a decision stands). All mascots are original
+SVG-rect pixel art per §4.3 — **no background plates, no raster/stock
+plates** (Concept §23 / §32 rules). Mobile-first; the desktop composition
+matches the example at the app's existing **720px** breakpoint. Supersedes
+every §31 landing layout note; the §31 routes (`/`, `/income`,
+`/income/[room]/create`) and their contracts stay untouched — **only the
+`/` surface rebuilds**.
+
+**API endpoints used: none.** The landing is presentational and nav-only —
+zero fetches on `/` (no loading/empty/error data states exist; the only
+async is font swap, already `font-display: swap`). Every endpoint the app
+has is reached *after* Start, via `/income`, whose contract is §3.1
+verbatim. Deep-link forwarding to room routes is unchanged (§3.1's guard
+behavior).
+
+#### 4.20.A Canvas, palette & glow
+
+- **Background:** the page (and every landing surface) is the existing
+  `--color-bg` (near-black — matches the example's canvas exactly; no new
+  value). Content canvas: `max-width: 1000px`, centered, padding
+  `--space-5` (<720px) / `--space-7` (≥720px).
+- **Glow recipe (the example's purple bloom, token-only):** layered
+  `box-shadow`/`filter: drop-shadow(...)` in accent alpha mixes, e.g.
+  `0 0 16px color-mix(in srgb, var(--color-accent) 50%, transparent), 0 0
+  48px color-mix(in srgb, var(--color-accent) 22%, transparent)`. Used on:
+  the headline accent word, the hero focal element, the dialogue-box caret,
+  the agent card portrait, and hovered/pressed CTAs. **Never** a new hex;
+  derived named variants are allowed in tokens.css only per the §4.1 rule.
+- **Frames:** all framed boxes (dialogue box, cards, chat strip, footer
+  blocks) use the **shared `.pixel-corners` double-layer technique (§4.5,
+  4px/8px ladder)** with one new declared modifier `--frame-strong` that
+  sets the simulated-border color to `--color-text` (the example's bright
+  frames) instead of `--color-surface-elevated` — one utility, one
+  modifier, no per-component hacks. CTAs and chips stay pills (§4.5
+  exclusion). Dithered fills are not used on the landing except as
+  1-step `color-mix` shading inside SVG art.
+
+#### 4.20.B Header/nav & taglines
+
+Top bar (single row, mobile and desktop; not sticky): left = the top-left
+tagline pair, right = the existing **locale switch** (`SegmentedControl`
+locale — the established header mechanism, §2.3/§4.19 shell pattern)
+working on the landing with no reload, then the Start CTA as a small pill
+(mobile) / text link "START" (desktop). Minimal nav: two in-page anchors
+after the switch, desktop only: "HOW IT WORKS" → `#tutorial`, "AGENTS" →
+`#agents` (Handjet 12px, `--color-text-muted`, hover `--color-accent`).
+**Taglines in pixel font (Handjet, uppercase, 12px mobile / 13px desktop,
+`letter-spacing: 0.08em`, two stacked lines, leading 1.4):**
+
+- **Top-left (as in the example's LOVE-IS-A-GAME corner):** EN
+  "NETWORKING IS A GAME." / "THE AGENT PLAYS IT FOR YOU." — RU «ЗНАКОМСТВА —
+  ЭТО ИГРА.» / «АГЕНТ ИГРАЕТ ЗА ВАС.» First word cluster tinted
+  `--color-accent`, rest `--color-text`.
+- **Top-center (≥720px only, as in the example):** EN "NO SMALL TALK. JUST
+  REAL CONNECTIONS." — RU «БЕЗ СМОЛТОЛКА. ТОЛЬКО РЕАЛЬНЫЕ ЗНАКОМСТВА.»
+  centered, `--color-accent`, 12px.
+- **Top-right (≥720px, with a 24px GLITCH glyph before it, as in the
+  example's BUILT-FOR corner):** EN "BUILT FOR PEOPLE." / "RUN BY AGENTS."
+  — RU «СДЕЛАНО ДЛЯ ЛЮДЕЙ.» / «РАБОТАЮТ АГЕНТЫ.»
+
+#### 4.20.C Headline block + Start CTA
+
+- **Headline (3 lines, Handjet, uppercase, line-height 1.05):** EN
+  "THE RIGHT" / "CONNECTIONS" / **"YOU"** — RU «НУЖНЫЕ» / «ЗНАКОМСТВА» /
+  **«ВАС»**. Size scale: mobile 36px → 44px (≥480px) → 64px (≥720px);
+  `--color-text`. Lines 1–2 left-aligned (left column on desktop, centered
+  on mobile).
+- **Accent word treatment (line 3 = the one highlighted word):** rendered
+  in `--color-accent` with the §4.20.A double text-shadow glow
+  (`0 0 8px`/`0 0 24px` accent mixes) — the example's glowing "AWAITS"
+  adapted; plus two 8px pixel-sparkle glyphs (§4.4-family SVG, accent) at
+  the word's top-right and bottom-left, twinkling `steps(2)` 1.6s loop.
+- **Subheadline:** Inter 14px→16px, `--color-text-muted`, max-width 40ch:
+  EN "An event app where AI agents break the ice for you — you arrive at
+  every meeting already warmed up." RU «Приложение события, где ИИ-агенты
+  заводят разговор за вас — вы приходите к знакомству уже готовым.»
+- **Start CTA:** the page's primary action — pill button (§4.5), bg
+  `--color-accent`, text `--color-bg`, Handjet 16px uppercase, padding
+  12×28px, the §4.20.A glow on hover + `scale(0.98)` on press, `:focus`
+  ring per §2.6. Label: EN "START" / RU «НАЧАТЬ». Action → `/income`
+  (§4.20.L).
+
+#### 4.20.D Hero pixel-art scene
+
+**Centered scene (mobile 320×320; ≥720px 480×480), original art, the
+example's two-figures-under-a-glow composition retold as OUR story — a
+person meeting their AI agent:**
+
+- **Construction:** one `<svg viewBox="0 0 64 64">` (scale to the sizes
+  above, `shape-rendering="crispEdges"`, §4.3 technique — individual
+  `<rect>`s from part files under `lib/assets/avatars/`), transparent
+  background, **no background plate**; ground = a mesh of purple pixel
+  "network nodes" (small accent-mix squares on 4px stems — the example's
+  flower field adapted into a connection mesh), ~40 tiles in 3 accent
+  alpha shades.
+- **Figures:** **NOVA** (left, back three-quarter view — human attendee,
+  warm-neutral palette from the §4.3 skin/charcoal slots, accent-striped
+  scarf) and **BYTE** (right — the AI agent: charcoal body, single accent
+  visor-eye, 2px antenna) facing each other, ~28 grid-units tall each.
+- **Focal element (the glow anchor, the example's heart adapted):** a
+  glowing accent **handshake-node diamond** (10×10 grid units) floating
+  between/above the two figures with a vertical light beam (accent 12%
+  alpha column widening upward); pulses `scale(1→1.08)` + glow-intensity
+  1.8s `steps(2, jump-none)` infinite alternate (§4.6 live-dot pattern).
+- **Sparkles:** 5 accent 2×2-unit rects absolutely placed, staggered
+  2-frame twinkle (0.8–1.6s delays) — transform/opacity only.
+- **A11y:** the whole scene `role="img"` + `aria-label` = `landing.hero.aria`
+  ("Pixel scene: a person meets their AI agent under a glowing network
+  node" / «Пиксельная сцена: человек встречает своего ИИ-агента под
+  светящимся узлом сети»); all inner rects `aria-hidden`.
+
+#### 4.20.E Retro dialogue-box (signature element)
+
+- **Construction:** pixel-frame per §4.20.A (`--frame-strong`): 2px
+  `--color-text` border, square corners with 4px stepped notches (the
+  example's white RPG box — deliberately NOT `.pixel-corners`-rounded),
+  bg `--color-surface`, min-height 72px, max-width 480px, padding 16×20px,
+  centered under the hero (overlapping its bottom edge by 16px, as in the
+  example).
+- **Content:** one line, Inter 14px, `--color-text`, starting with an
+  asterisk — the cycle (each ≥4s, cross-fade 200ms): EN `* The agent says
+  hello…` / `* Your agent already found three matches.` / `* Match
+  accepted. Contact exchange in a minute.` — RU `* Агент здоровается…` /
+  `* Ваш агент уже нашёл три совпадения.` / `* Совпадение принято. Обмен
+  контактами через минуту.`
+- **Caret:** a `▼` pixel chevron (accent, 8px) at the box's bottom-center,
+  blinking 800ms `steps(2)` infinite — the §4.20.A glow applies.
+- **A11y:** the cycling line is decorative (`aria-hidden`); the box also
+  carries one full static line in an `sr-only` paragraph so screen readers
+  get the content without the cycle spamming `aria-live`.
+
+#### 4.20.F Mascot-chat animation (owner addition, Concept §32)
+
+**Placement:** its own `--frame-strong` pixel-frame strip — mobile:
+full-width panel between the dialogue box and the agent card (height
+~200px); ≥720px: right column, 280px wide, under the agent card. Header
+label inside the strip (Handjet 11px muted, top-left): EN "LIVE AGENT
+CHAT" / RU «ЖИВОЙ ЧАТ АГЕНТА».
+
+**The two mascots (48px portraits, 16×16 art scaled, facing each other at
+the strip's left/right edges):** **PIP** (human attendee, warm neutrals)
+left; **GLITCH** (robo-cat agent — round charcoal head, accent ears, dot
+eyes) right. Speech bubbles alternate between them; each bubble is a
+pixel-frame box (2px border — `--color-text` for PIP, `--color-accent` for
+GLITCH — 3×3px corner notches, stepped 3-rect tail pointing to its
+speaker, bg `--color-surface-elevated`, text Inter 12px, max-width 60% of
+the strip) that pops in `scale(0.6→1)` 160ms ease-out (§4.6 entrance).
+
+**Exchange sequence (4 turns, alternating):**
+
+| Turn | Speaker | Copy (EN / RU) |
+| --- | --- | --- |
+| 1 | GLITCH | "Hi! I'm Glitch — Dana's agent." / «Привет! Я Глитч — агент Даши.» |
+| 2 | PIP | "Hey. I'm here for the AI track." / «Привет. Я здесь ради трека по ИИ.» |
+| 3 | GLITCH | "Then you'll get along. Dana built the demo you starred." / «Тогда вам по пути. Даша собрала демо, которое вы лайкнули.» |
+| 4 | PIP | "Send her my contacts!" / «Передайте ей мои контакты!» |
+
+**Timing (typewriter per character):** turn = pop-in 160ms → typewriter
+reveal **55ms/char** → hold **900ms** → next turn. Typewriter is a CSS
+`steps(var(--chars))` clip-reveal (`clip-path: inset(0 100% 0 0)` →
+`inset(0 0 0 0)`, duration `calc(var(--chars) * 55ms)`); each bubble sets
+`--chars` inline from its rendered string length at mount — the only JS is
+this one-shot mount computation (no continuous JS loop, §4.15.C-6a).
+Long-turn cap: turn total clamped at 3.4s (hold shrinks). After turn 4:
+all bubbles **fade out 600ms** → 400ms rest → restart;
+`animation-iteration-count: infinite`. Loop duration is content-derived
+(RU/EN differ) — ACs assert the loop behavior, not an exact ms value.
+
+**Reduced motion:** `prefers-reduced-motion: reduce` → no typewriter, no
+loop; all four bubbles render statically visible (per §4.15.C-6a / §4.6).
+**A11y:** strip `role="img"` + `aria-label` = `landing.chat.aria`
+("Animation: the agent Glitch and the attendee Pip exchange messages" /
+«Анимация: агент Глитч и участник Пип обмениваются сообщениями»); full
+bubble texts remain in the DOM (clip-reveal, not text injection) so SR
+reads them completely.
+
+#### 4.20.G Framed pixel-border cards
+
+Both cards are `--frame-strong` pixel-frames (§4.20.A), bg
+`--color-surface`, padding 20px; hover `translateY(-2px)` + frame glow
+(§4.20.A recipe), press `scale(0.98)`, 120ms transitions.
+
+**(a) Feature/stat card** (mobile: full-width below the chat strip;
+desktop: left column bottom, ~300px — the example's REAL-HEARTS slot).
+Left: title Handjet 18px uppercase `--color-text` — EN "REAL PEOPLE. REAL
+RESULTS." / RU «РЕАЛЬНЫЕ ЛЮДИ. РЕАЛЬНЫЕ РЕЗУЛЬТАТЫ.»; under it three
+lines Inter 13px muted — EN "No empty chats." / "No cold DMs." / "Only
+encounters that matter." — RU «Никаких пустых чатов.» / «Никаких холодных
+сообщений.» / «Только встречи, которые важны.» Right: **BLOOM** glyph
+(56px — pixel flower with a signal-antenna bloom, accent center; original
+art per §4.3 rules) with the 1.6s `steps(2)` idle sway.
+
+**(b) Agent character card** (`id="agents"`; mobile: between chat strip
+and stat card; desktop: right column top — the example's TORIEL slot).
+Contents top→bottom, centered: **VECTOR** portrait (96px, 32×32 art —
+agent in a sharp suit, monocle visor, accent tie; original), name Handjet
+24px uppercase — EN "VECTOR" / RU «ВЕКТОР»; badge chip (Chip,
+`outline-accent`): EN "AGENT · Lv 1" / RU «АГЕНТ · УР 1»; trait line
+Handjet 11px muted, middot-separated: EN "SWIFT · SHARP · LOYAL" / RU
+«БЫСТРЫЙ · ТОЧНЫЙ · НАДЁЖНЫЙ»; quote Inter 13px `--color-text` in
+quotes: EN `"I break the ice. You keep the contact."` / RU «Я начинаю
+разговор. Вы сохраняете контакт.»; then the **action row: one primary
+pill button** — EN "TALK" / RU «ПОГОВОРИТЬ» (bg `--color-accent`, text
+`--color-bg`, hover glow, press scale 0.98) → navigates to `/income` (the
+chat Start flow, §4.20.L). The example's second button (PASS) is
+**consciously dropped**: the landing has no pass-flow, and a decorative
+no-op button would fake a behavior (flagged in §4.20.O).
+
+#### 4.20.H Tutorial = bottom icon row (exactly 3 steps)
+
+Full-width row (`id="tutorial"`), mobile centered 3-up, ≥720px centered
+under the 3-column zone with side rules (1px `--color-surface-elevated`
+lines). **Exactly three** pixel icons (§4.4 iconography: 16×16 grids,
+`currentColor`, 2px weight — inline SVG components) scaled to 32px in 48px
+tap targets, with pixel-step connectors between them (two 6px chevrons
+`--color-text-muted`), labels Handjet 12px uppercase below:
+
+1. **Search glyph** (existing magnifier) — EN "FIND" / RU «НАЙДИ»
+2. **Chat glyph** (existing dialog-lines) — EN "CHAT" / RU «ОБЩАЙСЯ»
+3. **Contacts-sharing glyph** (new in the §4.4 set: two overlapping
+   squares with an outbound arrow — one added glyph, same construction
+   rules, `currentColor`) — EN "SHARE" / RU «ПОДЕЛИСЬ»
+
+Steps read left→right as the §31 tutorial: search → chatting → contacts
+sharing. No animation on the row (static, per §4.6 no scroll-triggered
+motion); each icon `aria-hidden` + visible label.
+
+#### 4.20.I Badge/footer blocks
+
+Footer region (`<footer>`), two small `--frame-strong` pixel-frame blocks
+(padding 12×16px, bg `--color-surface`):
+
+- **Positioning block** (mobile stacked; ≥720px left column bottom): 
+  pixel-badge row = 16×16 logo glyph (existing mark) + "bleak-web" Handjet
+  14px; under it the positioning line Handjet 12px `--color-text`: EN
+  "EVERY CONNECTION MATTERS." / RU «КАЖДЫЙ КОНТАКТ ВАЖЕН.»; under it the
+  copyright-style line Inter 11px muted: "bleak-web · 2026" / «bleak-web ·
+  2026».
+- **CTA badge block** (≥720px right column bottom — the example's
+  AVAILABLE-NOW slot): 16px handshake glyph (accent) + label Handjet 12px
+  uppercase `--color-accent`: EN "START NOW — 6 DIGITS TO JOIN" / RU
+  «СТАРТ СЕЙЧАС — 6 ЦИФР ДЛЯ ВХОДА»; the whole block is a link →
+  `/income` (focus ring, hover glow).
+
+#### 4.20.J Mascot cast (owner's variety requirement)
+
+**Six distinct figures; no figure appears twice on the page** (Concept
+§32.3). All are §4.3-construction original art (SVG `<rect>`s,
+`crispEdges`, dot eyes, chunky pixels, transparent backgrounds, no
+background plates):
+
+| Figure | Where | Art spec |
+| --- | --- | --- |
+| **NOVA** | hero scene, left figure | human attendee, back 3/4 view, warm-neutral skin slot, accent-striped scarf; 64-grid, ~28u tall |
+| **BYTE** | hero scene, right figure | AI agent, charcoal body, accent visor-eye, 2px antenna; 64-grid, ~28u |
+| **VECTOR** | agent character card portrait | agent in suit + monocle visor, accent tie; 32×32 → 96px |
+| **BLOOM** | stat-card glyph | pixel flower with signal-antenna bloom, accent center; 32×32 → 56px |
+| **PIP** | mascot-chat strip, left | human attendee mini-portrait; 16×16 → 48px |
+| **GLITCH** | mascot-chat strip, right + top-right tagline glyph | robo-cat, accent ears, dot eyes; 16×16 → 48px / 24px |
+
+Tutorial glyphs are §4.4 icons, not mascots. Hero figures and card
+portraits each get their own part files under `lib/assets/avatars/`;
+nothing reuses another figure's parts.
+
+#### 4.20.K Adaptive layout (mobile-first → desktop at 720px)
+
+- **<720px (single column, stacking order top→bottom):** top bar (left
+  tagline pair + switch + Start pill) → headline block (centered, accent
+  word) → subheadline → **Start CTA** → hero scene → dialogue box →
+  mascot-chat strip → agent character card → stat card → tutorial row →
+  footer blocks (stacked). Horizontal padding `--space-5`; every framed
+  element full-width.
+- **≥720px (the example's 3-column composition, 1000px canvas,
+  `grid-template-columns: 26% 1fr 26%`, gap `--space-6`):** **left
+  column:** top-left tagline pair, headline block (left-aligned),
+  subheadline, Start CTA, stat card (bottom-anchored). **center column
+  (widest):** top-center tagline, hero scene (480px), dialogue box
+  overlapping its bottom. **right column:** top-right tagline + GLITCH
+  glyph, agent character card (`#agents`), mascot-chat strip (280px), CTA
+  badge block. **Tutorial row:** full-width (`#tutorial`), bottom of the
+  canvas; footer blocks sit at the left/right column bottoms as placed
+  above — the example's corners.
+- Both layouts keep the same DOM order (source order = mobile order); the
+  desktop grid is CSS-only rearrangement. No horizontal scroll at 320px
+  width.
+
+#### 4.20.L Behavior, routes & states
+
+- **Start CTA, agent-card TALK, and the CTA badge block all navigate to
+  `/income`** (the 6-digit entry, §3.1 moved verbatim) with locale
+  preserved (`router.push`, no full reload). Nothing on `/` calls the
+  resolve/scan APIs — those live on `/income` as shipped.
+- **Routes untouched:** `/income` and `/income/[room]/create` behavior,
+  contracts and suites are out of scope; only the `/` surface rebuilds.
+  Deep links to room routes forward exactly as before (§3.1 guards).
+- **Tab bar:** not rendered on `/` (same pre-room rule as §4.19).
+- **Interaction states:** no data loading/empty/error states exist (no
+  fetches); the only dynamic states are the loops above (dialogue cycle,
+  chat strip) — both reduced-motion-guarded; hover/press/focus states as
+  specified per element; the locale switch is the only persistent
+  control.
+
+#### 4.20.M RU/EN copy — every new landing string (§4.7 format; both dictionaries required; parity test extended per the §14.1.5 precedent)
+
+| Key | RU | EN |
+| --- | --- | --- |
+| `landing.tagline.left.1` | ЗНАКОМСТВА — ЭТО ИГРА. | NETWORKING IS A GAME. |
+| `landing.tagline.left.2` | АГЕНТ ИГРАЕТ ЗА ВАС. | THE AGENT PLAYS IT FOR YOU. |
+| `landing.tagline.top` | БЕЗ СМОЛТОЛКА. ТОЛЬКО РЕАЛЬНЫЕ ЗНАКОМСТВА. | NO SMALL TALK. JUST REAL CONNECTIONS. |
+| `landing.tagline.right.1` | СДЕЛАНО ДЛЯ ЛЮДЕЙ. | BUILT FOR PEOPLE. |
+| `landing.tagline.right.2` | РАБОТАЮТ АГЕНТЫ. | RUN BY AGENTS. |
+| `landing.headline.1` | НУЖНЫЕ | THE RIGHT |
+| `landing.headline.2` | ЗНАКОМСТВА | CONNECTIONS |
+| `landing.headline.accent` | ВАС | YOU |
+| `landing.sub` | Приложение события, где ИИ-агенты заводят разговор за вас — вы приходите к знакомству уже готовым. | An event app where AI agents break the ice for you — you arrive at every meeting already warmed up. |
+| `landing.cta` | НАЧАТЬ | START |
+| `landing.dialog.line1` | * Агент здоровается… | * The agent says hello… |
+| `landing.dialog.line2` | * Ваш агент уже нашёл три совпадения. | * Your agent already found three matches. |
+| `landing.dialog.line3` | * Совпадение принято. Обмен контактами через минуту. | * Match accepted. Contact exchange in a minute. |
+| `landing.hero.aria` | Пиксельная сцена: человек встречает своего ИИ-агента под светящимся узлом сети | Pixel scene: a person meets their AI agent under a glowing network node |
+| `landing.stat.title` | РЕАЛЬНЫЕ ЛЮДИ. РЕАЛЬНЫЕ РЕЗУЛЬТАТЫ. | REAL PEOPLE. REAL RESULTS. |
+| `landing.stat.line1` | Никаких пустых чатов. | No empty chats. |
+| `landing.stat.line2` | Никаких холодных сообщений. | No cold DMs. |
+| `landing.stat.line3` | Только встречи, которые важны. | Only encounters that matter. |
+| `landing.agent.name` | ВЕКТОР | VECTOR |
+| `landing.agent.badge` | АГЕНТ · УР 1 | AGENT · Lv 1 |
+| `landing.agent.traits` | БЫСТРЫЙ · ТОЧНЫЙ · НАДЁЖНЫЙ | SWIFT · SHARP · LOYAL |
+| `landing.agent.quote` | «Я начинаю разговор. Вы сохраняете контакт.» | "I break the ice. You keep the contact." |
+| `landing.agent.cta` | ПОГОВОРИТЬ | TALK |
+| `landing.chat.label` | ЖИВОЙ ЧАТ АГЕНТА | LIVE AGENT CHAT |
+| `landing.chat.bubble1` | Привет! Я Глитч — агент Даши. | Hi! I'm Glitch — Dana's agent. |
+| `landing.chat.bubble2` | Привет. Я здесь ради трека по ИИ. | Hey. I'm here for the AI track. |
+| `landing.chat.bubble3` | Тогда вам по пути. Даша собрала демо, которое вы лайкнули. | Then you'll get along. Dana built the demo you starred. |
+| `landing.chat.bubble4` | Передайте ей мои контакты! | Send her my contacts! |
+| `landing.chat.aria` | Анимация: агент Глитч и участник Пип обмениваются сообщениями | Animation: the agent Glitch and the attendee Pip exchange messages |
+| `landing.tutorial.search` | НАЙДИ | FIND |
+| `landing.tutorial.chat` | ОБЩАЙСЯ | CHAT |
+| `landing.tutorial.share` | ПОДЕЛИСЬ | SHARE |
+| `landing.footer.line` | КАЖДЫЙ КОНТАКТ ВАЖЕН. | EVERY CONNECTION MATTERS. |
+| `landing.footer.badge` | СТАРТ СЕЙЧАС — 6 ЦИФР ДЛЯ ВХОДА | START NOW — 6 DIGITS TO JOIN |
+| `landing.footer.copyright` | bleak-web · 2026 | bleak-web · 2026 |
+
+35 keys. Nav anchors ("HOW IT WORKS"/"AGENTS") reuse `landing.tutorial.*`
+and `landing.agent.*` as their accessible names — no extra keys.
+
+#### 4.20.N Acceptance criteria (checkable)
+
+1. `/` renders the full §32 landing: header taglines + locale switch +
+   Start, 3-line headline with the single accent word glowing, subheadline,
+   hero scene, retro dialogue-box, mascot-chat strip, agent character
+   card, stat card, 3-step tutorial row, two footer blocks.
+2. Start CTA, agent-card TALK, and the CTA badge block each navigate to
+   `/income`; `/income` and `/income/[room]/create` behavior unchanged
+   (their existing suites stay green).
+3. The bottom tab bar is not rendered on `/`.
+4. Palette audit: no new color values — every landing color resolves to an
+   existing §4.1 token or a `color-mix`/alpha variant; no raw hex in new
+   landing files.
+5. Exactly 3 tutorial icons with RU/EN labels and pixel-step connectors
+   between them, in the order search → chatting → contacts sharing.
+6. Mascot-chat strip: 4 alternating bubble turns (GLITCH → PIP → GLITCH →
+   PIP), per-character typewriter reveal (55ms/char, CSS steps), 900ms
+   hold, infinite loop with fade-out; all four bubbles render statically
+   under `prefers-reduced-motion: reduce`.
+7. Mascot variety: ≥6 distinct figures (NOVA, BYTE, VECTOR, BLOOM, PIP,
+   GLITCH), no figure reused in two regions; all are SVG-rect original art
+   with transparent backgrounds — no raster/background plates.
+8. All 35 `landing.*` keys exist in BOTH dictionaries (RU and EN); the
+   extended parity test is green.
+9. The header locale switch changes every landing string (headline, accent
+   word, taglines, dialogue lines, bubbles, card texts, tutorial labels,
+   footer) without a page reload.
+10. The dialogue box cycles its 3 asterisk lines with a blinking caret.
+11. ≥720px viewport (test at 1280×800): three-column composition —
+    headline/CTA/stat left, hero+dialogue center, agent card + chat strip
+    right, tutorial full-width bottom; no horizontal scroll.
+12. <720px viewport (test at 320×640 and 390×844): single column stacking
+    in §4.20.K order; no horizontal scroll at 320px.
+13. No new dependencies (package.json unchanged); no canvas element and no
+    animation library anywhere in the landing code.
+14. Hero scene and chat strip expose `role="img"` + aria-labels
+    (`landing.hero.aria`, `landing.chat.aria`); focusable elements have
+    visible focus rings; typewriter bubbles keep full text in the DOM.
+15. Deep links to room routes still forward unchanged; `make lint && make
+    test && make build` green.
+
+#### 4.20.O Flags for the owner / concept (concept report)
+
+1. **ADVICE NEEDED — PASS button dropped:** the example's character card
+   has TALK + PASS; I specced a single TALK CTA because a second no-op
+   button would fake a behavior the landing cannot perform. Confirm the
+   single-CTA card is acceptable (or provide a real second action).
+2. **ADVICE NEEDED — cast & copy are the design's invention:** NOVA /
+   BYTE / VECTOR / BLOOM / PIP / GLITCH and all RU/EN copy adapt the
+   dating example to the AI-networking story per Concept §32.1 ("adapt,
+   don't copy content"). Owner tone/naming approval requested before the
+   worker lands final copy.
 
 ## 5. Design-decision rationale (short)
 

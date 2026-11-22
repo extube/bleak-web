@@ -1461,6 +1461,76 @@ positioned.
 
 ---
 
+## 31. New feature: landing page — ✅ APPROVED (2026-11-21)
+
+New feature (owner, 2026-11-21): a **landing page for the web app**.
+
+1. **Routes:** `/` — the landing page; `/income` — the room-income
+   (entry) page; `/income/<room>/create` — the creation process (intro;
+   chat; etc.).
+2. **Landing page content:** a **modern, relative design with pixel
+   mascots**, some **words about the project**, **navigation**, and a
+   **button to start and enter a room**.
+3. **Design template:** the owner's reference is
+   `https://dribbble.com/shots/27317590-Mobile-App-Pixel-Art-Dating-Interface`
+   (use as the template/mood reference).
+4. **Positioning:** the main purpose of the web app — **effective
+   networking with AI agents** (this is the story the landing tells).
+5. **Mobile-first design.**
+6. **Tutorial section:** how it works — **search → chatting → contacts
+   sharing**.
+7. **Palette:** keep the palette as in the other pages (no new colors).
+8. **Localization:** both **Russian and English** (the language
+   switching applies to the landing too).
+9. **First view:** the **Start button** opens the **`/income` page**
+   with the **6-digit input**.
+
+---
+
+## 32. Owner order: landing page redesign from zero — ✅ APPROVED (2026-11-22)
+
+The §31 landing design is **rejected** ("bad"). Create the landing page
+**again from zero**. The owner provided a design example in the
+workspace: **`landing-design-example.png`** — use it as the design
+template. Requirements:
+
+1. **Follow the example's mood and structure** (adapt, don't copy
+   content): near-black background with the project's **purple
+   accent/glow palette**; **large pixel headline** with a highlighted
+   accent word; short **tagline lines in pixel font** at the top
+   corners; a **centered hero pixel-art scene** with a glowing focal
+   element; a **retro dialogue-box** element (framed box with an
+   asterisk line of text) as a signature element; **framed pixel-border
+   cards** (feature/stat cards, character-style cards with action
+   buttons); a **row of pixel icons with labels** at the bottom
+   (feature navigation); small **badge/footer blocks** in pixel frames.
+2. **Something special, modern** — not a generic template; the pixel
+   style executed with modern web polish.
+3. **Do NOT use the same mascot everywhere** — vary the pixel mascots/
+   characters across the page (different figures for the hero, cards,
+   tutorial steps).
+4. **Adaptive for both computer screens and phone screens** — desktop
+   gets the multi-column layout as in the example; mobile stacks it
+   sensibly (mobile-first stacking, then enrich on desktop).
+5. All §31 requirements still apply: the routes (`/`, `/income`,
+   `/income/<room>/create`), the positioning copy (**effective
+   networking with AI agents**), the tutorial (search → chatting →
+   contacts sharing), the unchanged palette (dark + purple matches the
+   example), RU/EN parity, and the **Start button → `/income`** with
+   the 6-digit input.
+
+*Owner additions (2026-11-22):*
+
+- **Design-first workflow:** the **design agent describes the design
+  first** (a DESIGN.md section for the landing, derived from the
+  example) before the worker builds it.
+- **Mascot chat animation:** the landing also shows an **animation of
+  two mascots chatting** — they interact with **pixel messages
+  (speech-bubble style), like in 80s games** (retro typewriter/
+  bubble-exchange feel).
+
+---
+
 
 ---
 

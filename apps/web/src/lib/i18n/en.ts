@@ -404,31 +404,47 @@ export const en = {
   'host.drill.kickoff': 'Restart',
   'host.drill.dialogs': 'Dialogs',
 
-  /* --- landing (Concept §31): / — the modern showcase with pixel mascots,
-   --- the "effective networking with AI agents" positioning, navigation,
-   --- the Start button (opens /income with the 6-digit input) and the
-   --- "search → chatting → contacts sharing" tutorial --- */
-  'landing.hero.title': 'Effective networking with AI agents',
-  'landing.hero.text':
-    'bleak-web is an app for events. Your AI agent meets the attendees for you: it finds genuinely useful people, talks with them and hands you ready contacts.',
-  'landing.start': 'Start',
-  'landing.start.hint': 'The 6-digit invite code input opens next.',
-  'landing.nav.aria': 'Landing navigation',
-  'landing.nav.about': 'About',
-  'landing.nav.how': 'How it works',
-  'landing.nav.host': 'For hosts',
-  'landing.how.title': 'How it works',
-  'landing.how.step1.title': 'Find people',
-  'landing.how.step1.text':
-    'The Around radar shows who is in the room: pick a person and send a handshake.',
-  'landing.how.step2.title': 'Chat through agents',
-  'landing.how.step2.text':
-    'Your AI agents hold the dialog themselves and summarize every meeting.',
-  'landing.how.step3.title': 'Share contacts',
-  'landing.how.step3.text':
-    'A useful contact is one swipe away — pass it to your agent or to a new acquaintance.',
-  'landing.step.aria': 'Step {n}',
-  'landing.mascot.aria': 'Blik — the bleak-web mascot',
+  /* --- landing v3.14 (Concept §31+§32, DESIGN §4.20.M — the owner rejected
+   --- the §31 landing and ordered a rebuild from zero per their example;
+   --- all 35 keys verbatim from the §4.20.M table, RU/EN parity) --- */
+  'landing.tagline.left.1': 'NETWORKING IS A GAME.',
+  'landing.tagline.left.2': 'THE AGENT PLAYS IT FOR YOU.',
+  'landing.tagline.top': 'NO SMALL TALK. JUST REAL CONNECTIONS.',
+  'landing.tagline.right.1': 'BUILT FOR PEOPLE.',
+  'landing.tagline.right.2': 'RUN BY AGENTS.',
+  'landing.headline.1': 'THE RIGHT',
+  'landing.headline.2': 'CONNECTIONS',
+  'landing.headline.accent': 'YOU',
+  'landing.sub':
+    'An event app where AI agents break the ice for you — you arrive at every meeting already warmed up.',
+  'landing.cta': 'START',
+  'landing.dialog.line1': '* The agent says hello…',
+  'landing.dialog.line2': '* Your agent already found three matches.',
+  'landing.dialog.line3': '* Match accepted. Contact exchange in a minute.',
+  'landing.hero.aria':
+    'Pixel scene: a person meets their AI agent under a glowing network node',
+  'landing.stat.title': 'REAL PEOPLE. REAL RESULTS.',
+  'landing.stat.line1': 'No empty chats.',
+  'landing.stat.line2': 'No cold DMs.',
+  'landing.stat.line3': 'Only encounters that matter.',
+  'landing.agent.name': 'VECTOR',
+  'landing.agent.badge': 'AGENT · Lv 1',
+  'landing.agent.traits': 'SWIFT · SHARP · LOYAL',
+  'landing.agent.quote': '"I break the ice. You keep the contact."',
+  'landing.agent.cta': 'TALK',
+  'landing.chat.label': 'LIVE AGENT CHAT',
+  'landing.chat.bubble1': "Hi! I'm Glitch — Dana's agent.",
+  'landing.chat.bubble2': "Hey. I'm here for the AI track.",
+  'landing.chat.bubble3': "Then you'll get along. Dana built the demo you starred.",
+  'landing.chat.bubble4': 'Send her my contacts!',
+  'landing.chat.aria':
+    'Animation: the agent Glitch and the attendee Pip exchange messages',
+  'landing.tutorial.search': 'FIND',
+  'landing.tutorial.chat': 'CHAT',
+  'landing.tutorial.share': 'SHARE',
+  'landing.footer.line': 'EVERY CONNECTION MATTERS.',
+  'landing.footer.badge': 'START NOW — 6 DIGITS TO JOIN',
+  'landing.footer.copyright': 'bleak-web · 2026',
 
   /* --- global 401 gate (DESIGN rev. 3 §2.8, §4.7) --- */
   'auth.401.notice':
