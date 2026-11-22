@@ -1,5 +1,58 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.18 ROUND NOTE (§36 80% widths + opaque narrower lead + thirds layout
+> + phone open state, Concept §36 — appended by the process 2026-11-22,
+> post-round three-gate run GREEN: lint clean · 966 tests total (49
+> api-client + 8 helper + 909 web, 52 files; landing suite 51) · build 0
+> errors, dev `b34465a`):**
+> **Landing adjusted per ALL 4 §36 items** (task 124, worker `aef20dd9`;
+> design-first — design instance `54ba0ec2` wrote DESIGN §4.24 amending
+> §4.23): (1) **80% container + header** — one container rule `.landing {
+> width: max(80%, 280px); margin-inline: auto }` (the 1000px canvas cap
+> retired as a width rule; the 280px floor protects 320px phones), header
+> spans the same 80% via the container breakout (negative-margin
+> calc — no vw units); **blur VERIFIED applied and unoverridden** — the
+> imperceptibility root cause was the 92% fill over the already near-black
+> clip; fixed with the two-tier fill (92% `@supports`-fallback floor + 88%
+> where the blur actually runs; blur-inclusive AA re-derived 5.2:1);
+> (2) **opaque narrower lead** — solid `--color-surface` body, §4.20.G
+> pixel-frame, SQUARE corners (the header is now the ONLY rounded
+> surface), no translucency; fills its thirds column (≈288px @1280, was
+> ≤560px); desktop headline `clamp(22px, 3.5vw, 44px)` (the §4.20.C 64px
+> cannot hold a 288px third — flag below); (3) **thirds layout (desktop
+> ≥720px)** — `repeat(3, 1fr)` grid: lead col 1 / BLEAK agent card col 3 /
+> **col 2 EMPTY** (video + vignette + dots show through; negative AC: no
+> col-2 element, no glass panel); the §4.23.D `1fr/360px` row + cap
+> retired; (4) **phone open state** — `@media (max-width: 719.98px)
+> { .canvas { padding-top: calc(200dvh / 3) } }` (dvh, URL-bar-safe; the
+> owner's verbatim wording recorded in §36.4/§4.24.E) — the first content
+> block starts below the two-thirds mark; the sticky glass chip floats
+> over pure video; desktop no offset. i18n ZERO delta (23/23 parity, with
+> the §4.23.F erratum recorded in §4.24.G). Keep-list, video layer +
+> attrs/gating, dissolve, dot mesh, BLEAK/БЛИК, step blocks, contact
+> footer, Start/TALK → /income, income surfaces — all untouched.
+> §4.24.J owner flags (advice): (1) the desktop headline needed
+> `clamp(22px, 3.5vw, 44px)` to survive the 288px third (alternative: a
+> wider lead, contradicting the thirds reading); (2) the glass-visibility
+> band landed at 88% — the owner may step to 85% on real-device smoke
+> (≈5.05:1 blur-inclusive — the documented floor); (3) the phone first
+> block lands slightly BELOW the exact 2/3 line (header + container
+> padding inside the offset zone — satisfies the verbatim "no blocks in
+> top 2/3"; pixel-exact placement deliberately not specced).
+> Manual checks for the owner: the landing on phone + desktop (site
+> "opens" on pure video for the first 2/3 of a phone viewport, 80%
+> centered column, visible glass blur on the header, opaque pixel-frame
+> lead in the left third, video showing through the empty middle third,
+> BLEAK card right third, RU/EN over glass), Start/TALK → /income,
+> reduced-motion.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — the
+> landing + docs commits pathspec-scoped (this round the worker also
+> committed via an explicit 7-file pathspec — verified clean); devops
+> `-D` branch-cleanup list adds
+> `feature/aef20dd9-tz12-08-widths-thirds` (7 branches total); owner refs
+> stay untracked.
+
 > **v3.17 ROUND NOTE (§35 full-screen video background + liquid-glass header
 > + reminders removed, Concept §35 — appended by the process 2026-11-22,
 > post-round three-gate run GREEN: lint clean · 964 tests total (49
