@@ -1,48 +1,49 @@
 <script lang="ts">
   /**
-   * `/` — the landing page (tz12-06, Concept §31+§32+§33+§34, DESIGN §4.22
-   * amending §4.21/§4.20 item by item):
+   * `/` — the landing page (tz12-07, Concept §35, DESIGN §4.23 amending
+   * §4.22/§4.21/§4.20 item by item):
    *
-   * - Canvas: the NEW §4.22.F page background — `--color-landing-bg` (the
-   *   near-black page matching the hero video's own near-black background),
+   * - Canvas: the §4.22.F page background stays — `--color-landing-bg` (the
+   *   near-black page matching the video's own near-black background),
    *   painted full-bleed by the page wrapper; the 1000px content canvas is
-   *   centered inside. Every other page keeps --color-bg.
-   * - Section 1 — header (§4.22.A, taglines dropped): ONLY the web icon
-   *   (the §30 FormShell mark, plate-less, cutouts in
+   *   centered inside.
+   * - §4.23.A fixed background: `LandingVideoHero` (REPURPOSED in place) is
+   *   the FIRST child of `.landing-page` — a fixed full-viewport video
+   *   layer (z 0) + dissolve vignette + 30% tint (z 1) + the 12-dot purple
+   *   mesh (z 2); ALL landing blocks scroll OVER it as overlays. The
+   *   §4.22.B "center video block" geometry and the phone no-overlay rule
+   *   are superseded (§4.23.E).
+   * - Header (§4.23.B): a floating LIQUID-GLASS panel — sticky at 12px,
+   *   frosted translucent fill (92% landing-bg) + backdrop blur(14px)
+   *   saturate(1.1) + violet hairline, ROUNDED corners (radius-lg desktop /
+   *   radius-md phone chip — the glass-surface exception to the pixel
+   *   aesthetic). Keep-list UNCHANGED (§4.22.A): the web icon (cutouts in
    *   `--color-landing-bg`), the desktop-only in-page anchors and the
-   *   working RU/EN switch (the shared LocaleControl) — one non-sticky row;
-   *   on phone the header is icon + switcher only.
-   * - Section 2 — the `.stage` hero (§4.22.B as amended by §4.22.1): DOM
-   *   order = the phone stacking order — lead block (headline +
-   *   subheadline + Start CTA, §4.20.C verbatim) → video block
-   *   (`LandingVideoHero`: the owner's 16:9 video, full common-block
-   *   width, the vignette dissolve into the page token, the animated
-   *   purple pixels, the bottom-fixed reminder §4.22.C, the gated play
-   *   control) → the BLEAK agent card (§4.20.G-b as renamed §4.22.D).
-   *   Desktop ≥720px: the lead and agent blocks OVERLAY the video from
-   *   their sides (floating over the video's vignette-dissolved dark
-   *   edges, vertically centered on the video). The mascot-chat strip
-   *   (§4.20.F) is RETIRED (§4.22.1 owner amendment — the video's own
-   *   cast is the only animated center content). PHONE: no overlay — the
-   *   blocks stack in exactly this order.
-   * - Section 3: the stat card — compact per §4.21.F, full-width — then
-   *   the three BIG step blocks (§4.21.E): FIND / CHAT / SHARE.
+   *   working RU/EN switch; on phone the header is the smaller chip —
+   *   icon + switcher only.
+   * - Lead section (§4.23.D): headline + subheadline + Start CTA
+   *   (§4.20.C verbatim) inside the SAME glass recipe — the legibility
+   *   decision (raw muted text over an arbitrary bright video region
+   *   cannot be guaranteed AA). The second (and last) rounded surface.
+   * - BLEAK agent card (§4.20.G-b as renamed §4.22.D) — pixel frame,
+   *   opaque surface, NO glass, floating over the video; desktop ≥720px
+   *   the lead panel and the agent card (360px cap) share one plain-flow
+   *   row; phone stacks in DOM order.
+   * - Stat card (§4.21.F compact) + the three BIG step blocks (§4.21.E):
+   *   FIND / CHAT / SHARE — opaque pixel frames, floating over the video.
    * - Footer (§4.21.G): the site contact block — extube@proton.me +
    *   github.com/extube with RU/EN labels.
-   * - Mascots (§4.20.J as amended by §4.22.I/§4.22.1): two figures —
-   *   BLEAK (the agent card, promoted shared personage §4.22.E) and
-   *   BLOOM (stat card). PIP + GLITCH retire with the chat strip
-   *   (§4.22.1); NOVA + ASTRA retired with the drawn hero scene
-   *   (§4.22.G) — the video carries its own cast.
-   * - Behavior (§4.20.L + §4.21.G amendment, §4.22.A made exact): the
-   *   /income entry points are EXACTLY TWO — the Start CTA and the
-   *   agent-card TALK (the header START controls are removed, §4.22.A);
-   *   nothing on / fetches; the join deep links (?code= / ?u=) still
-   *   forward to /income with the query preserved (the §3.1 guard,
-   *   unchanged).
-   * - RU/EN parity: every landing string goes through the 35 §4.20.M +
-   *   §4.21.H + §4.22.H keys; the header switch re-renders the page
-   *   without a reload.
+   * - Reminders REMOVED (§4.23.C, §35 item 3): LandingReminder, its props,
+   *   the play control and the dialog/video i18n keys are all retired —
+   *   pure subtraction (§4.23.E supersessions).
+   * - Mascots: two figures — BLEAK (the agent card) and BLOOM (stat card);
+   *   the video carries its own cast.
+   * - Behavior (§4.20.L + §4.22.A made exact): the /income entry points
+   *   are EXACTLY TWO — the Start CTA and the agent-card TALK; nothing on
+   *   / fetches; the join deep links (?code= / ?u=) still forward to
+   *   /income with the query preserved (the §3.1 guard, unchanged).
+   * - RU/EN parity: every landing string goes through the landing keys;
+   *   the header switch re-renders the page without a reload.
    */
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -70,16 +71,6 @@
   function talk(): void {
     void goto(resolve('/income'));
   }
-
-  const videoAria = $derived(translate($locale, 'landing.video.aria'));
-  const videoPlay = $derived(translate($locale, 'landing.video.play'));
-  const videoPause = $derived(translate($locale, 'landing.video.pause'));
-
-  const dialogLines = $derived([
-    translate($locale, 'landing.dialog.line1'),
-    translate($locale, 'landing.dialog.line2'),
-    translate($locale, 'landing.dialog.line3')
-  ]);
 
   /* The §4.21.E step blocks: number/title/icon/mini-description — the
    * numbers are locale-invariant literals; titles reuse the §4.20.M keys. */
@@ -115,10 +106,16 @@
      (scoped to /; every other page keeps --color-bg), the 1000px canvas
      centered inside. -->
 <div class="landing-page">
+  <!-- §4.23.A: the fixed full-viewport video background — the FIRST child
+       of .landing-page, before .landing; the page content scrolls over it. -->
+  <LandingVideoHero />
   <div class="landing">
-    <!-- SECTION 1 — HEADER (§4.22.A): the web icon + the navigation + the
-         language switcher ONLY — one non-sticky row; on phone icon +
-         switcher (the anchors are a desktop convenience). -->
+    <!-- SECTION 1 — HEADER (§4.23.B): the floating liquid-glass panel —
+         sticky at 12px, frosted translucent fill + backdrop blur + violet
+         hairline + rounded corners (radius-lg desktop / radius-md phone
+         chip). Keep-list (§4.22.A verbatim): the web icon + the navigation
+         + the language switcher ONLY; on phone icon + switcher (the
+         anchors are a desktop convenience). -->
     <header class="top">
       <!-- the §30 FormShell app mark, plate-less; the cutout cells are the
            landing page background token so the mark dissolves into the new
@@ -156,11 +153,14 @@
     </header>
 
     <main class="canvas">
-      <!-- SECTION 2 · the .stage hero (§4.22.B as amended by §4.22.1). DOM
-           order = the phone stacking order: lead → video → agent card. -->
+      <!-- §4.23.D: the .stage grid is retired to a plain-flow container —
+           desktop the lead glass panel (column 1) and the agent card
+           (column 2, 360px cap) share one row; phone stacks in DOM order
+           (everything overlays the fixed video background now). -->
       <div class="stage">
-        <!-- SECTION 2 · lead — HEADLINE BLOCK + START CTA (§4.20.C verbatim) -->
-        <section class="copy area-lead">
+        <!-- the lead — HEADLINE BLOCK + START CTA (§4.20.C verbatim) inside
+             the §4.23.D liquid-glass panel (the second rounded surface) -->
+        <section class="copy area-lead glass">
           <h1 class="headline">
             <span class="hl-line">{translate($locale, 'landing.headline.1')}</span>
             <span class="hl-line">{translate($locale, 'landing.headline.2')}</span>
@@ -196,21 +196,9 @@
           </button>
         </section>
 
-        <!-- SECTION 2 · video — the §4.22.B video block (the owner's video,
-             the vignette dissolve, the purple pixels, the bottom-fixed
-             reminder, the gated play control) -->
-        <div class="area-video">
-          <LandingVideoHero
-            aria={videoAria}
-            playLabel={videoPlay}
-            pauseLabel={videoPause}
-            lines={dialogLines}
-            srLine={dialogLines[0] ?? ''}
-          />
-        </div>
-
-        <!-- SECTION 2 · agent — AGENT CHARACTER CARD (§4.20.G-b, renamed
-             BLEAK per §4.22.D) -->
+        <!-- the agent — AGENT CHARACTER CARD (§4.20.G-b, renamed
+             BLEAK per §4.22.D) — pixel frame, opaque surface, NO glass,
+             floating over the video -->
         <section class="area-agents" id="agents">
           <article class="card pixel-corners pixel-frame pixel-frame--strong agent-card">
             <div class="card-body pixel-corners agent-body">
@@ -229,7 +217,7 @@
         </section>
       </div>
 
-      <!-- SECTION 3 · STAT / FEATURE CARD (§4.20.G-a, compact per §4.21.F) -->
+      <!-- STAT / FEATURE CARD (§4.20.G-a, compact per §4.21.F) -->
       <section class="area-stat">
         <article class="card pixel-corners pixel-frame pixel-frame--strong stat-card">
           <div class="card-body pixel-corners stat-body">
@@ -246,7 +234,7 @@
         </article>
       </section>
 
-      <!-- SECTION 3 · the three BIG step blocks (§4.21.E):
+      <!-- the three BIG step blocks (§4.21.E):
            FIND → CHAT → SHARE, number + pixel title + icon + description -->
       <section class="tutorial area-tutorial" id="tutorial">
         <ol class="steps">
@@ -314,12 +302,15 @@
 <style>
   /* §4.22.F: the full-bleed near-black page background (the video's own
    * near-black, 5% Deepa cast) — scoped to /; the 1000px canvas centered
-   * inside. */
+   * inside. §4.23.A: .landing is the z-3 scrolling content column ABOVE
+   * the fixed video layer (z 0/1/2). */
   .landing-page {
     min-height: 100dvh;
     background: var(--color-landing-bg);
   }
   .landing {
+    position: relative;
+    z-index: 3;
     width: 100%;
     max-width: 1000px;
     margin: 0 auto;
@@ -334,13 +325,53 @@
     }
   }
 
-  /* ---------- section 1: header (§4.22.A — slimmed) ---------- */
+  /* ---------- section 1: the liquid-glass header (§4.23.B) ----------
+   * Floating rounded glass panel over the video: sticky at 12px, side
+   * insets 12px, aligned to the 1000px canvas; translucent fill via the
+   * black token family (92%), backdrop blur(14px) + saturate(1.1), a
+   * subtle violet hairline (22% Deepa) and rounded corners — radius-lg
+   * desktop / radius-md phone chip (the ONLY rounded surface family,
+   * scoped to the glass panels; the pixel aesthetic's square/stepped
+   * corners stay the rule everywhere else, §4.5). The same recipe styles
+   * the lead panel (§4.23.D). AA floor (§4.23.B): the 92% fill alone
+   * composites a worst-case white video pixel to a near-black — muted text
+   * holds ≈ 5.0:1; with blur the real local average is the clip's
+   * near-black. @supports fallback: where backdrop-filter is unsupported
+   * the fill alone still guarantees the same worst-case contrast — the
+   * panel just reads near-solid. Do not lower the 92% ratio. */
   .top {
+    position: sticky;
+    top: var(--space-3);
+    z-index: 10;
+    width: min(100% - 24px, calc(1000px - 48px));
+    margin-inline: auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: var(--space-4);
-    min-height: 56px;
+    min-height: 52px;
+    padding: 8px 10px;
+  }
+  /* the glass recipe (exact values, §4.23.B) — header + lead panel */
+  .top,
+  .glass {
+    background: color-mix(in srgb, var(--color-landing-bg) 92%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(1.1);
+    backdrop-filter: blur(14px) saturate(1.1);
+    border: 1px solid color-mix(in srgb, var(--color-deepa-4) 22%, transparent);
+    border-radius: var(--radius-lg);
+  }
+  @media (max-width: 719.98px) {
+    /* the smaller phone chip reads 20px (§4.23.B) */
+    .top {
+      border-radius: var(--radius-md);
+    }
+  }
+  @media (min-width: 720px) {
+    .top {
+      min-height: 56px;
+      padding: 10px 16px;
+    }
   }
   .app-icon {
     display: block;
@@ -376,19 +407,19 @@
     min-height: 36px;
   }
   @media (min-width: 720px) {
-    /* icon · anchors · switcher, left→right (§4.22.A) */
+    /* icon · anchors · switcher, left→right (§4.22.A keep-list) */
     .top-nav {
       display: flex;
     }
   }
 
-  /* ---------- sections 2 + 3: the canvas (§4.22.B) ----------
-   * PHONE ORDER (§4.20.K preserved, chat strip retired §4.22.1): the DOM
-   * order below IS the mobile stack — header → headline → sub → Start →
-   * video block (the reminder lives inside it at the bottom) → agent card
-   * → stat card → the three step blocks → contact footer. Desktop (≥720px)
-   * overlays the lead/agent blocks on the video's side edges — CSS-only
-   * re-composition, same DOM. */
+  /* ---------- the content column over the video (§4.23.D) ----------
+   * PHONE: the DOM order below IS the mobile stack — glass header chip →
+   * lead glass panel → agent card → stat card → the three step blocks →
+   * contact footer (everything overlays the fixed video background now —
+   * the §4.22.B phone no-overlay rule is superseded, §4.23.E). Desktop
+   * (≥720px): the lead glass panel (column 1) and the agent card (column
+   * 2, 360px cap) share one plain-flow row. */
   .canvas {
     display: flex;
     flex-direction: column;
@@ -402,37 +433,26 @@
     min-width: 0;
   }
   @media (min-width: 720px) {
-    /* §4.22.B desktop composition (the chat-strip slot retired, §4.22.1):
-     * the video is the full common-block width (it spans the whole row);
-     * the lead (27%) and agent-card (26%) blocks overlay the video's side
-     * edges, vertically centered on the video, ABOVE it in z-order. The
-     * 47% clear center band (100% − 27% − 26%) is the reminder's §4.22.C
-     * desktop cap band. */
     .stage {
       display: grid;
-      grid-template-columns: 27% minmax(0, 1fr) 26%;
-      align-items: center;
+      grid-template-columns: minmax(0, 1fr) 360px;
       column-gap: var(--space-6);
-    }
-    .area-video {
-      grid-column: 1 / -1;
-      grid-row: 1;
-      z-index: 0;
-      min-width: 0;
+      align-items: start;
     }
     .area-lead {
       grid-column: 1;
-      grid-row: 1;
-      z-index: 2;
     }
     .area-agents {
-      grid-column: 3;
-      grid-row: 1;
-      z-index: 2;
+      grid-column: 2;
     }
   }
+  /* anchored sections never hide under the stuck glass panel (§4.23.B) */
+  .area-agents,
+  .area-tutorial {
+    scroll-margin-top: 80px;
+  }
 
-  /* ---------- headline block (§4.20.C, unchanged) ---------- */
+  /* ---------- lead block (§4.20.C verbatim, §4.23.D glass panel) ---------- */
   .copy {
     display: flex;
     flex-direction: column;
@@ -440,6 +460,20 @@
     text-align: center;
     gap: var(--space-4);
     min-width: 0;
+    /* the glass lead panel: sizes to its content, full-width-ish centered
+     * on phone (§4.23.D) */
+    width: 100%;
+    max-width: 560px;
+    margin-inline: auto;
+    padding: 20px;
+  }
+  @media (min-width: 720px) {
+    .copy {
+      align-items: flex-start;
+      text-align: left;
+      width: fit-content;
+      padding: 28px;
+    }
   }
   .headline {
     font-family: var(--font-pixel);
@@ -459,10 +493,6 @@
     }
   }
   @media (min-width: 720px) {
-    .copy {
-      align-items: flex-start;
-      text-align: left;
-    }
     .headline {
       font-size: 64px;
     }

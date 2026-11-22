@@ -404,22 +404,18 @@ export const en = {
   'host.drill.kickoff': 'Restart',
   'host.drill.dialogs': 'Dialogs',
 
-  /* --- landing v3.14 + v3.15 + v3.16 + §4.22.1 (Concept §31+§32+§33+§34,
-   * --- DESIGN §4.20.M as amended by §4.21.H, §4.22.H and §4.22.1 —
-   * --- −5 tagline keys, −hero.aria, ~agent.name (→BLEAK), +3 video keys,
-   * --- −6 chat-strip keys; all 29 keys, RU/EN parity) --- */
+  /* --- landing v3.14 + v3.15 + v3.16 + §4.22.1 + §4.23 (Concept
+   * --- §31+§32+§33+§34+§35, DESIGN §4.20.M as amended by §4.21.H,
+   * --- §4.22.H, §4.22.1 and §4.23.F — −5 tagline keys, −hero.aria,
+   * --- ~agent.name (→BLEAK), −6 chat-strip keys, −3 dialog + −3 video
+   * --- keys (the §35 reminder + play-control retirement); 23 keys,
+   * --- RU/EN parity) --- */
   'landing.headline.1': 'THE RIGHT',
   'landing.headline.2': 'CONNECTIONS',
   'landing.headline.accent': 'YOU',
   'landing.sub':
     'An event app where AI agents break the ice for you — you arrive at every meeting already warmed up.',
   'landing.cta': 'START',
-  'landing.dialog.line1': '* The agent says hello…',
-  'landing.dialog.line2': '* Your agent already found three matches.',
-  'landing.dialog.line3': '* Match accepted. Contact exchange in a minute.',
-  'landing.video.aria': 'Video: two figures before a violet city under a glowing hello',
-  'landing.video.play': 'Play video',
-  'landing.video.pause': 'Pause video',
   'landing.stat.title': 'REAL PEOPLE. REAL RESULTS.',
   'landing.stat.line1': 'No empty chats.',
   'landing.stat.line2': 'No cold DMs.',

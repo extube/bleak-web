@@ -1615,6 +1615,40 @@ the two chatting pixel mascots (the §32 mascot-chat animation strip)
 no longer appear in/over the center composition; the video's own cast
 (the boy + robot in the video) is the only animated center content.
 
+---
+
+## 35. Owner change batch: full-screen video background + glass header + reminders removed — ✅ APPROVED (2026-11-22)
+
+The owner reviewed the video hero and wants (owner, 2026-11-22):
+
+1. **Video on full screen:** the video covers the **whole screen of
+   the device** (full-viewport), and its position is **fixed —
+   independent of scrolling** (the page content scrolls over it). All
+   the blocks are therefore **overlays of this video background**.
+2. **Header:** a **liquid-glass background** (frosted translucent
+   glass, backdrop blur) with **rounded corners**. The §34 header
+   keep-list stays (web icon + navigation + language switcher only).
+3. **Remove the agent reminders** — the reminder/dialogue box is
+   removed from the landing entirely (the §33 item 2 reminder
+   contracts are retired: pixel-font message, 1:3.5 strip, emoji
+   corner, bottom-fixed position, up-down bob, check mark — all go).
+
+Supersessions to carry into design/tests:
+
+- The §34 "center video block" becomes a **fixed full-viewport video
+  background**; the §34 phone no-overlay rule is superseded (everything
+  overlays the background now).
+- The §33 item 7 "protected centered scenario / art block height"
+  rules no longer apply (no art block; the video is the background).
+- Keep the **smooth dissolve** treatment where edges meet the black
+  page background (§34 item 4 black background stays).
+- Reduced-motion fallback: a static black/near-black background (no
+  video motion), consistent with the §34 attribute set.
+
+All other contracts stay in force (routes, Start/TALK → `/income`
+with the 6-digit input, header keep-list, BLEAK/БЛИК naming, income
+mascot swap, three step blocks, contact footer, RU/EN parity).
+
 All other §31–§33 contracts stay in force (routes, Start → `/income`
 with the 6-digit input, RU/EN parity, reminder box contracts, three
 step blocks, existing suites green).

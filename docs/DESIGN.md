@@ -4422,6 +4422,464 @@ DOM order shrinks to lead → video block → agent card. All other contracts
 keep-list, BLEAK/БЛИК naming, three step blocks, contact footer, black
 landing-bg + dissolve, RU/EN parity) are unchanged.
 
+### 4.23 v3.17 feature design (2026-11-22, owner-approved Concept §35): §35 full-screen video background + liquid-glass header + reminders removed
+
+The owner reviewed the video hero and issued the three-item §35 batch: the
+video becomes a **full-screen fixed background** the whole page scrolls over,
+the header becomes a **liquid-glass panel** (frosted translucent, backdrop
+blur, rounded corners), and the **agent reminders are removed entirely**.
+This section amends §4.22 (→ §4.21 → §4.20) item by item; **where §4.23 is
+silent, the earlier specs stand EXCEPT where §4.23.E explicitly supersedes
+them** (cards §4.20.G/§4.21.F, step blocks §4.21.E, contact footer §4.21.G,
+headline block + Start CTA §4.20.C, behavior §4.20.L, motion/a11y baselines
+§4.20.L/§4.6 all carry over unchanged). Same sandbox constraint as §4.22:
+**no video-inspection tooling exists** (no ffmpeg; the mp4 is not viewable
+here) — every frame-dependent choice is specced defensively; the video asset
+is already committed (`apps/web/src/lib/assets/landing/background-video.mp4`,
+16:9, ~4.4 MB, near-black background) and **stays untouched**. Grounded in
+the live code: `apps/web/src/routes/+page.svelte`,
+`lib/components/landing/LandingVideoHero.svelte`,
+`LandingReminder.svelte`, `figures.ts`, `lib/styles/tokens.css`,
+`tests/landing-page.test.ts`. Hard constraints unchanged: **no new
+dependencies** (`backdrop-filter` is native CSS — fine), **no new color
+values** (§4.1 — tokens or `color-mix` alpha variants only; the black
+`--color-landing-bg` token family is unchanged), **no canvas, no animation
+library**, **routes untouched**, **/income surfaces untouched**, the video
+asset stays. **API endpoints used: none** — the landing stays fetch-free
+(§4.20 preamble); the only states are media states (§4.23.G). Task:
+tz12-07 (`feature/9659161e-tz12-07-video-background`).
+
+#### 4.23.A Fixed full-viewport video background — the layer architecture (item 1)
+
+The video covers the **whole device screen** — full-viewport,
+`object-fit: cover`, `position: fixed` (inset 0), **independent of
+scrolling**; ALL landing blocks scroll over it as overlays of the video
+background. The §4.22.B "center video block" (the `.stage` aspect-ratio
+block with flanking absolute overlays) is **retired**; §4.23.E records the
+supersessions.
+
+**Component decision — `LandingVideoHero.svelte` is REPURPOSED, not
+replaced.** It already owns the video element, the decisive §34 attribute
+set, the purple-dot mesh, the vignette and the error fallback — it is
+rebuilt in place as the fixed background layer (its reminder import and its
+play control are deleted, §4.23.C; its `<section aria-label>` root becomes a
+decorative `<div>` root, aria-hidden, with NO props — `aria`,
+`playLabel`, `pauseLabel`, `lines`, `srLine` all removed). The component
+moves OUT of the content flow: it renders as the **first child of
+`.landing-page`**, before `.landing`, as a fixed layer.
+
+**Fixed layer stack (bottom → top), all `position: fixed; inset: 0;`
+pointer-events none except none needed:**
+
+1. **z 0 — the `<video>`**: `width: 100%; height: 100%;
+   object-fit: cover; object-position: 50% 50%;`. With `cover` the video
+   fills ANY viewport aspect ratio (it crops, never letterboxes: portrait
+   phone viewports crop the clip's left/right, ultrawide crops
+   top/bottom — the center-anchored `object-position` keeps the scene's
+   cast in frame). The §34 attribute set is kept **verbatim**: `muted loop
+   playsinline preload="metadata" disablepictureinpicture aria-hidden` —
+   no `autoplay` attribute, no native controls. Playback starts from the
+   existing ONE-SHOT mount effect, still gated on `prefers-reduced-motion`
+   (no call under reduce → the video stays paused at its first frame);
+   muted + loop + playsinline keep the programmatic start
+   policy-compliant. A rejected `.play()` is swallowed (the tint + vignette
+   + dots state shows; there is no control to reveal — §4.23.I flag 1).
+2. **z 1 — the dissolve vignette (re-specified for a fixed full-screen
+   layer):** the fixed `::after` of the layer,
+   `radial-gradient(ellipse 120% 105% at 50% 50%, transparent 0 55%,
+   color-mix(in srgb, var(--color-landing-bg) 55%, transparent) 78%,
+   var(--color-landing-bg) 100%)`. Every viewport edge dissolves into
+   exactly `--color-landing-bg` — **no hard edge where the video meets the
+   black page background at any viewport ratio**. The §4.22.F rationale is
+   corrected for the fixed layer: with `cover` there is no letterbox edge
+   to hide on any aspect ratio, so the vignette's job is the **smooth
+   dissolve mood + edge darkening** (it also darkens the zone under the
+   floating glass panels); seamlessness stays STRUCTURAL (dissolve into the
+   page token), not value-matched — the clip's exact background value
+   remains unverifiable here (§4.22.K flag 3 carries over). **The black bg
+   token stays:** `.landing-page` keeps painting
+   `background: var(--color-landing-bg)` full-bleed — it is what shows
+   through the dissolve, under the reduced-motion state and under the
+   error fallback. Plus the **global legibility tint**: the same fixed
+   vignette element carries a base wash,
+   `background-color: color-mix(in srgb, var(--color-landing-bg) 30%,
+   transparent)` (a uniform 30% darkening over the video for mood + a
+   first legibility pass; text-level legibility is guaranteed per-section,
+   §4.23.D).
+3. **z 2 — the animated purple pixels, KEPT as a fixed overlay layer above
+   the video, below the content.** Decision: KEEP (the owner has
+   consistently kept the dot treatment through §33 item 7 and §34 item 6 —
+   it does not read as noise over the near-black clip; it IS the page's
+   signature sparkle in the "sky" between sections). The §4.21.B mesh is
+   kept verbatim (the same 12 `DOTS` table, three `--color-deepa-4` alpha
+   shades 18/35/60%, `steps(2)` twinkle 1.6s, staggered 0–1.2s delays,
+   `aria-hidden`, `pointer-events: none`); its percent positions now map to
+   the FULL VIEWPORT (breakpoint-independent, so no table change); dots
+   near the viewport edges sit over the vignette and behind content cards —
+   visible only in the gaps between sections and over raw-over-video zones,
+   which is the intended "ambient sky" read.
+4. **z 3 — the content column** `.landing` (the scrolling page content —
+   §4.23.D).
+5. **z 10 — the sticky glass header** (§4.23.B), above the content.
+
+**Scroll-over architecture.** The page content is a **normal scrolling
+column above the fixed layer**: `.landing-page` keeps
+`min-height: 100dvh` + the token background; `.landing` gains
+`position: relative; z-index: 3` (the 1000px canvas, its `--space-5/--space-7`
+padding and its `--space-6` gap rhythm are unchanged). The document scrolls;
+the video layer does not move. No horizontal scroll at 320px (unchanged
+§4.20.K invariant). Because the fixed layer is `pointer-events: none`
+(vignette + dots) with the video beneath, all content interaction is
+unaffected.
+
+#### 4.23.B Liquid-glass header (item 2)
+
+The header becomes a **floating rounded glass panel** — frosted translucent
+glass over the video. Keep-list **UNCHANGED (§4.22.A verbatim)**: web icon +
+nav anchors + language switcher only; no START control; phone = icon +
+switcher only.
+
+- **Geometry — floating chip with insets (modern liquid-glass practice),
+  sticky at top:** the `<header class="top">` wrapper becomes the glass
+  panel: `position: sticky; top: var(--space-3)` (12px — the video shows in
+  the gap above it when scrolled), `z-index: 10` (above the content
+  column's z 3, over the video),
+  `width: min(100% - 24px, calc(1000px - 48px))`, `margin-inline: auto`
+  (side insets 12px; on wide viewports the panel aligns to the 1000px
+  canvas minus its padding). Desktop (≥720px) padding `10px 16px`,
+  min-height 56px (unchanged row height); phone padding `8px 10px`,
+  min-height 52px, and the panel is the smaller chip (icon + switcher only,
+  §4.22.A).
+- **Rounded corners — the owner explicitly orders rounded here, scoped to
+  glass surfaces only:** `border-radius: var(--radius-lg)` (24px) on
+  desktop, `var(--radius-md)` (20px) on the smaller phone chip — both
+  existing tokens, no new value. The established pixel style's square /
+  stepped corners (§4.5) remain the rule for every pixel-frame card, the
+  step blocks and the footer; **the rounded corner is the glass-surface
+  exception** (header panel + the lead panel, §4.23.D — the two liquid-glass
+  surfaces), not a general restyle.
+- **The glass recipe (exact values):**
+  ```css
+  .top {
+    background: color-mix(in srgb, var(--color-landing-bg) 92%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(1.1);
+    backdrop-filter: blur(14px) saturate(1.1);
+    border: 1px solid color-mix(in srgb, var(--color-deepa-4) 22%, transparent);
+    border-radius: var(--radius-lg); /* 20px on the phone chip */
+  }
+  ```
+  — translucent fill via `color-mix` of the black token family
+  (`--color-landing-bg` at 92%), blur radius 14px with a mild 1.1
+  saturation lift, and a subtle violet hairline border per the pixel
+  aesthetic (all token-only, §4.1).
+- **AA note (the fill must stay dark enough):** header text = the nav
+  anchors (`--color-text-muted`) and the LocaleControl labels. Worst-case
+  bound, no blur assumed: a pure-white video pixel behind the 92% fill
+  composites (in sRGB space) to ≈ #232527 — the muted text holds
+  ≈ 5.0:1 (AA ≥ 4.5); with `blur(14px)` the real local average is the
+  clip's near-black, well above that. The 92% ratio is therefore the floor:
+  do not lower it for translucency. `@supports` fallback: where
+  `backdrop-filter` is unsupported the fill alone still guarantees the same
+  worst-case contrast — the panel just reads near-solid. The panel's own
+  hairline is decorative (non-text, ≥3:1 not required; it also carries the
+  22% violet over the dark fill visibly).
+- **Stacking vs the fixed video:** the panel is above the content column
+  and above the video layer (z 10 > 3 > 2 > 1 > 0) — glass over video,
+  content scrolls under the stuck panel (which stays glass over the video
+  at every scroll position). Anchor targets keep working: `#tutorial` and
+  `#agents` gain `scroll-margin-top: 80px` so an anchored section never
+  hides under the stuck glass panel.
+- The header icon's cutout cells keep their `--color-landing-bg` fill —
+  over the 92% glass fill they read as the panel itself (no visual glitch,
+  zero churn; §4.22.A's dissolve intent is inherited by the panel).
+
+#### 4.23.C Remove the agent reminders ENTIRELY (item 3)
+
+The §33 item 2 reminder contracts are **RETIRED** — pixel-font message,
+1:3.5 strip, emoji corner, bottom-fixed position, up-down bob, check mark:
+**all go** (§4.23.E records the explicit supersessions of §4.21.C and
+§4.22.C). Pure subtraction, nothing replaces it:
+
+- **Delete the component:** `lib/components/landing/LandingReminder.svelte`
+  (file, markup, styles, its `spark`/`check` glyphs, the
+  `reminder-bob`/`reminder-line`/`spark-twinkle`/`check-glow` keyframes).
+- **Delete its integration:** the `LandingReminder` import + mount in
+  `LandingVideoHero.svelte`; the `lines`/`srLine` props (and then the whole
+  Props interface — §4.23.A); the `--reminder-w`/`--reminder-h` custom
+  properties and the `.video-block :global(.reminder)` z-index rule and the
+  play-control phone `bottom: calc(16px + var(--reminder-h))` rule (the
+  control retires too); in `+page.svelte` the `dialogLines` derivation
+  (`landing.dialog.line1/2/3`) and the `videoAria`/`videoPlay`/`videoPause`
+  derivations (§4.23.F).
+- **Key audit (live grep, both dicts):** there is **no
+  `landing.reminder.*` family** — the reminder's copy lives in
+  **`landing.dialog.line1`, `landing.dialog.line2`, `landing.dialog.line3`**
+  (en.ts/ru.ts ~417–419). Those three keys are the reminder family and are
+  removed from BOTH dictionaries. With the play control retired and the
+  video layer decorative, **`landing.video.aria`, `landing.video.play`,
+  `landing.video.pause`** are also removed (§4.23.F). No other landing key
+  references the reminder.
+- **Delete its tests:** the `landing-page.test.ts` reminder block (the
+  named-region/inside-the-block test, the 1:3.5 proportions + caps test,
+  the no-overlay center-band test, the pixel-font test, the cycling-copy
+  test, the sparkle-emoji test, the check-mark test, the bob test, the
+  play-control-never-overlaps test) and every `landing.dialog.*` /
+  `landing.video.*` assertion in the parity/dead-key/copy-verbatim/re-render
+  tests — replaced by §4.23.H's negative assertions + key-cleanup
+  assertions. All other suites stay green.
+
+#### 4.23.D Content sections over the video (per-section treatment)
+
+The content column (`.landing`, z 3) stacks, in the existing DOM order,
+with the `.stage` grid retired to a plain flow container:
+
+1. **Glass header panel** (§4.23.B) — the only chrome; glass over video.
+2. **Lead section (headline + subheadline + Start CTA, §4.20.C verbatim) —
+   a liquid-glass panel.** Decision: the lead text block gets the SAME
+   glass treatment as the header (same fill/blur/hairline recipe,
+   `border-radius: var(--radius-lg)`, padding 20px phone / 28px desktop).
+   Rationale (the legibility decision §35 demands): raw muted body text
+   over an arbitrary bright video region cannot be guaranteed AA at any
+   tolerable global tint (a worst-case white pixel needs ≈90% darkening,
+   which kills the video); a local glass panel guarantees it with the same
+   92% recipe (≈5:1 muted worst-case, §4.23.B math). The panel sizes to its
+   content (`width: fit-content`, max-width 560px), aligned left on desktop
+   (≥720px, per §4.20.C's left alignment) and full-width-ish centered on
+   phone. This is the second (and last) rounded-corner surface — rounded
+   corners stay scoped to glass surfaces.
+3. **BLEAK agent card (§4.20.G-b as renamed §4.22.D) — UNCHANGED pixel
+   frame, floating.** Decision: NO glass on the cards — the established
+   `pixel-corners pixel-frame pixel-frame--strong` + `--color-surface`
+   opaque body is already self-legible over any video content and is the
+   page's pixel identity; glass there would erode the pixel language. The
+   card's §4.20.G contract (hover lift + glow, press scale, focus rings)
+   carries over verbatim; it simply floats over the video.
+4. **The three step blocks (§4.21.E) — UNCHANGED, floating.** FIND / CHAT /
+   SHARE keep their §4.21.E contracts verbatim (pixel step number, pixel
+   title, step icon, mini description; phone stacked top→bottom, desktop
+   left→right equal thirds, ~300px min-height, no hover/press/motion);
+   opaque `--color-surface` bodies (no glass) read over the video as-is.
+5. **Contact footer (§4.21.G) — UNCHANGED, floating.** The pixel-framed
+   site contact block keeps its §4.21.G contract verbatim (copyright row +
+   EMAIL/GITHUB links, centered, max-width 560px); opaque surface body, no
+   glass.
+6. **Stat card (§4.21.F compact) — UNCHANGED, floating** (§4.20.G-a as
+   compacted; sits between the agent card and the steps, same DOM order).
+
+**Desktop composition (≥720px):** lead panel and agent card share one
+plain-flow two-column row (`.stage` becomes
+`display: grid; grid-template-columns: minmax(0, 1fr) 360px;
+column-gap: var(--space-6); align-items: start` — the lead panel in column
+1, the agent card capped at 360px in column 2), the stat card full-width,
+then the steps grid, then the footer. **Phone (<720px):** everything
+stacks in the same DOM order — header chip → lead panel → agent card →
+stat card → three step blocks → contact footer (the §34 phone no-overlay
+rule is moot: everything overlays the fixed video background now,
+§4.23.E). The section rhythm (`--space-6` gaps) is unchanged; the video +
+dots show through the gaps between sections — the scroll-over "sky".
+
+**Unchanged behavior contracts:** BLEAK/БЛИК naming (§4.22.D), the income
+mascot swap (§4.22.E), Start CTA + agent-card TALK → `/income` as the
+exactly two entry points (§4.22.A/§4.20.L), the join deep-link forwarding
+(`?code=` / `?u=`, §3.1 guard), the tab bar absent on `/`, RU/EN
+switching without reload — all verbatim.
+
+#### 4.23.E Supersessions (explicit record)
+
+1. **§4.22.B "center video block" geometry superseded:** no `.stage`
+   aspect-ratio video row; the 27%/1fr/26% lead/art/agents overlay grid is
+   retired — blocks are now plain scroll-over sections above the fixed
+   full-viewport layer (§4.23.A/§4.23.D). The 16:9 `aspect-ratio` box, its
+   ~500px desktop height and the flanking absolute-overlay CSS are gone.
+2. **§34 phone no-overlay rule superseded:** EVERYTHING overlays the video
+   background now — there is no video "block" to stack around; the phone
+   stack is the §4.23.D list, not a video-block sandwich.
+3. **§33 item 7 rules MOOT:** the protected-centered-scenario rects and the
+   art-block height contracts died with the still image (§4.22.G) and have
+   no successor — there is no art block; the video is the background.
+4. **§4.21.C/§4.22.C reminder contracts superseded** by §4.23.C's full
+   retirement (§35 item 3) — the 1:3.5 strip, pixel message font, emoji
+   corner, bottom-fixed position, bob, check mark and the §4.22.C width
+   caps / no-overlay band all cease.
+5. **§4.22.B play control superseded:** the floating play/pause ghost chip
+   retires with the video-as-content model — the video is now aria-hidden
+   ambient background scenery, not a content surface with playback state
+   (§4.23.A; §4.23.I flag 1 records it as restorable).
+6. **`landing.video.aria` named-region superseded:** the fixed layer is a
+   decorative `aria-hidden` div — no region role, no accessible name
+   (§4.23.F).
+7. **§4.22.F vignette rationale amended** (not superseded): the dissolve is
+   re-specced for the fixed full-screen layer (§4.23.A layer 2); the token,
+   its declaration site and the structural-seamlessness principle stand.
+8. **Superseded-but-carried:** the §4.22.B decisive video attribute set,
+   the gated one-shot mount `.play()`, the error-fallback structure, the
+   kept 12-dot mesh and the §4.22.A header keep-list all CARRY into
+   §4.23.A/§4.23.B unchanged.
+
+#### 4.23.F RU/EN i18n delta (grep-audited; both dictionaries required)
+
+Pure subtraction — **no new keys** (nothing new is spoken: the header is a
+landmark with existing key names; the fixed layer is `aria-hidden`;
+the glass panels carry existing copy):
+
+| Δ | Key | RU | EN |
+| --- | --- | --- | --- |
+| − | `landing.dialog.line1` | * Агент здоровается… | * The agent says hello… |
+| − | `landing.dialog.line2` | * Ваш агент уже нашёл три совпадения. | * Your agent already found three matches. |
+| − | `landing.dialog.line3` | * Совпадение принято. Обмен контактами через минуту. | * Match accepted. Contact exchange in a minute. |
+| − | `landing.video.aria` | Видео: двое у фиолетового города… | Video: two figures before a violet city… |
+| − | `landing.video.play` | Запустить видео | Play video |
+| − | `landing.video.pause` | Поставить на паузу | Pause video |
+
+New parity total: **29 keys** (35 − 3 dialog − 3 video). Grep audit before
+removal (live): `landing.dialog.*` appears only in `en.ts`/`ru.ts`
+(~417–419), `+page.svelte` (79–82) and `landing-page.test.ts`
+(79–82/470–476/898); `landing.video.*` only in the dicts (~420–422),
+`+page.svelte` (74–76) and the tests (82–84/274–291/588–593/863–905);
+`LandingReminder` only in `LandingVideoHero.svelte` (import + mount) and
+the tests; `--reminder-` only in `LandingVideoHero.svelte` +
+`LandingReminder.svelte`. After the change: no `landing.dialog.` or
+`landing.video.` match remains in either dict, any route, any component or
+any test; the dead-key lists in `landing-page.test.ts`/`i18n.test.ts`
+extend by these six. Parity test amended: 29/29 in both dicts; the six
+dead keys exist in NEITHER.
+
+#### 4.23.G Reduced motion + media states
+
+- **Reduced motion (`prefers-reduced-motion: reduce`):** the video shows
+  **NO motion** — decision: keep the video element **paused at frame 0**
+  (the mount effect skips `.play()` entirely, unchanged gate) **+ the black
+  tint layer** (the 30% wash + the vignette over `--color-landing-bg`;
+  where the browser paints no first frame from `preload="metadata"`, the
+  tint + vignette + dots ARE the static state — the same near-black the
+  §35 fallback names). No opt-in control exists (§4.23.E.5). The dot
+  twinkle collapses to static base opacity (the established
+  base.css/§4.6 catch-all; no local override). Everything else on the page
+  is already reduced-motion-safe (cards/steps/footer have no ambient
+  motion).
+- **Loading state:** none beyond the established pattern — `preload=
+  "metadata"` keeps the payload light; before the first frame paints the
+  fixed layer shows the tint + vignette + dots (seamless with the page —
+  the tint IS the pre-state; no poster, no skeleton, no layout shift: a
+  fixed layer cannot shift layout).
+- **Error state:** on the video `error` event the element is hidden — the
+  fixed layer degrades to the **static near-black + purple pixel
+  treatment** (the `--color-landing-bg` page token + the vignette wash +
+  the dots). No broken-media glyph, never a blank screen, no layout shift;
+  the content column is unaffected. No retry UI (ambient scenery; a reload
+  remounts).
+- **Empty state:** not applicable — the landing fetches nothing
+  (§4.20.L); no data states exist.
+
+#### 4.23.H Acceptance criteria (checkable)
+
+**Fixed video background (item 1):**
+1. The committed asset `apps/web/src/lib/assets/landing/background-video.mp4`
+   is still imported via the `#lib` URL import by the (repurposed)
+   `LandingVideoHero.svelte` — not hotlinked, not in `static/`, the file
+   itself untouched.
+2. The video layer is `position: fixed; inset: 0` (z 0, first child of
+   `.landing-page`), full-viewport with `width/height: 100%` +
+   `object-fit: cover` + `object-position: 50% 50%` — verified at desktop
+   (1280×800) and phone (320×640, 390×844) viewports: the video fills the
+   whole screen at every ratio, no letterbox bars.
+3. The video is independent of scrolling: at every scroll offset the video
+   layer stays viewport-sized and unmoving while `.landing` scrolls over it
+   (`position: fixed` assertion; the page scrolls normally, no horizontal
+   scroll at 320px).
+4. The attribute set is verbatim: `muted loop playsinline
+   preload="metadata" disablepictureinpicture aria-hidden` — no `autoplay`
+   attribute, no native `controls`; playback starts from the one-shot
+   mount effect (no `.play()` under reduced motion — AC 15).
+5. The layer stack holds: video (z 0) → vignette + 30% tint (z 1) → dots
+   (z 2) → content column (z 3) → sticky header (z 10); the 12-dot mesh
+   animates over the full viewport (steps(2), staggered; static under
+   reduced motion) and sits below the content (never above a card).
+6. The dissolve: at every tested viewport the layer's edges dissolve into
+   `--color-landing-bg` (the radial vignette + the token page background) —
+   no hard edge where the video meets the black page background; the
+   `--color-landing-bg` token declaration in tokens.css is unchanged.
+7. Error fallback: with the video source failing, the layer shows the
+   near-black tint + vignette + dots — no broken-media glyph, no blank
+   screen, no layout shift; the content column is unaffected.
+
+**Liquid-glass header (item 2):**
+8. The header renders as a floating glass panel: computed styles assert
+   `backdrop-filter`/`-webkit-backdrop-filter` blur(14px), the fill
+   `color-mix(in srgb, var(--color-landing-bg) 92%, transparent)`, the
+   violet hairline `color-mix(in srgb, var(--color-deepa-4) 22%,
+   transparent)`, and the rounded corners — `border-radius` resolves to
+   24px (`--radius-lg`) at 1280px and 20px (`--radius-md`) at 320/390px
+   (class-assertable via the panel element's computed border-radius).
+9. The panel is sticky: at 12px from the viewport top with `z-index` above
+   the content column; the keep-list is UNCHANGED (§4.22.A): exactly the
+   web icon, the two desktop-only anchors and the LocaleControl; phone =
+   icon + switcher; no START control; the LocaleControl still switches
+   every landing string without a reload.
+10. Rounded corners stay scoped: the glass header panel (+ the lead
+    panel, AC 12) are the only rounded surfaces — every pixel-frame card,
+    step block and the footer keep the square/stepped corner treatment
+    (no `border-radius` on them beyond the existing pixel construction).
+
+**Reminders removed (item 3):**
+11. Negative assertions: no `.reminder` DOM node, no
+    `LandingReminder.svelte` file, no `LandingReminder` import, no
+    `reminder-bob`/`reminder-line`/`spark-twinkle`/`check-glow` keyframes,
+    no `--reminder-w`/`--reminder-h` custom properties anywhere in the
+    landing sources; no reminder copy renders anywhere on `/`.
+12. The lead panel (glass, §4.23.D) carries the §4.20.C headline +
+    accent word + subheadline + Start CTA verbatim; Start → `/income`.
+
+**Content over the video (carried contracts):**
+13. Desktop ≥720px: the lead panel (column 1) and the agent card
+    (column 2, 360px cap) share one plain-flow row; the stat card, the
+    three step blocks (equal thirds, ~300px min-height) and the contact
+    footer follow as full-width rows — all scrolling over the fixed video;
+    no horizontal scroll at 320/760/1280.
+14. Phone <720px: the stack is header chip → lead panel → agent card →
+    stat card → three step blocks (01→03) → contact footer, in DOM order,
+    all over the video background.
+15. Reduced motion: the video does not start (stays paused at frame 0 or
+    shows the tint); the dots are static; no other motion changes.
+
+**i18n + suites:**
+16. i18n: exactly **29** `landing.*` keys in BOTH dictionaries;
+    `landing.dialog.line1/2/3` and `landing.video.aria/play/pause` exist in
+    NEITHER dict, no route, no component, no test (grep-audited); the
+    extended parity test is green; RU/EN parity holds for every remaining
+    string (switch re-renders the page without a reload).
+17. Suites amended and green: `landing-page.test.ts` (reminder +
+    block-geometry + play-control + video-region assertions dropped or
+    updated per this section), `i18n.test.ts` (29-key parity + dead keys),
+    `sweep.test.ts` (token discipline — no new hex, the color-mix recipes
+    only), `join-flow.test.ts`/`creation-wizard.test.ts` (untouched —
+    /income surfaces unchanged), `mascot.test.ts` (untouched);
+    `make lint && make test && make build` green; no new dependencies
+    (`backdrop-filter` is native CSS), no canvas, no animation library;
+    routes untouched; the video asset stays.
+
+#### 4.23.I Flags for the owner / concept (concept report)
+
+1. **ADVICE NEEDED — the play/pause control retires:** §4.22.B's gated
+   play chip existed because the video was a content block; as fixed
+   aria-hidden background scenery (§35's own framing) a playback control
+   over the whole page is chrome the owner did not ask for, and §35's
+   reduced-motion contract ("static black/near-black, no video motion")
+   no longer contemplates user-driven playback — so §4.23.E.5 retires it
+   with its three i18n keys. Restoring it is one floating glass chip
+   (bottom-right, the §4.22.B pattern) + the three keys back.
+2. **ADVICE NEEDED — glass lead panel:** §35 orders glass for the header
+   explicitly; §4.23.D extends the same glass treatment to the lead text
+   block as the legibility decision (raw muted text over an arbitrary
+   bright video region cannot be guaranteed AA at any tolerable global
+   tint). If the owner prefers the lead raw over the video, the fallback
+   is a heavier fixed tint (~90% globally — the video then reads as a
+   faint ambient texture only).
+3. **Background value matching (§4.22.K flag 3, carried):** the clip's
+   exact background color remains unverifiable in this sandbox; the
+   dissolve stays structural (vignette → `--color-landing-bg`), and the
+   5% violet cast in the token stays the best token-only estimate.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)

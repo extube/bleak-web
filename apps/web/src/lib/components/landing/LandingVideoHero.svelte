@@ -1,12 +1,10 @@
 
-
 <script module lang="ts">
-  /* Animated purple pixels (§4.22.B layer 3, kept verbatim from §4.21.B):
+  /* Animated purple pixels (§4.23.A layer 3, kept verbatim from §4.21.B):
    * [x%, y%, size px, shade 0..2, delay s] — 12 dots in the three violet
    * alpha shades, steps(2) twinkle 1.6s, staggered 0–1.2s delays. The
-   * percent positions are breakpoint-independent; the §4.21.B protected
-   * rects retired with the still image — the mesh re-anchors over the video
-   * block as-is. */
+   * percent positions are breakpoint-independent; they now map to the FULL
+   * VIEWPORT (the fixed background layer, §4.23.A) — no table change. */
   const DOTS: readonly (readonly [number, number, number, 0 | 1 | 2, number])[] = [
     [5, 12, 4, 1, 0],
     [93, 16, 6, 2, 0.3],
@@ -30,106 +28,83 @@
 
 <script lang="ts">
   /**
-   * LandingVideoHero (DESIGN §4.22.B, Concept §34): the hero common block
-   * built around the OWNER'S VIDEO — `background-video.mp4` (16:9, near-black
-   * background) replaces the retired still image and the drawn hero pair
-   * (§4.22.G supersession). One block, full common-block width,
-   * `aspect-ratio: 16 / 9` (the block height derives from the video — the
-   * fixed 500/680px art-block heights of §4.21.B are superseded).
+   * LandingVideoHero (DESIGN §4.23.A, Concept §35 — REPURPOSED in place from
+   * the §4.22.B center video block): the FIXED FULL-VIEWPORT video background
+   * the whole landing scrolls over. The component owns the video element,
+   * the decisive §34 attribute set, the purple-dot mesh, the dissolve
+   * vignette and the error fallback — rebuilt as the fixed background layer;
+   * the reminder (§4.22.C) and the play control (§4.22.B) are retired
+   * (§4.23.C/§4.23.E.5 — the video is aria-hidden ambient scenery, not a
+   * content surface), and the root is a prop-less decorative `<div>`.
    *
-   * Layers bottom→top:
-   * ① the `<video>` — width/height 100%, object-fit cover (with the block
-   *   ratio pinned to the video's 16:9, cover degrades to exact-fit; defensive
-   *   if the true ratio drifts slightly it crops minimally instead of
-   *   letterboxing). Attributes EXACTLY (decisive set, §4.22.B): muted loop
-   *   playsinline preload="metadata" disablepictureinpicture aria-hidden —
-   *   NO autoplay attribute and NO native controls. Playback starts from a
-   *   ONE-SHOT mount effect GATED on prefers-reduced-motion (muted + loop +
-   *   playsinline make the programmatic start policy-compliant; under
-   *   reduced motion the video stays paused and the play control offers the
-   *   opt-in). No inspection tooling exists for the clip in this environment
-   *   — every frame-dependent choice is defensive (structural fallbacks, no
-   *   frame geometry).
-   * ② the edge-fade vignette (§4.22.F) — every edge dissolves into exactly
-   *   `--color-landing-bg`, no hard rectangle edge at any breakpoint.
-   * ③ the animated purple pixels — the §4.21.B dot mesh KEPT VERBATIM (12
-   *   dots, three --color-deepa-4 alpha shades 18/35/60%, steps(2) twinkle
-   *   1.6s, staggered 0–1.2s delays), re-anchored over the video block
-   *   (percent positions are breakpoint-independent; the §4.21.B protected
-   *   rects are retired with the still image).
-   * ④ the reminder box (§4.22.C) — bottom-fixed inside the block; the block
-   *   exposes `--reminder-w`/`--reminder-h` (the desktop cap is the §4.22.C
-   *   center-band `min(calc(47% - 48px), 348px)`; phone cap unchanged).
-   * ⑤ the play control — a 48px-target ghost button, bottom-right (16px
-   *   insets), translucent scrim chip with an inline pixel play/pause glyph;
-   *   visible only when playback is not running (paused, failed, or
-   *   reduced-motion), hidden while playing.
+   * Renders as the FIRST child of `.landing-page`, before `.landing`.
    *
-   * Failure degradation (§4.22.B): on the video `error` event the element is
-   * hidden — the block degrades to the black background (--color-landing-bg,
-   * seamless with the page) + the vignette + the animated dots + the
-   * reminder. No broken-media glyph, never a blank box, no layout shift (the
-   * aspect-ratio box is fixed before the media arrives). No poster (the tint
-   * IS the pre/fallback state).
+   * Fixed layer stack (bottom→top), all `position: fixed; inset: 0;`:
+   * ① z 0 — the `<video>`: width/height 100%, object-fit cover,
+   *   object-position 50% 50% — with `cover` the clip fills ANY viewport
+   *   aspect ratio (it crops, never letterboxes). Attributes EXACTLY
+   *   (decisive set, carried verbatim from §4.22.B): muted loop playsinline
+   *   preload="metadata" disablepictureinpicture aria-hidden — NO autoplay
+   *   attribute, NO native controls. Playback starts from the ONE-SHOT
+   *   mount effect, still GATED on prefers-reduced-motion (no call under
+   *   reduce → the video stays paused at its first frame); muted + loop +
+   *   playsinline keep the programmatic start policy-compliant. A rejected
+   *   .play() is swallowed (the tint + vignette + dots state shows; there
+   *   is no control to reveal — §4.23.I flag 1).
+   * ② z 1 — the dissolve vignette (re-specced for the fixed full-screen
+   *   layer, §4.23.A layer 2): the fixed `::after` — every viewport edge
+   *   dissolves into exactly `--color-landing-bg` (no hard edge where the
+   *   video meets the black page background at any viewport ratio; with
+   *   cover there is no letterbox edge to hide — the vignette's job is the
+   *   smooth dissolve mood + edge darkening under the floating glass
+   *   panels). The same element carries the global legibility tint: a base
+   *   30% wash of the page token over the video.
+   * ③ z 2 — the animated purple pixels: the §4.21.B dot mesh KEPT VERBATIM
+   *   (12 dots, three --color-deepa-4 alpha shades 18/35/60%, steps(2)
+   *   twinkle 1.6s, staggered 0–1.2s delays), ambient over the full
+   *   viewport, BELOW the content column.
+   *
+   * Failure degradation (§4.23.G): on the video `error` event the element
+   * is hidden — the layer degrades to the static near-black treatment (the
+   * --color-landing-bg page token + the vignette wash + the dots). No
+   * broken-media glyph, never a blank screen, no layout shift (a fixed
+   * layer cannot shift layout). No poster, no retry UI (ambient scenery; a
+   * reload remounts).
    *
    * Color discipline (§4.1): existing tokens only; no new values, no canvas,
    * no animation library. API endpoints used: none.
    */
   import videoUrl from '#lib/assets/landing/background-video.mp4';
-  import LandingReminder from './LandingReminder.svelte';
-
-  interface Props {
-    /** The video block's accessible name (§4.22.H landing.video.aria). */
-    aria: string;
-    /** Play-control accessible name while stopped (§4.22.H). */
-    playLabel: string;
-    /** Play-control accessible name while playing (§4.22.H). */
-    pauseLabel: string;
-    /** The three cycling reminder lines (already translated). */
-    lines: readonly string[];
-    /** Static full reminder line for screen readers. */
-    srLine: string;
-  }
-
-  let { aria, playLabel, pauseLabel, lines, srLine }: Props = $props();
 
   let videoEl = $state<HTMLVideoElement | null>(null);
-  let playing = $state(false);
   let failed = $state(false);
 
   /* ONE-SHOT mount effect: playback starts on mount, GATED on
-   * prefers-reduced-motion (§4.22.B — autoplay-off under reduced motion;
-   * the user opts in through the play control). A rejected .play()
-   * (autoplay blocked) simply leaves the control visible. */
+   * prefers-reduced-motion (§4.23.A — no call under reduce → the video
+   * stays paused at its first frame; the tint + vignette + dots ARE the
+   * static state). A rejected .play() (autoplay blocked) is swallowed —
+   * there is no control to reveal (§4.23.I flag 1). */
   $effect(() => {
     const video = videoEl;
     if (!video) return;
     if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       try {
         Promise.resolve(video.play()).catch(() => {
-          /* autoplay blocked — the play control stays visible */
+          /* autoplay blocked — the ambient tint + dots state shows */
         });
       } catch {
         /* defensive: never break the mount over playback */
       }
     }
   });
-
-  function toggle(): void {
-    const video = videoEl;
-    if (!video || failed) return;
-    if (video.paused) {
-      video.play().catch(() => {
-        /* blocked — the control stays */
-      });
-    } else {
-      video.pause();
-    }
-  }
 </script>
 
-<section class="video-block" aria-label={aria}>
-  <!-- layer 1: the owner's video (decorative moving scenery) — the §4.22.B
+<!-- §4.23.A: the fixed background layer — a decorative, prop-less,
+     aria-hidden div; the FIRST child of .landing-page (before .landing).
+     pointer-events: none — the layer must never intercept the content's
+     interaction above it. -->
+<div class="video-layer" aria-hidden="true">
+  <!-- layer 1 (z 0): the owner's video, fixed + cover-cropped — the §4.22.B
        decisive attribute set pins the element verbatim; the aria-hidden
        ambient clip carries no captions track by design. -->
   <video
@@ -143,17 +118,13 @@
     preload="metadata"
     disablepictureinpicture
     aria-hidden="true"
-    onplay={() => (playing = true)}
-    onpause={() => (playing = false)}
-    onended={() => (playing = false)}
     onerror={() => {
       failed = true;
-      playing = false;
     }}
   ></video>
 
-  <!-- layer 3: the animated purple pixels (the kept §4.21.B mesh) -->
-  <span class="dots" aria-hidden="true">
+  <!-- layer 3 (z 2): the animated purple pixels (the kept §4.21.B mesh) -->
+  <span class="dots">
     {#each DOTS as dot, i (i)}
       <span
         class="dot"
@@ -162,65 +133,19 @@
       ></span>
     {/each}
   </span>
-
-  <!-- layer 4: the agent reminder box, fixed at the block's bottom -->
-  <LandingReminder {lines} {srLine} />
-
-  <!-- layer 5: the play control — visible only when not playing -->
-  <button
-    type="button"
-    class="play"
-    class:play-hidden={playing}
-    aria-label={playing ? pauseLabel : playLabel}
-    onclick={toggle}
-  >
-    {#if playing}
-      <!-- pause glyph: two bars -->
-      <svg viewBox="0 0 10 10" width="20" height="20" shape-rendering="crispEdges" aria-hidden="true">
-        <g fill="currentColor">
-          <rect x="1" y="0" width="3" height="10" />
-          <rect x="6" y="0" width="3" height="10" />
-        </g>
-      </svg>
-    {:else}
-      <!-- play glyph: a chunky pixel triangle -->
-      <svg viewBox="0 0 10 10" width="20" height="20" shape-rendering="crispEdges" aria-hidden="true">
-        <g fill="currentColor">
-          <rect x="1" y="0" width="2" height="10" />
-          <rect x="3" y="1" width="2" height="8" />
-          <rect x="5" y="2" width="2" height="6" />
-          <rect x="7" y="3" width="2" height="4" />
-        </g>
-      </svg>
-    {/if}
-  </button>
-</section>
+</div>
 
 <style>
-  /* The video block (§4.22.B): full common-block width, 16:9 — the height
-   * derives from the width (no fixed 500/680px height remains). The base
-   * tint is the landing page token — invisible against the page until the
-   * video paints, and the failure state IS this tint. */
-  .video-block {
-    --reminder-w: min(100% - 32px, 256px);
-    --reminder-h: calc(var(--reminder-w) / 3.5);
-    position: relative;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    overflow: hidden;
-    background: var(--color-landing-bg);
-  }
-  @media (min-width: 720px) {
-    .video-block {
-      /* §4.22.C desktop cap: the 47% clear center band (100% − 27% − 26%)
-       * minus two 24px gutters, the 348px absolute cap kept. */
-      --reminder-w: min(calc(47% - 48px), 348px);
-    }
+  /* The fixed background layer wrapper (§4.23.A): decorative, prop-less,
+   * non-interactive; the fixed children paint under the content column. */
+  .video-layer {
+    pointer-events: none;
   }
 
-  /* Layer 1: the video, cover-cropped (exact-fit at the pinned 16:9). */
+  /* Layer 1 (z 0): the video — fixed full-viewport, cover-cropped
+   * (independent of scrolling; the page content scrolls over it). */
   .video {
-    position: absolute;
+    position: fixed;
     inset: 0;
     z-index: 0;
     width: 100%;
@@ -228,32 +153,39 @@
     object-fit: cover;
     object-position: 50% 50%;
   }
-  /* Failure degradation: the element is hidden — tint + dots + reminder
-   * keep running, no broken-media glyph, no layout shift. */
+  /* Failure degradation: the element is hidden — the page token shows
+   * through + the vignette + dots keep running (the static near-black
+   * treatment); no broken-media glyph, no blank screen, no layout shift. */
   .video-failed {
     display: none;
   }
 
-  /* Layer 2: the edge-fade vignette — THE smooth transition (§4.22.F):
-   * every edge dissolves into exactly --color-landing-bg (the page
-   * background), no hard edge at any breakpoint. */
-  .video-block::after {
+  /* Layer 2 (z 1): the dissolve vignette + the global legibility tint
+   * (§4.23.A layer 2, re-specced for the fixed full-screen layer) — THE
+   * smooth transition: every viewport edge dissolves into exactly
+   * --color-landing-bg (the page background), no hard edge at any viewport
+   * ratio; the base wash is the uniform 30% darkening over the video for
+   * mood + a first legibility pass. */
+  .video-layer::after {
     content: '';
-    position: absolute;
+    position: fixed;
     inset: 0;
     z-index: 1;
     pointer-events: none;
-    background: radial-gradient(
-      ellipse 80% 78% at 50% 46%,
-      transparent 0 52%,
-      color-mix(in srgb, var(--color-landing-bg) 45%, transparent) 72%,
+    background-color: color-mix(in srgb, var(--color-landing-bg) 30%, transparent);
+    background-image: radial-gradient(
+      ellipse 120% 105% at 50% 50%,
+      transparent 0 55%,
+      color-mix(in srgb, var(--color-landing-bg) 55%, transparent) 78%,
       var(--color-landing-bg) 100%
     );
   }
 
-  /* Layer 3: the pixel dots — steps(2) twinkle, staggered delays. */
+  /* Layer 3 (z 2): the pixel dots — steps(2) twinkle, staggered delays;
+   * ambient over the FULL viewport, below the content column (visible in
+   * the gaps between sections — the scroll-over "sky"). */
   .dots {
-    position: absolute;
+    position: fixed;
     inset: 0;
     z-index: 2;
     pointer-events: none;
@@ -273,57 +205,9 @@
     }
   }
 
-  /* Layer 4 (the reminder) rides above the vignette with its own z-index. */
-  .video-block :global(.reminder) {
-    z-index: 3;
-  }
-
-  /* Layer 5: the play control — 48px target, bottom-right (16px insets),
-   * translucent scrim chip + inline pixel glyph (currentColor). */
-  .play {
-    position: absolute;
-    right: 16px;
-    bottom: 16px;
-    z-index: 4;
-    width: 48px;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    border-radius: var(--radius-md);
-    background: color-mix(in srgb, var(--color-landing-bg) 60%, transparent);
-    color: var(--color-text-muted);
-    cursor: pointer;
-    transition: color 120ms ease-out;
-  }
-  .play:hover {
-    color: var(--color-text);
-  }
-  .play:focus-visible {
-    outline: 2px solid var(--color-deepa-4);
-    outline-offset: 2px;
-  }
-  .play svg {
-    display: block;
-  }
-  /* Hidden while playing (visible only when paused, failed, or
-   * reduced-motion). */
-  .play-hidden {
-    display: none;
-  }
-  /* Phone: the verbatim 256px reminder spans nearly the whole 16:9 block,
-   * so the 16px-bottom control would enter its band at 320px — the control
-   * rises ABOVE the reminder's top edge (its right inset stays 16px; the
-   * §4.22.C/AC-7 never-overlap rule wins at 320/390). */
-  @media (max-width: 719.98px) {
-    .play {
-      bottom: calc(16px + var(--reminder-h));
-    }
-  }
-
   /* Reduced motion (§4.6 + base.css catch-all): the twinkle collapses —
-   * the dots stay statically visible at their base opacity. */
+   * the dots stay statically visible at their base opacity; the video
+   * never starts (the mount effect skips .play() — §4.23.G). */
   @media (prefers-reduced-motion: reduce) {
     .dot {
       animation: none;
