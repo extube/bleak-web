@@ -1,13 +1,14 @@
 /**
- * Landing mascot cast — part data (DESIGN §4.20.J as amended by §4.22.D/§I,
- * §4.3 rules): four DISTINCT original figures — BLEAK (the agent-card
- * portrait, promoted to the shared personage module §4.22.E), BLOOM, PIP,
- * GLITCH — no figure reuses another's parts and none is drawn twice on the
- * page. All are hand-authored SVG `<rect>` art on their own grid,
+ * Landing mascot cast — part data (DESIGN §4.20.J as amended by §4.22.D/§I
+ * and §4.22.1, §4.3 rules): two DISTINCT original figures — BLEAK (the
+ * agent-card portrait, promoted to the shared personage module §4.22.E)
+ * and BLOOM — no figure reuses another's parts and none is drawn twice on
+ * the page. All are hand-authored SVG `<rect>` art on their own grid,
  * `crispEdges`, dot eyes, chunky pixels, transparent background — NO
  * background plates (Concept §23/§32). The §4.21.A drawn hero pair is
  * RETIRED with the drawn hero scene (§4.22.G — the video carries its own
- * cast); BYTE retired earlier (§4.21.A).
+ * cast); BYTE retired earlier (§4.21.A); PIP + GLITCH retired with the
+ * mascot-chat strip (§4.22.1 owner amendment).
  *
  * BLEAK's rect data lives in `personage/bleakFigure.ts` (the ONE shared
  * source consumed by both the landing card and every `/income*` mascot
@@ -20,7 +21,7 @@
  */
 import { BLEAK_FIGURE } from '../personage/bleakFigure';
 
-export type FigureName = 'bleak' | 'bloom' | 'pip' | 'glitch';
+export type FigureName = 'bleak' | 'bloom';
 
 export interface FigurePart {
   fill: string;
@@ -96,86 +97,6 @@ export const LANDING_FIGURES: Record<FigureName, Figure> = {
           [10, 21, 5, 2], // leaf
           [9, 20, 2, 2]
         ]
-      }
-    ]
-  },
-
-  /* PIP (§4.20.F): the mascot-chat strip's human attendee — warm neutrals.
-   * 16×16 → 48px. */
-  pip: {
-    grid: 16,
-    viewW: 16,
-    viewH: 16,
-    parts: [
-      {
-        fill: 'color-mix(in srgb, var(--color-art-hair-3) 55%, var(--color-surface))',
-        rects: [
-          [3, 2, 10, 3], // hair
-          [3, 5, 2, 3], // hair, left
-          [11, 5, 2, 3] // hair, right
-        ]
-      },
-      {
-        fill: 'var(--color-art-skin-2)',
-        rects: [[4, 5, 8, 6]] // face
-      },
-      {
-        fill: 'var(--color-surface)',
-        rects: [
-          [5, 7, 2, 2], // left dot eye
-          [9, 7, 2, 2], // right dot eye
-          [7, 10, 2, 1] // smile
-        ]
-      },
-      {
-        fill: 'var(--color-surface-elevated)',
-        rects: [[3, 12, 10, 4]] // shoulders
-      },
-      {
-        fill: 'var(--color-text)',
-        rects: [[7, 12, 2, 2]] // collar
-      }
-    ]
-  },
-
-  /* GLITCH (§4.20.F): the robo-cat agent — round charcoal head, accent
-   * ears, dot eyes. 16×16 → 48px (chat strip — now its ONLY appearance:
-   * the header tagline-glyph slot retired with the taglines, §4.22.A). */
-  glitch: {
-    grid: 16,
-    viewW: 16,
-    viewH: 16,
-    parts: [
-      {
-        fill: 'var(--color-deepa-4)',
-        rects: [
-          [3, 1, 1, 1], // ear tip, left
-          [12, 1, 1, 1], // ear tip, right
-          [2, 2, 3, 2], // ear, left
-          [11, 2, 3, 2] // ear, right
-        ]
-      },
-      {
-        fill: 'var(--color-surface-elevated)',
-        rects: [
-          [4, 3, 8, 1], // round head: dome
-          [3, 4, 10, 1],
-          [2, 5, 12, 7],
-          [3, 12, 10, 1]
-        ]
-      },
-      {
-        fill: 'var(--color-surface)',
-        rects: [
-          [5, 7, 2, 2], // left dot eye
-          [9, 7, 2, 2], // right dot eye
-          [4, 10, 8, 1], // panel line
-          [6, 11, 4, 1] // muzzle
-        ]
-      },
-      {
-        fill: 'var(--color-deepa-4)',
-        rects: [[7, 9, 2, 1]] // accent nose
       }
     ]
   }

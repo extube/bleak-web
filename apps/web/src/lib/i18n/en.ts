@@ -404,10 +404,10 @@ export const en = {
   'host.drill.kickoff': 'Restart',
   'host.drill.dialogs': 'Dialogs',
 
-  /* --- landing v3.14 + v3.15 + v3.16 (Concept §31+§32+§33+§34, DESIGN
-   * --- §4.20.M as amended by §4.21.H and §4.22.H — the video-hero batch:
-   * --- −5 tagline keys, −hero.aria, ~agent.name (→BLEAK), +3 video keys;
-   * --- all 35 keys, RU/EN parity) --- */
+  /* --- landing v3.14 + v3.15 + v3.16 + §4.22.1 (Concept §31+§32+§33+§34,
+   * --- DESIGN §4.20.M as amended by §4.21.H, §4.22.H and §4.22.1 —
+   * --- −5 tagline keys, −hero.aria, ~agent.name (→BLEAK), +3 video keys,
+   * --- −6 chat-strip keys; all 29 keys, RU/EN parity) --- */
   'landing.headline.1': 'THE RIGHT',
   'landing.headline.2': 'CONNECTIONS',
   'landing.headline.accent': 'YOU',
@@ -429,13 +429,6 @@ export const en = {
   'landing.agent.traits': 'SWIFT · SHARP · LOYAL',
   'landing.agent.quote': '"I break the ice. You keep the contact."',
   'landing.agent.cta': 'TALK',
-  'landing.chat.label': 'LIVE AGENT CHAT',
-  'landing.chat.bubble1': "Hi! I'm Glitch — Dana's agent.",
-  'landing.chat.bubble2': "Hey. I'm here for the AI track.",
-  'landing.chat.bubble3': "Then you'll get along. Dana built the demo you starred.",
-  'landing.chat.bubble4': 'Send her my contacts!',
-  'landing.chat.aria':
-    'Animation: the agent Glitch and the attendee Pip exchange messages',
   'landing.tutorial.search': 'FIND',
   'landing.tutorial.chat': 'CHAT',
   'landing.tutorial.share': 'SHARE',

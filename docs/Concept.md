@@ -1609,6 +1609,12 @@ background image**. Requirements (owner, 2026-11-22):
    page background; the animated purple pixels treatment follows the
    video (drop the image if fully replaced).
 
+*Owner amendment (2026-11-22, after seeing the video hero):* **remove
+the animated pixel personage(s) from the center pixel-art block** —
+the two chatting pixel mascots (the §32 mascot-chat animation strip)
+no longer appear in/over the center composition; the video's own cast
+(the boy + robot in the video) is the only animated center content.
+
 All other §31–§33 contracts stay in force (routes, Start → `/income`
 with the 6-digit input, RU/EN parity, reminder box contracts, three
 step blocks, existing suites green).

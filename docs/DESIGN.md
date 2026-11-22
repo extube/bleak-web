@@ -4403,6 +4403,25 @@ twice on the page.
    established transliteration) — recorded per the caller's "be explicit";
    a Latin "BLEAK" in RU is a one-value change if preferred.
 
+### 4.22.1 owner amendment (2026-11-22, Concept §34 record): chat-strip retirement
+
+Owner order (2026-11-22, recorded in Concept.md §34): the mascot-chat
+animation strip — the §32 PIP↔GLITCH pixel-message exchange, placed per
+§4.20.F / §4.22.B below the video block, right-aligned 280px on desktop and
+full-width on phone — is **RETIRED** from the center pixel-art composition:
+the video's own cast (the boy + robot inside the video) is the only animated
+center content on `/`. This supersedes the §4.20.F strip spec and the
+§4.22.B strip-flow placement decision (desktop grid row 2 slot included),
+and resolves the §32 mascot-chat requirement by owner order; the strip
+component (`LandingChatStrip.svelte`), its timeline module
+(`chatTimeline.ts`), the PIP/GLITCH figure data, the `landing.chat.*` i18n
+keys (both dictionaries), their tests and their style/markup hooks are
+deleted — pure subtraction, nothing replaces it, no redesign; the `.stage`
+DOM order shrinks to lead → video block → agent card. All other contracts
+(reminder box, purple pixel treatment, Start/TALK → `/income`, header
+keep-list, BLEAK/БЛИК naming, three step blocks, contact footer, black
+landing-bg + dissolve, RU/EN parity) are unchanged.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)

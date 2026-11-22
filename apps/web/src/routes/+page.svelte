@@ -12,26 +12,27 @@
    *   `--color-landing-bg`), the desktop-only in-page anchors and the
    *   working RU/EN switch (the shared LocaleControl) — one non-sticky row;
    *   on phone the header is icon + switcher only.
-   * - Section 2 — the `.stage` hero (§4.22.B): DOM order = the phone
-   *   stacking order — lead block (headline + subheadline + Start CTA,
-   *   §4.20.C verbatim) → video block (`LandingVideoHero`: the owner's
-   *   16:9 video, full common-block width, the vignette dissolve into the
-   *   page token, the animated purple pixels, the bottom-fixed reminder
-   *   §4.22.C, the gated play control) → mascot-chat strip (§4.20.F
-   *   verbatim) → the BLEAK agent card (§4.20.G-b as renamed §4.22.D).
+   * - Section 2 — the `.stage` hero (§4.22.B as amended by §4.22.1): DOM
+   *   order = the phone stacking order — lead block (headline +
+   *   subheadline + Start CTA, §4.20.C verbatim) → video block
+   *   (`LandingVideoHero`: the owner's 16:9 video, full common-block
+   *   width, the vignette dissolve into the page token, the animated
+   *   purple pixels, the bottom-fixed reminder §4.22.C, the gated play
+   *   control) → the BLEAK agent card (§4.20.G-b as renamed §4.22.D).
    *   Desktop ≥720px: the lead and agent blocks OVERLAY the video from
    *   their sides (floating over the video's vignette-dissolved dark
-   *   edges, vertically centered on the video); the chat strip flows below
-   *   the video, right-aligned, 280px. PHONE: no overlay — the blocks
-   *   stack in exactly this order.
+   *   edges, vertically centered on the video). The mascot-chat strip
+   *   (§4.20.F) is RETIRED (§4.22.1 owner amendment — the video's own
+   *   cast is the only animated center content). PHONE: no overlay — the
+   *   blocks stack in exactly this order.
    * - Section 3: the stat card — compact per §4.21.F, full-width — then
    *   the three BIG step blocks (§4.21.E): FIND / CHAT / SHARE.
    * - Footer (§4.21.G): the site contact block — extube@proton.me +
    *   github.com/extube with RU/EN labels.
-   * - Mascots (§4.20.J as amended by §4.22.I): four figures — BLEAK (the
-   *   agent card, promoted shared personage §4.22.E), BLOOM (stat card),
-   *   PIP + GLITCH (the chat strip; the tagline glyph slot retired with
-   *   the taglines). NOVA + ASTRA retire with the drawn hero scene
+   * - Mascots (§4.20.J as amended by §4.22.I/§4.22.1): two figures —
+   *   BLEAK (the agent card, promoted shared personage §4.22.E) and
+   *   BLOOM (stat card). PIP + GLITCH retire with the chat strip
+   *   (§4.22.1); NOVA + ASTRA retired with the drawn hero scene
    *   (§4.22.G) — the video carries its own cast.
    * - Behavior (§4.20.L + §4.21.G amendment, §4.22.A made exact): the
    *   /income entry points are EXACTLY TWO — the Start CTA and the
@@ -50,9 +51,7 @@
   import LocaleControl from '#lib/components/join/LocaleControl.svelte';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import LandingVideoHero from '#lib/components/landing/LandingVideoHero.svelte';
-  import LandingChatStrip from '#lib/components/landing/LandingChatStrip.svelte';
   import LandingFigure from '#lib/components/landing/LandingFigure.svelte';
-  import type { ChatBubbleSpec } from '#lib/components/landing/chatTimeline';
 
   // Deep-link forwarding: any recognized join query param rides along to
   // the entry page (the landing itself never consumes join state).
@@ -80,13 +79,6 @@
     translate($locale, 'landing.dialog.line1'),
     translate($locale, 'landing.dialog.line2'),
     translate($locale, 'landing.dialog.line3')
-  ]);
-
-  const chatBubbles = $derived<readonly ChatBubbleSpec[]>([
-    { from: 'glitch', text: translate($locale, 'landing.chat.bubble1') },
-    { from: 'pip', text: translate($locale, 'landing.chat.bubble2') },
-    { from: 'glitch', text: translate($locale, 'landing.chat.bubble3') },
-    { from: 'pip', text: translate($locale, 'landing.chat.bubble4') }
   ]);
 
   /* The §4.21.E step blocks: number/title/icon/mini-description — the
@@ -164,8 +156,8 @@
     </header>
 
     <main class="canvas">
-      <!-- SECTION 2 · the .stage hero (§4.22.B). DOM order = the phone
-           stacking order: lead → video → chat strip → agent card. -->
+      <!-- SECTION 2 · the .stage hero (§4.22.B as amended by §4.22.1). DOM
+           order = the phone stacking order: lead → video → agent card. -->
       <div class="stage">
         <!-- SECTION 2 · lead — HEADLINE BLOCK + START CTA (§4.20.C verbatim) -->
         <section class="copy area-lead">
@@ -214,17 +206,6 @@
             pauseLabel={videoPause}
             lines={dialogLines}
             srLine={dialogLines[0] ?? ''}
-          />
-        </div>
-
-        <!-- SECTION 2 · chat — MASCOT-CHAT ANIMATION STRIP (§4.20.F):
-             desktop — below the video, right-aligned 280px; phone — the
-             full-width §4.20.K slot -->
-        <div class="area-chat">
-          <LandingChatStrip
-            label={translate($locale, 'landing.chat.label')}
-            aria={translate($locale, 'landing.chat.aria')}
-            bubbles={chatBubbles}
           />
         </div>
 
@@ -402,11 +383,11 @@
   }
 
   /* ---------- sections 2 + 3: the canvas (§4.22.B) ----------
-   * PHONE ORDER (§4.20.K preserved): the DOM order below IS the mobile
-   * stack — header → headline → sub → Start → video block (the reminder
-   * lives inside it at the bottom) → chat strip → agent card → stat card
-   * → the three step blocks → contact footer. Desktop (≥720px) overlays
-   * the lead/agent blocks on the video's side edges — CSS-only
+   * PHONE ORDER (§4.20.K preserved, chat strip retired §4.22.1): the DOM
+   * order below IS the mobile stack — header → headline → sub → Start →
+   * video block (the reminder lives inside it at the bottom) → agent card
+   * → stat card → the three step blocks → contact footer. Desktop (≥720px)
+   * overlays the lead/agent blocks on the video's side edges — CSS-only
    * re-composition, same DOM. */
   .canvas {
     display: flex;
@@ -421,19 +402,17 @@
     min-width: 0;
   }
   @media (min-width: 720px) {
-    /* §4.22.B desktop composition: the video is the full common-block
-     * width (it spans the whole row); the lead (27%) and agent-card (26%)
-     * blocks overlay the video's side edges, vertically centered on the
-     * video, ABOVE it in z-order; the chat strip flows below the video,
-     * right-aligned, 280px wide. The 47% clear center band (100% − 27% −
-     * 26%) is the reminder's §4.22.C desktop cap band. */
+    /* §4.22.B desktop composition (the chat-strip slot retired, §4.22.1):
+     * the video is the full common-block width (it spans the whole row);
+     * the lead (27%) and agent-card (26%) blocks overlay the video's side
+     * edges, vertically centered on the video, ABOVE it in z-order. The
+     * 47% clear center band (100% − 27% − 26%) is the reminder's §4.22.C
+     * desktop cap band. */
     .stage {
       display: grid;
       grid-template-columns: 27% minmax(0, 1fr) 26%;
-      grid-template-rows: auto auto;
       align-items: center;
       column-gap: var(--space-6);
-      row-gap: var(--space-6);
     }
     .area-video {
       grid-column: 1 / -1;
@@ -450,12 +429,6 @@
       grid-column: 3;
       grid-row: 1;
       z-index: 2;
-    }
-    .area-chat {
-      grid-column: 3;
-      grid-row: 2;
-      justify-self: end;
-      width: 280px;
     }
   }
 

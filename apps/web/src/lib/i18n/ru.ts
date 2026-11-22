@@ -404,10 +404,10 @@ export const ru: Record<MessageKey, string> = {
   'host.drill.kickoff': 'Запустить заново',
   'host.drill.dialogs': 'Диалоги',
 
-  /* --- лендинг v3.14 + v3.15 + v3.16 (Concept §31+§32+§33+§34, DESIGN
-   * --- §4.20.M с поправками §4.21.H и §4.22.H — партия видео-героя:
+  /* --- лендинг v3.14 + v3.15 + v3.16 + §4.22.1 (Concept §31+§32+§33+§34,
+   * --- DESIGN §4.20.M с поправками §4.21.H, §4.22.H и §4.22.1 —
    * --- −5 ключей слоганов, −hero.aria, ~agent.name (→БЛИК), +3 ключа
-   * --- видео; все 35 ключей, RU/EN паритет) --- */
+   * --- видео, −6 ключей chat-стрипа; все 29 ключей, RU/EN паритет) --- */
   'landing.headline.1': 'НУЖНЫЕ',
   'landing.headline.2': 'ЗНАКОМСТВА',
   'landing.headline.accent': 'ВАС',
@@ -430,13 +430,6 @@ export const ru: Record<MessageKey, string> = {
   'landing.agent.traits': 'БЫСТРЫЙ · ТОЧНЫЙ · НАДЁЖНЫЙ',
   'landing.agent.quote': '«Я начинаю разговор. Вы сохраняете контакт.»',
   'landing.agent.cta': 'ПОГОВОРИТЬ',
-  'landing.chat.label': 'ЖИВОЙ ЧАТ АГЕНТА',
-  'landing.chat.bubble1': 'Привет! Я Глитч — агент Даши.',
-  'landing.chat.bubble2': 'Привет. Я здесь ради трека по ИИ.',
-  'landing.chat.bubble3': 'Тогда вам по пути. Даша собрала демо, которое вы лайкнули.',
-  'landing.chat.bubble4': 'Передайте ей мои контакты!',
-  'landing.chat.aria':
-    'Анимация: агент Глитч и участник Пип обмениваются сообщениями',
   'landing.tutorial.search': 'НАЙДИ',
   'landing.tutorial.chat': 'ОБЩАЙСЯ',
   'landing.tutorial.share': 'ПОДЕЛИСЬ',

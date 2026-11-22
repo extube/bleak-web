@@ -10,8 +10,11 @@
  * video block, 1:3.5, bob, check mark, the §4.22.C center-band desktop
  * cap), the BLEAK rename (no agent-name leftovers on the landing), the
  * black page background + dissolve, and the §4.22.G supersessions (the
- * still image + the drawn hero pair + the ghost income mascot retired).
- * Still in force: routes, Start → /income (6-digit), RU/EN parity (35
+ * still image + the drawn hero pair + the ghost income mascot retired), and
+ * the §4.22.1 owner amendment (Concept §34 record): the mascot-chat strip
+ * is retired — its component, timeline module, figure data, i18n keys and
+ * tests removed; the video's own cast is the only animated center content.
+ * Still in force: routes, Start → /income (6-digit), RU/EN parity (29
  * keys), three step blocks, removed blocks stay removed, deep links. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
@@ -52,7 +55,6 @@ import IncomePage from '../src/routes/income/+page.svelte';
 import CreatePage from '../src/routes/income/[room]/create/+page.svelte';
 import { ru } from '../src/lib/i18n/ru';
 import { en } from '../src/lib/i18n/en';
-import { buildChatTimeline } from '../src/lib/components/landing/chatTimeline';
 import { ICON_RECTS } from '../src/lib/components/icons/registry';
 import { LANDING_FIGURES } from '../src/lib/components/landing/figures';
 import { BLEAK_FIGURE } from '../src/lib/components/personage/bleakFigure';
@@ -66,7 +68,8 @@ function source(relativePath: string): string {
   return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
 }
 
-/** The 35 §4.20.M + §4.21.H + §4.22.H keys — every landing string, RU/EN parity. */
+/** The 29 §4.20.M + §4.21.H + §4.22.H keys (as reduced by the §4.22.1
+ * chat-strip retirement) — every landing string, RU/EN parity. */
 const LANDING_KEYS = [
   'landing.headline.1',
   'landing.headline.2',
@@ -88,12 +91,6 @@ const LANDING_KEYS = [
   'landing.agent.traits',
   'landing.agent.quote',
   'landing.agent.cta',
-  'landing.chat.label',
-  'landing.chat.bubble1',
-  'landing.chat.bubble2',
-  'landing.chat.bubble3',
-  'landing.chat.bubble4',
-  'landing.chat.aria',
   'landing.tutorial.search',
   'landing.tutorial.chat',
   'landing.tutorial.share',
@@ -105,7 +102,8 @@ const LANDING_KEYS = [
   'landing.footer.copyright'
 ] as const;
 
-/** The keys the §4.21.H + §4.22.H amendments kill — in NEITHER dictionary. */
+/** The keys the §4.21.H + §4.22.H amendments kill, plus the §4.22.1
+ * chat-strip keys — in NEITHER dictionary. */
 const DEAD_KEYS = [
   'landing.footer.line',
   'landing.footer.badge',
@@ -114,17 +112,21 @@ const DEAD_KEYS = [
   'landing.tagline.top',
   'landing.tagline.right.1',
   'landing.tagline.right.2',
-  'landing.hero.aria'
+  'landing.hero.aria',
+  'landing.chat.label',
+  'landing.chat.bubble1',
+  'landing.chat.bubble2',
+  'landing.chat.bubble3',
+  'landing.chat.bubble4',
+  'landing.chat.aria'
 ] as const;
 
 const LANDING_SOURCES = [
   'src/routes/+page.svelte',
   'src/lib/components/landing/LandingVideoHero.svelte',
   'src/lib/components/landing/LandingReminder.svelte',
-  'src/lib/components/landing/LandingChatStrip.svelte',
   'src/lib/components/landing/LandingFigure.svelte',
   'src/lib/components/landing/figures.ts',
-  'src/lib/components/landing/chatTimeline.ts',
   'src/lib/components/personage/bleakFigure.ts'
 ];
 
@@ -169,7 +171,7 @@ describe('/ — the §4.22.A slimmed header (icon + nav + switcher ONLY)', () =>
     expect(css).not.toMatch(/\.top\s*\{[^}]*position:\s*(sticky|fixed)/);
   });
 
-  it('the tagline lines are gone (no DOM nodes) and the GLITCH figure appears ONLY inside the mascot-chat strip; the header carries no START control', () => {
+  it('the tagline lines are gone (no DOM nodes) and the GLITCH figure is retired with the strip (§4.22.1); the header carries no START control', () => {
     const { container } = render(LandingPage, { props: {} });
     for (const name of ['.tagline', '.tagline-left', '.tagline-top', '.tagline-right', '.tag-glyph']) {
       expect(container.querySelector(name)).toBeNull();
@@ -180,11 +182,9 @@ describe('/ — the §4.22.A slimmed header (icon + nav + switcher ONLY)', () =>
     expect(container.querySelector('.start-link')).toBeNull();
     const css = source('src/routes/+page.svelte');
     expect(css).not.toMatch(/start-pill|start-link/);
-    // GLITCH's only appearance is the strip (the tagline glyph died with
-    // the taglines — §4.20.J's "no figure appears twice" is exact again)
-    const glitch = container.querySelectorAll('[data-figure="glitch"]');
-    expect(glitch).toHaveLength(1);
-    expect(glitch[0]?.closest('.chat-strip')).toBeTruthy();
+    // §4.22.1: the chat strip is retired — GLITCH renders nowhere on the
+    // page (the tagline glyph died with the taglines; the strip followed)
+    expect(container.querySelectorAll('[data-figure="glitch"]')).toHaveLength(0);
     // at 320px the header is icon + switcher — never empty, nothing clipped
     expect(container.querySelector('.top')?.textContent).not.toBe('');
   });
@@ -357,7 +357,7 @@ describe('/ — the §4.22.B video block (LandingVideoHero replaces the drawn he
 });
 
 describe('/ — the §4.22.B desktop overlay geometry (≥720px) vs the phone stack', () => {
-  it('desktop: the lead block (27%) overlays the video LEFT edge and the agent card (26%) the RIGHT edge — both above the video (z-order), vertically centered on it; the chat strip flows below the video, right-aligned 280px', () => {
+  it('desktop: the lead block (27%) overlays the video LEFT edge and the agent card (26%) the RIGHT edge — both above the video (z-order), vertically centered on it; the chat-strip slot is retired (§4.22.1)', () => {
     const css = source('src/routes/+page.svelte');
     // the common-block grid: 27% / 1fr / 26% (the §4.21.D band, reused)
     expect(css).toMatch(
@@ -370,19 +370,19 @@ describe('/ — the §4.22.B desktop overlay geometry (≥720px) vs the phone st
     expect(css).toMatch(/\.area-lead\s*\{[^}]*grid-column:\s*1[^}]*grid-row:\s*1[^}]*z-index:\s*2/);
     expect(css).toMatch(/\.area-agents\s*\{[^}]*grid-column:\s*3[^}]*grid-row:\s*1[^}]*z-index:\s*2/);
     expect(css).toMatch(/\.stage\s*\{[^}]*align-items:\s*center/);
-    // the chat strip: below the video (row 2), right-aligned, 280px
-    expect(css).toMatch(/\.area-chat\s*\{[^}]*grid-column:\s*3[^}]*grid-row:\s*2[^}]*justify-self:\s*end[^}]*width:\s*280px/);
+    // §4.22.1: the strip's desktop slot (row 2, right-aligned 280px) is gone
+    expect(css).not.toMatch(/\.area-chat/);
     // the hero overlays are width-banded exactly like §4.22.B (27% / 26%)
     expect(css).toMatch(/grid-template-columns:\s*27%/);
     expect(css).toMatch(/26%/);
   });
 
-  it('PHONE: NO overlay — the exact §4.20.K stack (video full-width, blocks stacked below) with no horizontal scroll at 320px', () => {
+  it('PHONE: NO overlay — the exact §4.20.K stack as reduced by §4.22.1 (video full-width, blocks stacked below) with no horizontal scroll at 320px', () => {
     const css = source('src/routes/+page.svelte');
     // base canvas + stage = one column (flex); the DOM order IS the mobile order
     expect(css).toMatch(/\.canvas\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/);
     expect(css).toMatch(/\.stage\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/);
-    const order = ['area-lead', 'area-video', 'area-chat', 'area-agents', 'area-stat', 'area-tutorial', 'area-foot'];
+    const order = ['area-lead', 'area-video', 'area-agents', 'area-stat', 'area-tutorial', 'area-foot'];
     const positions = order.map((name) => css.indexOf(name, css.indexOf('<main')));
     expect(positions.every((p) => p > 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
@@ -391,8 +391,8 @@ describe('/ — the §4.22.B desktop overlay geometry (≥720px) vs the phone st
     const baseStage = css.match(/\.stage\s*\{[\s\S]*?\n\s*\}/)?.[0] ?? '';
     expect(baseStage).toMatch(/display:\s*flex/);
     expect(baseStage).not.toMatch(/grid|position/);
-    // no fixed widths outside the strip slot at phone widths; the canvas is
-    // capped at the 1000px desktop composition width
+    // no fixed widths outside the strip slot at phone widths (the slot is
+    // retired, §4.22.1); the canvas is capped at the 1000px desktop width
     expect(css).toMatch(/max-width:\s*1000px/);
     // the video block is full-width and overflow-guarded (no scroll at 320px)
     const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
@@ -572,12 +572,16 @@ describe('/ — the §4.22.D BLEAK rename + the §4.22.G supersessions', () => {
       expect(source(file), `${file} still uses the still image`).not.toMatch(/background\.jpg/);
     }
     // NOVA + ASTRA rect data and literals are gone from figures.ts; the
-    // cast is the four §4.22.I figures
+    // PIP + GLITCH data is retired with the strip (§4.22.1) — the cast is
+    // the two remaining figures
     const data = source('src/lib/components/landing/figures.ts');
-    for (const kind of ['bleak', 'bloom', 'pip', 'glitch']) {
+    for (const kind of ['bleak', 'bloom']) {
       expect(data).toMatch(new RegExp(`^  ${kind}:`, 'm'));
     }
     expect(data).not.toMatch(/nova|astra/i);
+    // comment-stripped: no pip/glitch entries survive (§4.22.1)
+    const dataStripped = data.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(dataStripped).not.toMatch(/\bpip\b|\bglitch\b/i);
     // LandingHeroScene.svelte no longer exists
     expect(existsSync(join(WEB_ROOT, 'src/lib/components/landing/LandingHeroScene.svelte'))).toBe(false);
     // landing.hero.aria is retired with the pair; the video block carries
@@ -589,24 +593,37 @@ describe('/ — the §4.22.D BLEAK rename + the §4.22.G supersessions', () => {
     expect(ru['landing.video.aria']).toBeTruthy();
   });
 
-  it('the landing cast: four DISTINCT figures — BLEAK (card only), BLOOM (stat only), PIP + GLITCH (strip only) — no figure appears twice (§4.22.I)', () => {
+  it('§4.22.1: the strip component, its timeline module and the strip keys no longer exist anywhere', () => {
+    // the §4.20.F strip is retired: no component, no timeline, no imports
+    expect(existsSync(join(WEB_ROOT, 'src/lib/components/landing/LandingChatStrip.svelte'))).toBe(false);
+    expect(existsSync(join(WEB_ROOT, 'src/lib/components/landing/chatTimeline.ts'))).toBe(false);
+    for (const file of LANDING_SOURCES) {
+      // comment-stripped (the §4.22.1 record may be named in comments)
+      const stripped = source(file).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      expect(stripped, `${file} still references the chat strip`).not.toMatch(
+        /LandingChatStrip|chatTimeline|buildChatTimeline|chat-bubble|chat-strip|area-chat/
+      );
+      expect(stripped, `${file} still uses a chat key`).not.toMatch(/landing\.chat\./);
+    }
+  });
+
+  it('the landing cast: two DISTINCT figures — BLEAK (card only), BLOOM (stat only) — no figure appears twice (§4.22.I as reduced by §4.22.1)', () => {
     const { container } = render(LandingPage, { props: {} });
     const kinds = [...container.querySelectorAll('[data-figure]')].map(
       (el) => el.getAttribute('data-figure')
     );
-    for (const kind of ['bleak', 'bloom', 'pip', 'glitch']) {
+    for (const kind of ['bleak', 'bloom']) {
       expect(kinds, `${kind} on the page`).toContain(kind);
     }
-    for (const kind of ['byte', 'nova', 'astra']) {
+    for (const kind of ['byte', 'nova', 'astra', 'pip', 'glitch']) {
       expect(kinds).not.toContain(kind);
     }
     // each region carries its own figure — one node per figure on the page
-    for (const kind of ['bleak', 'bloom', 'pip', 'glitch']) {
+    for (const kind of ['bleak', 'bloom']) {
       expect(container.querySelectorAll(`[data-figure="${kind}"]`)).toHaveLength(1);
     }
     expect(container.querySelectorAll('.agent-card [data-figure="bloom"]')).toHaveLength(0);
     expect(container.querySelectorAll('.stat-card [data-figure="bleak"]')).toHaveLength(0);
-    expect(container.querySelectorAll('.agent-card [data-figure="pip"]')).toHaveLength(0);
   });
 });
 
@@ -653,7 +670,7 @@ describe('/ — the §4.22.F black page background (scoped to /)', () => {
   });
 });
 
-describe('/ — the §4.20 unchanged zones (headline, cards, chat strip, steps, footer)', () => {
+describe('/ — the §4.20 unchanged zones (headline, cards, steps, footer) as reduced by §4.22.1', () => {
   it('renders the 3-line headline with the single highlighted accent word (§4.20.C verbatim)', () => {
     render(LandingPage, { props: {} });
     const h1 = screen.getByRole('heading', { level: 1 });
@@ -691,71 +708,21 @@ describe('/ — the §4.20 unchanged zones (headline, cards, chat strip, steps, 
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stat-glyph :global\(svg\)\s*\{[^}]*width:\s*48px/);
   });
 
-  it('renders the mascot-chat animation strip: 4 alternating bubble turns (GLITCH → PIP → GLITCH → PIP) with per-char typewriter timing', () => {
-    render(LandingPage, { props: {} });
-    const strip = screen.getByRole('img', { name: ru['landing.chat.aria'] });
-    expect(strip.querySelector('.chat-label')?.textContent).toBe(ru['landing.chat.label']);
-    expect(strip.querySelector('.chat-mascot.pip [data-figure="pip"]')).toBeTruthy();
-    expect(strip.querySelector('.chat-mascot.glitch [data-figure="glitch"]')).toBeTruthy();
-    const bubbles = [...strip.querySelectorAll('.chat-bubble')];
-    expect(bubbles).toHaveLength(4);
-    expect(bubbles.map((b) => b.className.includes('glitch'))).toEqual([
-      true, false, true, false
-    ]);
-    expect(bubbles[0]?.textContent).toContain(ru['landing.chat.bubble1']);
-    expect(bubbles[3]?.textContent).toContain(ru['landing.chat.bubble4']);
-    expect(bubbles[0]?.getAttribute('style')).toContain(
-      `--chars: ${ru['landing.chat.bubble1'].length}`
-    );
-    expect(strip.getAttribute('style')).toMatch(/--loop: \d+ms/);
-    expect(document.head.innerHTML).toContain('@keyframes lp-pop-0');
-    expect(document.head.innerHTML).toContain('@keyframes lp-type-3');
-    const css = source('src/lib/components/landing/LandingChatStrip.svelte');
-    for (const n of [0, 1, 2, 3]) {
-      expect(css).toMatch(new RegExp(`\\.chat-bubble\\.i${n}\\s*\\{[^}]*animation-name:\\s*lp-pop-${n}`));
-      expect(css).toMatch(new RegExp(`\\.chat-bubble-text\\.i${n}\\s*\\{[^}]*animation-name:\\s*lp-type-${n}`));
+  it('§4.22.1: the mascot-chat animation strip is retired — no strip DOM, no typewriter keyframes anywhere on the page', () => {
+    const { container } = render(LandingPage, { props: {} });
+    for (const name of ['.chat-strip', '.chat-bubble', '.chat-mascot', '.area-chat']) {
+      expect(container.querySelector(name)).toBeNull();
     }
+    expect(container.querySelectorAll('[data-figure="pip"]')).toHaveLength(0);
+    expect(container.querySelectorAll('[data-figure="glitch"]')).toHaveLength(0);
+    expect(document.head.innerHTML).not.toContain('@keyframes lp-pop-0');
+    expect(document.head.innerHTML).not.toContain('@keyframes lp-type-3');
+    // the stage's phone DOM order shrank accordingly (no chat slot)
+    const css = source('src/routes/+page.svelte');
+    expect(css).not.toMatch(/chatBubbles|LandingChatStrip|chatTimeline/);
   });
 
-  it('the chat timeline math: 55ms/char typewriter, 900ms hold, 3.4s turn cap, content-derived loop with fade + rest', () => {
-    const specs = [
-      { from: 'glitch', text: ru['landing.chat.bubble1'] },
-      { from: 'pip', text: ru['landing.chat.bubble2'] },
-      { from: 'glitch', text: ru['landing.chat.bubble3'] },
-      { from: 'pip', text: ru['landing.chat.bubble4'] }
-    ] as const;
-    const timeline = buildChatTimeline(specs);
-    expect(timeline.turns).toHaveLength(4);
-    timeline.turns.forEach((turn) => {
-      expect(turn.chars).toBe(turn.text.length);
-      expect(turn.typeMs).toBe(Math.min(turn.chars * 55, turn.turnMs - 160 - 160));
-      expect(turn.turnMs).toBe(Math.min(160 + turn.chars * 55 + 900, 3400));
-      expect(turn.turnMs).toBeLessThanOrEqual(3400);
-    });
-    const last = timeline.turns[3]!;
-    expect(timeline.loopMs).toBe(last.startMs + last.turnMs + 1000);
-    for (let i = 1; i < timeline.turns.length; i++) {
-      const prev = timeline.turns[i - 1]!;
-      expect(timeline.turns[i]!.startMs).toBe(prev.startMs + prev.turnMs);
-    }
-    for (const n of [0, 1, 2, 3]) {
-      expect(timeline.keyframesCss).toContain(`@keyframes lp-pop-${n}`);
-      expect(timeline.keyframesCss).toContain(`@keyframes lp-type-${n}`);
-    }
-    const enTimeline = buildChatTimeline([
-      { from: 'glitch', text: en['landing.chat.bubble1'] },
-      { from: 'pip', text: en['landing.chat.bubble2'] },
-      { from: 'glitch', text: en['landing.chat.bubble3'] },
-      { from: 'pip', text: en['landing.chat.bubble4'] }
-    ]);
-    expect(enTimeline.loopMs).not.toBe(timeline.loopMs);
-  });
-
-  it('reduced motion: no typewriter, no loop — the chat bubbles render statically; the video hero collapses its twinkle', () => {
-    const chat = source('src/lib/components/landing/LandingChatStrip.svelte');
-    expect(chat).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
-    expect(chat).toMatch(/\.chat-bubble\s*\{[^}]*animation:\s*none[^}]*opacity:\s*1/);
-    expect(chat).toMatch(/\.chat-bubble-text\s*\{[^}]*animation:\s*none[^}]*clip-path:\s*none/);
+  it('reduced motion: the video hero collapses its twinkle (the strip reduced-motion fallback is retired with it)', () => {
     const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
     expect(hero).toMatch(/@media \(prefers-reduced-motion/);
   });
@@ -877,9 +844,9 @@ describe('/ — behavior (§4.20.L; §4.22.A made the entry points exact)', () =
   });
 });
 
-describe('/ — RU/EN parity (the 35 §4.20.M+§4.21.H+§4.22.H keys, the working switch)', () => {
+describe('/ — RU/EN parity (the 29 §4.20.M+§4.21.H+§4.22.H keys as reduced by §4.22.1, the working switch)', () => {
   it('every landing key exists in BOTH dictionaries, non-empty — and the dead keys exist in NEITHER', () => {
-    expect(LANDING_KEYS).toHaveLength(35);
+    expect(LANDING_KEYS).toHaveLength(29);
     for (const key of LANDING_KEYS) {
       expect(ru, `ru missing ${key}`).toHaveProperty(key);
       expect(en, `en missing ${key}`).toHaveProperty(key);
@@ -907,7 +874,7 @@ describe('/ — RU/EN parity (the 35 §4.20.M+§4.21.H+§4.22.H keys, the workin
     expect(en['landing.agent.name']).toBe('BLEAK');
   });
 
-  it('the switch re-renders EVERY landing string (headline, accent word, video labels, reminder lines, bubbles, cards, steps, footer labels) without a reload', async () => {
+  it('the switch re-renders EVERY landing string (headline, accent word, video labels, reminder lines, cards, steps, footer labels) without a reload', async () => {
     const { container } = render(LandingPage, { props: {} });
     expect(container.querySelector('.accent-word')?.textContent?.trim()).toBe(
       ru['landing.headline.accent']
@@ -928,8 +895,6 @@ describe('/ — RU/EN parity (the 35 §4.20.M+§4.21.H+§4.22.H keys, the workin
     expect(container.querySelector('.sub')?.textContent).toBe(en['landing.sub']);
     expect(container.querySelector('.agent-name')?.textContent).toBe(en['landing.agent.name']);
     expect(container.querySelector('.stat-title')?.textContent).toBe(en['landing.stat.title']);
-    expect(container.querySelector('.chat-label')?.textContent).toBe(en['landing.chat.label']);
-    expect(container.textContent).toContain(en['landing.chat.bubble4']);
     expect(container.textContent).toContain(en['landing.dialog.line3']);
     const videoRegion = screen.getByRole('region', { name: en['landing.video.aria'] });
     expect(videoRegion).toBeTruthy();
@@ -956,14 +921,6 @@ describe('/ — RU/EN parity (the 35 §4.20.M+§4.21.H+§4.22.H keys, the workin
       en['landing.footer.contact.email.label'],
       en['landing.footer.contact.github.label']
     ]);
-    const strip = screen.getByRole('img', { name: en['landing.chat.aria'] });
-    expect(strip.getAttribute('style')).toMatch(/--loop: \d+ms/);
-    const enBubbles = [...strip.querySelectorAll('.chat-bubble')];
-    expect(enBubbles[3]?.getAttribute('style')).toContain(
-      `--chars: ${en['landing.chat.bubble4'].length}`
-    );
-    expect(document.head.innerHTML).toContain('@keyframes lp-pop-0');
-    expect(document.head.innerHTML).toContain('@keyframes lp-type-3');
     expect(goto).not.toHaveBeenCalled();
   });
 });
