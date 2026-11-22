@@ -1,45 +1,41 @@
 <script lang="ts">
   /**
-   * `/` — the landing page (tz12-04, Concept §31 + §32, DESIGN §4.20):
-   * REBUILT from zero per the owner's design example
-   * (landing-design-example.png — mood/structure adapted to OUR story:
-   * effective networking with AI agents, not the example's dating scene).
+   * `/` — the landing page (tz12-05, Concept §31+§32+§33, DESIGN §4.20 as
+   * amended by §4.21 — the owner's photo-review adjustment batch):
    *
-   * - Canvas: the existing --color-bg (near-black, the example's canvas);
-   *   the landing accent is the approved Deepa violet (--color-deepa-4 —
-   *   the example's purple bloom; every color is an existing §4.1 token or
-   *   a color-mix alpha variant; no new values, no new dependencies, no
-   *   canvas, no animation library).
-   * - Header: pixel-font taglines (left pair always; top-center and the
-   *   right pair + GLITCH glyph on desktop), the working RU/EN switch
-   *   (the shared LocaleControl), desktop in-page anchors and the START
-   *   pill (mobile) / text link (desktop).
-   * - Headline: three lines with the single highlighted accent word
-   *   (glow + pixel sparkles), subheadline, the START CTA.
-   * - Hero: the NOVA-meets-BYTE pixel-art scene with the glowing
-   *   handshake-node focal element (§4.20.D).
-   * - Retro dialogue-box: the signature element — 3 cycling asterisk
-   *   lines + blinking pixel caret (§4.20.E).
-   * - Mascot-chat animation strip: PIP ↔ GLITCH pixel speech bubbles,
-   *   typewriter loop (§4.20.F).
-   * - Framed cards: the stat card (BLOOM) + the agent character card
-   *   (VECTOR, single TALK action → /income) (§4.20.G).
-   * - Tutorial: exactly 3 pixel icons — FIND → CHAT → SHARE (search →
-   *   chatting → contacts sharing) with pixel-chevron connectors
-   *   (§4.20.H).
-   * - Footer blocks: positioning block + the START-NOW badge block →
-   *   /income (§4.20.I).
-   * - Mascot variety: six distinct figures — NOVA/BYTE (scene), VECTOR
-   *   (card), BLOOM (stat card), PIP/GLITCH (chat strip + tagline glyph)
-   *   — all original SVG-rect art, no background plates (§4.20.J).
-   * - Adaptive: mobile-first single column (the DOM order below); ≥720px
-   *   re-composes into the example's 26% / 1fr / 26% three-column grid —
-   *   CSS-only rearrangement, same DOM (§4.20.K).
-   * - Behavior (§4.20.L): Start CTA, agent-card TALK and the badge block
-   *   navigate to /income (the 6-digit entry); nothing on / fetches; the
-   *   join deep links (?code= / ?u=) still forward to /income with the
-   *   query preserved (the §3.1 guard, unchanged).
-   * - RU/EN parity: every landing string goes through the 35 §4.20.M
+   * - Canvas: the existing --color-bg (near-black); the landing accent is
+   *   the approved Deepa violet (--color-deepa-4 — every color is an
+   *   existing §4.1 token or a color-mix alpha variant; no new values, no
+   *   new dependencies, no canvas, no animation library).
+   * - Section 1 — header (§4.20.B, unchanged): pixel-font taglines, the
+   *   working RU/EN switch (the shared LocaleControl), desktop in-page
+   *   anchors and the START pill (mobile) / text link (desktop).
+   * - Section 2 (desktop grid 27% / 1fr / 26%, §4.21.D): left — the
+   *   headline block + subheadline + START CTA (§4.20.C verbatim); center
+   *   — the taller pixel-art composition block (§4.21.B: the owner's
+   *   background image, the smooth edge vignette, the animated purple
+   *   pixels, the NOVA + ASTRA pair, and the agent reminder box FIXED at
+   *   the block's bottom, §4.21.C); right — the VECTOR agent card (§4.20.G-b)
+   *   above the mascot-chat strip (§4.20.F, unchanged).
+   * - Section 3: the stat card — compact per §4.21.F, full-width — then
+   *   the three BIG step blocks (§4.21.E, replaces the §4.20.H icon row):
+   *   FIND / CHAT / SHARE, each with the pixel step number, the pixel-font
+   *   title, the step icon and a one-line description.
+   * - Footer (§4.21.G, replaces §4.20.I): the site contact block —
+   *   extube@proton.me + github.com/extube with RU/EN labels; the two
+   *   §4.20.I footer blocks are REMOVED (their keys die, §4.21.H).
+   * - Mascots (§4.20.J + §4.21.A): six distinct figures — NOVA + ASTRA
+   *   (the hero pair; BYTE retired), VECTOR (card), BLOOM (stat card),
+   *   PIP/GLITCH (chat strip + tagline glyph) — all original SVG-rect art.
+   * - Adaptive: PHONE ORDER UNCHANGED — mobile-first single column in the
+   *   §4.20.K order (art block now carries the reminder inside it; the
+   *   two removed blocks drop from the tail); ≥720px re-composes into the
+   *   §4.21.D three-section grid — CSS-only rearrangement, same DOM.
+   * - Behavior (§4.20.L + §4.21.G amendment): the /income entry points are
+   *   exactly two — the Start CTA and the agent-card TALK; nothing on /
+   *   fetches; the join deep links (?code= / ?u=) still forward to
+   *   /income with the query preserved (the §3.1 guard, unchanged).
+   * - RU/EN parity: every landing string goes through the 38 §4.20.M+§4.21.H
    *   keys; the header switch re-renders the page without a reload.
    */
   import { goto } from '$app/navigation';
@@ -49,7 +45,6 @@
   import LocaleControl from '#lib/components/join/LocaleControl.svelte';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import LandingHeroScene from '#lib/components/landing/LandingHeroScene.svelte';
-  import LandingDialogueBox from '#lib/components/landing/LandingDialogueBox.svelte';
   import LandingChatStrip from '#lib/components/landing/LandingChatStrip.svelte';
   import LandingFigure from '#lib/components/landing/LandingFigure.svelte';
   import type { ChatBubbleSpec } from '#lib/components/landing/chatTimeline';
@@ -91,18 +86,41 @@
     { from: 'pip', text: translate($locale, 'landing.chat.bubble4') }
   ]);
 
+  /* The §4.21.E step blocks: number/title/icon/mini-description — the
+   * numbers are locale-invariant literals; titles reuse the §4.20.M keys. */
   const tutorialSteps = $derived([
-    { icon: 'search', label: translate($locale, 'landing.tutorial.search') },
-    { icon: 'dialog-lines', label: translate($locale, 'landing.tutorial.chat') },
-    { icon: 'contact-share', label: translate($locale, 'landing.tutorial.share') }
+    {
+      num: '01',
+      icon: 'search',
+      label: translate($locale, 'landing.tutorial.search'),
+      desc: translate($locale, 'landing.steps.find.desc')
+    },
+    {
+      num: '02',
+      icon: 'dialog-lines',
+      label: translate($locale, 'landing.tutorial.chat'),
+      desc: translate($locale, 'landing.steps.chat.desc')
+    },
+    {
+      num: '03',
+      icon: 'contact-share',
+      label: translate($locale, 'landing.tutorial.share'),
+      desc: translate($locale, 'landing.steps.share.desc')
+    }
   ] as const);
+
+  /* §4.21.G: the kept copyright line splits into the Handjet brand name +
+   * the Inter muted year (the contact block's row 1). */
+  const copyright = $derived(translate($locale, 'landing.footer.copyright'));
+  const copyrightBrand = $derived(copyright.split(' · ')[0] ?? '');
+  const copyrightYear = $derived(copyright.split(' · ')[1] ?? '');
 
   const leftTagline = $derived(translate($locale, 'landing.tagline.left.1'));
   const leftTaglineSplit = $derived(splitFirstWord(leftTagline));
 </script>
 
 <div class="landing">
-  <!-- HEADER (§4.20.B): taglines + the locale switch + the START control. -->
+  <!-- SECTION 1 — HEADER (§4.20.B): taglines + the locale switch + the START control. -->
   <header class="top">
     <div class="tagline tagline-left">
       <span class="tag-line">
@@ -142,8 +160,8 @@
   </header>
 
   <main class="canvas">
-    <!-- HEADLINE BLOCK (§4.20.C) -->
-    <section class="copy area-copy">
+    <!-- SECTION 2 · lead — HEADLINE BLOCK + START CTA (§4.20.C verbatim) -->
+    <section class="copy area-lead">
       <h1 class="headline">
         <span class="hl-line">{translate($locale, 'landing.headline.1')}</span>
         <span class="hl-line">{translate($locale, 'landing.headline.2')}</span>
@@ -179,15 +197,17 @@
       </button>
     </section>
 
-    <!-- HERO SCENE + RETRO DIALOGUE BOX (§4.20.D/E) -->
-    <section class="hero area-hero">
-      <LandingHeroScene label={translate($locale, 'landing.hero.aria')} />
-      <div class="dialog-wrap">
-        <LandingDialogueBox lines={dialogLines} srLine={dialogLines[0] ?? ''} />
-      </div>
-    </section>
+    <!-- SECTION 2 · art — the §4.21.B composition block (background image,
+         vignette, purple pixels, NOVA + ASTRA, the bottom-fixed reminder) -->
+    <div class="area-art">
+      <LandingHeroScene
+        label={translate($locale, 'landing.hero.aria')}
+        lines={dialogLines}
+        srLine={dialogLines[0] ?? ''}
+      />
+    </div>
 
-    <!-- MASCOT-CHAT ANIMATION STRIP (§4.20.F) -->
+    <!-- SECTION 2 · chat — MASCOT-CHAT ANIMATION STRIP (§4.20.F, unchanged) -->
     <div class="area-chat">
       <LandingChatStrip
         label={translate($locale, 'landing.chat.label')}
@@ -196,7 +216,7 @@
       />
     </div>
 
-    <!-- AGENT CHARACTER CARD (§4.20.G-b) -->
+    <!-- SECTION 2 · agent — AGENT CHARACTER CARD (§4.20.G-b) -->
     <section class="area-agents" id="agents">
       <article class="card pixel-corners pixel-frame pixel-frame--strong agent-card">
         <div class="card-body pixel-corners agent-body">
@@ -214,7 +234,7 @@
       </article>
     </section>
 
-    <!-- STAT / FEATURE CARD (§4.20.G-a) -->
+    <!-- SECTION 3 · STAT / FEATURE CARD (§4.20.G-a, compact per §4.21.F) -->
     <section class="area-stat">
       <article class="card pixel-corners pixel-frame pixel-frame--strong stat-card">
         <div class="card-body pixel-corners stat-body">
@@ -225,48 +245,35 @@
             <p class="stat-line">{translate($locale, 'landing.stat.line3')}</p>
           </div>
           <div class="stat-glyph">
-            <LandingFigure kind="bloom" size={56} />
+            <LandingFigure kind="bloom" size={48} />
           </div>
         </div>
       </article>
     </section>
 
-    <!-- TUTORIAL: FIND → CHAT → SHARE (§4.20.H, exactly 3 steps) -->
+    <!-- SECTION 3 · the three BIG step blocks (§4.21.E, replaces §4.20.H):
+         FIND → CHAT → SHARE, number + pixel title + icon + description -->
     <section class="tutorial area-tutorial" id="tutorial">
       <ol class="steps">
-        {#each tutorialSteps as step, i (step.icon)}
-          <li class="step">
-            <span class="step-icon">
-              <PixelIcon name={step.icon} size={32} />
-            </span>
-            <span class="step-label">{step.label}</span>
+        {#each tutorialSteps as step (step.icon)}
+          <li class="step-block pixel-corners pixel-frame pixel-frame--strong">
+            <div class="step-body pixel-corners">
+              <span class="step-num" aria-hidden="true">{step.num}</span>
+              <h3 class="step-title">{step.label}</h3>
+              <span class="step-icon">
+                <PixelIcon name={step.icon} size={32} />
+              </span>
+              <p class="step-desc">{step.desc}</p>
+            </div>
           </li>
-          {#if i < tutorialSteps.length - 1}
-            <li class="chevron" aria-hidden="true">
-              <svg viewBox="0 0 6 10" width="6" height="10" shape-rendering="crispEdges" fill="var(--color-text-muted)">
-                <rect x="0" y="0" width="2" height="2" />
-                <rect x="2" y="2" width="2" height="2" />
-                <rect x="4" y="4" width="2" height="2" />
-                <rect x="2" y="6" width="2" height="2" />
-                <rect x="0" y="8" width="2" height="2" />
-              </svg>
-              <svg viewBox="0 0 6 10" width="6" height="10" shape-rendering="crispEdges" fill="var(--color-text-muted)">
-                <rect x="0" y="0" width="2" height="2" />
-                <rect x="2" y="2" width="2" height="2" />
-                <rect x="4" y="4" width="2" height="2" />
-                <rect x="2" y="6" width="2" height="2" />
-                <rect x="0" y="8" width="2" height="2" />
-              </svg>
-            </li>
-          {/if}
         {/each}
       </ol>
     </section>
 
-    <!-- FOOTER: positioning block (§4.20.I) -->
-    <footer class="foot-block area-ftpos pixel-corners pixel-frame pixel-frame--strong">
+    <!-- FOOTER — the §4.21.G site contact block (replaces both §4.20.I blocks) -->
+    <footer class="contact area-foot pixel-corners pixel-frame pixel-frame--strong">
       <div class="foot-body pixel-corners">
-        <span class="brand">
+        <div class="foot-brand">
           <svg
             viewBox="0 0 64 64"
             width="16"
@@ -285,38 +292,26 @@
               <rect x="28" y="30" width="8" height="4" />
             </g>
           </svg>
-          <span class="brand-name">bleak-web</span>
-        </span>
-        <p class="foot-line">{translate($locale, 'landing.footer.line')}</p>
-        <p class="foot-copy">{translate($locale, 'landing.footer.copyright')}</p>
+          <span class="brand-name">{copyrightBrand}</span>
+          <span class="foot-year">· {copyrightYear}</span>
+        </div>
+        <div class="foot-links">
+          <a class="foot-link" href="mailto:extube@proton.me">
+            <span class="link-label">{translate($locale, 'landing.footer.contact.email.label')}</span>
+            <span class="link-value">extube@proton.me</span>
+          </a>
+          <a
+            class="foot-link"
+            href="https://github.com/extube"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span class="link-label">{translate($locale, 'landing.footer.contact.github.label')}</span>
+            <span class="link-value">github.com/extube</span>
+          </a>
+        </div>
       </div>
     </footer>
-
-    <!-- FOOTER: the START-NOW badge block → /income (§4.20.I) -->
-    <a class="badge-block area-badge pixel-corners pixel-frame pixel-frame--strong" href={resolve('/income')}>
-      <div class="foot-body pixel-corners badge-body">
-        <svg
-          class="badge-glyph"
-          viewBox="0 0 64 64"
-          width="16"
-          height="16"
-          shape-rendering="crispEdges"
-          aria-hidden="true"
-        >
-          <g fill="var(--color-deepa-4)">
-            <rect x="16" y="14" width="32" height="8" />
-            <rect x="12" y="22" width="40" height="16" />
-            <rect x="16" y="38" width="32" height="8" />
-          </g>
-          <g fill="var(--color-bg)">
-            <rect x="20" y="26" width="8" height="8" />
-            <rect x="36" y="26" width="8" height="8" />
-            <rect x="28" y="30" width="8" height="4" />
-          </g>
-        </svg>
-        <span class="badge-label">{translate($locale, 'landing.footer.badge')}</span>
-      </div>
-    </a>
   </main>
 </div>
 
@@ -338,7 +333,7 @@
     }
   }
 
-  /* ---------- header (§4.20.B) ---------- */
+  /* ---------- section 1: header (§4.20.B, unchanged) ---------- */
   .top {
     display: flex;
     justify-content: space-between;
@@ -432,7 +427,7 @@
   @media (min-width: 720px) {
     .top {
       display: grid;
-      grid-template-columns: 26% 1fr 26%;
+      grid-template-columns: 27% minmax(0, 1fr) 26%;
       column-gap: var(--space-6);
       row-gap: var(--space-4);
       align-items: start;
@@ -475,7 +470,12 @@
     }
   }
 
-  /* ---------- canvas grid (§4.20.K) ---------- */
+  /* ---------- sections 2 + 3: the canvas (§4.21.D) ----------
+   * PHONE ORDER UNCHANGED (§4.20.K): the DOM order below IS the mobile
+   * stack — headline → sub → Start → art block (the reminder lives inside
+   * it at the bottom) → chat strip → agent card → stat card → the three
+   * step blocks → contact footer. Desktop (≥720px) is the §4.21.D
+   * three-section grid: CSS-only rearrangement, same DOM. */
   .canvas {
     display: flex;
     flex-direction: column;
@@ -485,48 +485,46 @@
   @media (min-width: 720px) {
     .canvas {
       display: grid;
-      grid-template-columns: 26% 1fr 26%;
+      grid-template-columns: 27% minmax(0, 1fr) 26%;
       grid-template-areas:
-        'copy  hero agents'
-        'stat  hero chat'
-        'ftpos hero badge'
-        'tut   tut  tut';
+        'lead art   agent'
+        'lead art   chat'
+        'stat stat  stat'
+        'tut  tut   tut'
+        'foot foot  foot';
+      grid-template-rows: auto 1fr;
       column-gap: var(--space-6);
       row-gap: var(--space-6);
       align-items: start;
     }
-    .area-copy {
-      grid-area: copy;
+    .area-lead {
+      grid-area: lead;
     }
-    .area-hero {
-      grid-area: hero;
-      justify-self: center;
+    .area-art {
+      grid-area: art;
+      min-width: 0;
     }
     .area-chat {
       grid-area: chat;
       width: 100%;
     }
     .area-agents {
-      grid-area: agents;
+      grid-area: agent;
     }
     .area-stat {
       grid-area: stat;
-      align-self: end;
     }
     .area-tutorial {
       grid-area: tut;
     }
-    .area-ftpos {
-      grid-area: ftpos;
-      align-self: end;
-    }
-    .area-badge {
-      grid-area: badge;
-      align-self: end;
+    .area-foot {
+      grid-area: foot;
+      justify-self: center;
+      width: 100%;
     }
   }
 
-  /* ---------- headline block (§4.20.C) ---------- */
+  /* ---------- headline block (§4.20.C, unchanged) ---------- */
   .copy {
     display: flex;
     flex-direction: column;
@@ -654,23 +652,6 @@
     transform: scale(0.98);
   }
 
-  /* ---------- hero (§4.20.D/E) ---------- */
-  .hero {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 0;
-  }
-  .dialog-wrap {
-    display: flex;
-    justify-content: center;
-    width: 100%;
-    /* the example's overlap: the box rides the scene's bottom edge */
-    margin-top: -16px;
-    position: relative;
-    z-index: 1;
-  }
-
   /* ---------- framed cards (§4.20.G) ---------- */
   .card-body {
     padding: 20px;
@@ -743,11 +724,17 @@
     font-size: 13px;
     color: var(--color-text);
   }
+
+  /* Stat card, compact (§4.21.F): padding 20px → 12px 14px mobile /
+   * 16px 20px desktop; title 18→17px; BLOOM 56px → 44px mobile / 48px
+   * desktop; the desktop layout stays title-left / glyph-right in one
+   * compact row, full-width atop section 3. */
   .stat-body {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-4);
+    padding: 12px 14px;
   }
   .stat-copy {
     min-width: 0;
@@ -755,43 +742,79 @@
   .stat-title {
     font-family: var(--font-pixel);
     font-weight: 600;
-    font-size: 18px;
+    font-size: 17px;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--color-text);
     margin: 0 0 var(--space-2);
   }
   .stat-line {
-    margin: 0 0 var(--space-1);
+    margin: 0 0 2px;
     font-family: var(--font-body);
     font-size: 13px;
+    line-height: 1.35;
     color: var(--color-text-muted);
   }
   .stat-glyph {
     flex: none;
     line-height: 0;
   }
-
-  /* ---------- tutorial (§4.20.H) ---------- */
-  .tutorial {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  .stat-glyph :global(svg) {
+    width: 44px;
+    height: 44px;
   }
+  @media (min-width: 720px) {
+    .stat-body {
+      padding: 16px 20px;
+    }
+    .stat-glyph :global(svg) {
+      width: 48px;
+      height: 48px;
+    }
+  }
+
+  /* ---------- the three BIG step blocks (§4.21.E) ----------
+   * FIND → CHAT → SHARE: one step per display block — pixel step number,
+   * pixel-font title, step icon, one-line description. Non-interactive:
+   * no hover/press states, no motion (§4.6 no scroll-triggered motion). */
   .steps {
     list-style: none;
     margin: 0;
     padding: 0;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-3);
+    flex-direction: column;
+    gap: var(--space-5);
   }
-  .step {
+  .step-block {
+    width: 100%;
+  }
+  .step-body {
+    background: var(--color-surface);
+    padding: 16px;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     gap: var(--space-2);
+  }
+  .step-num {
+    font-family: var(--font-pixel);
+    font-weight: 600;
+    font-size: 40px;
+    letter-spacing: 0.1em;
+    line-height: 1;
+    color: var(--color-deepa-4);
+    text-shadow:
+      0 0 8px color-mix(in srgb, var(--color-deepa-4) 60%, transparent),
+      0 0 24px color-mix(in srgb, var(--color-deepa-4) 30%, transparent);
+  }
+  .step-title {
+    font-family: var(--font-pixel);
+    font-weight: 600;
+    font-size: 20px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text);
+    margin: 0;
   }
   .step-icon {
     display: flex;
@@ -799,47 +822,51 @@
     justify-content: center;
     width: 48px;
     height: 48px;
-    color: var(--color-text);
+    color: var(--color-text-muted);
   }
-  .step-label {
-    font-family: var(--font-pixel);
-    font-weight: 600;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--color-text);
-  }
-  .chevron {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    padding-top: 0;
+  .step-desc {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--color-text-muted);
   }
   @media (min-width: 720px) {
-    .tutorial::before,
-    .tutorial::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--color-surface-elevated);
+    /* desktop: the three blocks ordered left to right, equal thirds */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-6);
+    }
+    .step-block .step-body {
+      min-height: 300px;
+      padding: 20px;
     }
   }
 
-  /* ---------- footer blocks (§4.20.I) ---------- */
-  .foot-block {
+  /* ---------- contact footer (§4.21.G) ----------
+   * One pixel-framed site contact block, centered: row 1 = the kept
+   * copyright content (logo + brand + year), row 2 = EMAIL + GITHUB. */
+  .contact {
     width: 100%;
-    transition: filter 120ms ease-out;
+    max-width: 560px;
+    margin: 0 auto;
   }
   .foot-body {
-    padding: 12px 16px;
+    padding: 16px 20px;
     display: flex;
     flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-3);
+  }
+  .foot-brand {
+    display: inline-flex;
+    align-items: baseline;
     gap: var(--space-2);
   }
-  .brand {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
+  .foot-brand svg {
+    align-self: center;
+    flex: none;
   }
   .brand-name {
     font-family: var(--font-pixel);
@@ -848,44 +875,58 @@
     letter-spacing: 0.04em;
     color: var(--color-text);
   }
-  .foot-line {
-    margin: 0;
-    font-family: var(--font-pixel);
-    font-weight: 600;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--color-text);
-  }
-  .foot-copy {
-    margin: 0;
+  .foot-year {
     font-family: var(--font-body);
     font-size: 11px;
     color: var(--color-text-muted);
   }
-  .badge-block {
-    display: block;
+  .foot-links {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .foot-link {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
     text-decoration: none;
   }
-  .badge-body {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--space-3);
-  }
-  .badge-glyph {
-    flex: none;
-    display: block;
-  }
-  .badge-label {
+  .link-label {
     font-family: var(--font-pixel);
     font-weight: 600;
     font-size: 12px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--color-deepa-4);
+    color: var(--color-text-muted);
+    transition: color 120ms ease-out;
   }
-  .badge-block:hover {
-    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-deepa-4) 50%, transparent))
-      drop-shadow(0 0 24px color-mix(in srgb, var(--color-deepa-4) 22%, transparent));
+  .link-value {
+    font-family: var(--font-pixel);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    color: var(--color-text);
+    transition:
+      color 120ms ease-out,
+      filter 120ms ease-out;
+  }
+  .foot-link:hover .link-label {
+    color: var(--color-text);
+  }
+  .foot-link:hover .link-value {
+    color: var(--color-deepa-4);
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-deepa-4) 50%, transparent));
+  }
+  .foot-link:focus-visible {
+    outline: 2px solid var(--color-deepa-4);
+    outline-offset: 2px;
+  }
+  @media (min-width: 720px) {
+    .foot-links {
+      flex-direction: row;
+      gap: var(--space-6);
+    }
   }
 </style>

@@ -404,9 +404,9 @@ export const en = {
   'host.drill.kickoff': 'Restart',
   'host.drill.dialogs': 'Dialogs',
 
-  /* --- landing v3.14 (Concept §31+§32, DESIGN §4.20.M — the owner rejected
-   --- the §31 landing and ordered a rebuild from zero per their example;
-   --- all 35 keys verbatim from the §4.20.M table, RU/EN parity) --- */
+  /* --- landing v3.14 + v3.15 (Concept §31+§32+§33, DESIGN §4.20.M as
+   --- amended by §4.21.H — the owner's photo-review batch: +5 step/footer
+   --- keys, ~hero.aria, −footer.line/badge; all 38 keys, RU/EN parity) --- */
   'landing.tagline.left.1': 'NETWORKING IS A GAME.',
   'landing.tagline.left.2': 'THE AGENT PLAYS IT FOR YOU.',
   'landing.tagline.top': 'NO SMALL TALK. JUST REAL CONNECTIONS.',
@@ -421,8 +421,7 @@ export const en = {
   'landing.dialog.line1': '* The agent says hello…',
   'landing.dialog.line2': '* Your agent already found three matches.',
   'landing.dialog.line3': '* Match accepted. Contact exchange in a minute.',
-  'landing.hero.aria':
-    'Pixel scene: a person meets their AI agent under a glowing network node',
+  'landing.hero.aria': 'Pixel scene: two figures before a violet city under a glowing hello',
   'landing.stat.title': 'REAL PEOPLE. REAL RESULTS.',
   'landing.stat.line1': 'No empty chats.',
   'landing.stat.line2': 'No cold DMs.',
@@ -442,8 +441,11 @@ export const en = {
   'landing.tutorial.search': 'FIND',
   'landing.tutorial.chat': 'CHAT',
   'landing.tutorial.share': 'SHARE',
-  'landing.footer.line': 'EVERY CONNECTION MATTERS.',
-  'landing.footer.badge': 'START NOW — 6 DIGITS TO JOIN',
+  'landing.steps.find.desc': 'The radar shows who is around you right now.',
+  'landing.steps.chat.desc': 'Your agents break the ice before you arrive.',
+  'landing.steps.share.desc': 'One handshake — and contacts are exchanged.',
+  'landing.footer.contact.email.label': 'EMAIL',
+  'landing.footer.contact.github.label': 'GITHUB',
   'landing.footer.copyright': 'bleak-web · 2026',
 
   /* --- global 401 gate (DESIGN rev. 3 §2.8, §4.7) --- */

@@ -3504,6 +3504,401 @@ and `landing.agent.*` as their accessible names — no extra keys.
    don't copy content"). Owner tone/naming approval requested before the
    worker lands final copy.
 
+### 4.21 v3.15 feature design (2026-11-22, owner-approved Concept §33): §33 landing adjustments — owner photo review
+
+The owner reviewed the live landing (photo `real-design.png`, workspace
+root) and issued the 7-item change batch of Concept §33. This section
+amends the §4.20 landing spec item by item; **where §4.21 is silent, §4.20
+stands verbatim** — header/taglines (§4.20.B), headline + subheadline +
+Start CTA (§4.20.C), mascot-chat strip content and timing (§4.20.F), agent
+card (§4.20.G-b), behavior/routes (§4.20.L except as amended in
+§4.21.D/§4.21.G), a11y and reduced-motion baselines (§4.20.L). The live
+build matches §4.20 faithfully (verified against `real-design.png`), so
+every item below is an adjustment to the shipped composition, not a
+re-derivation. Two new inputs: the owner's pixel scene image
+**`background-img.jpg`** (workspace root — a boy and a robot in a purple
+flower field before a violet city skyline, under a glowing HELLO speech
+bubble) becomes the composition block's background, and the reminder box
+gains the no-overlay / 1:3.5 ratio / bottom-fixed / bob rules. Hard
+constraints unchanged: **no new dependencies, no new color values (§4.1 —
+every value below is an existing token or a `color-mix` alpha variant),
+routes `/income` + `/income/[room]/create` untouched, the §4.20.F
+mascot-chat animation stays (placement re-verified in §4.21.D), and the
+PHONE stacking order is exactly §4.20.K's** except where an element was
+removed or merged below. **API endpoints used: none** — unchanged; the
+landing stays fetch-free (§4.20 preamble), no loading/empty/error data
+states exist.
+
+#### 4.21.A Hero pair redo — ASTRA replaces BYTE (amends §4.20.D, §4.20.J)
+
+The left figure **NOVA is unchanged** (owner: "the left personage is
+good"). The right figure becomes **ASTRA**: a copy of NOVA — same body
+rects, same proportions, same back-view pose, same palette discipline —
+with only the head changed: **white hair** + **two small purple horns**.
+
+- **Derivation:** ASTRA's rect data is NOVA's §4.20.D construction
+  re-based to its own bounding box (origin = head top-left; the pair
+  renders as two separate absolutely-positioned SVGs so each can be
+  placed independently — see §4.21.B). **One shared part table serves
+  both figures** (add `nova` + `astra` to `LANDING_FIGURES` in
+  `lib/components/landing/figures.ts`; `Figure` gains explicit
+  `viewW`/`viewH` so `LandingFigure` derives a non-square
+  `viewBox="0 0 16 31"`). Both figures render through `LandingFigure`
+  (idle sway kept: 1.6s `steps(2)` ±2°, §4.6 family).
+
+  Shared 16×31 table (grid units; NOVA = same table **without** the two
+  horn groups and with NOVA's current hair fills; ASTRA = full table):
+
+  | Part | Fill | Rects [x, y, w, h] |
+  | --- | --- | --- |
+  | Horn L (ASTRA only) | `--color-deepa-4` | `[3,0,2,3]` |
+  | Horn L glint (ASTRA only) | `--color-text` | `[3,0,2,1]` |
+  | Horn R (ASTRA only) | `--color-deepa-4` | `[11,0,2,3]` |
+  | Horn R glint (ASTRA only) | `--color-text` | `[11,0,2,1]` |
+  | Hair top | NOVA: `color-mix(in srgb, var(--color-art-hair-3) 65%, var(--color-surface))` · ASTRA: `--color-text` | `[4,3,8,2]` |
+  | Hair mid | same split as hair top | `[2,5,12,8]` |
+  | Hair low (under-shade) | NOVA: current lower-shade mix · ASTRA: `color-mix(in srgb, var(--color-text) 72%, var(--color-surface-elevated))` | `[3,13,10,3]` |
+  | Neck | `--color-art-skin-2` | `[6,16,4,2]` |
+  | Scarf | `--color-text` | `[1,18,14,4]` |
+  | Scarf stripes | `--color-deepa-4` | `[4,18,2,4]`, `[10,18,2,4]` |
+  | Coat + arms + legs | `--color-surface-elevated` | `[2,22,12,5]`, `[0,23,2,5]`, `[14,23,2,5]`, `[3,27,4,4]`, `[9,27,4,4]` |
+  | Shoes | `--color-text` | `[2,30,5,1]`, `[9,30,5,1]` |
+
+- **White-hair palette (art, AA not required):** nearest-white token
+  `--color-text` (#f0f0f0) for the lit rows plus the 72/28
+  `--color-text`→`--color-surface-elevated` mix as the under-shade — the
+  established two-shade art-shading discipline (§4.3), zero new values.
+- **Horns:** two 2×3-unit `--color-deepa-4` columns rising from the hair
+  top (grid y 0–3), each with a 2×1 `--color-text` glint cell — small,
+  accent-token, symmetric; they read against the dark bg via the glint +
+  the §4.20.A glow recipe (`drop-shadow` accent mix at 35%) on the horn
+  group only.
+- **BYTE is removed from the hero and retired from the landing:** the
+  `<g data-figure="byte">` group is deleted from `LandingHeroScene`; the
+  robot in `background-img.jpg` is scene art, not the BYTE mascot. §4.20.J
+  cast table updates: BYTE → **ASTRA** (hero scene, right figure, white
+  hair + horns); cast stays six distinct figures (NOVA, ASTRA, VECTOR,
+  BLOOM, PIP, GLITCH).
+- **Focal element amended:** the §4.20.D floating handshake-node diamond +
+  light beam are **retired** — the image's glowing HELLO bubble (the
+  composition's own focal bloom, §4.21.B) replaces it; the mesh/sparkle
+  system stays (§4.21.B layer 3).
+
+#### 4.21.B Pixel-art composition block — taller, image background, smooth edge (amends §4.20.D)
+
+One block (`.art-block`, center of section 2) holds everything that used
+to be the bare hero scene. **Height: 500px mobile / 680px ≥720px** (was
+320/480 — the owner's "taller"). Width: full content column (mobile) /
+center grid column (desktop, §4.21.D). Stacking order bottom→top:
+
+| z | Layer | Spec |
+| --- | --- | --- |
+| 0 | Base | `background-color: color-mix(in srgb, var(--color-deepa-4) 6%, var(--color-bg))` (alpha-mix tint, §4.1-legal; shows only pre-load) |
+| 1 | Background image | `<img>` inset 0, `object-fit: cover`, `object-position: 50% 50%`, `alt=""` + `aria-hidden="true"`, `loading="eager"`, `decoding="async"`, intrinsic 1024×1024 attrs (no CLS) |
+| 2 | Edge-fade vignette | `::after` overlay, `pointer-events: none`: `background: radial-gradient(ellipse 80% 78% at 50% 46%, transparent 0 52%, color-mix(in srgb, var(--color-bg) 45%, transparent) 72%, var(--color-bg) 100%)` — the **smooth transition**: every edge dissolves into exactly `--color-bg`, no hard rectangle edge at any breakpoint |
+| 3 | Animated purple pixels | the §4.20.D mesh/sparkle system **kept**, re-expressed as ~12 absolutely-positioned pixel dots (`<span>`s, 4–6px squares, the existing three `--color-deepa-4` alpha shades 18/35/60%), `steps(2)` twinkle 1.6s, staggered 0–1.2s delays: sky dots at (5%,12%), (93%,16%), (8%,55%), (90%,60%); ground-band dots at (4%,90%), (12%,95%), (88%,90%), (95%,94%) + 4 more in the bottom band outside the protected rect |
+| 4 | Hero pair | NOVA + ASTRA SVGs (`LandingFigure`, 16×31 viewBox): **desktop** each 160px tall (~82px wide), NOVA anchored `left: 2%`, ASTRA `right: 2%`, feet line at `bottom: calc(var(--reminder-h) + 16px)` (~115px); **mobile** each 64px tall (~33px wide), same left/right 2% anchors, feet at `bottom: calc(var(--reminder-h) + 16px)` (~89px) — both figures stand in the image's flower band, flanking the central scene without entering it |
+| 5 | Reminder box | §4.21.C — `position: absolute; bottom: 16px; left/right insets per breakpoint` |
+
+**Asset path & import (worker instruction):** copy the owner's
+`background-img.jpg` from the workspace root to
+**`apps/web/src/lib/assets/landing/background.jpg`** and commit it there
+(app asset; the root copy is an owner working file, not committed).
+Import as a Vite **URL import** — `import backgroundUrl from
+'#lib/assets/landing/background.jpg';` (the established `#lib` alias;
+`?raw` is for SVG text only) — and bind it as the `<img>` `src`. No
+static/ usage, no new loader, no new dependency.
+
+**Protected central safe zone (the image's scenario — nothing may render
+over it):** conservative union rect valid at both breakpoints (derived
+from the cover-crop math at 288/350/472px block widths):
+
+- **Figures band (boy + robot): x 21–83%, y 44–80% of the block.**
+- **HELLO bubble: x 24–76%, y 2–22% of the block.**
+
+The reminder box (layer 5) satisfies this by geometry: with height =
+width ÷ 3.5 and bottom inset 16px, its **top edge sits at ≥81% of the
+block height** at both breakpoints (500px block: (73+16)/500 = 17.8% →
+top 82.2%; 680px block: (99+16)/680 = 16.9% → top 83.1%). The pair
+(layer 4) satisfies it by x-anchor (±2% edges vs the 21%/83% bounds).
+The pixel dots are placed outside both rects. Test at 320×640, 390×844
+and 1280×800.
+
+#### 4.21.C Agent reminder box (amends §4.20.E — the retro dialogue box becomes the reminder)
+
+The three cycling agent lines keep their copy (`landing.dialog.line1–3`,
+200ms cross-fade, sr-only static line) and move **inside the art block,
+fixed at its bottom** — no longer a sibling overlapping the hero's edge.
+
+- **Geometry (owner ratio 1 : 3.5 height:width — a wide strip):**
+  `aspect-ratio: 3.5 / 1; min-height: 64px;` width capped per breakpoint
+  so it can never overlay the nearest blocks left/right/top:
+  - **<720px:** `width: min(100% - 32px, 256px)` → ~256×73px; side
+    insets 16px each; `position: absolute; bottom: 16px;` centered via
+    `left: 0; right: 0; margin-inline: auto;` (no transform centering —
+    transform is reserved for the bob).
+  - **≥720px:** `width: min(100% - 48px, 348px)` → ~348×99px; side
+    insets 24px each; same absolute bottom anchoring.
+  Expose the resolved height as `--reminder-h` on the block (the pair's
+  `bottom` offset consumes it, §4.21.B). Because the box lives strictly
+  inside the block's padding box with these insets, it cannot overlap
+  the chat strip, agent card or headline at 320/390/1280.
+- **Frame:** the §4.20.E pixel-frame stands — `--frame-strong`, 2px
+  `--color-text` border, 4px stepped notches, bg `--color-surface`.
+- **Font — PIXEL (owner item 2a):** the message text renders in the
+  established pixel font stack **Handjet** (was Inter): 16px mobile /
+  18px desktop, `letter-spacing: 0.05em`, `line-height: 1.3`,
+  `--color-text`, **horizontally centered** (owner item 2c), max 2
+  lines, padding 12px 20px so text clears the corner glyph.
+- **Pixel emoji at the left-top corner (owner item 2c):** an original
+  §4.3-construction glyph — a 16-grid **pixel sparkle-star** (arms
+  `[7,2,2,2]`, `[7,12,2,2]`, `[2,7,2,2]`, `[12,7,2,2]`; diagonals
+  `[4,4]`, `[5,5]`, `[10,5]`, `[11,4]`, `[4,10]`, `[5,11]`, `[10,11]`,
+  `[11,10]` as 2×2 cells; center `[7,7,2,2]` with a `--color-text`
+  highlight cell) — fill `--color-deepa-4`, rendered **24px**,
+  absolutely positioned at the box's top-left corner at offset
+  (−10px, −10px) overlapping the frame; `aria-hidden`; twinkle
+  opacity 1↔0.55, 1.6s `steps(2)` infinite.
+- **Check mark at the bottom — bigger and more visible (owner item 2e):
+  ** the §4.20.E 8px caret is replaced by a **24px (20px mobile) pixel
+  check mark**: 12-grid cell run `[(2,6),(3,7),(4,8),(5,7),(6,6),(7,5),
+  (8,4),(9,3)]` as 1u rects, fill `--color-deepa-4`, plus a 1×1
+  `--color-text` glint at the vertex (4,8); positioned bottom-center of
+  the box, half-out over the frame edge (`translateY(50%)` via a wrapper
+  so the bob transform stays free); visibility = size + the §4.20.A glow
+  (`drop-shadow(0 0 6px color-mix(in srgb, var(--color-deepa-4) 60%,
+  transparent))`) pulsing to the 100% mix, 1.6s `steps(2)` infinite
+  alternate. Reads against both the box surface and the page bg.
+- **Up-and-down movement (owner item 2e):** ambient bob on the whole
+  box, transform-only: `@keyframes reminder-bob { 0%,100% {
+  transform: translateY(0); } 50% { transform: translateY(calc(-1 *
+  var(--bob-amp))); } }` — `--bob-amp: 6px` mobile / `10px` ≥720px;
+  **duration 3s, `ease-in-out`, infinite** (smooth float — a `steps()`
+  bob on a large box reads as a glitch; this is the one §4.6-table
+  addition: *reminder ambient bob · translateY · 3s ease-in-out*).
+  `prefers-reduced-motion: reduce` → bob, twinkle, glow pulse and the
+  line cross-fade all collapse (static first line + static glyph), per
+  §4.6/§4.20.L.
+
+#### 4.21.D Layout reorganization (amends §4.20.K — desktop clarity; PHONE ORDER UNCHANGED)
+
+**Section 1 = the header: §4.20.B unchanged entirely** (taglines, locale
+switch, START control, anchors).
+
+**≥720px — three explicit sections on the 1000px canvas:**
+
+- **Section 2 (`grid-template-columns: 27% minmax(0,1fr) 26%`, `grid-template-areas: "lead art agent" / "lead art chat"`, `grid-template-rows: auto 1fr`, gap `--space-6`, `align-items: start`):**
+  - `lead` (left column): the headline block + subheadline + **Start**
+    CTA (§4.20.C verbatim).
+  - `art` (center column): the §4.21.B composition block — background
+    image, animated pixels, the NOVA/ASTRA pair, and the **reminder box
+    fixed at the block's bottom**.
+  - `agent` + `chat` (right column, two rows): the agent character card
+    (`#agents`, §4.20.G-b) on top, the §4.20.F **mascot-chat strip
+    unchanged** below it (280px, 4-turn typewriter loop). Placement
+    re-verified against the taller art block: the strip stays in the
+    right column — it never shares space with the art block or the
+    reminder, no conflict; no position amendment needed.
+- **Section 3 (all the other blocks):** vertical stack, gap
+  `--space-6` — row 1: the **stat card full-width** (§4.21.F compact);
+  row 2: `#tutorial` = the **three big step blocks** in an equal
+  left-to-right row (`grid-template-columns: repeat(3, 1fr)`, gap
+  `--space-6`; §4.21.E). The stat card leaves the §4.20.G-a "left column
+  bottom" slot.
+- **Footer:** the §4.21.G contact block, full-width centered.
+
+**<720px — the §4.20.K stacking order stands EXACTLY, top→bottom:** top
+bar → headline block (centered) → subheadline → **Start CTA** → art
+block (the composition block; the reminder lives inside it at the
+bottom — this is the one consolidation: §4.20.E's separate dialogue-box
+slot merges into the hero slot it already followed) → mascot-chat strip
+→ agent character card → stat card → the three step blocks (§4.21.E
+stack) → contact footer. The removed §4.20.I footer blocks simply
+disappear from the tail. Same DOM order on both breakpoints; desktop is
+CSS-grid rearrangement only; no horizontal scroll at 320px.
+
+#### 4.21.E Find >> Chat >> Share — three BIG separate blocks (REPLACES §4.20.H)
+
+The small icon row is retired. `#tutorial` becomes three large
+**non-interactive display blocks** — how the app works, one step each,
+in the §31 order find → chat → share:
+
+- **Frame & surface:** `--frame-strong` pixel-frame (§4.20.A/§4.5), bg
+  `--color-surface`, **desktop each block ~300px min-height** (equal
+  thirds of the row), padding 20px (mobile 16px); mobile full-width
+  stacked with `--space-5` gaps, natural height.
+- **Contents top→bottom:** ① **pixel step number** — "01" / "02" / "03"
+  in Handjet 40px, `--color-deepa-4`, `letter-spacing: 0.1em`, the
+  §4.20.A text-shadow glow (locale-invariant literals, not keys);
+  ② **title** — pixel font Handjet 20px uppercase `--color-text`,
+  reusing `landing.tutorial.search` / `.chat` / `.share` (FIND / CHAT /
+  SHARE — «НАЙДИ» / «ОБЩАЙСЯ» / «ПОДЕЛИСЬ»); ③ **step icon** — the
+  §4.4 glyphs at 32px in a 48px zone: `search`, `dialog-lines`,
+  `contact-share` (the §4.20.H set incl. the contact-share glyph,
+  `currentColor` tinted `--color-text-muted`); ④ **mini description** —
+  one line, Inter 13px `--color-text-muted` (new keys, §4.21.H).
+- **Order:** desktop left→right 01→02→03; phone top→bottom 01→02→03
+  (the §4.20.K tail order with the row swapped for the stack).
+- **Interaction:** none — static display blocks; no hover/press states,
+  no motion (§4.6 no scroll-triggered motion); icons `aria-hidden` +
+  visible text.
+
+#### 4.21.F "Real people. Real results" — padding minimized (amends §4.20.G-a)
+
+Stat card padding **20px → 12px 14px mobile / 16px 20px desktop**;
+internal title 18px→17px, three lines keep Inter 13px with
+`line-height: 1.35` and 2px inter-line gaps; BLOOM glyph 56px → **44px
+mobile / 48px desktop**; the desktop layout stays title-left /
+glyph-right in one compact row, full-width atop section 3. Frame, copy
+and hover states (§4.20.G preamble) unchanged.
+
+#### 4.21.G Contact footer (REPLACES §4.20.I)
+
+Both §4.20.I footer blocks (the "bleak-web — every connection matters"
+positioning block and the "start now — 6 digits to join" CTA badge) are
+**removed**; their keys die (§4.21.H) and the CTA badge's /income role
+dies with it — **the /income entry points are now exactly two: the Start
+CTA and the agent-card TALK** (§4.20.L amended accordingly; deep-link
+forwarding untouched). The footer becomes a single **site contact
+block**: one `--frame-strong` pixel-frame (§4.20.A), bg
+`--color-surface`, `max-width: 560px`, centered, padding `16px 20px`,
+containing:
+
+- Row 1: the existing 16px logo glyph + "bleak-web" (Handjet 14px) +
+  "· 2026" (Inter 11px muted) — the kept `landing.footer.copyright`
+  content.
+- Row 2 (two links, side-by-side ≥720px / stacked with 8px gap on
+  phone): **EMAIL → `mailto:extube@proton.me`** and **GITHUB →
+  `https://github.com/extube`** (`target="_blank"` `rel="noopener
+  noreferrer"`). Label in Handjet 12px `--color-text-muted`
+  (`landing.footer.contact.email.label` = ПОЧТА / EMAIL;
+  `landing.footer.contact.github.label` = ГИТХАБ / GITHUB), value in
+  Handjet 13px `--color-text` — the address/URL are locale-invariant
+  literals in markup; hover `--color-accent` + glow, `:focus` ring per
+  §2.6. The block is pixel-framed and consistent with the card family.
+
+#### 4.21.H RU/EN i18n amendments (delta on §4.20.M; §4.7 format; both dictionaries required)
+
+| Δ | Key | RU | EN |
+| --- | --- | --- | --- |
+| + | `landing.steps.find.desc` | Радар показывает, кто рядом прямо сейчас. | The radar shows who is around you right now. |
+| + | `landing.steps.chat.desc` | Ваши агенты заводят разговор до вашего прихода. | Your agents break the ice before you arrive. |
+| + | `landing.steps.share.desc` | Одно рукопожатие — и контакты обменяны. | One handshake — and contacts are exchanged. |
+| + | `landing.footer.contact.email.label` | ПОЧТА | EMAIL |
+| + | `landing.footer.contact.github.label` | ГИТХАБ | GITHUB |
+| ~ | `landing.hero.aria` | Пиксельная сцена: двое у фиолетового города под светящимся приветствием | Pixel scene: two figures before a violet city under a glowing hello |
+| − | `landing.footer.line` | — | — |
+| − | `landing.footer.badge` | — | — |
+
+Unchanged and kept: `landing.dialog.line1–3` (now the reminder lines),
+`landing.tutorial.search/chat/share` (now the step-block titles),
+`landing.footer.copyright` (now inside the contact block), all
+§4.20.M keys not listed above. **Deleted keys must be removed from BOTH
+`ru.ts` and `en.ts`.** New parity total: **38 keys** (35 − 2 + 5); the
+extended parity test asserts 38/38 in both dicts and the absence of the
+two dead keys.
+
+#### 4.21.I Acceptance criteria (checkable)
+
+1. Hero right figure: `/` renders NOVA (left, unchanged) and ASTRA
+   (right) — same body/proportions as NOVA, **white hair**
+   (`--color-text` + its 72% surface-elevated shade) and **two small
+   purple horns** (`--color-deepa-4` + `--color-text` glints); the BYTE
+   robot appears nowhere on `/`.
+2. The §4.20.D handshake-node diamond + light beam are gone from the
+   hero; the composition's focal glow is the background image's HELLO
+   bubble.
+3. Reminder box: message text renders in **Handjet** (pixel font),
+   **horizontally centered**, with a **24px pixel sparkle glyph
+   overlapping the box's top-left corner** and the asterisk-prefixed
+   cycling lines intact (3 lines, 200ms cross-fade).
+4. Reminder box proportions = **1 : 3.5 (height:width)** at 320, 390
+   and 1280 widths (measured: ~256×73px mobile, ~348×99px desktop).
+5. Reminder adaptivity: at 320×640, 390×844 and 1280×800 the box never
+   overlays the chat strip, agent card, headline or the art block's
+   side edges (16px/24px side insets; bottom 16px; top edge ≥81% of the
+   block height).
+6. The reminder box is **fixed at the bottom of the art block** on both
+   breakpoints (absolute within the block, not a sibling section).
+7. Reminder bob: the box floats up and down continuously — translateY
+   0→−6px (mobile) / −10px (desktop), 3s ease-in-out loop,
+   transform-only; under `prefers-reduced-motion: reduce` it is static.
+8. The check mark at the reminder's bottom is a ≥20px pixel check
+   (accent violet + glint) with a visible glow, clearly larger and
+   brighter than the retired 8px caret.
+9. Desktop ≥720px (test 1280×800) shows the three sections: header;
+   hero zone = left (headline + Start) / center (art block with the
+   bottom-fixed reminder) / right (agent card above the chat strip);
+   then stat card full-width + the three step blocks in one equal row;
+   then the contact footer. No horizontal scroll.
+10. Phone <720px (test 320×640 and 390×844) stacks in exactly the
+    §4.20.K order with the two removals and the dialogue-into-art-block
+    merge: top bar → headline → sub → Start → art block (reminder
+    inside, bottom) → chat strip → agent card → stat card → three step
+    blocks → contact footer. No horizontal scroll at 320px.
+11. The three step blocks each show the pixel step number (01/02/03),
+    the pixel-font title (FIND/CHAT/SHARE per locale), the step icon
+    (search / dialog-lines / contact-share) and a one-line description;
+    desktop = left-to-right equal row, phone = top-to-bottom stack;
+    none is interactive.
+12. The "bleak-web — every connection matters" block and the "start now
+    — 6 digits to join" badge are absent from `/` (no DOM node, no
+    rendered copy).
+13. The art block's background is the committed app asset
+    `apps/web/src/lib/assets/landing/background.jpg`, imported via the
+    `#lib` URL import (not hotlinked, not in `static/`), rendered
+    `object-fit: cover`, block height ≥500px mobile / ≥680px desktop.
+14. Smooth transition: at every tested width the image dissolves into
+    `--color-bg` at all four block edges (radial vignette) — no hard
+    edge line where image meets page background.
+15. Protected scenario: no rendered element (pair figures, pixel dots,
+    reminder box, any other block) intersects the figures rect
+    (x 21–83%, y 44–80%) or the bubble rect (x 24–76%, y 2–22%) of the
+    art block at 320/390/1280.
+16. The animated purple pixels still animate over the image (steps(2)
+    twinkle loop visible; static under reduced motion).
+17. Stat card padding measures ≤14px mobile / ≤20px desktop (was 20px
+    uniform).
+18. Footer: mailto `extube@proton.me` and `github.com/extube` links with
+    RU/EN labels (ПОЧТА/EMAIL, ГИТХАБ/GITHUB) that swap with the locale
+    switch without a reload; focus rings visible; external link opens
+    safely (`rel="noopener noreferrer"`).
+19. i18n: exactly **38** `landing.*` keys exist in BOTH dictionaries;
+    `landing.footer.line` and `landing.footer.badge` exist in NEITHER;
+    the extended parity test is green.
+20. Start CTA and agent-card TALK navigate to `/income` (6-digit entry);
+    `/income` and `/income/[room]/create` behavior unchanged (existing
+    suites green); the bottom tab bar is not rendered on `/`.
+21. The mascot-chat strip keeps its §4.20.F behavior (4 alternating
+    typewriter turns, infinite loop, reduced-motion static) and its
+    desktop slot under the agent card — no overlap with the art block
+    or reminders at any tested width.
+22. Palette/stack audit: no new color values (tokens or `color-mix`
+    alpha variants only), no new dependencies, no canvas, no animation
+    library; `make lint && make test && make build` green.
+
+#### 4.21.J Flags for the owner / concept (concept report)
+
+1. **ADVICE NEEDED — SVG pair vs the image's own cast:** the owner kept
+   the left personage, redid the right one, AND set `background-img.jpg`
+   (which contains its own boy + robot) as the block background. I
+   resolved the double cast by flanking: NOVA + ASTRA stand small in the
+   bottom-corner flower band, strictly outside the protected central
+   scene (mobile: 64px corner figures; desktop: 160px). If the owner
+   prefers the image's duo to be the ONLY cast (SVG pair dropped, or
+   desktop-only), that is a one-line layer removal — confirm before the
+   worker lands.
+2. **ADVICE NEEDED — inventions carried over from §4.20.O-2:** the new
+   figure's name **ASTRA**, BYTE's retirement, the node+beam retirement,
+   and the three step-block descriptions + contact-footer labels are
+   design adaptations of the owner's items (the owner specified
+   structure, not copy). Owner tone/naming approval requested with the
+   §4.20.O-2 batch.
+3. **ADVICE NEEDED — contact footer content:** specced as
+   `extube@proton.me` + `github.com/extube` per the caller's suggestion;
+   confirm (or substitute) before landing — it is published contact
+   information.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)

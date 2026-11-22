@@ -1531,6 +1531,58 @@ template. Requirements:
 
 ---
 
+## 33. Owner change batch: landing adjustments (photo review) — ✅ APPROVED (2026-11-22)
+
+The owner reviewed the live landing (photo: `real-design.png`) and wants
+these changes (owner, 2026-11-22):
+
+1. **Hero scene — right character redo:** the left personage is good;
+   the right one becomes a **copy of the left person but with white
+   hair and little purple horns** (same figure/proportions/style as
+   the left, different head: white hair + small purple horns).
+2. **Agent message reminders (the dialogue box at the center block):**
+   1. the reminder message font is **pixel**;
+   2. the reminder is **adaptive — it must not overlay the nearest
+      blocks** on the left / right / top sides;
+   3. reminder proportions are **1 : 3.5** (width : height ratio of the
+      reminder box), with a **pixel emoji at the left-top corner**, and
+      the **text is centered**;
+   4. reminders are **fixed at the bottom of the center pixel-art
+      composition block** and have an **up-and-down movement
+      animation**; the **check mark at the bottom of the reminder is
+      bigger and more visible**.
+3. **"Real people. Real results" block:** **minimize its padding**.
+4. **Layout reorganization (desktop clarity; phone order unchanged):**
+   - **First:** the header — keep it without changes (yet).
+   - **Second section:** the left block ("The right connection you" +
+     **Start** button), the **pixel-art block**, the **centered
+     reminders block at the bottom of the pixel-art block**, and the
+     **Vector agent block**.
+   - **Third section:** all the other blocks.
+   - **Footer:** add some **contact information about the site**.
+   - On the **phone screen the order does not change**; on the
+     **computer screen make it clearer** per the structure above.
+5. **Find >> Chat >> Share** — becomes **three BIG separate blocks**
+   with info about how the app works. Each step block has: the **step
+   number (pixel number)**, the **title (also pixel font)**, the **step
+   icon**, and a **mini description**. On the computer screen the three
+   blocks are ordered **left to right**; on the phone — **top to
+   bottom**.
+6. **Remove** the blocks **"bleak-web — every connection matters"** and
+   **"start now — 6-digit to join"**.
+7. **Pixel-art composition block:** make it **taller** (more height) and
+   use the owner's image **`background-img.jpg`** (workspace root) as
+   the block's background image. Other blocks **may overlay the
+   background image**, but must **not overlay the centered scenario**
+   (the central scene) of the image. **Keep the animated purple
+   pixels.** Make a **smooth transition between the image's background
+   and the landing's background color** (no hard edge).
+
+All other §31–§32 contracts stay in force (routes, Start → `/income`
+with the 6-digit input, RU/EN parity, palette, existing suites green).
+
+---
+
 
 ---
 

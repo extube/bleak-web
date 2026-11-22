@@ -1,18 +1,20 @@
 <script lang="ts">
   /**
-   * LandingFigure (DESIGN §4.20.J): renders one of the landing's mascot
-   * cast figures (VECTOR / BLOOM / PIP / GLITCH) from the hand-authored
-   * rect data in figures.ts — the §4.3 technique (square viewBox, crisp
-   * SVG rects, token fills, transparent background, NO plate: the wrapper
-   * is a transparent inline box that reserves exactly `size`). Optional
-   * `idle` runs the figure's two-frame idle motion (§4.6 live-dot family);
-   * the base.css reduced-motion catch-all collapses it to a static frame.
+   * LandingFigure (DESIGN §4.20.J + §4.21.A): renders one of the landing's
+   * mascot cast figures (VECTOR / BLOOM / PIP / GLITCH / NOVA / ASTRA) from
+   * the hand-authored rect data in figures.ts — the §4.3 technique
+   * (explicit viewBox from the figure's viewW/viewH, crisp SVG rects, token
+   * fills, transparent background, NO plate: the wrapper is a transparent
+   * inline box that reserves exactly the rendered size). Optional `idle`
+   * runs the figure's two-frame idle motion (§4.6 live-dot family; the
+   * §4.21.A hero-pair sway kept: 1.6s steps(2) ±2°); the base.css
+   * reduced-motion catch-all collapses it to a static frame.
    */
   import { LANDING_FIGURES, type FigureName } from './figures';
 
   interface Props {
     kind: FigureName;
-    /** Rendered size in px (scales the figure's square grid cleanly). */
+    /** Rendered height in px (width scales from the figure's viewBox). */
     size?: number;
     /** Two-frame idle motion (sway/bob) — on by default. */
     idle?: boolean;
@@ -23,12 +25,13 @@
   let { kind, size = 48, idle = true, label = '' }: Props = $props();
 
   const figure = $derived(LANDING_FIGURES[kind]);
+  const width = $derived(Math.round((size * figure.viewW) / figure.viewH));
 </script>
 
 <span class="figure" class:idle data-figure={kind}>
   <svg
-    viewBox="0 0 {figure.grid} {figure.grid}"
-    width={size}
+    viewBox="0 0 {figure.viewW} {figure.viewH}"
+    width={width}
     height={size}
     shape-rendering="crispEdges"
     role={label ? 'img' : undefined}

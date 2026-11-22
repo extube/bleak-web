@@ -1,236 +1,225 @@
 <script lang="ts">
   /**
-   * Landing hero scene (DESIGN §4.20.D, Concept §32): the example's
-   * two-figures-under-a-glow composition retold as OUR story — the person
-   * **NOVA** (left, back three-quarter view, warm-neutral palette,
-   * accent-striped scarf) meets their AI agent **BYTE** (right — charcoal
-   * body, single violet visor-eye, 2px antenna) under a glowing
-   * handshake-node diamond with a vertical light beam.
+   * Landing hero composition block (DESIGN §4.21.B, amends §4.20.D —
+   * Concept §33 owner photo review): one `.art-block` holds the whole
+   * §4.20.D hero scene re-staged — the owner's pixel scene IMAGE
+   * (`background.jpg`, a boy and a robot in a purple flower field before a
+   * violet city skyline, under a glowing HELLO speech bubble) as the
+   * background, the smooth edge-fade vignette dissolving into
+   * `--color-bg` (no hard edge), the animated purple pixels kept (the
+   * §4.20.D mesh/sparkle system re-expressed as pixel dots with the
+   * steps(2) twinkle), and the hero pair — **NOVA** (left, unchanged) and
+   * **ASTRA** (right: a copy of NOVA with white hair + small purple horns,
+   * §4.21.A) — standing in the image's bottom-corner flower band. The
+   * §4.20.D handshake-node diamond + light beam are RETIRED: the image's
+   * glowing HELLO bubble is the composition's focal element now. BYTE
+   * retires from the landing (§4.21.A).
    *
-   * Technique (§4.3): one 64×64 `<svg>`, individual `<rect>`s,
-   * `shape-rendering="crispEdges"`, transparent background — NO background
-   * plate (Concept §23/§32). The ground is a mesh of purple network nodes
-   * (small squares on stems — the example's flower field adapted), drawn
-   * from a fixed data array (deterministic, no runtime randomness).
+   * Protected central safe zone (§4.21.B): nothing renders over the
+   * image's scenario — figures rect x 21–83% / y 44–80%, bubble rect
+   * x 24–76% / y 2–22%. The pair is anchored to the outer 2% edges; the
+   * dots are placed outside both rects; the reminder box (§4.21.C) sits
+   * below them (top edge ≥81% of the block height by geometry).
+   *
+   * Asset (§4.21.B worker instruction): `background.jpg` is a committed app
+   * asset imported as a Vite URL import (the established `#lib` alias;
+   * `?raw` is for SVG text only) and bound as the `<img>` src.
    *
    * Color discipline (§4.20.A / §4.1): existing tokens only — the landing
-   * accent is the approved Deepa violet (--color-deepa-4, the example's
-   * purple bloom; no new color values); shading stays inside `color-mix`
-   * alpha variants of it.
+   * accent is the approved Deepa violet (--color-deepa-4); shading stays
+   * inside `color-mix` alpha variants of it.
    */
+  import backgroundUrl from '#lib/assets/landing/background.jpg';
+  import LandingFigure from './LandingFigure.svelte';
+  import LandingReminder from './LandingReminder.svelte';
+
   interface Props {
-    /** Accessible name (the scene is one named image; inner rects aria-hidden). */
+    /** Accessible name (the hero pair is one named image; inner rects aria-hidden). */
     label: string;
+    /** The three cycling reminder lines (already translated). */
+    lines: readonly string[];
+    /** Static full reminder line for screen readers. */
+    srLine: string;
   }
 
-  let { label }: Props = $props();
+  let { label, lines, srLine }: Props = $props();
 
-  /* Ground mesh: [x, headRow(0 = back row, 1 = front row), shade(1..3)] —
-   * ~40 tiles in three violet alpha shades (the connection mesh). */
-  const MESH: readonly (readonly [number, number, number])[] = [
-    [2, 0, 1], [6, 0, 2], [10, 0, 1], [13, 0, 3], [33, 0, 2], [37, 0, 1],
-    [41, 0, 3], [45, 0, 1], [50, 0, 2], [54, 0, 1], [58, 0, 3], [61, 0, 2],
-    [4, 0, 2], [9, 0, 3], [35, 0, 3], [48, 0, 3], [56, 0, 2],
-    [1, 1, 2], [5, 1, 1], [9, 1, 3], [12, 1, 2], [16, 1, 1], [20, 1, 3],
-    [24, 1, 2], [28, 1, 1], [32, 1, 3], [36, 1, 2], [40, 1, 1], [44, 1, 3],
-    [48, 1, 2], [52, 1, 1], [55, 1, 3], [59, 1, 2], [62, 1, 1],
-    [3, 1, 3], [8, 1, 2], [14, 1, 2], [27, 1, 2], [39, 1, 2], [51, 1, 3]
+  /* Animated purple pixels (§4.21.B layer 3): [x%, y%, size px, shade 0..2,
+   * delay s] — 12 dots in the three violet alpha shades, steps(2) twinkle
+   * 1.6s, staggered 0–1.2s delays. Sky dots + ground-band dots, every
+   * position OUTSIDE the protected rects (figures x 21–83 / y 44–80;
+   * bubble x 24–76 / y 2–22). */
+  const DOTS: readonly (readonly [number, number, number, 0 | 1 | 2, number])[] = [
+    [5, 12, 4, 1, 0],
+    [93, 16, 6, 2, 0.3],
+    [8, 55, 4, 0, 0.6],
+    [90, 60, 5, 1, 0.9],
+    [4, 90, 5, 0, 0.2],
+    [12, 95, 4, 2, 0.5],
+    [88, 90, 6, 1, 0.8],
+    [95, 94, 4, 0, 1.1],
+    [20, 92, 5, 1, 0.4],
+    [30, 96, 4, 0, 0.7],
+    [70, 91, 5, 2, 1.0],
+    [80, 97, 4, 1, 1.2]
   ];
   const SHADE_ALPHA = [18, 35, 60] as const;
 
-  /* Scene sparkles: [x, y, delay s] — five 2×2 accent rects, staggered
-   * two-frame twinkle (0.8–1.6s delays). */
-  const SPARKLES: readonly (readonly [number, number, number])[] = [
-    [10, 12, 0.8], [50, 16, 1.2], [22, 8, 1.6], [44, 6, 1.0], [14, 30, 1.4]
-  ];
-
-  /* Violet alpha shades for the mesh (color-mix variants — no new colors). */
-  function meshFill(shade: 0 | 1 | 2): string {
+  function dotFill(shade: 0 | 1 | 2): string {
     return `color-mix(in srgb, var(--color-deepa-4) ${SHADE_ALPHA[shade]}%, transparent)`;
   }
 </script>
 
-<svg
-  class="scene"
-  viewBox="0 0 64 64"
-  shape-rendering="crispEdges"
-  role="img"
-  aria-label={label}
->
-  <!-- light beam: widening upward from the node (violet 12% column) -->
-  <g aria-hidden="true" fill="color-mix(in srgb, var(--color-deepa-4) 12%, transparent)">
-    <rect x="26" y="0" width="12" height="4" />
-    <rect x="28" y="4" width="8" height="4" />
-    <rect x="30" y="8" width="4" height="6" />
-  </g>
-  <g aria-hidden="true" fill="color-mix(in srgb, var(--color-deepa-4) 30%, transparent)">
-    <rect x="31" y="2" width="2" height="11" />
-  </g>
+<section class="art-block">
+  <!-- layer 1: the owner's pixel scene image (decorative scenery) -->
+  <img
+    class="bg"
+    src={backgroundUrl}
+    alt=""
+    aria-hidden="true"
+    loading="eager"
+    decoding="async"
+    width="1024"
+    height="1024"
+  />
 
-  <!-- NOVA — human attendee, back three-quarter view (left) -->
-  <g aria-hidden="true" data-figure="nova">
-    <!-- hair mass (back view: the head is all hair) -->
-    <g fill="color-mix(in srgb, var(--color-art-hair-3) 65%, var(--color-surface))">
-      <rect x="20" y="26" width="8" height="2" />
-      <rect x="18" y="28" width="12" height="8" />
-      <rect x="19" y="36" width="10" height="3" />
-    </g>
-    <!-- neck (warm skin slot) -->
-    <rect x="22" y="39" width="4" height="2" fill="var(--color-art-skin-2)" />
-    <!-- scarf with accent stripes -->
-    <g>
-      <rect x="17" y="41" width="14" height="4" fill="var(--color-text)" />
-      <rect x="20" y="41" width="2" height="4" fill="var(--color-deepa-4)" />
-      <rect x="26" y="41" width="2" height="4" fill="var(--color-deepa-4)" />
-    </g>
-    <!-- coat + arms -->
-    <g fill="var(--color-surface-elevated)">
-      <rect x="18" y="45" width="12" height="5" />
-      <rect x="16" y="46" width="2" height="5" />
-      <rect x="30" y="46" width="2" height="5" />
-      <!-- legs -->
-      <rect x="19" y="50" width="4" height="4" />
-      <rect x="25" y="50" width="4" height="4" />
-    </g>
-    <!-- shoes -->
-    <g fill="var(--color-text)">
-      <rect x="18" y="53" width="5" height="1" />
-      <rect x="25" y="53" width="5" height="1" />
-    </g>
-  </g>
-
-  <!-- BYTE — the AI agent (right) -->
-  <g aria-hidden="true" data-figure="byte">
-    <!-- 2px antenna + accent tip -->
-    <rect x="43" y="26" width="2" height="3" fill="var(--color-text-muted)" />
-    <rect x="43" y="24" width="2" height="2" fill="var(--color-deepa-4)" />
-    <!-- boxy charcoal head -->
-    <rect x="36" y="29" width="16" height="10" fill="var(--color-surface-elevated)" />
-    <!-- single accent visor-eye -->
-    <rect x="40" y="33" width="8" height="2" fill="var(--color-deepa-4)" />
-    <!-- head vents -->
-    <g fill="var(--color-surface)">
-      <rect x="37" y="36" width="2" height="2" />
-      <rect x="49" y="36" width="2" height="2" />
-    </g>
-    <!-- body + chest panel -->
-    <rect x="38" y="39" width="12" height="9" fill="var(--color-surface-elevated)" />
-    <rect x="41" y="41" width="6" height="3" fill="var(--color-surface)" />
-    <rect x="43" y="42" width="2" height="1" fill="var(--color-deepa-4)" />
-    <!-- feet -->
-    <g fill="var(--color-text)">
-      <rect x="38" y="52" width="5" height="2" />
-      <rect x="45" y="52" width="5" height="2" />
-    </g>
-  </g>
-
-  <!-- ground: the network-node mesh (the flower field adapted) -->
-  <g aria-hidden="true">
-    {#each MESH as tile, i (i)}
-      <g fill={meshFill(tile[2] as 0 | 1 | 2)}>
-        {#if tile[1] === 0}
-          <rect x={tile[0]} y="52" width="2" height="2" />
-          <rect x={tile[0]} y="54" width="1" height="2" />
-        {:else}
-          <rect x={tile[0]} y="56" width="2" height="2" />
-          <rect x={tile[0]} y="58" width="1" height="2" />
-        {/if}
-      </g>
+  <!-- layer 3: the animated purple pixels (kept from §4.20.D) -->
+  <span class="dots" aria-hidden="true">
+    {#each DOTS as dot, i (i)}
+      <span
+        class="dot"
+        style="left: {dot[0]}%; top: {dot[1]}%; width: {dot[2]}px; height: {dot[2]}px;
+          background: {dotFill(dot[3])}; --d: {dot[4]}s"
+      ></span>
     {/each}
-  </g>
+  </span>
 
-  <!-- focal element: the glowing handshake-node diamond -->
-  <g class="node-halo" aria-hidden="true" fill="color-mix(in srgb, var(--color-deepa-4) 45%, transparent)">
-    <rect x="28" y="15" width="8" height="1" />
-    <rect x="27" y="16" width="10" height="3" />
-    <rect x="28" y="19" width="8" height="1" />
-    <rect x="29" y="20" width="6" height="1" />
-    <rect x="30" y="21" width="4" height="1" />
-  </g>
-  <g class="node-pulse" aria-hidden="true" fill="var(--color-deepa-4)">
-    <rect x="31" y="14" width="2" height="1" />
-    <rect x="30" y="15" width="4" height="1" />
-    <rect x="29" y="16" width="6" height="1" />
-    <rect x="28" y="17" width="8" height="1" />
-    <rect x="27" y="18" width="10" height="1" />
-    <rect x="28" y="19" width="8" height="1" />
-    <rect x="29" y="20" width="6" height="1" />
-    <rect x="30" y="21" width="4" height="1" />
-    <rect x="31" y="22" width="2" height="1" />
-    <rect x="31" y="17" width="2" height="2" fill="var(--color-text)" />
-  </g>
+  <!-- layer 4: the hero pair — NOVA (left, unchanged) + ASTRA (right) -->
+  <div class="pair" role="img" aria-label={label}>
+    <span class="nova-slot" aria-hidden="true">
+      <LandingFigure kind="nova" size={160} />
+    </span>
+    <span class="astra-slot" aria-hidden="true">
+      <LandingFigure kind="astra" size={160} />
+    </span>
+  </div>
 
-  <!-- sparkles: staggered two-frame twinkle -->
-  <g aria-hidden="true" fill="var(--color-deepa-4)">
-    {#each SPARKLES as sparkle, i (i)}
-      <rect
-        class="tw"
-        style="--d: {sparkle[2]}s"
-        x={sparkle[0]}
-        y={sparkle[1]}
-        width="2"
-        height="2"
-      />
-    {/each}
-  </g>
-</svg>
+  <!-- layer 5: the agent reminder box, fixed at the block's bottom -->
+  <LandingReminder {lines} {srLine} />
+</section>
 
 <style>
-  .scene {
-    display: block;
-    width: min(320px, 100%);
-    height: auto;
-    aspect-ratio: 1;
+  /* The composition block (§4.21.B): taller than the §4.20.D scene —
+   * 500px mobile / 680px ≥720px; base tint shows only pre-load. */
+  .art-block {
+    --reminder-w: min(100% - 32px, 256px);
+    --reminder-h: calc(var(--reminder-w) / 3.5);
+    position: relative;
+    width: 100%;
+    height: 500px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--color-deepa-4) 6%, var(--color-bg));
   }
   @media (min-width: 720px) {
-    .scene {
-      width: 480px;
+    .art-block {
+      --reminder-w: min(100% - 48px, 348px);
+      height: 680px;
     }
   }
 
-  /* Focal pulse (§4.6 live-dot pattern): scale + glow-intensity via the
-   * halo's opacity — transform/opacity only. */
-  .node-pulse,
-  .node-halo {
-    transform-box: fill-box;
-    transform-origin: center;
-  }
-  .node-pulse {
-    animation: node-pulse 1.8s steps(2, jump-none) infinite alternate;
-  }
-  @keyframes node-pulse {
-    from {
-      transform: scale(1);
-    }
-    to {
-      transform: scale(1.08);
-    }
-  }
-  .node-halo {
-    animation: node-halo 1.8s steps(2, jump-none) infinite alternate;
-  }
-  @keyframes node-halo {
-    from {
-      opacity: 0.45;
-    }
-    to {
-      opacity: 1;
-    }
+  /* Layer 1: the background image, cover-cropped, no CLS (intrinsic dims). */
+  .bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 50%;
   }
 
-  /* Sparkle twinkle: two-frame staggered blink; base opacity 1 so the
-   * reduced-motion catch-all (base.css) leaves them statically visible. */
-  .tw {
-    animation: tw 0.8s steps(2) infinite;
+  /* Layer 2: the edge-fade vignette — THE smooth transition (§4.21.B):
+   * every edge dissolves into exactly --color-bg, no hard rectangle edge
+   * at any breakpoint. */
+  .art-block::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: radial-gradient(
+      ellipse 80% 78% at 50% 46%,
+      transparent 0 52%,
+      color-mix(in srgb, var(--color-bg) 45%, transparent) 72%,
+      var(--color-bg) 100%
+    );
+  }
+
+  /* Layer 3: the pixel dots — steps(2) twinkle, staggered delays. */
+  .dots {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .dot {
+    position: absolute;
+    animation: dot-twinkle 1.6s steps(2) infinite;
     animation-delay: var(--d, 0s);
   }
-  @keyframes tw {
+  @keyframes dot-twinkle {
     0%,
     100% {
       opacity: 1;
     }
     50% {
       opacity: 0.2;
+    }
+  }
+
+  /* Layer 4: the hero pair — two separate figures anchored to the outer
+   * 2% edges, feet line above the reminder box (§4.21.B layer table). */
+  .pair {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+  }
+  .pair :global(.figure) {
+    position: absolute;
+    bottom: calc(var(--reminder-h) + 16px);
+  }
+  .pair :global([data-figure='nova']) {
+    left: 2%;
+  }
+  .pair :global([data-figure='astra']) {
+    right: 2%;
+  }
+  /* mobile: 64px tall (~33px wide) corner figures */
+  .pair :global([data-figure='nova'] svg),
+  .pair :global([data-figure='astra'] svg) {
+    width: 33px;
+    height: 64px;
+  }
+  @media (min-width: 720px) {
+    /* desktop: 160px tall (~82px wide) */
+    .pair :global([data-figure='nova'] svg),
+    .pair :global([data-figure='astra'] svg) {
+      width: 82px;
+      height: 160px;
+    }
+  }
+
+  /* Layer 5 (the reminder) rides above the vignette with its own z-index. */
+  .art-block :global(.reminder) {
+    z-index: 4;
+  }
+
+  /* Reduced motion (§4.6 + base.css catch-all): the twinkle collapses —
+   * the dots stay statically visible at their base opacity. */
+  @media (prefers-reduced-motion: reduce) {
+    .dot {
+      animation: none;
     }
   }
 </style>

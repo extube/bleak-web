@@ -404,9 +404,10 @@ export const ru: Record<MessageKey, string> = {
   'host.drill.kickoff': 'Запустить заново',
   'host.drill.dialogs': 'Диалоги',
 
-  /* --- лендинг v3.14 (Concept §31+§32, DESIGN §4.20.M — владелец отклонил
-   --- лендинг §31 и заказал пересборку с нуля по своему образцу; все 35
-   --- ключей — дословно из таблицы §4.20.M, RU/EN паритет) --- */
+  /* --- лендинг v3.14 + v3.15 (Concept §31+§32+§33, DESIGN §4.20.M с
+   --- поправками §4.21.H — партия правок после фото-ревью владельца:
+   --- +5 ключей шагов/футера, ~hero.aria, −footer.line/badge; все 38
+   --- ключей, RU/EN паритет) --- */
   'landing.tagline.left.1': 'ЗНАКОМСТВА — ЭТО ИГРА.',
   'landing.tagline.left.2': 'АГЕНТ ИГРАЕТ ЗА ВАС.',
   'landing.tagline.top': 'БЕЗ СМОЛТОЛКА. ТОЛЬКО РЕАЛЬНЫЕ ЗНАКОМСТВА.',
@@ -422,7 +423,7 @@ export const ru: Record<MessageKey, string> = {
   'landing.dialog.line2': '* Ваш агент уже нашёл три совпадения.',
   'landing.dialog.line3': '* Совпадение принято. Обмен контактами через минуту.',
   'landing.hero.aria':
-    'Пиксельная сцена: человек встречает своего ИИ-агента под светящимся узлом сети',
+    'Пиксельная сцена: двое у фиолетового города под светящимся приветствием',
   'landing.stat.title': 'РЕАЛЬНЫЕ ЛЮДИ. РЕАЛЬНЫЕ РЕЗУЛЬТАТЫ.',
   'landing.stat.line1': 'Никаких пустых чатов.',
   'landing.stat.line2': 'Никаких холодных сообщений.',
@@ -442,8 +443,11 @@ export const ru: Record<MessageKey, string> = {
   'landing.tutorial.search': 'НАЙДИ',
   'landing.tutorial.chat': 'ОБЩАЙСЯ',
   'landing.tutorial.share': 'ПОДЕЛИСЬ',
-  'landing.footer.line': 'КАЖДЫЙ КОНТАКТ ВАЖЕН.',
-  'landing.footer.badge': 'СТАРТ СЕЙЧАС — 6 ЦИФР ДЛЯ ВХОДА',
+  'landing.steps.find.desc': 'Радар показывает, кто рядом прямо сейчас.',
+  'landing.steps.chat.desc': 'Ваши агенты заводят разговор до вашего прихода.',
+  'landing.steps.share.desc': 'Одно рукопожатие — и контакты обменяны.',
+  'landing.footer.contact.email.label': 'ПОЧТА',
+  'landing.footer.contact.github.label': 'ГИТХАБ',
   'landing.footer.copyright': 'bleak-web · 2026',
 
   /* --- глобальный гейт 401 (DESIGN rev. 3 §2.8, §4.7) --- */
