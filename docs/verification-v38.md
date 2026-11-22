@@ -1,5 +1,32 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.16.1 ROUND NOTE (§34 owner amendment — chat-strip retirement, Concept
+> §34 record — appended by the process 2026-11-22, post-round three-gate run
+> GREEN: lint clean · 966 tests total (49 api-client + 8 helper + 909 web,
+> 52 files; landing suite 51) · build 0 errors, dev `1b2256c`):**
+> **The mascot-chat animation strip is REMOVED from the landing's center
+> video block** (task 122, worker `18b096e1` — subtractive owner amendment:
+> the video's own cast, the boy + robot inside the video, is the only
+> animated center content). Deleted: `LandingChatStrip.svelte` +
+> `chatTimeline.ts`, the `.area-chat` markup/grid CSS (`.stage` phone DOM
+> order = lead → video block → agent card), the orphaned PIP/GLITCH figure
+> data (`FigureName` narrowed to bleak/bloom), the 6 `landing.chat.*` keys
+> from BOTH dicts (grep-audited; parity 29/29), and the strip test
+> assertions (supersession AC added: files gone, no strip DOM/keyframes,
+> negative render assertions). DESIGN §4.22.1 owner-amendment record added
+> (supersedes §4.20.F + the §4.22.B strip-flow decision; resolves the §32
+> mascot-chat requirement by owner order). Design instance SKIPPED per the
+> lean judgment call (purely subtractive; the worker wrote the §4.22.1
+> record). Everything else untouched: reminder contracts (bottom-fixed,
+> 1:3.5, pixel font, emoji corner, bob, check), purple pixel treatment,
+> Start/TALK → /income, header keep-list, BLEAK/БЛИК, step blocks, contact
+> footer, black bg + dissolve; landing bundle shrank (~9 kB JS).
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — pathspec-
+> scoped commits again; devops `-D` branch-cleanup list adds
+> `feature/18b096e1-tz12-06a-chat-strip-removal` (5 branches total);
+> owner refs stay untracked.
+
 > **v3.16 ROUND NOTE (§34 video hero + header cleanup + Vector→Bleak,
 > Concept §34 — appended by the process 2026-11-22, post-round three-gate
 > run GREEN: lint clean · 966 tests total (49 api-client + 8 helper + 909
