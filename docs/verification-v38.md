@@ -1,5 +1,37 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.21.1 ROUND NOTE (§39.4 amendment — native-loop swap, Concept §39.4 —
+> appended by the process 2026-11-22, post-round three-gate run GREEN:
+> lint clean · 991 tests total (49 api-client + 8 helper + 934 web, 52
+> files; landing suite 73) · build 0 errors, dev `94a19ef`):**
+> **The ping-pong video now plays via native loop** (task 128, worker
+> `da60d572`; Option A per the recorded §39.4 amendment; design instance
+> SKIPPED per the lean judgment — purely subtractive + asset swap; the
+> worker wrote the dated DESIGN §4.27.1 owner-amendment record): the
+> owner's pre-stitched yo-yo clip `background-video-loop.mp4`
+> (3,058,088 bytes, forward+reverse) copied to
+> `apps/web/src/lib/assets/landing/` and the superseded
+> `background-video.mp4` DELETED — **the bundle emits only the new clip**
+> (`background-video-loop.8oyblBBJ.mp4`, −1.3 MB vs the old file); the JS
+> seek-stepper is GONE (`videoPingPong.ts` deleted + all hero wiring —
+> net −124 lines in the hero); native `loop` RESTORED with the §34
+> attribute set verbatim (`muted loop playsinline preload="metadata"
+> disablepictureinpicture aria-hidden`), the gated one-shot mount
+> `.play()` + swallowed rejection + error fallback + black bg + dissolve
+> + dot mesh unchanged; §4.27.1 supersedes §4.27.E. Tests: new-asset
+> emitted + old-absent negatives, `loop` present, videoPingPong-gone
+> negatives, the 3 stepper tests dropped → landing 73, parity 55/55
+> untouched. Everything else untouched per the §35–§39 contracts.
+> Manual checks for the owner: the background video yo-yos seamlessly
+> (forward→reverse→forward) on phone + desktop, reduced-motion static
+> fallback, no console errors from playback.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/da60d572-tz12-11a-native-loop-swap` (11 branches total); owner
+> refs (now incl. the root `background-video.mp4` AND
+> `background-video-loop.mp4`) stay untracked.
+
 > **v3.21 ROUND NOTE (§39 font bumps + compatibility circle + ping-pong
 > video, Concept §39 — appended by the process 2026-11-22, post-round
 > three-gate run GREEN: lint clean · 992 tests total (49 api-client + 8
