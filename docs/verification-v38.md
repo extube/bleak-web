@@ -1,5 +1,68 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.16 ROUND NOTE (§34 video hero + header cleanup + Vector→Bleak,
+> Concept §34 — appended by the process 2026-11-22, post-round three-gate
+> run GREEN: lint clean · 966 tests total (49 api-client + 8 helper + 909
+> web, 52 files) · build 0 errors, dev `1ada0cd`):**
+> **Landing adjusted per ALL 6 §34 items** (task 121, worker `a4e2a3c6`;
+> design-first — design instance `58b2d3f9` wrote DESIGN §4.22 amending
+> §4.21; NO video-inspection tooling exists in the sandbox, so the spec is
+> defensive from the owner's text): (1) header slimmed to web icon +
+> desktop-only nav anchors + language switcher (all tagline lines, the
+> GLITCH tagline glyph and the header START controls removed; `/income`
+> entry points = exactly the lead CTA + card TALK); (2) hero common block
+> = the VIDEO (`LandingVideoHero`, the owner's `background-video.mp4`
+> copied to `apps/web/src/lib/assets/landing/background-video.mp4`,
+> committed + build-emitted 4,355.62 kB), flanked left/right by the Start
+> block (27%) and the BLEAK agent card (26%); (3) video full common-block
+> width 16:9 cover; desktop = the side blocks OVERLAY the video (grid
+> overlay, vertically centered on the video — implemented as grid
+> row-span/align-center rather than §4.22.B's sketched absolute+top:50%,
+> which collided with the chat strip; same visual, deviation disclosed);
+> phone = NO overlay, video full-width then the exact §4.20.K stack; (4)
+> Vector → **BLEAK / БЛИК** everywhere on the landing (i18n grounded in
+> the live dict's existing «Блик» transliteration; grep-audit clean) AND
+> the income mascot swap — `BleakMascot` re-pointed to the promoted shared
+> personage (`personage/bleakFigure.ts`, byte-identical art): CodeEntry
+> 96, RoomPreview 96, wizard intro 96 + steps 112, MessageBubble rows 28 —
+> FormShell §30 / §23 / §24–§29 contracts green; (5) landing background =
+> near-black via the derived token `--color-landing-bg` (5% Deepa over
+> surface, scoped to `/`), vignette dissolve re-pointed (seamless with the
+> video's near-black); (6) video attributes = `muted loop playsinline
+> preload="metadata" disablepictureinpicture`, NO autoplay attr — playback
+> via a one-shot mount effect gated on `prefers-reduced-motion` (paused
+> under reduced motion), 48px pixel play/pause control only when paused
+> (phone: lifted above the reminder band), `error` fallback = black tint +
+> 12-dot purple mesh + reminder. **Supersessions recorded (§4.22.G):**
+> `background.jpg` + `LandingHeroScene.svelte` DELETED, NOVA/ASTRA retired
+> (the video's own boy+robot duo is the only hero cast — resolves the
+> §4.21.J-1 flag), tagline keys retired; i18n parity 35/35 both dicts;
+> reminder-box contracts (bottom-fixed, 1:3.5, bob, check) migrated into
+> the video block verbatim; animated purple pixels kept over the video;
+> mascot-chat strip below the video, right-aligned 280px.
+> §4.22.K owner flags (advice): (1) header START controls removed per the
+> owner's keep-list enumeration — restore is trivial if unintended; (2)
+> the phone reminder covers a larger share of the short video — verbatim
+> §33 geometry kept, one-token fix available; (3) the video's exact bg
+> color is unverifiable without tooling — seamlessness is structural
+> (vignette → token), mix ratio is a one-line tweak; (4) RU brand form =
+> «Блик» (Latin "BLEAK" is a one-value change if preferred).
+> Manual checks for the owner: the landing on phone + desktop (header
+> slim, video playback/mute/loop + play-pause control, side overlays vs
+> phone stack, BLEAK card, reminder geometry/bob/check, black seamless
+> bg, RU/EN), Start/TALK → /income with the 6-digit input + the Bleak
+> personage on the entry/room-intro/wizard surfaces, reduced-motion
+> rendering.
+> Housekeeping: the staged-leftover index state persists (untracked root
+> `background-img.jpg` + 2-line legacy `docs/logs/1640ba9e.log` mod) —
+> landing + docs commits were again pathspec-scoped (verified clean);
+> devops `-D` branch-cleanup list: `feature/c1dc2bb0-tz12-03-landing-redesign`,
+> `feature/c28f1e56-tz12-04-landing-rebuild`,
+> `feature/dc61864e-tz12-05-landing-adjustments`,
+> `feature/a4e2a3c6-tz12-06-video-hero`; owner refs (`real-design.png`,
+> `landing-design-example.png`, root `background-img.jpg`,
+> `background-video.mp4`) stay untracked.
+
 > **v3.15 ROUND NOTE (§33 landing adjustments — owner photo review, Concept
 > §33 — appended by the process 2026-11-22, post-round three-gate run GREEN:
 > lint clean · 958 tests total (49 api-client + 8 helper + 901 web, 52
