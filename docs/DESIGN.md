@@ -5319,6 +5319,492 @@ near-black treatment on video error; no loading/empty/error states exist
    block exactly AT the mark would require subtracting the header's
    rendered height (fragile across the 52–56px row) and is not specced.
 
+### 4.25 v3.19 feature design (2026-11-22, owner-approved Concept §37): §37 owner correction — open state + transparent lead + true liquid-glass header
+
+"Not, is not what I want" — the owner reviewed the §36/§4.24 result and
+issued the three-item §37 correction batch: on open, **only the Start block
+and the Bleak block are displayed, vertically centered** (everything else —
+stat card, steps, footer — below the screen space initially), the lead
+block becomes **TRANSPARENT and without border** (no solid panel, no pixel
+frame — text and Start button sit directly over the video), and the header
+becomes **true liquid glassmorphism** with the owner's EXACT css values.
+This section amends §4.24 (→ §4.23 → §4.22 → §4.21 → §4.20) item by item;
+**where §4.25 is silent, the earlier specs stand** except where §4.25.D
+explicitly supersedes them (the video layer stack §4.23.A, the keep-list
+§4.22.A, the card contracts §4.20.G/§4.21.F, step blocks §4.21.E, contact
+footer §4.21.G, headline copy + Start CTA §4.20.C, behavior §4.20.L,
+motion/a11y baselines §4.20.L/§4.6 all carry over unchanged unless named
+below). Same sandbox constraint as §4.22–§4.24: **no video-inspection
+tooling exists** — the video layer decisions carry VERBATIM from §4.23
+(fixed z 0 video + z 1 vignette/tint + z 2 dots + z 3 content + z 10
+header; the committed asset stays untouched; reduced-motion fallback
+unchanged). Grounded in the live code: `apps/web/src/routes/+page.svelte`,
+`lib/components/landing/LandingVideoHero.svelte`, `lib/styles/tokens.css`,
+`tests/landing-page.test.ts`. Hard constraints unchanged: **no new
+dependencies**, **no new color values** (token palette unchanged — the
+owner's exact header `rgba(…)` values are the SANCTIONED EXCEPTION,
+recorded in §4.25.D; token/`color-mix` values only everywhere else),
+**no canvas, no animation library**, **routes untouched**, **/income
+surfaces untouched**, the video asset stays. **API endpoints used: none**
+— the landing stays fetch-free (§4.20 preamble). Task: tz12-09
+(`feature/221c49f3-tz12-09-open-state-glass`).
+
+#### 4.25.A The default open state — only Start + BLEAK, vertically centered (item 1)
+
+Owner verbatim (Concept §37.1): when the site opens, only the Start block
+and the Bleak block are displayed, vertically centered; all remaining
+blocks are below the screen space initially and appear on scroll. The
+Start block = the lead (headline + supporting text + Start button); the
+Bleak block = the agent card. **The stat card is content too — it is below
+the fold initially** (the owner's "ALL remaining blocks (steps, footer,
+everything)" reading covers it). This SUPERSEDES the §36 item 4 /
+§4.24.E phone "top 2/3 without blocks" rule — the
+`padding-top: calc(200dvh / 3)` offset on `main.canvas` is **REMOVED**
+(recorded in §4.25.D; no other spacer rule replaces it).
+
+- **Construction — a 100dvh hero region, header out of the flow:** the
+  header becomes `position: fixed` (§4.25.C), which removes it from the
+  flow; the content column therefore starts at the page top, and the
+  first content region can span **exactly the first viewport**:
+  ```css
+  .landing {
+    /* top padding retired — the fixed header contributes no flow height,
+       and the hero region must span the full first viewport from the page
+       top ("100dvh minus nothing"); inline + bottom padding unchanged */
+    padding: 0 var(--space-5) var(--space-5);
+  }
+  @media (min-width: 720px) {
+    .landing { padding: 0 var(--space-7) var(--space-7); }
+  }
+  ```
+  At the scroll origin (scrollY = 0) the hero region is fully visible —
+  the initial scroll position shows it whole, nothing to scroll to reach
+  the centered open state.
+- **Desktop (≥720px) — the §36 thirds, vertically centered:** `.stage`
+  keeps the `repeat(3, 1fr)` thirds grid (lead col 1, BLEAK col 3, the
+  middle third EMPTY — the video + vignette + dots show through; §4.24.D
+  stands) and becomes the hero region:
+  ```css
+  @media (min-width: 720px) {
+    .stage {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      column-gap: var(--space-6);
+      min-height: 100dvh;      /* the hero row = the whole first viewport */
+      align-content: center;   /* the row centers inside the 100dvh region */
+      align-items: center;     /* lead + BLEAK centered relative to each
+                                  other (was `start`, §4.24.D — superseded) */
+    }
+    .area-lead   { grid-column: 1; }
+    .area-agents { grid-column: 3; }
+    /* column 2: NO element — unchanged (§4.24.D) */
+  }
+  ```
+  Result: the lead and the agent card float vertically centered in the
+  first viewport, side-by-side per the §36 thirds, with the middle third
+  pure video. The stat card, the three step blocks and the contact footer
+  flow in normal flow AFTER the hero region (the `.canvas` flex-column
+  `gap: var(--space-6)` rhythm unchanged) — below the screen space
+  initially, revealed on scroll.
+- **Phone (<720px) — the START block centered in the first viewport,
+  BLEAK next:** `.stage` stays the DOM-order flex column (§4.24.D), and
+  the lead's own section becomes the hero region:
+  ```css
+  @media (max-width: 719.98px) {
+    .area-lead {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center; /* the START block centers in screen 1 */
+    }
+  }
+  ```
+  The copy block (transparent, §4.25.B) is centered vertically in the
+  first viewport (it is already horizontally centered on phone,
+  §4.24.C alignment); the BLEAK card is the NEXT block in flow —
+  immediately after the first screen, visible on the first small scroll;
+  stat card → steps → footer follow in the established DOM order.
+- **No other spacer rules remain:** the §4.24.E `@media (max-width:
+  719.98px) { .canvas { padding-top: calc(200dvh / 3) } }` rule is
+  DELETED outright — nothing replaces it; the open state is produced
+  entirely by the two 100dvh constructions above. Negative assertion: the
+  landing sources contain no `calc(200dvh / 3)` and no `padding-top` on
+  `.canvas`/`.landing`.
+- **Very short viewports (landscape phones, e.g. 740×360):** the centered
+  hero content may pass under the fixed glass header; the translucent
+  glass keeps it visible and the page scrolls freely — no scroll-lock, no
+  min-height guard specced (record; §4.25.H flag 3).
+- **Interaction states:** unchanged — the landing fetches nothing, so
+  there are no loading/empty/error states (§4.20.L); the video-error
+  fallback (§4.23.G) shows the same hero region over the static near-black
+  treatment; reduced motion shows it over the static tint + vignette +
+  dots state (§4.25.F).
+
+#### 4.25.B The lead block: TRANSPARENT, no border (item 2)
+
+Owner verbatim (Concept §37.2): the lead is TRANSPARENT and without
+border — no solid panel, no pixel frame; the text and the Start button sit
+directly over the video background. This SUPERSEDES the §36 item 2 /
+§4.24.C "fully opaque `--color-surface` panel + §4.20.G pixel frame +
+square corners" construction FOR THIS BLOCK (recorded in §4.25.D); the
+§4.20.G pixel-frame contract itself stands for the agent/stat/step/footer
+surfaces — the lead is the ONLY transparent surface.
+
+- **Markup:** `.copy` drops the `pixel-corners pixel-frame
+  pixel-frame--strong` classes; `.copy-body` drops its `pixel-corners`
+  class. The section/body elements stay (the flex column with its
+  `gap: var(--space-4)`, centered-phone/left-desktop alignment and the
+  copy structure are §4.20.C verbatim and carry).
+- **CSS:** `.copy-body { background: transparent; }` — NO background
+  fill, NO border, NO `backdrop-filter`, NO translucent `color-mix` fill,
+  NO glass class, NO box-shadow on the lead, NO border-radius. The old
+  20px/28px body padding becomes invisible (transparent) and MAY stay as
+  inert spacing that keeps the copy clear of the thirds edge — it is not
+  a panel. Negative assertions: the lead subtree carries no
+  `pixel-corners`/`pixel-frame` class, `.copy-body` sets no
+  `background` other than `transparent`/`none`, and neither `.copy` nor
+  `.copy-body` declares `border`, `backdrop-filter` or `border-radius`.
+- **Legibility — text treatment ONLY (token colors, exact values):** a
+  soft dark halo lifts the copy off arbitrary bright video frames; the
+  halo is `color-mix` over the existing near-black `--color-surface`
+  token (no new colors):
+  ```css
+  .headline {
+    text-shadow:
+      0 1px 2px color-mix(in srgb, var(--color-surface) 90%, transparent),
+      0 0 14px color-mix(in srgb, var(--color-surface) 55%, transparent);
+  }
+  .sub {
+    text-shadow:
+      0 1px 2px color-mix(in srgb, var(--color-surface) 90%, transparent),
+      0 0 10px color-mix(in srgb, var(--color-surface) 55%, transparent);
+  }
+  ```
+  The accent word keeps its existing violet glow declaration (its own
+  `text-shadow` overrides the inherited halo — accepted: it is large
+  display text in `--color-deepa-4` over the near-black video; recorded
+  as a residual smoke note, not a change). The headline's near-white
+  `--color-text` over the near-black video measures ≈ 15:1 typical
+  (≥ 4.5 AA) and the halo covers the bright-frame edge cases the header
+  tradeoff (§4.25.C) shares.
+- **The Start button keeps its EXISTING style — verified panel-free:**
+  `.cta-main` is an opaque `--color-deepa-4` pill (radius-pill,
+  `--color-text` label, min-height 48px, glow-on-hover, scale(0.98)
+  press) — it NEVER relied on the lead panel (it rendered as a
+  self-contained pill inside it), so nothing changes: over the video it
+  is its own opaque surface, and its label AA is the established
+  `--color-deepa-ink-4` pairing, independent of the backdrop. No ring,
+  no shadow added — the owner's "without border" reading covers the
+  block, and the button's exact current style stands (a violet-video
+  edge case is a residual smoke note, §4.25.H).
+- **Desktop headline size — the clamp STANDS:** §4.24.C's
+  `clamp(22px, 3.5vw, 44px)` at ≥720px (44px at 1280, scaling with the
+  third) is kept unchanged — the constraint behind it was the 288px
+  third's width, which §37 does not touch (the thirds layout stands);
+  transparency removes the panel, not the column. Phone sizes unchanged
+  (36px / 44px ≥ 480px). This RESOLVES §4.24.J flag 1 (recorded).
+
+#### 4.25.C The header: TRUE liquid glassmorphism — the owner's EXACT values (item 3)
+
+Owner verbatim (Concept §37.3), carried VERBATIM into the spec. The
+§4.24.B two-tier fill recipe (92% / 88% `color-mix` + the `@supports`
+tier-2 block) is REPLACED ENTIRELY by the owner's values.
+
+- **Position — `position: fixed`, decided (the owner offered fixed OR
+  sticky top: 0):** fixed, because (1) the §4.25.A hero region must span
+  the full first viewport from the page top — a fixed header contributes
+  zero flow height, so the 100dvh construction is exact and the centered
+  open state is exactly viewport-centered (a sticky in-flow header would
+  push the hero row down by its 52–56px row); (2) fixed pins the header
+  with zero coupling to `.landing`'s layout — **the video scrolls
+  directly underneath it** at every scroll position and the header never
+  moves.
+- **The 80% width rule STANDS (§36 item 1), mechanism re-cut:** a fixed
+  element's containing block is the viewport, not `.landing`, so the
+  §4.24.A container breakout (`calc(100% + 2 * padding)` + negative
+  `margin-inline`) is invalid for it and RETIRES. The header now sizes
+  directly against the viewport with the SAME width expression as the
+  container, so the two stay pixel-identical:
+  ```css
+  .top {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    margin-inline: auto;         /* centers the fixed element */
+    width: max(80%, 280px);      /* == .landing's width, every viewport */
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-4);
+    min-height: 52px;
+    padding: 8px 10px;
+    /* --- the owner's EXACT values, verbatim ------------------------- */
+    background: rgba(20, 20, 30, 0.25);          /* low-opacity dark tint */
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    backdrop-filter: blur(16px) saturate(180%);
+    border-top: 1px solid rgba(255, 255, 255, 0.15);   /* glossy */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15); /* top/bottom
+                                        only — side borders NONE */
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15); /* soft inner
+                                        highlight — the liquid-glass edge */
+    border-radius: var(--radius-lg);   /* §36 rounding STANDS (owner
+                                          silent on corners) */
+  }
+  @media (max-width: 719.98px) {
+    .top { border-radius: var(--radius-md); }  /* the phone chip radius */
+  }
+  @media (min-width: 720px) {
+    .top { min-height: 56px; padding: 10px 16px; }
+  }
+  ```
+  Resulting widths: 1280 → 1024px (80%), 390 → 312px, 320 → 280px (the
+  floor) — identical to §4.24.A's numbers; the keep-list (§4.22.A
+  verbatim: web icon + desktop anchors + switcher; phone icon +
+  switcher), the inner paddings, min-heights and z 10 are unchanged.
+- **The two-tier recipe is DELETED:** the `color-mix(… 92% …)` tier-1
+  declaration, the `@supports (backdrop-filter: blur(1px)) or …`
+  tier-2 block and the violet Deepa hairline
+  (`border: 1px solid color-mix(… --color-deepa-4 22% …)`) are all
+  REMOVED — `saturate(1.1)`/`blur(14px)` become the owner's
+  `saturate(180%)`/`blur(16px)`. The no-backdrop-filter fallback is
+  re-specced as a single higher-opacity tint so text stays readable
+  without blur support:
+  ```css
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .top { background: rgba(20, 20, 30, 0.85); }
+  }
+  ```
+- **Rounded corners — KEPT:** the owner did not mention corners; the
+  §36 rounding stands unless contradicted (radius-lg desktop /
+  radius-md phone chip). Visual note: with `top: 0` the rounded top
+  corners sit flush at the screen edge — intended per the owner's
+  position spec; `top: var(--space-3)` remains the one-line alternative
+  if the smoke dislikes it (§4.25.H flag 2, not a change in this pass).
+- **AA TRADEOFF — recorded explicitly (owner-order exception):** at a
+  0.25 tint + blur, body-text AA (4.5:1) over arbitrary bright video
+  frames is NOT guaranteeable. Numbers (worst case): a white video pixel
+  under the z-1 30% wash reads ≈ 184 luminance; composited with the 0.25
+  tint it lands ≈ rgb(144) — muted nav text `#919397` there is ≈ 1.1:1
+  and even `--color-text` ≈ 2.5:1 (fail). Over the owner's actual
+  near-black video (recorded intent, §4.22.F) the composite stays near
+  rgb(20–25) and the same texts hold ≥ 4.5:1 comfortably. The owner's
+  exact values WIN — recorded as an owner-order exception to the §2.6 AA
+  baseline. Mitigations already in place: near-white text colors (the
+  large pixel headline + nav glyphs), the near-black video, the z-1
+  wash + vignette that darken the backdrop the filter samples, and the
+  §4.25.B lead halo. Residual risk is the owner's real-device smoke over
+  bright frames; if it fails there, the remedies (a higher tint opacity
+  — an owner-value change — or a localized nav text treatment) need the
+  owner's sign-off and are NOT specced (§4.25.H flag 1).
+- **Anchors:** `scroll-margin-top: 80px` on `#agents`/`#tutorial` stands
+  (the fixed header is ≤ 56px tall at top: 0 — 80px still clears it).
+
+#### 4.25.D Supersessions (explicit record)
+
+1. **§36 item 4 / §4.24.E phone open state SUPERSEDED:** the
+   `padding-top: calc(200dvh / 3)` spacer on `main.canvas` is REMOVED;
+   the open state is now "only Start + BLEAK, vertically centered" on
+   BOTH breakpoints (§4.25.A) — phone: the START block centered in the
+   first 100dvh, BLEAK next in flow. No other spacer rule remains.
+2. **§36 item 2 / §4.24.C opaque lead SUPERSEDED for the lead block:**
+   the solid `--color-surface` panel, the §4.20.G pixel-frame
+   construction and the square-corner contract are retired FOR THE LEAD
+   ONLY — the lead is transparent and borderless over the video
+   (§4.25.B). §4.20.G stands for the agent/stat/step/footer surfaces;
+   the header remains the ONLY rounded surface (unchanged — the lead was
+   square anyway).
+3. **§4.24.B two-tier glass fill REPLACED:** the 92%/88% `color-mix`
+   recipe, its `@supports` tier-2 block and the §4.23.B violet Deepa
+   hairline are deleted; the owner's exact values
+   (`rgba(20, 20, 30, 0.25)` + `blur(16px) saturate(180%)` + 1px
+   `rgba(255, 255, 255, 0.15)` top/bottom borders + the inset inner
+   highlight) apply verbatim, with the `rgba(20, 20, 30, 0.85)`
+   no-backdrop-filter fallback (§4.25.C). §4.24.J flag 2 (the 88%/85%
+   band) is MOOT.
+4. **§4.24.F.1 / §4.24.A header breakout mechanism RETIRED:** the
+   `calc(100% + 2 * padding)` + negative `margin-inline` breakout is
+   replaced by the fixed header's viewport-relative
+   `width: max(80%, 280px); margin-inline: auto` (§4.25.C) — the §36 80%
+   width rule itself STANDS, and the header's width still equals the
+   container's at every viewport.
+5. **§4.23.B sticky header position RETIRED:** `position: sticky; top:
+   var(--space-3)` becomes `position: fixed; top: 0` (§4.25.C, owner's
+   spec; justification recorded there).
+6. **§4.24.D `align-items: start` SUPERSEDED on the hero row:** the
+   desktop thirds grid centers its items (`align-items: center`) inside
+   the 100dvh hero region (`align-content: center`) — the thirds
+   columns/gaps/empty-middle stand unchanged.
+7. **Sanctioned palette exception (record):** the four owner `rgba(…)`
+   header values are raw literals outside the token palette — sanctioned
+   by the owner's exact-value spec (§37.3) and recorded here; everywhere
+   else the token/`color-mix` rule (§4.1, §4.24 preamble) stands. Note
+   for the suite: the raw-hex guard (`#[0-9a-fA-F]{3,8}`) does not match
+   `rgba(…)` literals — the existing test stays green without a
+   waiver.
+8. **Superseded-but-carried (unchanged into §4.25):** the §4.23.A fixed
+   layer stack (z 0–10), the decisive video attribute set, the gated
+   one-shot mount `.play()`, the error fallback, the 12-dot mesh, the
+   §4.22.A keep-list, the §4.20.C copy/CTA, the §4.21.E/F/G section
+   contracts, the §4.20.L behavior + deep-link forwarding and the
+   §4.23.G reduced-motion fallback all carry unchanged.
+
+#### 4.25.E RU/EN i18n delta (grep-audited; both dictionaries required)
+
+**Zero delta, verified** — §37 adds, removes and rewords no string: the
+open state, the transparent lead and the header glass are pure
+geometry/CSS. The live dictionaries carry exactly **23 `landing.*` keys
+per dictionary** (`headline.1/2/accent`, `sub`, `cta`, `stat.title`,
+`stat.line1/2/3`, `agent.name/badge/traits/quote/cta`,
+`tutorial.search/chat/share`, `steps.find/chat/share.desc`,
+`footer.contact.email.label`, `footer.contact.github.label`,
+`footer.copyright` — the same set the parity test's `LANDING_KEYS`
+asserts); the parity/dead-key tests pass UNAMENDED. No dead keys touched;
+the header switch re-renders the page without a reload.
+
+#### 4.25.F Reduced motion + media states
+
+Unchanged from §4.23.G in full: under `prefers-reduced-motion` the video
+stays paused at frame 0 and the static near-black tint + vignette + 12
+static dots ARE the fallback state. The transparent lead READS on that
+fallback: `--color-text`/`--color-text-muted` over the near-black static
+backdrop hold ≈ 15:1 / ≈ 5:1, and the §4.25.B halo adds edge definition —
+no additional treatment needed. The header's glass sits over the same
+static backdrop (blur has nothing moving; the 0.85 fallback tint only
+engages where backdrop-filter is unsupported). The 100dvh hero regions
+are motion-free geometry. Video error: the same hero region shows over
+the near-black treatment — no blank screen, no layout shift. No
+loading/empty/error states exist (the landing fetches nothing, §4.20.L).
+
+#### 4.25.G Acceptance criteria (checkable)
+
+**Open state (item 1):**
+1. At the scroll origin, the first viewport contains ONLY the lead block
+   (headline + supporting text + Start button) and the BLEAK agent card
+   (plus the fixed header chrome) — NO stat card, NO step block, NO
+   footer and no other content block is visible in the first viewport;
+   all remaining blocks start below the fold and appear on scroll — at
+   BOTH 1280×800 (desktop) and 390×844 (phone).
+2. Desktop ≥720px: the hero region is a `min-height: 100dvh` thirds grid
+   (`repeat(3, 1fr)`, `--space-6` column gap) with `align-content:
+   center` + `align-items: center` — the lead sits in column 1, the
+   BLEAK card in column 3, the middle third EMPTY (no `grid-column: 2`
+   element), both blocks vertically centered in the first viewport.
+3. Phone <720px: `.area-lead` is `min-height: 100dvh` with the copy
+   vertically centered (`justify-content: center`) in the first
+   viewport; the BLEAK card is the immediately following block in flow
+   (visible on the first small scroll); then stat → steps → footer in
+   the established DOM order.
+4. The §4.24.E spacer is GONE: no `calc(200dvh / 3)` anywhere in the
+   landing sources, no `padding-top` on `.canvas`/`.landing` in any
+   media query; `.landing`'s top padding is 0 (inline + bottom padding
+   per breakpoint unchanged).
+
+**Lead transparent + borderless (item 2):**
+5. `.copy` carries NO `pixel-corners`/`pixel-frame`/`pixel-frame--strong`
+   class and `.copy-body` carries NO `pixel-corners` class; `.copy-body`
+   sets `background: transparent` (or none) — negative assertions: no
+   `background: var(--color-surface)` on the lead, no `border`, no
+   `backdrop-filter`, no `color-mix` fill, no `border-radius` and no
+   `box-shadow` on `.copy`/`.copy-body`.
+6. The lead copy is §4.20.C verbatim: the 3-line headline + accent word
+   + 2 sparkles + the sub + the Start CTA; Start → `/income`; the
+   desktop headline clamp `clamp(22px, 3.5vw, 44px)` STANDS (no 64px
+   returns); phone sizes unchanged (36px / 44px ≥ 480px).
+7. The legibility halo is present and token-only: `.headline` and `.sub`
+   declare the `0 1px 2px color-mix(… --color-surface 90% …)` +
+   soft-ambient `text-shadow` treatment; the accent word keeps its
+   violet glow declaration; no new color values beyond the sanctioned
+   header rgba set.
+8. The Start button keeps its exact current style: opaque
+   `--color-deepa-4` pill, `--color-text` label, `--radius-pill`,
+   min-height 48px, hover glow, press scale(0.98) — unchanged markup,
+   unchanged CSS.
+
+**Header — true liquid glass (item 3):**
+9. `.top` is `position: fixed; top: 0` (NOT sticky), `z-index: 10`, and
+   the video scrolls directly underneath it (the header is out of the
+   content flow — `.landing`'s first in-flow child is `main.canvas`).
+10. The owner's EXACT values verbatim on `.top`: `background:
+    rgba(20, 20, 30, 0.25)`; `backdrop-filter: blur(16px) saturate(180%)`
+    AND `-webkit-backdrop-filter: blur(16px) saturate(180%)`;
+    `border-top: 1px solid rgba(255, 255, 255, 0.15)` and `border-bottom:
+    1px solid rgba(255, 255, 255, 0.15)` with side borders NONE;
+    `box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15)`.
+11. Width/centering: `width: max(80%, 280px)` + `margin-inline: auto`
+    with `left: 0; right: 0` — 1024px at 1280, 312px at 390, 280px (the
+    floor) at 320, pixel-identical to `.landing`'s width; the
+    §4.24.A breakout declarations (`calc(100% + 2 * var(--space-5|
+    --space-7))` + matching negative margins) are GONE.
+12. The two-tier recipe is GONE: no `color-mix(… 92% …)` / 88% tier, no
+    violet Deepa hairline on `.top`; the `@supports not (…)` fallback
+    sets `background: rgba(20, 20, 30, 0.85)`.
+13. Rounded corners KEPT: `border-radius: var(--radius-lg)` desktop /
+    `var(--radius-md)` in the <720px chip rule; keep-list UNCHANGED
+    (§4.22.A verbatim — icon + 2 desktop anchors + switcher; phone icon
+    + switcher); inner padding (8px 10px / 10px 16px) and min-heights
+    (52/56px) unchanged; `scroll-margin-top: 80px` on `#agents`/
+    `#tutorial` unchanged.
+14. The AA tradeoff is RECORDED in this spec (§4.25.C): the owner's
+    exact values intentionally supersede the §2.6 AA guarantee for the
+    header over bright video frames (owner-order exception) — no test
+    asserts header-text contrast over video; the existing glass-recipe
+    assertions are replaced by ACs 10–12.
+
+**i18n + behavior + below-the-fold + suites:**
+15. i18n: **zero delta** — exactly 23 `landing.*` keys in BOTH
+    dictionaries (unchanged count, unchanged copy); the parity/dead-key
+    tests pass UNAMENDED; RU/EN switching re-renders without a reload.
+16. Behavior (§4.20.L/§4.22.A): the entry points are EXACTLY TWO — the
+    lead Start CTA and the agent-card TALK, both → `/income`; the join
+    deep links (`?code=` / `?u=`) still forward to `/income` with the
+    query preserved; the tab bar is absent on `/`; nothing on `/`
+    fetches (**API endpoints used: none**).
+17. Below the fold, intact: the stat card (§4.21.F compact), the three
+    step blocks (§4.21.E: 01→03, equal thirds ~300px min-height desktop,
+    no hover/motion) and the contact footer (§4.21.G) keep their
+    contracts and render as normal-flow rows after the hero region; the
+    BLEAK card keeps its §4.20.G contract (hover lift + glow, press
+    scale, focus rings, TALK → `/income`) at its third's width.
+18. Suites amended and green: `landing-page.test.ts` — the superseded
+    §36/§4.24 assertions REPLACED (the phone-spacer
+    `calc(200dvh / 3)` test, the opaque-lead/pixel-frame test, the
+    sticky+breakout test, the 92%/88% two-tier test and the blur(14px)
+    saturate(1.1) assertions are rewritten to ACs 1–13 above; the
+    `.glass`-absent and raw-hex guards stay green) — plus
+    `i18n.test.ts` / `sweep.test.ts` / `join-flow.test.ts` /
+    `creation-wizard.test.ts` / `mascot.test.ts` untouched and green;
+    `make lint && make test && make build` green.
+19. Constraints: no new dependencies; palette tokens unchanged (the
+    owner's header rgba values are the recorded sanctioned exception);
+    routes untouched; `/income` untouched; the video asset stays; the
+    video layer stack (z 0/1/2 + content z 3 + header z 10) unchanged.
+
+#### 4.25.H Flags for the owner / concept (concept report)
+
+1. **ADVICE NEEDED — header AA residual risk (recorded, not actionable
+   in this pass):** at the owner's exact 0.25 tint, nav/muted text over
+   an unusually bright video frame can fall below AA (derivation in
+   §4.25.C). The owner's values win (owner-order exception recorded);
+   the real-device smoke over bright frames decides. If it fails, the
+   remedies (raise the tint opacity — an owner-value change — or a
+   localized nav text treatment) come back to the owner; nothing is
+   pre-specced.
+2. **Smoke note — fixed `top: 0` + kept rounding:** the glass pill's
+   rounded top corners sit flush at the screen edge. If the owner
+   dislikes the flush look, `top: var(--space-3)` (the old 12px float)
+   is the one-line alternative — owner decision, not a change here.
+3. **Record — very short viewports (landscape phones):** the centered
+   hero content may pass under the fixed glass header; the translucent
+   glass keeps it visible; no scroll-lock or min-height guard is
+   specced.
+4. **Record — §4.24.J statuses:** flag 1 (desktop headline size) is
+   RESOLVED — the `clamp(22px, 3.5vw, 44px)` stands (§4.25.B); flag 2
+   (the 88%/85% glass-visibility band) is MOOT — the two-tier recipe is
+   retired by the owner's exact values; flag 3 (the two-thirds spacer
+   record) is MOOT — the spacer is removed by §37.1.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)

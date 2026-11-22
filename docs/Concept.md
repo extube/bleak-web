@@ -1676,6 +1676,42 @@ background, reminders removed, black bg + dissolve, reduced-motion
 fallback, routes, Start/TALK → `/income`, RU/EN parity, three step
 blocks, contact footer).
 
+---
+
+## 37. Owner correction batch: open state + transparent lead + true liquid-glass header — ✅ APPROVED (2026-11-22)
+
+"Not, is not what I want" — corrections to the §36 result
+(owner, 2026-11-22):
+
+1. **Default open state:** when the site opens, **only the Start
+   block and the Bleak block are displayed**, **vertically centered**
+   (desktop: side-by-side in the §36 thirds; phone: the Start block
+   centered in the first viewport, Bleak next). **All the remaining
+   blocks are below the screen space initially** — they appear on
+   scroll. This supersedes the §36 item 4 "top 2/3 without blocks"
+   phone rule.
+2. **"The right connections you" block: TRANSPARENT and without
+   border** — no solid panel, no pixel frame; the text and the Start
+   button sit directly over the video background. (Supersedes the
+   §36 item 2 "fully opaque" and the §4.20.G pixel-frame for this
+   block.)
+3. **Header — true liquid glassmorphism** (owner's exact spec):
+   - **position: fixed** (or sticky at top: 0) so the video
+     background scrolls directly underneath it;
+   - background: a very **low-opacity dark tint**
+     `rgba(20, 20, 30, 0.25)`;
+   - strong frosted blur: **`backdrop-filter: blur(16px)
+     saturate(180%)`**;
+   - a subtle glossy **1px semi-transparent white top/bottom border**
+     `rgba(255, 255, 255, 0.15)` with a **soft inner highlight** for a
+     liquid-glass edge.
+   The §36 header width (80% of screen, centered) and keep-list stay.
+
+All other contracts stay in force (fixed full-screen video background,
+reminders removed, thirds layout with empty middle, black bg +
+dissolve, reduced-motion fallback, routes, Start/TALK → `/income`,
+RU/EN parity, three step blocks, contact footer).
+
 All other §31–§33 contracts stay in force (routes, Start → `/income`
 with the 6-digit input, RU/EN parity, reminder box contracts, three
 step blocks, existing suites green).

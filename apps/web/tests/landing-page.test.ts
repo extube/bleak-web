@@ -1,25 +1,29 @@
-/** Landing page tests (tz12-08, Concept §36, DESIGN §4.24 amending §4.23
- * item by item): the §4.24 batch lands on the video-background landing —
- * (1) §4.24.A ONE container rule: `.landing` is max(80%, 280px) wide,
- * centered, and the sticky glass header rides the same 80% column via the
- * container breakout (calc(100% + 2 * padding) + matching negative
- * margin-inline; the §4.23.B inset chip width and the 1000px canvas cap
- * retire as width rules); (1 rider) §4.24.B the header blur IS applied —
- * a two-tier fill: 92% (the no-blur fallback floor) + 88% inside
- * `@supports` where the blur actually runs; (2) §4.24.C the lead block is
- * FULLY OPAQUE — solid --color-surface pixel-frame panel, SQUARE corners
- * (the header is the only rounded surface), narrower (it fills its thirds
- * column, ≈ 288px at 1280; the fit-content/560px sizing retires; the
- * desktop headline clamps to clamp(22px, 3.5vw, 44px)); (3) §4.24.D the
- * desktop ≥720px row is the THIRDS grid repeat(3, 1fr): lead column 1,
- * BLEAK agent card column 3, the MIDDLE THIRD EMPTY (the §4.23.D
- * minmax(0,1fr) 360px row and the 360px cap retire); (4) §4.24.E the
- * phone open state: at <720px main.canvas carries padding-top:
- * calc(200dvh / 3) — the first content block starts below the two-thirds
- * mark (no offset at desktop). Still in force: the fixed full-viewport
- * video layer stack, the keep-list, BLEAK/БЛИК, three step blocks,
- * contact footer, routes, Start/TALK → /income (6-digit), RU/EN parity
- * (23 keys), removed blocks stay removed, deep links. */
+/** Landing page tests (tz12-09, Concept §37 owner correction, DESIGN §4.25
+ * amending §4.24 item by item): the §37 batch lands on the video-background
+ * landing — (1) §4.25.A the DEFAULT OPEN STATE: on open, ONLY the lead
+ * (Start block) and the BLEAK agent card are displayed, VERTICALLY CENTERED
+ * in the first viewport — desktop ≥720px: .stage is the 100dvh hero region
+ * (the thirds grid, align-content/align-items center, the middle third
+ * empty); phone <720px: .area-lead is the 100dvh hero region (the Start
+ * block centered in screen 1), BLEAK next in flow; stat card → steps →
+ * footer flow AFTER (below the fold initially); the §4.24.E
+ * `calc(200dvh / 3)` spacer is GONE; (2) §4.25.B the lead block is
+ * TRANSPARENT and BORDERLESS — no pixel frame, no panel, no border, no
+ * backdrop-filter — legibility via the token-only text halo on
+ * .headline/.sub (the accent word keeps its violet glow; the desktop
+ * headline clamp(22px, 3.5vw, 44px) stands); (3) §4.25.C the header is TRUE
+ * liquid glassmorphism — the owner's EXACT values verbatim: position:
+ * fixed; top: 0 (the video scrolls directly underneath), background
+ * rgba(20, 20, 30, 0.25), backdrop-filter blur(16px) saturate(180%)
+ * (both prefixes), 1px rgba(255, 255, 255, 0.15) top/bottom borders
+ * (side borders NONE), the soft inset inner highlight, rounding kept, and
+ * the viewport-relative width max(80%, 280px) + margin-inline auto (the
+ * §4.24.A breakout retires); the two-tier 92%/88% fill and the violet
+ * hairline are DELETED, the no-backdrop-filter fallback is rgba(20, 20,
+ * 30, 0.85). Still in force: the fixed full-viewport video layer stack,
+ * the keep-list, BLEAK/БЛИК, three step blocks, contact footer, routes,
+ * Start/TALK → /income (6-digit), RU/EN parity (23 keys), removed blocks
+ * stay removed, deep links. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -148,7 +152,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('/ — the §4.23.B liquid-glass header (icon + nav + switcher ONLY)', () => {
+describe('/ — the §4.25.C liquid-glass header (icon + nav + switcher ONLY)', () => {
   it('renders exactly: the plate-less web icon (cutouts in --color-landing-bg), the two in-page anchors (desktop-only) and the LocaleControl — the keep-list is UNCHANGED (§4.22.A verbatim)', () => {
     const { container } = render(LandingPage, { props: {} });
     const top = container.querySelector('header.top');
@@ -177,24 +181,26 @@ describe('/ — the §4.23.B liquid-glass header (icon + nav + switcher ONLY)', 
     expect(container.querySelector('header.top .start-link')).toBeNull();
   });
 
-  it('the floating glass header is the SAME 80% column as the content via the container breakout (§4.24.A): sticky at 12px, z-index 10, width = container + 2 × its padding with matching negative margin-inline — no vw units', () => {
+  it('the header is FIXED at the page top (§4.25.C): position: fixed; top: 0 — out of the content flow (the video scrolls directly underneath), z-index 10, sized directly against the viewport: width max(80%, 280px) + margin-inline auto with left/right 0 — pixel-identical to .landing\'s width; the §4.24.A container breakout RETIRES (§4.25.D.4)', () => {
     const css = source('src/routes/+page.svelte');
-    expect(css).toMatch(/\.top\s*\{[^}]*position:\s*sticky/);
-    expect(css).toMatch(/\.top\s*\{[^}]*top:\s*var\(--space-3\)/);
+    expect(css).toMatch(/\.top\s*\{[^}]*position:\s*fixed/);
+    expect(css).toMatch(/\.top\s*\{[^}]*top:\s*0/);
+    // NOT sticky — the sticky position retires (§4.25.D.5)
+    expect(css).not.toMatch(/\.top\s*\{[^}]*position:\s*sticky/);
     expect(css).toMatch(/\.top\s*\{[^}]*z-index:\s*10/);
-    // the breakout: phone = container + 2 × --space-5, pulled out by the
-    // same amount (the §4.23.B inset chip width is retired, §4.24.F.1)
-    expect(css).toMatch(/\.top\s*\{[^}]*width:\s*calc\(100% \+ 2 \* var\(--space-5\)\)/);
-    expect(css).toMatch(/\.top\s*\{[^}]*margin-inline:\s*calc\(-1 \* var\(--space-5\)\)/);
-    // desktop: the breakout widens to the container's --space-7 padding
-    expect(css).toMatch(
-      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.top\s*\{[^}]*width:\s*calc\(100% \+ 2 \* var\(--space-7\)\)/
-    );
-    expect(css).toMatch(
-      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.top\s*\{[^}]*margin-inline:\s*calc\(-1 \* var\(--space-7\)\)/
-    );
-    // no vw units anywhere in the header geometry (the scrollbar-safe
-    // breakout is computed from the container's own padding)
+    // the viewport-relative width rule — the same expression as .landing's
+    expect(css).toMatch(/\.top\s*\{[^}]*width:\s*max\(80%, 280px\)/);
+    expect(css).toMatch(/\.top\s*\{[^}]*margin-inline:\s*auto/);
+    expect(css).toMatch(/\.top\s*\{[^}]*left:\s*0/);
+    expect(css).toMatch(/\.top\s*\{[^}]*right:\s*0/);
+    // the breakout math is GONE (width = container + 2 × padding + negative
+    // margins — invalid for a fixed element whose containing block is the
+    // viewport)
+    expect(css).not.toMatch(/calc\(100% \+ 2 \* var\(--space-5\)\)/);
+    expect(css).not.toMatch(/calc\(100% \+ 2 \* var\(--space-7\)\)/);
+    expect(css).not.toMatch(/margin-inline:\s*calc\(-1 \* var\(--space-5\)\)/);
+    expect(css).not.toMatch(/margin-inline:\s*calc\(-1 \* var\(--space-7\)\)/);
+    // no vw units anywhere in the header geometry
     const topRule = css.match(/\.top\s*\{[^}]*\}/)?.[0] ?? '';
     expect(topRule).not.toMatch(/vw/);
     // the retired inset chip
@@ -202,33 +208,51 @@ describe('/ — the §4.23.B liquid-glass header (icon + nav + switcher ONLY)', 
     // desktop row height + padding (§4.23.B) — the smaller phone chip below
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.top\s*\{[^}]*min-height:\s*56px[^}]*padding:\s*10px 16px/);
     expect(css).toMatch(/\.top\s*\{[^}]*min-height:\s*52px[^}]*padding:\s*8px 10px/);
-    // anchored sections never hide under the stuck panel
+    // anchored sections never hide under the fixed panel
     expect(css).toMatch(/scroll-margin-top:\s*80px/);
+    // the header is OUT of the flow — .landing's first in-flow child is
+    // main.canvas (§4.25.G AC 9)
+    const page = source('src/routes/+page.svelte');
+    const headerIdx = page.indexOf('<header class="top">');
+    const mainIdx = page.indexOf('<main class="canvas">');
+    expect(mainIdx).toBeGreaterThan(headerIdx);
   });
 
-  it('the glass recipe is applied AND verified (§4.24.B two-tier fill): tier 1 = 92% landing-bg (the no-blur fallback floor), tier 2 = 88% inside @supports where the blur actually runs, backdrop blur(14px) saturate(1.1) (+ -webkit-) on .top, the 22% Deepa violet hairline, rounded corners radius-lg desktop / radius-md phone chip — the header is the ONLY glass/rounded surface', () => {
+  it('the TRUE liquid-glass header (§4.25.C — the owner\'s EXACT values, verbatim): background rgba(20, 20, 30, 0.25), backdrop-filter blur(16px) saturate(180%) (+ -webkit-), glossy 1px rgba(255, 255, 255, 0.15) top/bottom borders with side borders NONE, the soft inset inner highlight, rounded corners radius-lg desktop / radius-md phone chip — the two-tier fill retires; the no-backdrop-filter fallback is rgba(20, 20, 30, 0.85)', () => {
     const css = source('src/routes/+page.svelte');
-    // tier 1: the 92% fallback floor (kept, §4.24.F.7)
-    expect(css).toMatch(
-      /background:\s*color-mix\(in srgb, var\(--color-landing-bg\) 92%, transparent\)/
-    );
-    // the blur IS applied on the glass surface (the §4.24.B verification)
-    expect(css).toMatch(/-webkit-backdrop-filter:\s*blur\(14px\) saturate\(1\.1\)/);
-    expect(css).toMatch(/backdrop-filter:\s*blur\(14px\) saturate\(1\.1\)/);
-    // tier 2: the 88% fill inside @supports — where the blur actually runs
-    expect(css).toMatch(
-      /@supports \(backdrop-filter: blur\(1px\)\) or \(-webkit-backdrop-filter: blur\(1px\)\)\s*\{[\s\S]{0,200}?\.top\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--color-landing-bg\) 88%, transparent\)/
-    );
+    // the owner's low-opacity dark tint (the sanctioned raw-literal
+    // exception, §4.25.D.7 — the raw-hex guard cannot match rgba(…))
+    expect(css).toMatch(/\.top\s*\{[^}]*background:\s*rgba\(20, 20, 30, 0\.25\)/);
+    // the strong frosted blur — both prefixes (comment-stripped: the count
+    // assertion sees the declarations only)
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(stripped).toMatch(/-webkit-backdrop-filter:\s*blur\(16px\) saturate\(180%\)/);
+    expect(stripped).toMatch(/backdrop-filter:\s*blur\(16px\) saturate\(180%\)/);
     // exactly one backdrop-filter declaration pair on the page — no other
     // landing rule overrides it on .top (the negative assertion)
-    expect(css.match(/backdrop-filter:\s*blur\(14px\)/g)).toHaveLength(2);
-    // the hairline
+    expect(stripped.match(/backdrop-filter:\s*blur\(16px\)/g)).toHaveLength(2);
+    // the glossy 1px semi-transparent WHITE top/bottom borders
+    expect(css).toMatch(/\.top\s*\{[^}]*border-top:\s*1px solid rgba\(255, 255, 255, 0\.15\)/);
+    expect(css).toMatch(/\.top\s*\{[^}]*border-bottom:\s*1px solid rgba\(255, 255, 255, 0\.15\)/);
+    const topRule = css.match(/\.top\s*\{[^}]*\}/)?.[0] ?? '';
+    // side borders NONE — no full-border shorthand, no left/right borders
+    expect(topRule).not.toMatch(/border:\s*1px/);
+    expect(topRule).not.toMatch(/border-left|border-right/);
+    // the soft INNER highlight — the liquid-glass edge
+    expect(css).toMatch(/\.top\s*\{[^}]*box-shadow:\s*inset 0 1px 0 rgba\(255, 255, 255, 0\.15\)/);
+    // the two-tier color-mix recipe is DELETED (§4.25.D.3): no 92%/88%
+    // tiers, no tier-2 @supports block, no violet Deepa hairline
+    expect(css).not.toMatch(/color-mix\(in srgb, var\(--color-landing-bg\) 92%, transparent\)/);
+    expect(css).not.toMatch(/color-mix\(in srgb, var\(--color-landing-bg\) 88%, transparent\)/);
+    expect(css).not.toMatch(/@supports \(backdrop-filter: blur\(1px\)\) or/);
+    expect(css).not.toMatch(/border:\s*1px solid color-mix\(in srgb, var\(--color-deepa-4\) 22%, transparent\)/);
+    // the no-backdrop-filter fallback re-specced: a single 0.85 tint
     expect(css).toMatch(
-      /border:\s*1px solid color-mix\(in srgb, var\(--color-deepa-4\) 22%, transparent\)/
+      /@supports not \(\(backdrop-filter: blur\(1px\)\) or \(-webkit-backdrop-filter: blur\(1px\)\)\)\s*\{[\s\S]{0,120}?\.top\s*\{[^}]*background:\s*rgba\(20, 20, 30, 0\.85\)/
     );
     // rounded corners — radius-lg (24px) desktop / radius-md (20px) phone
-    // chip, tokens only
-    expect(css).toMatch(/border-radius:\s*var\(--radius-lg\)/);
+    // chip, tokens only (rounding KEPT, §4.25.C)
+    expect(css).toMatch(/\.top\s*\{[^}]*border-radius:\s*var\(--radius-lg\)/);
     expect(css).toMatch(/@media \(max-width: 719\.98px\)\s*\{[\s\S]*?\.top\s*\{[^}]*border-radius:\s*var\(--radius-md\)/);
     // scoped: the pixel-frame cards/steps/footer keep the square/stepped
     // corner treatment — their rules set no border-radius
@@ -236,12 +260,16 @@ describe('/ — the §4.23.B liquid-glass header (icon + nav + switcher ONLY)', 
       const block = css.match(new RegExp(`${rule}\\s*\\{[^}]*\\}`))?.[0] ?? '';
       expect(block, `${rule} must stay square (the pixel aesthetic)`).not.toMatch(/border-radius/);
     }
-    // the .glass class retired with the glass lead (§4.24.F.3)
+    // the .glass class stays retired (§4.24.F.3)
     expect(css).not.toMatch(/\.glass/);
-    // and the pixel-frame construction is still in the markup
+    // and the pixel-frame construction is still in the markup for the
+    // card surfaces (§4.25.D.2: the lead is the ONLY transparent surface)
     const { container } = render(LandingPage, { props: {} });
     expect(container.querySelector('.agent-card')?.className).toContain('pixel-corners');
     expect(container.querySelector('.step-block')?.className).toContain('pixel-corners');
+    // the lead carries none of them (§4.25.B)
+    expect(container.querySelector('.copy')?.className).not.toContain('pixel-corners');
+    expect(container.querySelector('.copy')?.className).not.toContain('pixel-frame');
   });
 
   it('the tagline lines are gone (no DOM nodes) and the GLITCH figure is retired with the strip (§4.22.1); the header carries no START control', () => {
@@ -312,7 +340,7 @@ describe('/ — the §4.22.B video block (LandingVideoHero replaces the drawn he
     expect(css).not.toMatch(/aspect-ratio/);
   });
 
-  it('content scrolls OVER the video (the layer stack holds): the video (z 0) → vignette + 30% tint (z 1) → dots (z 2) → content column (z 3) → sticky header (z 10); the fixed layer never moves while .landing scrolls over it', () => {
+  it('content scrolls OVER the video (the layer stack holds): the video (z 0) → vignette + 30% tint (z 1) → dots (z 2) → content column (z 3) → fixed header (z 10); the fixed layer never moves while .landing scrolls over it and the header never moves', () => {
     const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
     const page = source('src/routes/+page.svelte');
     // the fixed layer children are viewport-sized and unmoving
@@ -320,7 +348,7 @@ describe('/ — the §4.22.B video block (LandingVideoHero replaces the drawn he
     expect(hero).toMatch(/\.dots\s*\{[^}]*position:\s*fixed[^}]*inset:\s*0[^}]*z-index:\s*2/);
     // the content column is the z-3 scrolling layer above the fixed layer
     expect(page).toMatch(/\.landing\s*\{[^}]*position:\s*relative[^}]*z-index:\s*3/);
-    // the sticky glass header rides above everything (z 10)
+    // the fixed glass header rides above everything (z 10)
     expect(page).toMatch(/\.top\s*\{[^}]*z-index:\s*10/);
     // the layer is non-interactive — content interaction is unaffected
     expect(hero).toMatch(/\.video-layer\s*\{[^}]*pointer-events:\s*none/);
@@ -432,15 +460,42 @@ describe('/ — the §4.22.B video block (LandingVideoHero replaces the drawn he
   });
 });
 
-describe('/ — the §4.24.D thirds row vs the §4.24.E phone open state', () => {
-  it('desktop ≥720px: the THIRDS grid (§4.24.D) — lead column 1, the BLEAK agent card column 3, the MIDDLE THIRD EMPTY (the video + vignette + dots show through); the minmax(0,1fr) 360px row and the 360px cap retire (§4.24.F.5)', () => {
+describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds row', () => {
+  it('§37.1 the DEFAULT OPEN STATE — at the scroll origin the first viewport contains ONLY the lead block and the BLEAK agent card (plus the fixed header chrome): the hero region (.stage) is the FIRST block of main.canvas, the stat card / step blocks / contact footer flow AFTER it — below the fold initially, revealed on scroll', () => {
+    const { container } = render(LandingPage, { props: {} });
+    const canvas = container.querySelector('main.canvas');
+    // the hero region is the FIRST block; its ONLY children are the lead
+    // and the agent card (the middle third is empty)
+    const hero = canvas?.firstElementChild;
+    expect(hero?.classList.contains('stage')).toBe(true);
+    const heroClasses = [...(hero?.children ?? [])].map((el) => el.className);
+    expect(heroClasses.some((c) => c.includes('area-lead'))).toBe(true);
+    expect(heroClasses.some((c) => c.includes('area-agents'))).toBe(true);
+    expect(heroClasses.some((c) => c.includes('area-stat'))).toBe(false);
+    expect(heroClasses.some((c) => c.includes('area-tutorial'))).toBe(false);
+    expect(heroClasses.some((c) => c.includes('area-foot'))).toBe(false);
+    // everything else renders after the hero region — the stat card, the
+    // three step blocks and the contact footer (below the fold)
+    const afterHero = canvas?.textContent ?? '';
+    expect(afterHero).toContain(ru['landing.stat.title']);
+    expect(afterHero).toContain(ru['landing.tutorial.search']);
+    expect(afterHero).toContain(ru['landing.footer.contact.email.label']);
+    expect(canvas?.querySelector('.stage ~ .area-stat')).toBeTruthy();
+    expect(canvas?.querySelector('.stage ~ .area-tutorial')).toBeTruthy();
+    expect(canvas?.querySelector('.stage ~ footer.contact')).toBeTruthy();
+  });
+
+  it('desktop ≥720px: .stage is the 100dvh HERO REGION — the THIRDS grid (§4.24.D) with align-content: center + align-items: center (§4.25.A supersedes §4.24.D\'s align-items: start, §4.25.D.6): lead column 1, the BLEAK agent card column 3, the MIDDLE THIRD EMPTY; the minmax(0,1fr) 360px row and the 360px cap stay retired (§4.24.F.5)', () => {
     const css = source('src/routes/+page.svelte');
-    // the thirds grid: three equal columns, the §4.23.D gap rhythm, top-aligned
+    // the thirds grid: three equal columns, the §4.23.D gap rhythm
     expect(css).toMatch(
       /@media \(min-width: 720px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*grid-template-columns:\s*repeat\(3, 1fr\)/
     );
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*column-gap:\s*var\(--space-6\)/);
-    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*align-items:\s*start/);
+    // the hero region = the whole first viewport, everything centered
+    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*min-height:\s*100dvh/);
+    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*align-content:\s*center/);
+    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*align-items:\s*center/);
     // the lead = the FIRST third, the BLEAK card = the LAST third
     expect(css).toMatch(/\.area-lead\s*\{[^}]*grid-column:\s*1/);
     expect(css).toMatch(/\.area-agents\s*\{[^}]*grid-column:\s*3/);
@@ -454,7 +509,7 @@ describe('/ — the §4.24.D thirds row vs the §4.24.E phone open state', () =>
     expect(css).not.toMatch(/\.area-chat/);
   });
 
-  it('PHONE: the DOM-order stack over the video background (§4.23.E.2) below the §4.24.E open-state spacer — no horizontal scroll at 320px; the 280px container floor keeps the phone chip usable', () => {
+  it('PHONE: the DOM-order stack over the video background (§4.23.E.2) — .area-lead is the 100dvh hero region (§4.25.A) — no horizontal scroll at 320px; the 280px container floor keeps the phone chip usable', () => {
     const css = source('src/routes/+page.svelte');
     // base canvas + stage = one column (flex); the DOM order IS the mobile order
     expect(css).toMatch(/\.canvas\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/);
@@ -463,6 +518,10 @@ describe('/ — the §4.24.D thirds row vs the §4.24.E phone open state', () =>
     const positions = order.map((name) => css.indexOf(name, css.indexOf('<main')));
     expect(positions.every((p) => p > 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    // the phone hero region: the START block centers in the first screen
+    expect(css).toMatch(
+      /@media \(max-width: 719\.98px\)\s*\{[\s\S]*?\.area-lead\s*\{[^}]*min-height:\s*100dvh[^}]*display:\s*flex[^}]*justify-content:\s*center/
+    );
     // the overlay positioning exists ONLY inside the ≥720px media query —
     // the base .stage rule is the plain flex column (no grid, no overlay)
     const baseStage = css.match(/\.stage\s*\{[\s\S]*?\n\s*\}/)?.[0] ?? '';
@@ -479,21 +538,23 @@ describe('/ — the §4.24.D thirds row vs the §4.24.E phone open state', () =>
     expect(hero).toMatch(/\.video\s*\{[^}]*position:\s*fixed/);
   });
 
-  it('PHONE open state (§4.24.E): at <720px main.canvas carries padding-top: calc(200dvh / 3) — the first content block starts below the two-thirds mark; desktop ≥720px sets NO such offset (dvh, not vh)', () => {
+  it('the §4.24.E two-thirds spacer is GONE (§4.25.D.1): no calc(200dvh / 3) anywhere, no padding-top on .canvas/.landing in ANY media query; .landing\'s top padding is 0 (inline + bottom padding per breakpoint unchanged) — the open state is produced entirely by the two 100dvh constructions', () => {
     const css = source('src/routes/+page.svelte');
-    // the spacer: exactly 2/3 of the dynamic viewport, phone only
-    expect(css).toMatch(
-      /@media \(max-width: 719\.98px\)\s*\{[\s\S]*?\.canvas\s*\{[^}]*padding-top:\s*calc\(200dvh \/ 3\)/
-    );
-    // dvh (URL-bar-safe), never vh for the spacer
-    expect(css).toMatch(/padding-top:\s*calc\(200dvh \/ 3\)/);
-    expect(css).not.toMatch(/padding-top:\s*calc\(200vh \/ 3\)/);
-    // the offset lives ONLY in the phone media query — every other .canvas
-    // rule is offset-free (desktop: the thirds row starts under the header)
+    // comment-stripped: the spacer is GONE — dvh or vh, in any expression
+    // (comments are prose — they may record the retired rule by name)
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(stripped).not.toMatch(/calc\(200dvh \/ 3\)/);
+    expect(stripped).not.toMatch(/calc\(200vh \/ 3\)/);
+    // no padding-top on .canvas / .landing anywhere
     const canvasRules = [...css.matchAll(/\.canvas\s*\{[^}]*\}/g)].map((m) => m[0]);
-    expect(canvasRules.filter((r) => r.includes('padding-top'))).toHaveLength(1);
-    expect(css).not.toMatch(
-      /@media \(min-width: 720px\)\s*\{[\s\S]{0,300}?\.canvas\s*\{[^}]*padding-top/
+    expect(canvasRules.length).toBeGreaterThan(0);
+    expect(canvasRules.every((r) => !r.includes('padding-top'))).toBe(true);
+    const landingRules = [...css.matchAll(/\.landing\s*\{[^}]*\}/g)].map((m) => m[0]);
+    expect(landingRules.every((r) => !r.includes('padding-top'))).toBe(true);
+    // the retired top padding: 0 top, inline + bottom per breakpoint
+    expect(css).toMatch(/\.landing\s*\{[^}]*padding:\s*0 var\(--space-5\) var\(--space-5\)/);
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.landing\s*\{[^}]*padding:\s*0 var\(--space-7\) var\(--space-7\)/
     );
   });
 
@@ -515,7 +576,7 @@ describe('/ — the §4.24.D thirds row vs the §4.24.E phone open state', () =>
     expect(css).not.toMatch(/font-size:\s*64px/);
   });
 
-  it('the fixed video layer is a decorative aria-hidden div — NO region role, NO accessible name (§4.23.E.6); the lead panel is the §4.24.C OPAQUE pixel-frame surface (the glass lead retires, §4.24.F.3)', () => {
+  it('the fixed video layer is a decorative aria-hidden div — NO region role, NO accessible name (§4.23.E.6); the lead is TRANSPARENT and BORDERLESS (§4.25.B — §37.2): no pixel frame, no solid panel, no border, no glass — legibility via the token-only text halo ONLY', () => {
     const { container } = render(LandingPage, { props: {} });
     const layer = container.querySelector('.video-layer');
     expect(layer?.getAttribute('aria-hidden')).toBe('true');
@@ -524,24 +585,40 @@ describe('/ — the §4.24.D thirds row vs the §4.24.E phone open state', () =>
     const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
     expect(hero).not.toMatch(/<section/);
     expect(hero).not.toMatch(/aria-label=/);
-    // the lead is FULLY OPAQUE: the §4.20.G pixel-frame construction with a
-    // solid --color-surface body — no glass class, no backdrop-filter, no
-    // translucent fill, SQUARE corners (the header is the only rounded
-    // surface, §4.24.F.4)
+    // the lead carries NO pixel-frame classes (§4.25.D.2 — the lead is the
+    // ONLY transparent surface; the card language stands elsewhere)
     const lead = container.querySelector('.copy');
     expect(lead).toBeTruthy();
-    expect(lead?.className).toContain('pixel-corners');
-    expect(lead?.className).toContain('pixel-frame--strong');
-    expect(lead?.querySelector('.copy-body.pixel-corners')).toBeTruthy();
+    expect(lead?.className).not.toContain('pixel-corners');
+    expect(lead?.className).not.toContain('pixel-frame');
+    expect(lead?.querySelector('.copy-body.pixel-corners')).toBeNull();
     const css = source('src/routes/+page.svelte');
     expect(css).not.toMatch(/\.glass/);
+    // .copy-body is transparent: NO background fill, NO border, NO
+    // backdrop-filter, NO translucent fill, NO radius, NO shadow
     const copyBody = css.match(/\.copy-body\s*\{[^}]*\}/)?.[0] ?? '';
-    expect(copyBody).toMatch(/background:\s*var\(--color-surface\)/);
-    for (const rule of ['.copy', '.copy-body']) {
-      const block = css.match(new RegExp(`${rule.replace('.', '\\.')}\\s*\\{[^}]*\\}`))?.[0] ?? '';
-      expect(block, `${rule} must stay fully opaque`).not.toMatch(/backdrop-filter|color-mix/);
-      expect(block, `${rule} must stay square`).not.toMatch(/border-radius/);
-    }
+    expect(copyBody).toMatch(/background:\s*transparent/);
+    expect(copyBody).not.toMatch(/var\(--color-surface\)/);
+    expect(copyBody).not.toMatch(/backdrop-filter|color-mix|border|border-radius|box-shadow/);
+    // .copy is borderless too
+    const copyRule = css.match(/\.copy\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(copyRule).not.toMatch(/border|backdrop-filter|color-mix|border-radius|box-shadow/);
+    // legibility = the TEXT halo only: .headline + .sub declare the
+    // 0 1px 2px color-mix(… --color-surface 90% …) + soft-ambient tail
+    expect(css).toMatch(
+      /\.headline\s*\{[^}]*text-shadow:\s*\n?\s*0 1px 2px color-mix\(in srgb, var\(--color-surface\) 90%, transparent\),\s*\n?\s*0 0 14px color-mix\(in srgb, var\(--color-surface\) 55%, transparent\)/
+    );
+    expect(css).toMatch(
+      /\.sub\s*\{[^}]*text-shadow:\s*\n?\s*0 1px 2px color-mix\(in srgb, var\(--color-surface\) 90%, transparent\),\s*\n?\s*0 0 10px color-mix\(in srgb, var\(--color-surface\) 55%, transparent\)/
+    );
+    // the accent word keeps its violet glow declaration (overrides the halo)
+    expect(css).toMatch(
+      /text-shadow:\s*\n?\s*0 0 8px color-mix\(in srgb, var\(--color-deepa-4\) 60%, transparent\),\s*\n?\s*0 0 24px/
+    );
+    // the Start button keeps its exact current style: an opaque violet pill
+    // — unchanged markup, unchanged CSS (§4.25.G AC 8)
+    expect(css).toMatch(/\.cta-main\s*\{[^}]*min-height:\s*var\(--touch-target\)/);
+    expect(css).toMatch(/\.cta-main,\s*\n?\s*\.talk\s*\{[^}]*background:\s*var\(--color-deepa-4\)/);
     // the copy is §4.20.C verbatim and the CTA survives the re-skin
     expect(container.querySelector('.headline .accent-word')).toBeTruthy();
     expect(container.querySelector('.copy .cta-main')).toBeTruthy();

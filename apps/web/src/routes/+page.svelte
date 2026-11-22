@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
-   * `/` — the landing page (tz12-08, Concept §36, DESIGN §4.24 amending
-   * §4.23 → §4.22 → §4.21 → §4.20 item by item):
+   * `/` — the landing page (tz12-09, Concept §37 owner correction, DESIGN
+   * §4.25 amending §4.24 → §4.23 → §4.22 → §4.21 → §4.20 item by item):
    *
    * - Canvas: the §4.22.F page background stays — `--color-landing-bg` (the
    *   near-black page matching the video's own near-black background),
@@ -12,35 +12,32 @@
    * - §4.23.A fixed background: `LandingVideoHero` (REPURPOSED in place) is
    *   the FIRST child of `.landing-page` — a fixed full-viewport video
    *   layer (z 0) + dissolve vignette + 30% tint (z 1) + the 12-dot purple
-   *   mesh (z 2); ALL landing blocks scroll OVER it as overlays. The
-   *   §4.22.B "center video block" geometry and the phone no-overlay rule
-   *   are superseded (§4.23.E).
-   * - Header (§4.23.B, as amended by §4.24.A/B): the floating LIQUID-GLASS
-   *   panel — sticky at 12px, frosted translucent fill + backdrop blur(14px)
-   *   saturate(1.1) + violet hairline, ROUNDED corners (radius-lg desktop /
-   *   radius-md phone chip — the ONLY rounded surface left, §4.24.F.4). It
-   *   is the same 80% column as the content, via the container breakout
-   *   (`calc(100% + 2 * padding)` + matching negative `margin-inline`).
-   *   Two-tier glass fill (§4.24.B): 92% where blur cannot run (the
-   *   fallback floor), 88% inside `@supports` where the blur actually
-   *   renders. Keep-list UNCHANGED (§4.22.A): the web icon (cutouts in
-   *   `--color-landing-bg`), the desktop-only in-page anchors and the
-   *   working RU/EN switch; on phone the header is the smaller chip —
-   *   icon + switcher only.
-   * - Lead section (§4.24.C): headline + subheadline + Start CTA
-   *   (§4.20.C verbatim; the desktop headline adapts via
-   *   `clamp(22px, 3.5vw, 44px)`) in a FULLY OPAQUE solid panel — the
-   *   §4.20.G pixel-frame construction (`--color-surface` body, square
-   *   corners), NO glass/translucency — the contrast with the glass header
-   *   is intentional.
-   * - Thirds layout (§4.24.D, desktop ≥720px): the first content row is
-   *   `repeat(3, 1fr)` — the lead in column 1, the BLEAK agent card in
-   *   column 3, the MIDDLE THIRD EMPTY (the fixed video + vignette + dots
-   *   show through; no element is placed in column 2). The §4.23.D
-   *   `minmax(0,1fr) 360px` row and the 360px cap retire.
-   * - Phone open state (§4.24.E): on phones the first content block starts
-   *   below the two-thirds mark — `main.canvas` gets
-   *   `padding-top: calc(200dvh / 3)` at <720px; desktop has no offset.
+   *   mesh (z 2); ALL landing blocks scroll OVER it as overlays.
+   * - Header (§4.25.C — the owner's EXACT values verbatim): TRUE liquid
+   *   glassmorphism — `position: fixed; top: 0` (out of the flow; the video
+   *   scrolls directly underneath), `rgba(20, 20, 30, 0.25)` tint,
+   *   `backdrop-filter: blur(16px) saturate(180%)`, glossy 1px
+   *   `rgba(255, 255, 255, 0.15)` top/bottom borders + the soft inset inner
+   *   highlight, ROUNDED corners kept (radius-lg desktop / radius-md phone
+   *   chip). Width re-cut against the viewport (`max(80%, 280px)` +
+   *   `margin-inline: auto` — pixel-identical to `.landing`'s width; the
+   *   §4.24.A container breakout retires). Keep-list UNCHANGED (§4.22.A).
+   * - Open state (§4.25.A — §37.1): on open, ONLY the lead (Start block)
+   *   and the BLEAK agent card are visible, VERTICALLY CENTERED in the
+   *   first viewport — desktop ≥720px: `.stage` is the 100dvh hero region
+   *   (the §4.24.D thirds grid, `align-content: center` +
+   *   `align-items: center`; the middle third empty); phone <720px:
+   *   `.area-lead` is the 100dvh hero region (the Start block centered in
+   *   screen 1), BLEAK next in flow. The stat card, the three step blocks
+   *   and the contact footer flow AFTER the hero region — below the fold
+   *   initially, revealed on scroll. The §4.24.E `calc(200dvh / 3)` spacer
+   *   is DELETED (§4.25.D.1).
+   * - Lead section (§4.25.B — §37.2): TRANSPARENT and without border —
+   *   headline + supporting text + Start CTA (§4.20.C verbatim; the desktop
+   *   headline adapts via `clamp(22px, 3.5vw, 44px)`) sit DIRECTLY over the
+   *   video background: no pixel frame, no panel, no border, no
+   *   backdrop-filter; legibility = the token-only text halo on
+   *   `.headline`/`.sub` (the accent word keeps its violet glow).
    * - Stat card (§4.21.F compact) + the three BIG step blocks (§4.21.E):
    *   FIND / CHAT / SHARE — opaque pixel frames, floating over the video,
    *   full-width rows of the 80% container below the thirds row.
@@ -123,13 +120,16 @@
        of .landing-page, before .landing; the page content scrolls over it. -->
   <LandingVideoHero />
   <div class="landing">
-    <!-- SECTION 1 — HEADER (§4.23.B, §4.24.A/B): the floating liquid-glass
-         panel — sticky at 12px, frosted translucent fill + backdrop blur +
-         violet hairline + rounded corners (radius-lg desktop / radius-md
-         phone chip), spanning the container's full 80% via the breakout.
-         Keep-list (§4.22.A verbatim): the web icon + the navigation + the
-         language switcher ONLY; on phone icon + switcher (the anchors are
-         a desktop convenience). -->
+    <!-- SECTION 1 — HEADER (§4.25.C — the owner's EXACT values verbatim):
+         the TRUE liquid-glass panel — position: fixed at top: 0 (out of the
+         flow; the video scrolls directly underneath), rgba(20, 20, 30, 0.25)
+         tint + backdrop blur(16px) saturate(180%), glossy 1px
+         rgba(255, 255, 255, 0.15) top/bottom borders + the soft inset inner
+         highlight, rounded corners (radius-lg desktop / radius-md phone
+         chip), viewport-sized max(80%, 280px) centered (pixel-identical to
+         .landing's width). Keep-list (§4.22.A verbatim): the web icon + the
+         navigation + the language switcher ONLY; on phone icon + switcher
+         (the anchors are a desktop convenience). -->
     <header class="top">
       <!-- the §30 FormShell app mark, plate-less; the cutout cells are the
            landing page background token so the mark dissolves into the new
@@ -167,18 +167,16 @@
     </header>
 
     <main class="canvas">
-      <!-- §4.24.D: the thirds grid — desktop ≥720px the lead (column 1) and
-           the agent card (column 3) share one row; the MIDDLE THIRD (column
-           2) stays EMPTY — the fixed video + vignette + dots show through.
-           Phone stacks in DOM order (below the §4.24.E open-state spacer). -->
+      <!-- §4.25.A: the hero region — desktop ≥720px .stage IS the 100dvh
+           hero (the thirds grid, everything centered); phone stacks in DOM
+           order with .area-lead as the 100dvh hero. -->
       <div class="stage">
-        <!-- the lead — HEADLINE BLOCK + START CTA (§4.20.C verbatim) in the
-             §4.24.C FULLY OPAQUE panel: the §4.20.G pixel-frame
-             construction, solid --color-surface body, SQUARE corners (the
-             header is now the ONLY rounded surface, §4.24.F.4) — no glass,
-             no translucency. -->
-        <section class="copy area-lead pixel-corners pixel-frame pixel-frame--strong">
-          <div class="copy-body pixel-corners">
+        <!-- the lead — HEADLINE BLOCK + START CTA (§4.20.C verbatim),
+             TRANSPARENT and BORDERLESS (§4.25.B — §37.2): NO pixel frame,
+             NO panel, NO border — the copy sits directly over the video
+             background; legibility = the token-only text halo. -->
+        <section class="copy area-lead">
+          <div class="copy-body">
             <h1 class="headline">
               <span class="hl-line">{translate($locale, 'landing.headline.1')}</span>
               <span class="hl-line">{translate($locale, 'landing.headline.2')}</span>
@@ -334,55 +332,67 @@
     z-index: 3;
     width: max(80%, 280px);
     margin-inline: auto;
-    padding: var(--space-5);
+    /* §4.25.A: top padding retired — the fixed header contributes no flow
+     * height, and the hero region must span the full first viewport from
+     * the page top ("100dvh minus nothing"); inline + bottom padding stay */
+    padding: 0 var(--space-5) var(--space-5);
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
   }
   @media (min-width: 720px) {
     .landing {
-      padding: var(--space-7);
+      padding: 0 var(--space-7) var(--space-7);
     }
   }
 
-  /* ---------- section 1: the liquid-glass header (§4.23.B, §4.24.A/B) ----
-   * Floating rounded glass panel over the video: sticky at 12px; §4.24.A:
-   * the header is the SAME 80% column as the content, via the container
-   * breakout — width = container + 2 × its own padding, negative
-   * margin-inline pulling it out (no vw units — a classic scrollbar can
-   * never make it outgrow the viewport). The §4.23.B inset chip width
-   * retires (§4.24.F.1). Translucent fill via the black token family,
-   * backdrop blur(14px) + saturate(1.1), a subtle violet hairline (22%
-   * Deepa) and rounded corners — radius-lg desktop / radius-md phone chip
-   * (the ONLY rounded surface, §4.24.F.4). §4.24.B two-tier fill: tier 1 =
-   * 92% (the no-blur fallback floor — its AA math is unchanged, ≈ 5.0:1
-   * worst case); tier 2 = 88% inside @supports, where the blur actually
-   * runs (blur-inclusive worst case ≈ 5.2:1 — the 14px kernel diffuses a
-   * worst-case white pixel, muted text holds AA ≥ 4.5). The blur radius
-   * and saturation lift are unchanged; the hairline is unchanged. */
+  /* ---------- section 1: the TRUE liquid-glass header (§4.25.C) ----------
+   * The owner's EXACT values, verbatim (Concept §37.3): position: fixed;
+   * top: 0 — out of the flow, so the §4.25.A hero region spans the full
+   * first viewport from the page top and the video scrolls directly
+   * underneath the never-moving header. background rgba(20, 20, 30, 0.25)
+   * (the sanctioned raw-literal palette exception, §4.25.D.7) +
+   * backdrop-filter blur(16px) saturate(180%) (both prefixes), glossy 1px
+   * rgba(255, 255, 255, 0.15) top/bottom borders (side borders NONE) and
+   * the soft inset inner highlight — the liquid-glass edge. Rounding KEPT
+   * (radius-lg desktop / radius-md phone chip — the only rounded surface,
+   * §4.24.F.4). Width re-cut for fixed positioning: the viewport is the
+   * containing block, so the §4.24.A container breakout retires and the
+   * header sizes directly against the viewport with the SAME width
+   * expression as .landing — max(80%, 280px) + margin-inline auto keeps
+   * the two pixel-identical at every viewport (the two-tier 92%/88%
+   * color-mix recipe and the violet Deepa hairline are DELETED,
+   * §4.25.D.3; where backdrop-filter cannot run the fallback is a single
+   * higher-opacity tint so text stays readable). The AA tradeoff over
+   * bright video frames is the owner's recorded owner-order exception
+   * (§4.25.C). Keep-list, inner paddings, min-heights and z 10 unchanged. */
   .top {
-    position: sticky;
-    top: var(--space-3);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    margin-inline: auto;
+    width: max(80%, 280px);
     z-index: 10;
-    width: calc(100% + 2 * var(--space-5));
-    margin-inline: calc(-1 * var(--space-5));
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: var(--space-4);
     min-height: 52px;
     padding: 8px 10px;
-    /* tier 1 — the @supports fallback floor (§4.23.B math unchanged) */
-    background: color-mix(in srgb, var(--color-landing-bg) 92%, transparent);
-    -webkit-backdrop-filter: blur(14px) saturate(1.1);
-    backdrop-filter: blur(14px) saturate(1.1);
-    border: 1px solid color-mix(in srgb, var(--color-deepa-4) 22%, transparent);
+    /* --- the owner's EXACT values, verbatim (§4.25.C) ---------------- */
+    background: rgba(20, 20, 30, 0.25);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    backdrop-filter: blur(16px) saturate(180%);
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
     border-radius: var(--radius-lg);
   }
-  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-    /* tier 2 — 12% show-through: the blur becomes perceptible (§4.24.B) */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    /* no blur support: a single higher-opacity tint keeps the chrome readable */
     .top {
-      background: color-mix(in srgb, var(--color-landing-bg) 88%, transparent);
+      background: rgba(20, 20, 30, 0.85);
     }
   }
   @media (max-width: 719.98px) {
@@ -393,8 +403,6 @@
   }
   @media (min-width: 720px) {
     .top {
-      width: calc(100% + 2 * var(--space-7));
-      margin-inline: calc(-1 * var(--space-7));
       min-height: 56px;
       padding: 10px 16px;
     }
@@ -439,30 +447,27 @@
     }
   }
 
-  /* ---------- the content column over the video (§4.24.D/E) ----------
-   * PHONE: the DOM order below IS the mobile stack — glass header chip →
-   * lead opaque panel → agent card → stat card → the three step blocks →
-   * contact footer (everything overlays the fixed video background).
-   * §4.24.E: on phones the site "opens" on pure video — the first content
-   * block starts below the two-thirds mark, via padding-top on the content
-   * wrapper (dvh tracks the mobile URL bar; desktop has NO offset).
-   * Desktop (≥720px): the §4.24.D THIRDS grid — lead in column 1, the
-   * agent card in column 3, the middle third EMPTY (the video + vignette
-   * + dots show through; nothing is placed in column 2). The §4.23.D
-   * `minmax(0,1fr) 360px` row and the 360px agent-card cap retire
-   * (§4.24.F.5) — the card fills its third (≈ 288px at 1280). */
+  /* ---------- the content column over the video (§4.25.A) ----------
+   * PHONE: the DOM order below IS the mobile stack — fixed glass header →
+   * lead (transparent, the 100dvh hero region — the Start block centered
+   * in screen 1) → agent card (NEXT in flow) → stat card → the three step
+   * blocks → contact footer (everything overlays the fixed video
+   * background; the §4.24.E `calc(200dvh / 3)` spacer is DELETED — the
+   * open state is produced entirely by the 100dvh constructions,
+   * §4.25.D.1).
+   * Desktop (≥720px): the §4.24.D THIRDS grid as the HERO REGION —
+   * `min-height: 100dvh` + `align-content: center` + `align-items: center`
+   * (superseding §4.24.D's `align-items: start`, §4.25.D.6): the lead in
+   * column 1, the agent card in column 3, the middle third EMPTY (the
+   * video + vignette + dots show through; nothing is placed in column 2);
+   * lead + BLEAK float vertically centered in the first viewport,
+   * side-by-side. The stat card, step blocks and footer flow AFTER the
+   * hero region (below the fold initially, revealed on scroll). */
   .canvas {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
     min-width: 0;
-  }
-  @media (max-width: 719.98px) {
-    /* the §4.24.E open state: exactly 2/3 of the viewport before the
-     * first content block — the floating glass header + pure video only */
-    .canvas {
-      padding-top: calc(200dvh / 3);
-    }
   }
   .stage {
     display: flex;
@@ -470,12 +475,25 @@
     gap: var(--space-6);
     min-width: 0;
   }
+  @media (max-width: 719.98px) {
+    /* the phone hero region: the Start block centers in the first screen;
+     * BLEAK is the immediately following block in flow */
+    .area-lead {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+  }
   @media (min-width: 720px) {
     .stage {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       column-gap: var(--space-6);
-      align-items: start;
+      /* the hero row = the whole first viewport, everything centered */
+      min-height: 100dvh;
+      align-content: center;
+      align-items: center;
     }
     .area-lead {
       grid-column: 1;
@@ -485,27 +503,32 @@
     }
     /* column 2: NO element — nothing is placed there (§4.24.D) */
   }
-  /* anchored sections never hide under the stuck glass panel (§4.23.B) */
+  /* anchored sections never hide under the fixed glass panel (§4.25.C) */
   .area-agents,
   .area-tutorial {
     scroll-margin-top: 80px;
   }
 
-  /* ---------- lead block (§4.20.C verbatim copy; §4.24.C OPAQUE) ----------
-   * The §4.23.D liquid-glass lead panel is RETIRED (§4.24.F.3): the lead
-   * is a solid panel in the §4.20.G card language — outer pixel frame +
-   * inner `--color-surface` body, SQUARE/stepped corners (with the glass
-   * gone, the rounded exception applies only to the header). NO
-   * backdrop-filter, no translucent fill — the pixel frame IS the border.
-   * Narrower (§4.24.C): the lead fills its thirds column — ≈ 288px at
-   * 1280 (100% of the container content width on phone); the §4.23.D
-   * content-sized/560px lead sizing retires. */
+  /* ---------- lead block (§4.20.C verbatim copy; §4.25.B TRANSPARENT) ----
+   * §37.2: the lead is TRANSPARENT and without border — no solid panel, no
+   * pixel frame (§4.24.C's opaque construction and the §4.20.G
+   * pixel-frame are retired FOR THIS BLOCK, §4.25.D.2; §4.20.G stands for
+   * the agent/stat/step/footer surfaces). The headline + supporting text +
+   * Start button sit DIRECTLY over the video background; legibility =
+   * text treatment ONLY — a token-only dark halo on `.headline`/`.sub`
+   * (the accent word keeps its own violet glow declaration, which
+   * overrides the inherited halo). The old body padding stays as inert
+   * spacing that keeps the copy clear of the thirds edge — it is not a
+   * panel. The Start button is unchanged (an opaque violet pill — it
+   * never relied on the panel). Narrower (§4.24.C): the lead fills its
+   * thirds column — ≈ 288px at 1280 (100% of the container content width
+   * on phone). */
   .copy {
     min-width: 0;
     width: 100%;
   }
   .copy-body {
-    background: var(--color-surface);
+    background: transparent;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -529,6 +552,10 @@
     text-transform: uppercase;
     color: var(--color-text);
     overflow-wrap: anywhere;
+    /* the §4.25.B legibility halo — token-only, over the near-black video */
+    text-shadow:
+      0 1px 2px color-mix(in srgb, var(--color-surface) 90%, transparent),
+      0 0 14px color-mix(in srgb, var(--color-surface) 55%, transparent);
   }
   .hl-line {
     display: block;
@@ -588,6 +615,10 @@
     font-size: 14px;
     color: var(--color-text-muted);
     max-width: 40ch;
+    /* the §4.25.B legibility halo (the softer ambient tail) */
+    text-shadow:
+      0 1px 2px color-mix(in srgb, var(--color-surface) 90%, transparent),
+      0 0 10px color-mix(in srgb, var(--color-surface) 55%, transparent);
   }
   @media (min-width: 720px) {
     .sub {
