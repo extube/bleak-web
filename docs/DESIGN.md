@@ -4880,6 +4880,445 @@ dead keys exist in NEITHER.
    dissolve stays structural (vignette → `--color-landing-bg`), and the
    5% violet cast in the token stays the best token-only estimate.
 
+### 4.24 v3.18 feature design (2026-11-22, owner-approved Concept §36): §36 80% widths + opaque narrower lead + thirds layout + phone open state
+
+The owner reviewed the video-background landing and issued the four-item §36
+batch: the header and the whole page content are constrained to **80% of the
+screen width** (centered), the lead block becomes **fully opaque and
+narrower**, the desktop composition becomes a **thirds row** (lead / empty /
+agent), and on **phones the site opens with the top two-thirds showing no
+content blocks** — pure video under the floating header. This section amends
+§4.23 (→ §4.22 → §4.21 → §4.20) item by item; **where §4.24 is silent, the
+earlier specs stand** except where §4.24.F explicitly supersedes them (the
+video layer stack §4.23.A, the keep-list §4.22.A, cards §4.20.G/§4.21.F, step
+blocks §4.21.E, contact footer §4.21.G, headline copy + Start CTA §4.20.C,
+behavior §4.20.L, motion/a11y baselines §4.20.L/§4.6 all carry over unchanged
+unless named below). Same sandbox constraint as §4.22/§4.23: **no
+video-inspection tooling exists** — the video layer decisions carry VERBATIM
+from §4.23 (fixed z 0 video + z 1 vignette/tint + z 2 dots + z 3 content +
+z 10 header; the committed asset stays untouched; reduced-motion fallback
+unchanged). Grounded in the live code: `apps/web/src/routes/+page.svelte`,
+`lib/components/landing/LandingVideoHero.svelte`, `lib/styles/tokens.css`,
+`tests/landing-page.test.ts`. Hard constraints unchanged: **no new
+dependencies** (`@supports`/`clamp()` are native CSS), **no new color values**
+(tokens or `color-mix` alpha variants only — the opaque lead reuses an
+EXISTING surface token), **no canvas, no animation library**, **routes
+untouched**, **/income surfaces untouched**, the video asset stays.
+**API endpoints used: none** — the landing stays fetch-free (§4.20
+preamble). Task: tz12-08 (`feature/aef20dd9-tz12-08-widths-thirds`).
+
+#### 4.24.A The 80%-width container + the 80% header (item 1)
+
+One container rule governs the whole page; the header rides the same width.
+
+- **The content container (`.landing`) — exactly 80% of the screen width,
+  centered:** `.landing` drops `max-width: 1000px` (the §4.20 canvas cap is
+  RETIRED for width — §36's wording is unconditional: "constrained to 80% of
+  the screen width"; capping at 1000px would make the content 52% wide at
+  1920, contradicting the owner) and gains:
+  ```css
+  .landing {
+    width: max(80%, 280px);
+    margin-inline: auto;
+    /* max-width: none — the 1000px cap retires; padding, flex column and
+       the --space-6 gap rhythm are unchanged (§4.23.A) */
+  }
+  ```
+  The internal padding stays `var(--space-5)` phone / `var(--space-7)`
+  desktop; the flex-column `gap: var(--space-6)` stays. `.landing` remains
+  the ONE container: header + `main.canvas` (lead thirds row, stat card,
+  step blocks, footer) all live inside it — every section is constrained to
+  the same 80% column. The `--color-landing-bg` full-bleed page background
+  and the fixed video layer are NOT constrained (they stay full-viewport,
+  §4.23.A).
+- **The 280px floor (phone keep-list usability):** 80% of a 320px screen is
+  256px — usable but tight; `max(80%, 280px)` floors the column at 280px.
+  At 320px the column is 280px (20px gutters each side — no horizontal
+  scroll, the §4.20.K invariant holds); the phone chip (icon + switcher
+  only, §4.22.A) uses ≈ 40px icon + 16px gap + ≈ 84px LocaleControl +
+  20px padding ≈ 160px inside 280px — the keep-list fits with ≈ 120px
+  slack. At 390px the column is 312px (pure 80%). At ≥ 350px screens the
+  floor never engages (pure 80%).
+- **The header = the same 80%, via a container breakout:** the §4.23.B chip
+  width `min(100% - 24px, calc(1000px - 48px))` is RETIRED. The sticky
+  header stays the first child of `.landing` (sticky still works — its
+  containing block `.landing` spans the full page height) and breaks out of
+  the container's padding so it spans the container's full 80%:
+  ```css
+  .top {
+    position: sticky;        /* top: var(--space-3), z-index: 10 unchanged */
+    width: calc(100% + 2 * var(--space-5));
+    margin-inline: calc(-1 * var(--space-5));
+  }
+  @media (min-width: 720px) {
+    .top {
+      width: calc(100% + 2 * var(--space-7));
+      margin-inline: calc(-1 * var(--space-7));
+    }
+  }
+  ```
+  Resulting widths: **1280 → 1024px header (80%), 390 → 312px, 320 → 280px
+  (the floor)** — the header is exactly as wide as the content container,
+  centered with it. The header's own inner padding is unchanged
+  (`8px 10px` phone / `10px 16px` desktop, min-height 52/56px); the sticky
+  offset `top: var(--space-3)` and `z-index: 10` are unchanged; the
+  `scroll-margin-top: 80px` anchor guard is unchanged (the header row
+  height did not change). No `vw` units anywhere — the breakout is computed
+  from the container's own padding, so a visible classic scrollbar can
+  never make the header outgrow the viewport.
+
+#### 4.24.B Header blur verification + the two-tier glass recipe (item 1 rider)
+
+The owner hints the backdrop blur "may have been hard to see". The audit is
+done; the fix is a fill-opacity tier, not a property change.
+
+- **Verification outcome (live audit, 2026-11-22):** the recipe IS applied —
+  `+page.svelte` renders `backdrop-filter: blur(14px) saturate(1.1)` +
+  `-webkit-backdrop-filter` on `.top` (lines ~359–360), and **nothing
+  overrides it** (grep over `apps/web/src`: the only other
+  `backdrop-filter` is `ShareContactSlide.svelte`, a different page — no
+  ancestor creates a containing block, no mask/filter interference). The
+  imperceptibility is a **legibility-vs-visibility trade-off**, not a
+  missing property: the 92% `--color-landing-bg` fill leaves only 8%
+  show-through, and the show-through is of an already near-black clip —
+  blurred near-black under a 92% dark fill reads as a flat dark chip. The
+  glass cues that DO render are the hairline and the rounded corners.
+- **The fix — a two-tier fill, AA floor kept (decided):** keep the 92% fill
+  as the no-blur fallback floor and lower the fill to **88%** where
+  `backdrop-filter` actually runs:
+  ```css
+  .top {
+    /* tier 1 — the @supports fallback floor (§4.23.B math unchanged) */
+    background: color-mix(in srgb, var(--color-landing-bg) 92%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(1.1);
+    backdrop-filter: blur(14px) saturate(1.1);
+    border: 1px solid color-mix(in srgb, var(--color-deepa-4) 22%, transparent);
+    border-radius: var(--radius-lg); /* var(--radius-md) phone chip */
+  }
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .top {
+      /* tier 2 — 12% show-through: the blur becomes perceptible */
+      background: color-mix(in srgb, var(--color-landing-bg) 88%, transparent);
+    }
+  }
+  ```
+  **AA re-derivation for the 88% tier:** §4.23.B's 5.0:1 worst case assumed
+  a pure-white pixel with NO blur. Where the blur runs, a worst-case white
+  pixel is diffused across the 14px kernel; the conservative bound is a
+  kernel window ≤ 50% bright pixels → the composite is ≈ rgb(36, 31, 43)
+  → muted text `#919397` holds ≈ **5.2:1** (AA ≥ 4.5 kept). Where
+  `backdrop-filter` is unsupported, tier 1 (92%) keeps the original
+  ≈ 5.0:1 no-blur worst case — the floor never drops. Blur radius (14px)
+  and saturation lift (1.1) are unchanged; the hairline, radius tokens and
+  keep-list are unchanged. **Explicit test assertions (amend the
+  `landing-page.test.ts` glass-recipe test):** (a) the `backdrop-filter` /
+  `-webkit-backdrop-filter` declarations are present on `.top` (the
+  existing source-regex assertions stay); (b) the `@supports` 88% tier
+  exists in the source CSS; (c) the 92% tier 1 declaration still exists;
+  (d) no OTHER rule in the landing sources overrides
+  `backdrop-filter` on `.top` (a negative grep-style assertion). The lead
+  panel leaves the glass recipe entirely (§4.24.C), so the shared
+  `.top, .glass` selector block reduces to `.top` alone and the `.glass`
+  class retires from markup and CSS.
+
+#### 4.24.C The lead block: fully OPAQUE + narrower (item 2)
+
+The §4.23.D liquid-glass lead panel is RETIRED. The lead becomes a solid
+panel in the established §4.20.G card language — the translucency contrast
+with the glass header is intentional (one glass surface, one opaque surface).
+
+- **Token — decided:** the lead body is solid **`--color-surface`**
+  (`#101213`, the exact token every pixel-frame card body already uses —
+  agent/stat/step/footer). NOT `--color-landing-bg` (the page token — a
+  panel of it would melt into the page background and only the hairline
+  would betray it; `--color-surface` reads as the established card
+  material). Muted/body text on `--color-surface` is the established AA
+  geometry (§4.20.G).
+- **Construction — the §4.20.G opaque-surface pixel-frame contract keeps:**
+  the lead section adopts the same card construction as the agent/stat
+  cards: outer `pixel-corners pixel-frame pixel-frame--strong` + inner
+  `pixel-corners` body (`background: var(--color-surface)`, the existing
+  card pattern), **square/stepped corners** — with the glass gone, the
+  rounded-corner exception (§4.23.B: "scoped to glass surfaces") no longer
+  applies to the lead; **the header is the ONLY rounded surface left**.
+  Padding stays `20px` phone / `28px` desktop (inside the body). NO
+  `backdrop-filter`, no translucent fill, no hairline-glass border — the
+  pixel frame IS the border.
+- **Narrower — decided width:** the lead no longer sizes to content
+  (`fit-content`, max-width 560px — retired); it **fills its thirds column**
+  (§4.24.D): `width: 100%` of grid column 1. Exact calc at **1280** with
+  the 80% container: 0.8 × 1280 = **1024px container**; minus the container
+  padding 2 × 48 (`--space-7`) = 928px content; thirds grid with two
+  `--space-6` (32px) gaps: (928 − 64) / 3 = **288px per third → the lead
+  panel is ≈ 288px wide** (down from ≤ 560px), ≈ 232px of text width after
+  its 28px padding. Phone: the lead is **100% of the container content
+  width** (232px at a 320px screen, 264px at 390px).
+- **Copy + alignment verbatim (§4.20.C):** headline (3 lines + accent word
+  + sparkles) + subheadline + Start CTA → `/income`; left-aligned desktop,
+  centered phone — all unchanged. **One size amendment (recorded in
+  §4.24.J):** the desktop headline drops from the §4.20.C 64px to
+  `clamp(22px, 3.5vw, 44px)` at ≥ 720px — 64px "CONNECTIONS" (≈ 300px in
+  Handjet) cannot hold a 232px text column without a mid-word break
+  (`overflow-wrap: anywhere`); at 1280 the clamp caps at 44px (≈ 210px —
+  fits), and it scales down with the third at narrower desktops (≈ 25px at
+  720px, still one line). Phone sizes unchanged (36px / 44px ≥ 480px — the
+  208px phone text box holds 36px "CONNECTIONS" ≈ 170px). The sub
+  (16px/40ch) and the CTA pill are unchanged.
+
+#### 4.24.D The thirds layout (desktop ≥720px) (item 3)
+
+The §4.23.D plain-flow two-column row (`minmax(0, 1fr) 360px`) is RETIRED.
+Within the 80% container, the first content row becomes **three equal
+thirds — lead / EMPTY / agent**:
+
+```css
+@media (min-width: 720px) {
+  .stage {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    column-gap: var(--space-6);        /* 32px — the §4.23.D gap rhythm */
+    align-items: start;                 /* carried from §4.23.D */
+  }
+  .area-lead   { grid-column: 1; }      /* the lead = the FIRST third */
+  .area-agents { grid-column: 3; }      /* the BLEAK card = the LAST third */
+  /* column 2: NO element — nothing is placed there */
+}
+```
+
+- **The middle third is EMPTY:** no block, no glass panel, no spacer — the
+  fixed video layer (z 0) + vignette/tint (z 1) + the dot mesh (z 2) show
+  through directly (the content column paints no background). Dots falling
+  in that band are visible — intended (the ambient "sky", §4.23.A layer 3).
+  Negative assertion: no landing element declares `grid-column: 2`, and no
+  glass panel exists in the middle third.
+- **The 360px agent-card cap is RE-CUT:** the card's `width: 100%` now
+  resolves against its thirds column — **288px at 1280** (the §4.23.D
+  `360px` cap and the `minmax(0, 1fr) 360px` track both retire). The card's
+  §4.20.G contract (pixel frame, hover lift + glow, press scale, focus
+  rings, TALK → `/income`) carries verbatim; its body padding (20px) and
+  inner layout are unchanged — the 248px inner width holds the 96px
+  portrait, the 24px BLEAK name, the badge, the traits and the quote.
+- **Below the thirds row, unchanged:** the stat card (§4.21.F compact),
+  the three step blocks (§4.21.E — equal thirds, ~300px min-height, no
+  hover/motion) and the contact footer (§4.21.G) keep their contracts
+  verbatim, now as full-width rows of the 80% container. Phone (<720px):
+  `.stage` stays the §4.23.D flex-column stack in DOM order (lead → agent
+  → stat → steps → footer); the thirds grid is desktop-only.
+
+#### 4.24.E Phone open state (item 4)
+
+Owner verbatim (Concept §36.4, recorded as such): *"the site should opens
+with 2/3 from top without blocks from content's"* — sane reading: when the
+site opens on a phone, the top two-thirds of the screen show no content
+blocks (the video background only, under the floating glass header); the
+content blocks begin below that mark.
+
+- **Construction — a spacer on the content wrapper (decided, robust):**
+  the first content block's offset is `padding-top` on `main.canvas`
+  (the content wrapper under the header), phone only:
+  ```css
+  @media (max-width: 719.98px) {
+    .canvas {
+      padding-top: calc(200dvh / 3);   /* exactly 2/3 of the viewport */
+    }
+  }
+  ```
+  Why this construction: it offsets WHATEVER the first block is (no
+  coupling to the lead element), it is one declaration, and it is immune
+  to the header's exact height. **Threshold — decided:** `200dvh / 3` in
+  **`dvh`** units (not `vh`) — the dynamic viewport tracks the mobile URL
+  bar's collapse/expand so the open state reads "two-thirds of what you
+  see"; `dvh` is already the established unit on this page
+  (`.landing-page { min-height: 100dvh }`). Desktop (≥720px) has **no
+  offset** — the thirds row sits directly under the header.
+- **What the open state shows:** the sticky glass header chip floats at
+  the top (in-flow first child, sticky `top: 12px` — it never leaves) over
+  PURE VIDEO for the top two-thirds; the first content block (the lead)
+  begins at or below the two-thirds mark (header ≈ 56px + container
+  padding 24px + the spacer ⇒ at 390×844 the first block's top is
+  ≈ 639px > the 562.7px two-thirds mark; at 320×640 ≈ 483px > 426.7px).
+  The header is chrome, not a content block — the owner's reading is
+  "header over pure video".
+- **Interactions with carried contracts:** reduced motion — the video-only
+  zone shows the static tint + vignette + dots state (§4.23.G unchanged;
+  the spacer is motion-free). Video error — the same zone shows the
+  near-black treatment. The page scrolls normally; the spacer adds no
+  horizontal scroll risk (§4.20.K); anchor jumps (`#tutorial`, `#agents`)
+  are unaffected (the spacer only pads the top of the flow).
+
+#### 4.24.F Supersessions (explicit record)
+
+1. **§4.23.B header chip width superseded:** `width: min(100% - 24px,
+   calc(1000px - 48px))` is replaced by the container breakout (§4.24.A) —
+   the header spans the full 80% column (`calc(100% + 2 * padding)` +
+   negative `margin-inline`), not a narrower inset chip. Sticky offset,
+   z-index, padding, min-height, radius tokens and keep-list unchanged.
+2. **The 1000px canvas cap superseded (width only):** `.landing` drops
+   `max-width: 1000px` for `width: max(80%, 280px)` (§4.24.A) — the §4.20
+   "1000px content canvas" is retired as a width rule; the container's
+   padding, flex rhythm and centering stand.
+3. **§4.23.D glass lead panel superseded:** the liquid-glass lead (92%
+   fill + blur + rounded corners + hairline) is retired; the lead is a
+   solid `--color-surface` pixel-frame panel (§4.24.C). §4.23.I flag 2
+   (the glass-lead ADVICE flag) is resolved by the owner's §36 item 2.
+4. **§4.23.B rounded-scope amended:** the lead was the second rounded
+   surface; now **only the header** is rounded — every pixel-frame surface
+   (including the lead) is square/stepped again.
+5. **§4.23.D desktop two-column row superseded:** `grid-template-columns:
+   minmax(0, 1fr) 360px` is replaced by the thirds grid
+   `repeat(3, 1fr)` — lead col 1, agent col 3, col 2 empty; the 360px
+   agent-card cap re-cuts to the column width (§4.24.D).
+6. **§4.23.D phone stack top superseded:** on phones the content stack no
+   longer starts near the top — the `calc(200dvh / 3)` canvas spacer puts
+   the first block below the two-thirds mark (§4.24.E). DOM order below
+   the spacer unchanged.
+7. **§4.23.B "92% is the floor — do not lower" amended:** the 92% fill
+   remains the no-blur fallback floor, and a `@supports` tier lowers the
+   fill to 88% where the blur actually runs — the AA floor is kept on both
+   tiers by the blur-inclusive re-derivation (§4.24.B).
+8. **Superseded-but-carried:** the §4.23.A fixed layer stack (z 0–10), the
+   decisive video attribute set, the gated one-shot mount `.play()`, the
+   error fallback, the 12-dot mesh, the §4.22.A keep-list, the §4.20.C
+   copy/CTA, the §4.21.E/F/G section contracts and the §4.20.L behavior
+   all carry into §4.24 unchanged.
+
+#### 4.24.G RU/EN i18n delta (grep-audited; both dictionaries required)
+
+**Zero delta** — §36 adds, removes and rewords no string: the header,
+lead, agent card, stat card, steps and footer keep their existing keys; the
+new layout is pure geometry/CSS. Live grep audit (2026-11-22, both dicts):
+exactly **23 `landing.*` keys per dictionary** (`headline.1/2/accent`,
+`sub`, `cta`, `stat.title`, `stat.line1/2/3`, `agent.name/badge/traits/
+quote/cta`, `tutorial.search/chat/share`, `steps.find/chat/share.desc`,
+`footer.contact.email.label`, `footer.contact.github.label`,
+`footer.copyright`) — the parity test asserts `toHaveLength(23)` and stays
+green UNCHANGED. (Record for accuracy: §4.23.F's prose projected 29 keys
+pre-build; the landed build consolidated to 23, which is what both dicts
+and the test carry — §4.24 changes nothing about that count.) No dead keys
+added or removed; the RU/EN switch still re-renders the page without a
+reload.
+
+#### 4.24.H Reduced motion + media states
+
+Unchanged from §4.23.G in full — the spacer and the 80% container are
+motion-free geometry. The phone open state's video-only zone shows the
+same static tint + vignette + dots under reduced motion and the same
+near-black treatment on video error; no loading/empty/error states exist
+(the landing fetches nothing, §4.20.L).
+
+#### 4.24.I Acceptance criteria (checkable)
+
+**80% widths (item 1):**
+1. `.landing` computes to **80% of the screen width, centered** — 1024px at
+   a 1280×800 viewport, 312px at 390px, **280px (the floor) at 320px** —
+   with `max-width: none` (no 1000px cap remains on `.landing`) and no
+   horizontal scroll at 320/760/1280 (§4.20.K holds).
+2. EVERY landing section (header, lead, agent card, stat card, three step
+   blocks, contact footer) lives inside that one container — no section
+   paints wider than 80% of the screen; the full-bleed layers
+   (`--color-landing-bg` background, fixed video/vignette/dots) are the
+   only full-width surfaces.
+3. The sticky header spans the same 80% (1024px at 1280; 312px at 390;
+   280px floor at 320), centered, via the container breakout
+   (`calc(100% + 2 * var(--space-5|--space-7))` + matching negative
+   `margin-inline`); sticky `top: 12px`, z 10, inner padding, min-heights
+   and the keep-list (§4.22.A verbatim) are unchanged; the phone chip
+   (icon + switcher) fits 280px with slack.
+
+**Header blur verification (item 1 rider):**
+4. The glass recipe on `.top` is applied AND verified: `backdrop-filter` +
+   `-webkit-backdrop-filter: blur(14px) saturate(1.1)` present (source
+   assertion, kept), the 92% tier-1 fill present, **and the
+   `@supports` tier-2 `color-mix(… 88% …)` fill present**; no other landing
+   rule overrides `backdrop-filter` on `.top` (negative assertion); the
+   AA floor holds on both tiers (92% ≈ 5.0:1 no-blur worst case; 88%
+   ≈ 5.2:1 blur-inclusive worst case, muted text ≥ 4.5:1).
+
+**Opaque narrower lead (item 2):**
+5. The lead panel is FULLY OPAQUE: body `background: var(--color-surface)`,
+   pixel-corners/pixel-frame construction, square corners, **no
+   `backdrop-filter` and no translucent `color-mix` fill** anywhere on it;
+   the copy (headline + accent + sparkles + sub + Start CTA) is §4.20.C
+   verbatim, left-aligned desktop / centered phone, Start → `/income`.
+6. The lead is NARROWER: it fills its thirds column — ≈ **288px at 1280**
+   (80% container − padding − gaps ÷ 3) and **100% of the container
+   content width on phone** (232px at 320, 264px at 390); the desktop
+   headline adapts (`clamp(22px, 3.5vw, 44px)`) with no mid-word break at
+   720/760/1024/1280; phone headline sizes unchanged.
+
+**Thirds layout (item 3, desktop ≥720px):**
+7. At ≥720px the first content row is a `repeat(3, 1fr)` thirds grid with
+   `--space-6` gaps and `align-items: start`: the **lead in column 1**, the
+   **BLEAK agent card in column 3**, **column 2 EMPTY** — no content block
+   and no glass panel occupy the middle third (negative assertion: no
+   `grid-column: 2` element); the video + vignette + dots show through.
+8. The agent card's width is its third's width (≈ 288px at 1280 — no
+   360px cap remains); its §4.20.G contract (hover lift + glow, press
+   scale, focus rings, TALK → `/income`) and the BLEAK/БЛИК naming
+   (§4.22.D) are unchanged.
+9. Below the thirds row the stat card (§4.21.F), the three step blocks
+   (§4.21.E: 01→03, equal thirds, ~300px min-height, no hover/motion) and
+   the contact footer (§4.21.G) render unchanged as full-width rows of the
+   80% container; phone (<720px) stacks lead → agent → stat → steps →
+   footer in DOM order (the thirds grid is desktop-only).
+
+**Phone open state (item 4):**
+10. At phone viewports (<720px) `main.canvas` carries
+    `padding-top: calc(200dvh / 3)` (dvh, not vh) — the first content
+    block's top lands **below the two-thirds mark** (≥ 2/3 of the dynamic
+    viewport: at 390×844 > 562.7px; at 320×640 > 426.7px) with NOTHING
+    between the floating glass header and that mark but the video layer;
+    the ≥720px rule sets NO such offset (the thirds row starts directly
+    under the header).
+11. The open state holds under reduced motion (static tint + vignette +
+    dots zone) and on video error (near-black treatment) — no blank screen,
+    no layout shift; anchor jumps still clear the stuck header
+    (`scroll-margin-top: 80px` unchanged).
+
+**i18n + behavior + suites:**
+12. i18n: **zero delta** — exactly 23 `landing.*` keys in BOTH dictionaries
+    (unchanged count, unchanged copy); the parity/dead-key tests pass
+    UNAMENDED; RU/EN switching re-renders without a reload.
+13. Behavior (§4.20.L/§4.22.A made exact): the entry points are EXACTLY
+    TWO — Start CTA and agent-card TALK, both → `/income`; the join
+    deep-links (`?code=` / `?u=`) still forward to `/income` with the
+    query preserved; the tab bar is absent on `/`; nothing on `/` fetches
+    (API endpoints used: none).
+14. Constraints: no new dependencies; palette tokens unchanged (the opaque
+    lead reuses `--color-surface`; the 88% tier is a `color-mix` alpha
+    variant of the existing `--color-landing-bg`); routes untouched;
+    `/income` untouched; the video asset stays; reduced-motion fallback
+    unchanged (§4.23.G); the video layer stack (z 0/1/2 + content z 3 +
+    header z 10) is unchanged.
+15. Suites amended and green: `landing-page.test.ts` (80% container +
+    header breakout + @supports 88% tier + opaque-lead + thirds-grid +
+    phone-spacer assertions; the `minmax(0,1fr) 360px` and
+    `min(100% - 24px, calc(1000px - 48px))` source assertions replaced),
+    `i18n.test.ts` / `sweep.test.ts` / `join-flow.test.ts` /
+    `creation-wizard.test.ts` / `mascot.test.ts` (untouched, green);
+    `make lint && make test && make build` green.
+
+#### 4.24.J Flags for the owner / concept (concept report)
+
+1. **ADVICE NEEDED — the desktop headline size:** §4.20.C fixed the desktop
+   headline at 64px; inside a 288px third that size mid-word-breaks
+   ("CONNECTIONS" ≈ 300px vs a 232px text box), so §4.24.C specs
+   `clamp(22px, 3.5vw, 44px)` at ≥ 720px (44px at 1280). If the owner
+   wants the 64px kept, the alternative is a wider lead (e.g. lead spanning
+   columns 1–2 with a narrower empty band), which contradicts the thirds
+   reading — the clamp is the recommended resolution.
+2. **ADVICE NEEDED — the glass-visibility band:** the 88% tier is decided;
+   on real-device smoke the owner may step it down to **85%** (still
+   ≈ 5.05:1 under the same blur-inclusive worst case) if the blur remains
+   imperceptible — 85% is the documented floor of the band, NOT a change
+   in this pass.
+3. **Record — the spacer lands the first block slightly below the exact
+   two-thirds line** (the in-flow header + container padding sit inside
+   the offset zone): the guarantee is "no content block within the top
+   two-thirds", which satisfies the owner's verbatim reading; landing the
+   block exactly AT the mark would require subtracting the header's
+   rendered height (fragile across the 52–56px row) and is not specced.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)

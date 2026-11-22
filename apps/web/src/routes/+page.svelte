@@ -1,36 +1,49 @@
 <script lang="ts">
   /**
-   * `/` — the landing page (tz12-07, Concept §35, DESIGN §4.23 amending
-   * §4.22/§4.21/§4.20 item by item):
+   * `/` — the landing page (tz12-08, Concept §36, DESIGN §4.24 amending
+   * §4.23 → §4.22 → §4.21 → §4.20 item by item):
    *
    * - Canvas: the §4.22.F page background stays — `--color-landing-bg` (the
    *   near-black page matching the video's own near-black background),
-   *   painted full-bleed by the page wrapper; the 1000px content canvas is
-   *   centered inside.
+   *   painted full-bleed by the page wrapper. §4.24.A: ONE container rule —
+   *   `.landing` is `max(80%, 280px)` wide, centered (the §4.20 1000px
+   *   canvas cap is retired as a width rule); every section lives inside
+   *   that one 80% column.
    * - §4.23.A fixed background: `LandingVideoHero` (REPURPOSED in place) is
    *   the FIRST child of `.landing-page` — a fixed full-viewport video
    *   layer (z 0) + dissolve vignette + 30% tint (z 1) + the 12-dot purple
    *   mesh (z 2); ALL landing blocks scroll OVER it as overlays. The
    *   §4.22.B "center video block" geometry and the phone no-overlay rule
    *   are superseded (§4.23.E).
-   * - Header (§4.23.B): a floating LIQUID-GLASS panel — sticky at 12px,
-   *   frosted translucent fill (92% landing-bg) + backdrop blur(14px)
+   * - Header (§4.23.B, as amended by §4.24.A/B): the floating LIQUID-GLASS
+   *   panel — sticky at 12px, frosted translucent fill + backdrop blur(14px)
    *   saturate(1.1) + violet hairline, ROUNDED corners (radius-lg desktop /
-   *   radius-md phone chip — the glass-surface exception to the pixel
-   *   aesthetic). Keep-list UNCHANGED (§4.22.A): the web icon (cutouts in
+   *   radius-md phone chip — the ONLY rounded surface left, §4.24.F.4). It
+   *   is the same 80% column as the content, via the container breakout
+   *   (`calc(100% + 2 * padding)` + matching negative `margin-inline`).
+   *   Two-tier glass fill (§4.24.B): 92% where blur cannot run (the
+   *   fallback floor), 88% inside `@supports` where the blur actually
+   *   renders. Keep-list UNCHANGED (§4.22.A): the web icon (cutouts in
    *   `--color-landing-bg`), the desktop-only in-page anchors and the
    *   working RU/EN switch; on phone the header is the smaller chip —
    *   icon + switcher only.
-   * - Lead section (§4.23.D): headline + subheadline + Start CTA
-   *   (§4.20.C verbatim) inside the SAME glass recipe — the legibility
-   *   decision (raw muted text over an arbitrary bright video region
-   *   cannot be guaranteed AA). The second (and last) rounded surface.
-   * - BLEAK agent card (§4.20.G-b as renamed §4.22.D) — pixel frame,
-   *   opaque surface, NO glass, floating over the video; desktop ≥720px
-   *   the lead panel and the agent card (360px cap) share one plain-flow
-   *   row; phone stacks in DOM order.
+   * - Lead section (§4.24.C): headline + subheadline + Start CTA
+   *   (§4.20.C verbatim; the desktop headline adapts via
+   *   `clamp(22px, 3.5vw, 44px)`) in a FULLY OPAQUE solid panel — the
+   *   §4.20.G pixel-frame construction (`--color-surface` body, square
+   *   corners), NO glass/translucency — the contrast with the glass header
+   *   is intentional.
+   * - Thirds layout (§4.24.D, desktop ≥720px): the first content row is
+   *   `repeat(3, 1fr)` — the lead in column 1, the BLEAK agent card in
+   *   column 3, the MIDDLE THIRD EMPTY (the fixed video + vignette + dots
+   *   show through; no element is placed in column 2). The §4.23.D
+   *   `minmax(0,1fr) 360px` row and the 360px cap retire.
+   * - Phone open state (§4.24.E): on phones the first content block starts
+   *   below the two-thirds mark — `main.canvas` gets
+   *   `padding-top: calc(200dvh / 3)` at <720px; desktop has no offset.
    * - Stat card (§4.21.F compact) + the three BIG step blocks (§4.21.E):
-   *   FIND / CHAT / SHARE — opaque pixel frames, floating over the video.
+   *   FIND / CHAT / SHARE — opaque pixel frames, floating over the video,
+   *   full-width rows of the 80% container below the thirds row.
    * - Footer (§4.21.G): the site contact block — extube@proton.me +
    *   github.com/extube with RU/EN labels.
    * - Reminders REMOVED (§4.23.C, §35 item 3): LandingReminder, its props,
@@ -103,19 +116,20 @@
 </script>
 
 <!-- §4.22.F: the full-bleed landing page background — --color-landing-bg
-     (scoped to /; every other page keeps --color-bg), the 1000px canvas
-     centered inside. -->
+     (scoped to /; every other page keeps --color-bg); §4.24.A: the single
+     80%-width content container is centered inside. -->
 <div class="landing-page">
   <!-- §4.23.A: the fixed full-viewport video background — the FIRST child
        of .landing-page, before .landing; the page content scrolls over it. -->
   <LandingVideoHero />
   <div class="landing">
-    <!-- SECTION 1 — HEADER (§4.23.B): the floating liquid-glass panel —
-         sticky at 12px, frosted translucent fill + backdrop blur + violet
-         hairline + rounded corners (radius-lg desktop / radius-md phone
-         chip). Keep-list (§4.22.A verbatim): the web icon + the navigation
-         + the language switcher ONLY; on phone icon + switcher (the
-         anchors are a desktop convenience). -->
+    <!-- SECTION 1 — HEADER (§4.23.B, §4.24.A/B): the floating liquid-glass
+         panel — sticky at 12px, frosted translucent fill + backdrop blur +
+         violet hairline + rounded corners (radius-lg desktop / radius-md
+         phone chip), spanning the container's full 80% via the breakout.
+         Keep-list (§4.22.A verbatim): the web icon + the navigation + the
+         language switcher ONLY; on phone icon + switcher (the anchors are
+         a desktop convenience). -->
     <header class="top">
       <!-- the §30 FormShell app mark, plate-less; the cutout cells are the
            landing page background token so the mark dissolves into the new
@@ -153,47 +167,52 @@
     </header>
 
     <main class="canvas">
-      <!-- §4.23.D: the .stage grid is retired to a plain-flow container —
-           desktop the lead glass panel (column 1) and the agent card
-           (column 2, 360px cap) share one row; phone stacks in DOM order
-           (everything overlays the fixed video background now). -->
+      <!-- §4.24.D: the thirds grid — desktop ≥720px the lead (column 1) and
+           the agent card (column 3) share one row; the MIDDLE THIRD (column
+           2) stays EMPTY — the fixed video + vignette + dots show through.
+           Phone stacks in DOM order (below the §4.24.E open-state spacer). -->
       <div class="stage">
-        <!-- the lead — HEADLINE BLOCK + START CTA (§4.20.C verbatim) inside
-             the §4.23.D liquid-glass panel (the second rounded surface) -->
-        <section class="copy area-lead glass">
-          <h1 class="headline">
-            <span class="hl-line">{translate($locale, 'landing.headline.1')}</span>
-            <span class="hl-line">{translate($locale, 'landing.headline.2')}</span>
-            <span class="hl-line accent-line">
-              <span class="accent-word">
-                {translate($locale, 'landing.headline.accent')}
-                <svg
-                  class="sparkle spark-a"
-                  viewBox="0 0 8 8"
-                  aria-hidden="true"
-                  shape-rendering="crispEdges"
-                  fill="var(--color-deepa-4)"
-                >
-                  <rect x="3" y="0" width="2" height="8" />
-                  <rect x="0" y="3" width="8" height="2" />
-                </svg>
-                <svg
-                  class="sparkle spark-b"
-                  viewBox="0 0 8 8"
-                  aria-hidden="true"
-                  shape-rendering="crispEdges"
-                  fill="var(--color-deepa-4)"
-                >
-                  <rect x="3" y="0" width="2" height="8" />
-                  <rect x="0" y="3" width="8" height="2" />
-                </svg>
+        <!-- the lead — HEADLINE BLOCK + START CTA (§4.20.C verbatim) in the
+             §4.24.C FULLY OPAQUE panel: the §4.20.G pixel-frame
+             construction, solid --color-surface body, SQUARE corners (the
+             header is now the ONLY rounded surface, §4.24.F.4) — no glass,
+             no translucency. -->
+        <section class="copy area-lead pixel-corners pixel-frame pixel-frame--strong">
+          <div class="copy-body pixel-corners">
+            <h1 class="headline">
+              <span class="hl-line">{translate($locale, 'landing.headline.1')}</span>
+              <span class="hl-line">{translate($locale, 'landing.headline.2')}</span>
+              <span class="hl-line accent-line">
+                <span class="accent-word">
+                  {translate($locale, 'landing.headline.accent')}
+                  <svg
+                    class="sparkle spark-a"
+                    viewBox="0 0 8 8"
+                    aria-hidden="true"
+                    shape-rendering="crispEdges"
+                    fill="var(--color-deepa-4)"
+                  >
+                    <rect x="3" y="0" width="2" height="8" />
+                    <rect x="0" y="3" width="8" height="2" />
+                  </svg>
+                  <svg
+                    class="sparkle spark-b"
+                    viewBox="0 0 8 8"
+                    aria-hidden="true"
+                    shape-rendering="crispEdges"
+                    fill="var(--color-deepa-4)"
+                  >
+                    <rect x="3" y="0" width="2" height="8" />
+                    <rect x="0" y="3" width="8" height="2" />
+                  </svg>
+                </span>
               </span>
-            </span>
-          </h1>
-          <p class="sub">{translate($locale, 'landing.sub')}</p>
-          <button type="button" class="cta-main" onclick={start}>
-            {translate($locale, 'landing.cta')}
-          </button>
+            </h1>
+            <p class="sub">{translate($locale, 'landing.sub')}</p>
+            <button type="button" class="cta-main" onclick={start}>
+              {translate($locale, 'landing.cta')}
+            </button>
+          </div>
         </section>
 
         <!-- the agent — AGENT CHARACTER CARD (§4.20.G-b, renamed
@@ -301,9 +320,11 @@
 
 <style>
   /* §4.22.F: the full-bleed near-black page background (the video's own
-   * near-black, 5% Deepa cast) — scoped to /; the 1000px canvas centered
-   * inside. §4.23.A: .landing is the z-3 scrolling content column ABOVE
-   * the fixed video layer (z 0/1/2). */
+   * near-black, 5% Deepa cast) — scoped to /; §4.24.A: .landing is the
+   * z-3 scrolling content column ABOVE the fixed video layer (z 0/1/2),
+   * the ONE container rule: max(80%, 280px) wide, centered — every
+   * section lives inside it (the 1000px canvas cap is retired as a width
+   * rule, §4.24.F.2). */
   .landing-page {
     min-height: 100dvh;
     background: var(--color-landing-bg);
@@ -311,9 +332,8 @@
   .landing {
     position: relative;
     z-index: 3;
-    width: 100%;
-    max-width: 1000px;
-    margin: 0 auto;
+    width: max(80%, 280px);
+    margin-inline: auto;
     padding: var(--space-5);
     display: flex;
     flex-direction: column;
@@ -325,41 +345,45 @@
     }
   }
 
-  /* ---------- section 1: the liquid-glass header (§4.23.B) ----------
-   * Floating rounded glass panel over the video: sticky at 12px, side
-   * insets 12px, aligned to the 1000px canvas; translucent fill via the
-   * black token family (92%), backdrop blur(14px) + saturate(1.1), a
-   * subtle violet hairline (22% Deepa) and rounded corners — radius-lg
-   * desktop / radius-md phone chip (the ONLY rounded surface family,
-   * scoped to the glass panels; the pixel aesthetic's square/stepped
-   * corners stay the rule everywhere else, §4.5). The same recipe styles
-   * the lead panel (§4.23.D). AA floor (§4.23.B): the 92% fill alone
-   * composites a worst-case white video pixel to a near-black — muted text
-   * holds ≈ 5.0:1; with blur the real local average is the clip's
-   * near-black. @supports fallback: where backdrop-filter is unsupported
-   * the fill alone still guarantees the same worst-case contrast — the
-   * panel just reads near-solid. Do not lower the 92% ratio. */
+  /* ---------- section 1: the liquid-glass header (§4.23.B, §4.24.A/B) ----
+   * Floating rounded glass panel over the video: sticky at 12px; §4.24.A:
+   * the header is the SAME 80% column as the content, via the container
+   * breakout — width = container + 2 × its own padding, negative
+   * margin-inline pulling it out (no vw units — a classic scrollbar can
+   * never make it outgrow the viewport). The §4.23.B inset chip width
+   * retires (§4.24.F.1). Translucent fill via the black token family,
+   * backdrop blur(14px) + saturate(1.1), a subtle violet hairline (22%
+   * Deepa) and rounded corners — radius-lg desktop / radius-md phone chip
+   * (the ONLY rounded surface, §4.24.F.4). §4.24.B two-tier fill: tier 1 =
+   * 92% (the no-blur fallback floor — its AA math is unchanged, ≈ 5.0:1
+   * worst case); tier 2 = 88% inside @supports, where the blur actually
+   * runs (blur-inclusive worst case ≈ 5.2:1 — the 14px kernel diffuses a
+   * worst-case white pixel, muted text holds AA ≥ 4.5). The blur radius
+   * and saturation lift are unchanged; the hairline is unchanged. */
   .top {
     position: sticky;
     top: var(--space-3);
     z-index: 10;
-    width: min(100% - 24px, calc(1000px - 48px));
-    margin-inline: auto;
+    width: calc(100% + 2 * var(--space-5));
+    margin-inline: calc(-1 * var(--space-5));
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: var(--space-4);
     min-height: 52px;
     padding: 8px 10px;
-  }
-  /* the glass recipe (exact values, §4.23.B) — header + lead panel */
-  .top,
-  .glass {
+    /* tier 1 — the @supports fallback floor (§4.23.B math unchanged) */
     background: color-mix(in srgb, var(--color-landing-bg) 92%, transparent);
     -webkit-backdrop-filter: blur(14px) saturate(1.1);
     backdrop-filter: blur(14px) saturate(1.1);
     border: 1px solid color-mix(in srgb, var(--color-deepa-4) 22%, transparent);
     border-radius: var(--radius-lg);
+  }
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    /* tier 2 — 12% show-through: the blur becomes perceptible (§4.24.B) */
+    .top {
+      background: color-mix(in srgb, var(--color-landing-bg) 88%, transparent);
+    }
   }
   @media (max-width: 719.98px) {
     /* the smaller phone chip reads 20px (§4.23.B) */
@@ -369,6 +393,8 @@
   }
   @media (min-width: 720px) {
     .top {
+      width: calc(100% + 2 * var(--space-7));
+      margin-inline: calc(-1 * var(--space-7));
       min-height: 56px;
       padding: 10px 16px;
     }
@@ -413,18 +439,30 @@
     }
   }
 
-  /* ---------- the content column over the video (§4.23.D) ----------
+  /* ---------- the content column over the video (§4.24.D/E) ----------
    * PHONE: the DOM order below IS the mobile stack — glass header chip →
-   * lead glass panel → agent card → stat card → the three step blocks →
-   * contact footer (everything overlays the fixed video background now —
-   * the §4.22.B phone no-overlay rule is superseded, §4.23.E). Desktop
-   * (≥720px): the lead glass panel (column 1) and the agent card (column
-   * 2, 360px cap) share one plain-flow row. */
+   * lead opaque panel → agent card → stat card → the three step blocks →
+   * contact footer (everything overlays the fixed video background).
+   * §4.24.E: on phones the site "opens" on pure video — the first content
+   * block starts below the two-thirds mark, via padding-top on the content
+   * wrapper (dvh tracks the mobile URL bar; desktop has NO offset).
+   * Desktop (≥720px): the §4.24.D THIRDS grid — lead in column 1, the
+   * agent card in column 3, the middle third EMPTY (the video + vignette
+   * + dots show through; nothing is placed in column 2). The §4.23.D
+   * `minmax(0,1fr) 360px` row and the 360px agent-card cap retire
+   * (§4.24.F.5) — the card fills its third (≈ 288px at 1280). */
   .canvas {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
     min-width: 0;
+  }
+  @media (max-width: 719.98px) {
+    /* the §4.24.E open state: exactly 2/3 of the viewport before the
+     * first content block — the floating glass header + pure video only */
+    .canvas {
+      padding-top: calc(200dvh / 3);
+    }
   }
   .stage {
     display: flex;
@@ -435,7 +473,7 @@
   @media (min-width: 720px) {
     .stage {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 360px;
+      grid-template-columns: repeat(3, 1fr);
       column-gap: var(--space-6);
       align-items: start;
     }
@@ -443,8 +481,9 @@
       grid-column: 1;
     }
     .area-agents {
-      grid-column: 2;
+      grid-column: 3;
     }
+    /* column 2: NO element — nothing is placed there (§4.24.D) */
   }
   /* anchored sections never hide under the stuck glass panel (§4.23.B) */
   .area-agents,
@@ -452,26 +491,33 @@
     scroll-margin-top: 80px;
   }
 
-  /* ---------- lead block (§4.20.C verbatim, §4.23.D glass panel) ---------- */
+  /* ---------- lead block (§4.20.C verbatim copy; §4.24.C OPAQUE) ----------
+   * The §4.23.D liquid-glass lead panel is RETIRED (§4.24.F.3): the lead
+   * is a solid panel in the §4.20.G card language — outer pixel frame +
+   * inner `--color-surface` body, SQUARE/stepped corners (with the glass
+   * gone, the rounded exception applies only to the header). NO
+   * backdrop-filter, no translucent fill — the pixel frame IS the border.
+   * Narrower (§4.24.C): the lead fills its thirds column — ≈ 288px at
+   * 1280 (100% of the container content width on phone); the §4.23.D
+   * content-sized/560px lead sizing retires. */
   .copy {
+    min-width: 0;
+    width: 100%;
+  }
+  .copy-body {
+    background: var(--color-surface);
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
     gap: var(--space-4);
-    min-width: 0;
-    /* the glass lead panel: sizes to its content, full-width-ish centered
-     * on phone (§4.23.D) */
-    width: 100%;
-    max-width: 560px;
-    margin-inline: auto;
     padding: 20px;
+    width: 100%;
   }
   @media (min-width: 720px) {
-    .copy {
+    .copy-body {
       align-items: flex-start;
       text-align: left;
-      width: fit-content;
       padding: 28px;
     }
   }
@@ -493,8 +539,10 @@
     }
   }
   @media (min-width: 720px) {
+    /* §4.24.C size amendment: 64px mid-word-breaks inside a 288px third —
+     * the clamp caps at 44px at 1280 and scales down with the third */
     .headline {
-      font-size: 64px;
+      font-size: clamp(22px, 3.5vw, 44px);
     }
   }
   .accent-line {

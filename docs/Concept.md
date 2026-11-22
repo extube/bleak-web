@@ -1649,6 +1649,33 @@ All other contracts stay in force (routes, Start/TALK → `/income`
 with the 6-digit input, header keep-list, BLEAK/БЛИК naming, income
 mascot swap, three step blocks, contact footer, RU/EN parity).
 
+---
+
+## 36. Owner change batch: 80% width + opaque narrower lead + thirds layout + phone open — ✅ APPROVED (2026-11-22)
+
+Continuing the video-background landing (owner, 2026-11-22):
+
+1. **Header + content width = 80% of the screen:** the header keeps
+   the liquid-glass treatment **with backdrop blur** and is **80% of
+   the screen width** (centered); the **whole page content** is also
+   constrained to **80% of the screen width** (centered).
+2. **"The right connection…" lead block:** **fully opaque** (no
+   translucency/glass — solid panel) and **narrower**.
+3. **Thirds layout (desktop):** the **lead block occupies the first
+   third** of the content width; the **Bleak agent block occupies the
+   last third**; the **middle third stays empty** (the video
+   background shows through, no block there).
+4. **Phone open state:** when the site opens on a phone, the **top
+   two-thirds of the screen show no content blocks** — the video
+   background only; the content blocks begin below that
+   (owner's sane reading, recorded as such; verbatim: "the site
+   should opens with 2/3 from top without blocks from content's").
+
+All other §35 contracts stay in force (fixed full-screen video
+background, reminders removed, black bg + dissolve, reduced-motion
+fallback, routes, Start/TALK → `/income`, RU/EN parity, three step
+blocks, contact footer).
+
 All other §31–§33 contracts stay in force (routes, Start → `/income`
 with the 6-digit input, RU/EN parity, reminder box contracts, three
 step blocks, existing suites green).

@@ -1,20 +1,25 @@
-/** Landing page tests (tz12-07, Concept §35, DESIGN §4.23 amending
- * §4.22/§4.21/§4.20 item by item): `/` gets the §4.23 batch — the video
- * becomes the FIXED FULL-VIEWPORT background layer (LandingVideoHero
- * repurposed in place: the committed mp4 app asset, the decisive attribute
- * set with the reduced-motion-gated one-shot start, the dissolve vignette +
- * 30% legibility tint, the kept 12-dot mesh, the failure degradation; the
- * play control retires with the video-as-content model, §4.23.E.5), the
- * header becomes the floating LIQUID-GLASS panel (sticky 12px chip: 92%
- * landing-bg fill + backdrop blur(14px) saturate(1.1) + violet hairline +
- * rounded corners radius-lg/md; keep-list unchanged) with the SAME glass
- * recipe on the lead panel, the desktop plain-flow row (lead glass panel +
- * 360px agent card) and the phone DOM-order stack, and the agent reminders
- * are REMOVED ENTIRELY (§4.23.C: the component, its integration, the play
- * control, the dialog/video i18n keys — negative assertions + key cleanup,
- * grep-audited). Still in force: routes, Start/TALK → /income (6-digit),
- * RU/EN parity (23 keys), BLEAK/БЛИК naming, three step blocks, contact
- * footer, removed blocks stay removed, deep links. */
+/** Landing page tests (tz12-08, Concept §36, DESIGN §4.24 amending §4.23
+ * item by item): the §4.24 batch lands on the video-background landing —
+ * (1) §4.24.A ONE container rule: `.landing` is max(80%, 280px) wide,
+ * centered, and the sticky glass header rides the same 80% column via the
+ * container breakout (calc(100% + 2 * padding) + matching negative
+ * margin-inline; the §4.23.B inset chip width and the 1000px canvas cap
+ * retire as width rules); (1 rider) §4.24.B the header blur IS applied —
+ * a two-tier fill: 92% (the no-blur fallback floor) + 88% inside
+ * `@supports` where the blur actually runs; (2) §4.24.C the lead block is
+ * FULLY OPAQUE — solid --color-surface pixel-frame panel, SQUARE corners
+ * (the header is the only rounded surface), narrower (it fills its thirds
+ * column, ≈ 288px at 1280; the fit-content/560px sizing retires; the
+ * desktop headline clamps to clamp(22px, 3.5vw, 44px)); (3) §4.24.D the
+ * desktop ≥720px row is the THIRDS grid repeat(3, 1fr): lead column 1,
+ * BLEAK agent card column 3, the MIDDLE THIRD EMPTY (the §4.23.D
+ * minmax(0,1fr) 360px row and the 360px cap retire); (4) §4.24.E the
+ * phone open state: at <720px main.canvas carries padding-top:
+ * calc(200dvh / 3) — the first content block starts below the two-thirds
+ * mark (no offset at desktop). Still in force: the fixed full-viewport
+ * video layer stack, the keep-list, BLEAK/БЛИК, three step blocks,
+ * contact footer, routes, Start/TALK → /income (6-digit), RU/EN parity
+ * (23 keys), removed blocks stay removed, deep links. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -172,14 +177,28 @@ describe('/ — the §4.23.B liquid-glass header (icon + nav + switcher ONLY)', 
     expect(container.querySelector('header.top .start-link')).toBeNull();
   });
 
-  it('the floating glass chip: sticky at 12px with z-index 10 above the content column, side insets 12px aligned to the 1000px canvas', () => {
+  it('the floating glass header is the SAME 80% column as the content via the container breakout (§4.24.A): sticky at 12px, z-index 10, width = container + 2 × its padding with matching negative margin-inline — no vw units', () => {
     const css = source('src/routes/+page.svelte');
     expect(css).toMatch(/\.top\s*\{[^}]*position:\s*sticky/);
     expect(css).toMatch(/\.top\s*\{[^}]*top:\s*var\(--space-3\)/);
     expect(css).toMatch(/\.top\s*\{[^}]*z-index:\s*10/);
-    // the floating chip geometry: 12px side insets, aligned to the canvas
-    expect(css).toMatch(/\.top\s*\{[^}]*width:\s*min\(100% - 24px, calc\(1000px - 48px\)\)/);
-    expect(css).toMatch(/\.top\s*\{[^}]*margin-inline:\s*auto/);
+    // the breakout: phone = container + 2 × --space-5, pulled out by the
+    // same amount (the §4.23.B inset chip width is retired, §4.24.F.1)
+    expect(css).toMatch(/\.top\s*\{[^}]*width:\s*calc\(100% \+ 2 \* var\(--space-5\)\)/);
+    expect(css).toMatch(/\.top\s*\{[^}]*margin-inline:\s*calc\(-1 \* var\(--space-5\)\)/);
+    // desktop: the breakout widens to the container's --space-7 padding
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.top\s*\{[^}]*width:\s*calc\(100% \+ 2 \* var\(--space-7\)\)/
+    );
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.top\s*\{[^}]*margin-inline:\s*calc\(-1 \* var\(--space-7\)\)/
+    );
+    // no vw units anywhere in the header geometry (the scrollbar-safe
+    // breakout is computed from the container's own padding)
+    const topRule = css.match(/\.top\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(topRule).not.toMatch(/vw/);
+    // the retired inset chip
+    expect(css).not.toMatch(/min\(100% - 24px, calc\(1000px - 48px\)\)/);
     // desktop row height + padding (§4.23.B) — the smaller phone chip below
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.top\s*\{[^}]*min-height:\s*56px[^}]*padding:\s*10px 16px/);
     expect(css).toMatch(/\.top\s*\{[^}]*min-height:\s*52px[^}]*padding:\s*8px 10px/);
@@ -187,19 +206,28 @@ describe('/ — the §4.23.B liquid-glass header (icon + nav + switcher ONLY)', 
     expect(css).toMatch(/scroll-margin-top:\s*80px/);
   });
 
-  it('the glass recipe (exact values): 92% landing-bg fill, backdrop blur(14px) saturate(1.1) (+ -webkit-), the 22% Deepa violet hairline, rounded corners radius-lg desktop / radius-md phone chip — scoped to the glass surfaces only', () => {
+  it('the glass recipe is applied AND verified (§4.24.B two-tier fill): tier 1 = 92% landing-bg (the no-blur fallback floor), tier 2 = 88% inside @supports where the blur actually runs, backdrop blur(14px) saturate(1.1) (+ -webkit-) on .top, the 22% Deepa violet hairline, rounded corners radius-lg desktop / radius-md phone chip — the header is the ONLY glass/rounded surface', () => {
     const css = source('src/routes/+page.svelte');
-    // the exact recipe, shared by the header and the lead panel (§4.23.D)
+    // tier 1: the 92% fallback floor (kept, §4.24.F.7)
     expect(css).toMatch(
       /background:\s*color-mix\(in srgb, var\(--color-landing-bg\) 92%, transparent\)/
     );
+    // the blur IS applied on the glass surface (the §4.24.B verification)
     expect(css).toMatch(/-webkit-backdrop-filter:\s*blur\(14px\) saturate\(1\.1\)/);
     expect(css).toMatch(/backdrop-filter:\s*blur\(14px\) saturate\(1\.1\)/);
+    // tier 2: the 88% fill inside @supports — where the blur actually runs
+    expect(css).toMatch(
+      /@supports \(backdrop-filter: blur\(1px\)\) or \(-webkit-backdrop-filter: blur\(1px\)\)\s*\{[\s\S]{0,200}?\.top\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--color-landing-bg\) 88%, transparent\)/
+    );
+    // exactly one backdrop-filter declaration pair on the page — no other
+    // landing rule overrides it on .top (the negative assertion)
+    expect(css.match(/backdrop-filter:\s*blur\(14px\)/g)).toHaveLength(2);
+    // the hairline
     expect(css).toMatch(
       /border:\s*1px solid color-mix\(in srgb, var\(--color-deepa-4\) 22%, transparent\)/
     );
-    // rounded corners — the ONLY rounded surface family: radius-lg (24px)
-    // desktop / radius-md (20px) phone chip, tokens only
+    // rounded corners — radius-lg (24px) desktop / radius-md (20px) phone
+    // chip, tokens only
     expect(css).toMatch(/border-radius:\s*var\(--radius-lg\)/);
     expect(css).toMatch(/@media \(max-width: 719\.98px\)\s*\{[\s\S]*?\.top\s*\{[^}]*border-radius:\s*var\(--radius-md\)/);
     // scoped: the pixel-frame cards/steps/footer keep the square/stepped
@@ -208,6 +236,8 @@ describe('/ — the §4.23.B liquid-glass header (icon + nav + switcher ONLY)', 
       const block = css.match(new RegExp(`${rule}\\s*\\{[^}]*\\}`))?.[0] ?? '';
       expect(block, `${rule} must stay square (the pixel aesthetic)`).not.toMatch(/border-radius/);
     }
+    // the .glass class retired with the glass lead (§4.24.F.3)
+    expect(css).not.toMatch(/\.glass/);
     // and the pixel-frame construction is still in the markup
     const { container } = render(LandingPage, { props: {} });
     expect(container.querySelector('.agent-card')?.className).toContain('pixel-corners');
@@ -402,25 +432,29 @@ describe('/ — the §4.22.B video block (LandingVideoHero replaces the drawn he
   });
 });
 
-describe('/ — the §4.23.D content over the video (the plain-flow row vs the phone stack)', () => {
-  it('desktop ≥720px: the lead glass panel (column 1) and the agent card (column 2, 360px cap) share one plain-flow row; the §4.22.B overlay geometry is retired (§4.23.E.1)', () => {
+describe('/ — the §4.24.D thirds row vs the §4.24.E phone open state', () => {
+  it('desktop ≥720px: the THIRDS grid (§4.24.D) — lead column 1, the BLEAK agent card column 3, the MIDDLE THIRD EMPTY (the video + vignette + dots show through); the minmax(0,1fr) 360px row and the 360px cap retire (§4.24.F.5)', () => {
     const css = source('src/routes/+page.svelte');
-    // the plain-flow row: minmax(0,1fr) / 360px, top-aligned
+    // the thirds grid: three equal columns, the §4.23.D gap rhythm, top-aligned
     expect(css).toMatch(
-      /@media \(min-width: 720px\)[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\) 360px/
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*grid-template-columns:\s*repeat\(3, 1fr\)/
     );
-    expect(css).toMatch(/@media \(min-width: 720px\)[\s\S]*\.stage\s*\{[^}]*align-items:\s*start/);
-    // the lead panel in column 1, the agent card in column 2
+    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*column-gap:\s*var\(--space-6\)/);
+    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*align-items:\s*start/);
+    // the lead = the FIRST third, the BLEAK card = the LAST third
     expect(css).toMatch(/\.area-lead\s*\{[^}]*grid-column:\s*1/);
-    expect(css).toMatch(/\.area-agents\s*\{[^}]*grid-column:\s*2/);
-    // §4.23.E.1: the video-row overlay grid is gone — no 27%/1fr/26%
-    // bands, no .area-video slot, no aspect-ratio stage
+    expect(css).toMatch(/\.area-agents\s*\{[^}]*grid-column:\s*3/);
+    // the middle third is EMPTY — no element is placed in column 2
+    expect(css).not.toMatch(/grid-column:\s*2/);
+    // the retired §4.23.D two-column row + cap
+    expect(css).not.toMatch(/minmax\(0, 1fr\) 360px/);
+    // §4.23.E.1: the video-row overlay grid stays gone
     expect(css).not.toMatch(/27% minmax|26%/);
     expect(css).not.toMatch(/\.area-video/);
     expect(css).not.toMatch(/\.area-chat/);
   });
 
-  it('PHONE: the DOM-order stack over the video background (§4.23.E.2 — everything overlays now) with no horizontal scroll at 320px', () => {
+  it('PHONE: the DOM-order stack over the video background (§4.23.E.2) below the §4.24.E open-state spacer — no horizontal scroll at 320px; the 280px container floor keeps the phone chip usable', () => {
     const css = source('src/routes/+page.svelte');
     // base canvas + stage = one column (flex); the DOM order IS the mobile order
     expect(css).toMatch(/\.canvas\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/);
@@ -434,8 +468,10 @@ describe('/ — the §4.23.D content over the video (the plain-flow row vs the p
     const baseStage = css.match(/\.stage\s*\{[\s\S]*?\n\s*\}/)?.[0] ?? '';
     expect(baseStage).toMatch(/display:\s*flex/);
     expect(baseStage).not.toMatch(/grid|position/);
-    // the canvas is capped at the 1000px desktop width
-    expect(css).toMatch(/max-width:\s*1000px/);
+    // the §4.24.A container: 80% of the screen, floored at 280px (the
+    // 1000px cap retires as a width rule)
+    expect(css).toMatch(/\.landing\s*\{[^}]*width:\s*max\(80%, 280px\)/);
+    expect(css).not.toMatch(/max-width:\s*1000px/);
     // the fixed video layer is viewport-sized (width 100% — no overflow
     // at 320px; the layer itself never scrolls)
     const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
@@ -443,7 +479,43 @@ describe('/ — the §4.23.D content over the video (the plain-flow row vs the p
     expect(hero).toMatch(/\.video\s*\{[^}]*position:\s*fixed/);
   });
 
-  it('the fixed video layer is a decorative aria-hidden div — NO region role, NO accessible name (§4.23.E.6); the lead panel is glass (§4.23.D)', () => {
+  it('PHONE open state (§4.24.E): at <720px main.canvas carries padding-top: calc(200dvh / 3) — the first content block starts below the two-thirds mark; desktop ≥720px sets NO such offset (dvh, not vh)', () => {
+    const css = source('src/routes/+page.svelte');
+    // the spacer: exactly 2/3 of the dynamic viewport, phone only
+    expect(css).toMatch(
+      /@media \(max-width: 719\.98px\)\s*\{[\s\S]*?\.canvas\s*\{[^}]*padding-top:\s*calc\(200dvh \/ 3\)/
+    );
+    // dvh (URL-bar-safe), never vh for the spacer
+    expect(css).toMatch(/padding-top:\s*calc\(200dvh \/ 3\)/);
+    expect(css).not.toMatch(/padding-top:\s*calc\(200vh \/ 3\)/);
+    // the offset lives ONLY in the phone media query — every other .canvas
+    // rule is offset-free (desktop: the thirds row starts under the header)
+    const canvasRules = [...css.matchAll(/\.canvas\s*\{[^}]*\}/g)].map((m) => m[0]);
+    expect(canvasRules.filter((r) => r.includes('padding-top'))).toHaveLength(1);
+    expect(css).not.toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]{0,300}?\.canvas\s*\{[^}]*padding-top/
+    );
+  });
+
+  it('the lead is NARROWER (§4.24.C): it fills its thirds column (≈ 288px at 1280) — the fit-content/560px sizing retires; the desktop headline adapts via clamp(22px, 3.5vw, 44px)', () => {
+    const css = source('src/routes/+page.svelte');
+    // the lead fills its grid column (100% of the third), phone full-width
+    expect(css).toMatch(/\.copy\s*\{[^}]*width:\s*100%/);
+    // no content-sized / capped lead sizing remains
+    expect(css).not.toMatch(/fit-content/);
+    const copyRule = css.match(/\.copy\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(copyRule).not.toMatch(/max-width/);
+    // the §4.24.C headline size amendment: clamp at ≥720px (phone sizes
+    // unchanged: 36px / 44px ≥ 480px)
+    expect(css).toMatch(/\.headline\s*\{[^}]*font-size:\s*36px/);
+    expect(css).toMatch(/@media \(min-width: 480px\)\s*\{[\s\S]*?\.headline\s*\{[^}]*font-size:\s*44px/);
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.headline\s*\{[^}]*font-size:\s*clamp\(22px, 3\.5vw, 44px\)/
+    );
+    expect(css).not.toMatch(/font-size:\s*64px/);
+  });
+
+  it('the fixed video layer is a decorative aria-hidden div — NO region role, NO accessible name (§4.23.E.6); the lead panel is the §4.24.C OPAQUE pixel-frame surface (the glass lead retires, §4.24.F.3)', () => {
     const { container } = render(LandingPage, { props: {} });
     const layer = container.querySelector('.video-layer');
     expect(layer?.getAttribute('aria-hidden')).toBe('true');
@@ -452,11 +524,27 @@ describe('/ — the §4.23.D content over the video (the plain-flow row vs the p
     const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
     expect(hero).not.toMatch(/<section/);
     expect(hero).not.toMatch(/aria-label=/);
-    // the lead glass panel carries the glass class (the shared recipe)
-    expect(container.querySelector('.copy.glass')).toBeTruthy();
-    const page = source('src/routes/+page.svelte');
-    expect(page).toMatch(/\.copy[^{]*\{[^}]*max-width:\s*560px/);
-    expect(page).toMatch(/@media \(min-width: 720px\)[\s\S]*?\.copy\s*\{[^}]*width:\s*fit-content/);
+    // the lead is FULLY OPAQUE: the §4.20.G pixel-frame construction with a
+    // solid --color-surface body — no glass class, no backdrop-filter, no
+    // translucent fill, SQUARE corners (the header is the only rounded
+    // surface, §4.24.F.4)
+    const lead = container.querySelector('.copy');
+    expect(lead).toBeTruthy();
+    expect(lead?.className).toContain('pixel-corners');
+    expect(lead?.className).toContain('pixel-frame--strong');
+    expect(lead?.querySelector('.copy-body.pixel-corners')).toBeTruthy();
+    const css = source('src/routes/+page.svelte');
+    expect(css).not.toMatch(/\.glass/);
+    const copyBody = css.match(/\.copy-body\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(copyBody).toMatch(/background:\s*var\(--color-surface\)/);
+    for (const rule of ['.copy', '.copy-body']) {
+      const block = css.match(new RegExp(`${rule.replace('.', '\\.')}\\s*\\{[^}]*\\}`))?.[0] ?? '';
+      expect(block, `${rule} must stay fully opaque`).not.toMatch(/backdrop-filter|color-mix/);
+      expect(block, `${rule} must stay square`).not.toMatch(/border-radius/);
+    }
+    // the copy is §4.20.C verbatim and the CTA survives the re-skin
+    expect(container.querySelector('.headline .accent-word')).toBeTruthy();
+    expect(container.querySelector('.copy .cta-main')).toBeTruthy();
   });
 });
 
@@ -612,8 +700,10 @@ describe('/ — the §4.22.F black page background (scoped to /)', () => {
     );
     const page = source('src/routes/+page.svelte');
     expect(page).toMatch(/\.landing-page\s*\{[^}]*min-height:\s*100dvh[^}]*background:\s*var\(--color-landing-bg\)/);
-    // the 1000px canvas centered inside the full-bleed wrapper
-    expect(page).toMatch(/\.landing\s*\{[^}]*max-width:\s*1000px[^}]*margin:\s*0 auto/);
+    // the §4.24.A ONE container rule: max(80%, 280px) wide, centered —
+    // every section lives inside the one 80% column (the 1000px canvas
+    // cap retires as a width rule, §4.24.F.2)
+    expect(page).toMatch(/\.landing\s*\{[^}]*width:\s*max\(80%, 280px\)[^}]*margin-inline:\s*auto/);
   });
 
   it('no new hex anywhere in the landing sources; the accent is the approved violet token', () => {
