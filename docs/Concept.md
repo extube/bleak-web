@@ -1583,6 +1583,38 @@ with the 6-digit input, RU/EN parity, palette, existing suites green).
 
 ---
 
+## 34. Owner change batch: video hero + header/nav cleanup + Vector→Bleak — ✅ APPROVED (2026-11-22)
+
+The owner added a **16:9 `.mp4` video** (workspace root:
+**`background-video.mp4`**) to be used as a **video instead of the
+background image**. Requirements (owner, 2026-11-22):
+
+1. **Header:** keep **only the web icon, the navigation, and the
+   language switcher** (drop the tagline lines from the header).
+2. **Video block:** the block with the **video**; on its **right and
+   left sides — the blocks with Start and Vector** (the agent card).
+3. **Rename Vector → Bleak.** Also **switch all mascots in the
+   income's forms to the Vector image** (the pixel personage currently
+   used for the Vector/Bleak agent card becomes the mascot everywhere
+   in the `/income` forms).
+4. **Landing page background = black**, matching the video clip's
+   background.
+5. **Video geometry (owner refinement, same day):** the video must be
+   **the whole width of the landing's common block**; the **left and
+   right blocks overlay the video** from the left and right sides
+   respectively. **On phone screens there is no overlay** — the blocks
+   stack normally (video full-width, then the blocks).
+6. Commit the video as an app asset (like the background image before
+   it) so it builds/serves; keep the smooth dissolve into the black
+   page background; the animated purple pixels treatment follows the
+   video (drop the image if fully replaced).
+
+All other §31–§33 contracts stay in force (routes, Start → `/income`
+with the 6-digit input, RU/EN parity, reminder box contracts, three
+step blocks, existing suites green).
+
+---
+
 
 ---
 

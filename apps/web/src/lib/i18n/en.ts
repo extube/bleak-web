@@ -404,14 +404,10 @@ export const en = {
   'host.drill.kickoff': 'Restart',
   'host.drill.dialogs': 'Dialogs',
 
-  /* --- landing v3.14 + v3.15 (Concept §31+§32+§33, DESIGN §4.20.M as
-   --- amended by §4.21.H — the owner's photo-review batch: +5 step/footer
-   --- keys, ~hero.aria, −footer.line/badge; all 38 keys, RU/EN parity) --- */
-  'landing.tagline.left.1': 'NETWORKING IS A GAME.',
-  'landing.tagline.left.2': 'THE AGENT PLAYS IT FOR YOU.',
-  'landing.tagline.top': 'NO SMALL TALK. JUST REAL CONNECTIONS.',
-  'landing.tagline.right.1': 'BUILT FOR PEOPLE.',
-  'landing.tagline.right.2': 'RUN BY AGENTS.',
+  /* --- landing v3.14 + v3.15 + v3.16 (Concept §31+§32+§33+§34, DESIGN
+   * --- §4.20.M as amended by §4.21.H and §4.22.H — the video-hero batch:
+   * --- −5 tagline keys, −hero.aria, ~agent.name (→BLEAK), +3 video keys;
+   * --- all 35 keys, RU/EN parity) --- */
   'landing.headline.1': 'THE RIGHT',
   'landing.headline.2': 'CONNECTIONS',
   'landing.headline.accent': 'YOU',
@@ -421,12 +417,14 @@ export const en = {
   'landing.dialog.line1': '* The agent says hello…',
   'landing.dialog.line2': '* Your agent already found three matches.',
   'landing.dialog.line3': '* Match accepted. Contact exchange in a minute.',
-  'landing.hero.aria': 'Pixel scene: two figures before a violet city under a glowing hello',
+  'landing.video.aria': 'Video: two figures before a violet city under a glowing hello',
+  'landing.video.play': 'Play video',
+  'landing.video.pause': 'Pause video',
   'landing.stat.title': 'REAL PEOPLE. REAL RESULTS.',
   'landing.stat.line1': 'No empty chats.',
   'landing.stat.line2': 'No cold DMs.',
   'landing.stat.line3': 'Only encounters that matter.',
-  'landing.agent.name': 'VECTOR',
+  'landing.agent.name': 'BLEAK',
   'landing.agent.badge': 'AGENT · Lv 1',
   'landing.agent.traits': 'SWIFT · SHARP · LOYAL',
   'landing.agent.quote': '"I break the ice. You keep the contact."',

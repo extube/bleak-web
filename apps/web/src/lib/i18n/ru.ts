@@ -404,15 +404,10 @@ export const ru: Record<MessageKey, string> = {
   'host.drill.kickoff': 'Запустить заново',
   'host.drill.dialogs': 'Диалоги',
 
-  /* --- лендинг v3.14 + v3.15 (Concept §31+§32+§33, DESIGN §4.20.M с
-   --- поправками §4.21.H — партия правок после фото-ревью владельца:
-   --- +5 ключей шагов/футера, ~hero.aria, −footer.line/badge; все 38
-   --- ключей, RU/EN паритет) --- */
-  'landing.tagline.left.1': 'ЗНАКОМСТВА — ЭТО ИГРА.',
-  'landing.tagline.left.2': 'АГЕНТ ИГРАЕТ ЗА ВАС.',
-  'landing.tagline.top': 'БЕЗ СМОЛТОЛКА. ТОЛЬКО РЕАЛЬНЫЕ ЗНАКОМСТВА.',
-  'landing.tagline.right.1': 'СДЕЛАНО ДЛЯ ЛЮДЕЙ.',
-  'landing.tagline.right.2': 'РАБОТАЮТ АГЕНТЫ.',
+  /* --- лендинг v3.14 + v3.15 + v3.16 (Concept §31+§32+§33+§34, DESIGN
+   * --- §4.20.M с поправками §4.21.H и §4.22.H — партия видео-героя:
+   * --- −5 ключей слоганов, −hero.aria, ~agent.name (→БЛИК), +3 ключа
+   * --- видео; все 35 ключей, RU/EN паритет) --- */
   'landing.headline.1': 'НУЖНЫЕ',
   'landing.headline.2': 'ЗНАКОМСТВА',
   'landing.headline.accent': 'ВАС',
@@ -422,13 +417,15 @@ export const ru: Record<MessageKey, string> = {
   'landing.dialog.line1': '* Агент здоровается…',
   'landing.dialog.line2': '* Ваш агент уже нашёл три совпадения.',
   'landing.dialog.line3': '* Совпадение принято. Обмен контактами через минуту.',
-  'landing.hero.aria':
-    'Пиксельная сцена: двое у фиолетового города под светящимся приветствием',
+  'landing.video.aria':
+    'Видео: двое у фиолетового города под светящимся приветствием',
+  'landing.video.play': 'Запустить видео',
+  'landing.video.pause': 'Поставить на паузу',
   'landing.stat.title': 'РЕАЛЬНЫЕ ЛЮДИ. РЕАЛЬНЫЕ РЕЗУЛЬТАТЫ.',
   'landing.stat.line1': 'Никаких пустых чатов.',
   'landing.stat.line2': 'Никаких холодных сообщений.',
   'landing.stat.line3': 'Только встречи, которые важны.',
-  'landing.agent.name': 'ВЕКТОР',
+  'landing.agent.name': 'БЛИК',
   'landing.agent.badge': 'АГЕНТ · УР 1',
   'landing.agent.traits': 'БЫСТРЫЙ · ТОЧНЫЙ · НАДЁЖНЫЙ',
   'landing.agent.quote': '«Я начинаю разговор. Вы сохраняете контакт.»',

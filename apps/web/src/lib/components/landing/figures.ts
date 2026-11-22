@@ -1,23 +1,26 @@
 /**
- * Landing mascot cast — part data (DESIGN §4.20.J + §4.21.A, §4.3 rules):
- * six DISTINCT original figures; no figure reuses another's parts and none
- * is the shared app mascot. All are hand-authored SVG `<rect>` art on their
- * own grid, `crispEdges`, dot eyes, chunky pixels, transparent background —
- * NO background plates (Concept §23/§32; the §4.21.B background IMAGE is
- * the composition block's own scenery, not a figure plate). NOVA + ASTRA
- * are the hero pair (LandingHeroScene.svelte, §4.21.A — the owner kept the
- * left personage and redid the right one: ASTRA is a copy of NOVA with
- * only the head changed — white hair + two small purple horns; BYTE
- * retires with the §4.20.D node+beam); VECTOR / BLOOM / PIP / GLITCH
- * render through LandingFigure.svelte from this table.
+ * Landing mascot cast — part data (DESIGN §4.20.J as amended by §4.22.D/§I,
+ * §4.3 rules): four DISTINCT original figures — BLEAK (the agent-card
+ * portrait, promoted to the shared personage module §4.22.E), BLOOM, PIP,
+ * GLITCH — no figure reuses another's parts and none is drawn twice on the
+ * page. All are hand-authored SVG `<rect>` art on their own grid,
+ * `crispEdges`, dot eyes, chunky pixels, transparent background — NO
+ * background plates (Concept §23/§32). The §4.21.A drawn hero pair is
+ * RETIRED with the drawn hero scene (§4.22.G — the video carries its own
+ * cast); BYTE retired earlier (§4.21.A).
+ *
+ * BLEAK's rect data lives in `personage/bleakFigure.ts` (the ONE shared
+ * source consumed by both the landing card and every `/income*` mascot
+ * mount) and is re-exported here as the `bleak` entry — byte-identical art,
+ * only the name changed (§4.22.D).
  *
  * Fills are token references only (§4.1) — the landing accent is the
  * approved Deepa violet (--color-deepa-4, the example's purple bloom);
- * shading stays in `color-mix` alpha variants of existing tokens. The
- * white-hair palette (§4.21.A) is the nearest-white token --color-text
- * plus its 72% surface-elevated under-shade — zero new values.
+ * shading stays in `color-mix` alpha variants of existing tokens.
  */
-export type FigureName = 'vector' | 'bloom' | 'pip' | 'glitch' | 'nova' | 'astra';
+import { BLEAK_FIGURE } from '../personage/bleakFigure';
+
+export type FigureName = 'bleak' | 'bloom' | 'pip' | 'glitch';
 
 export interface FigurePart {
   fill: string;
@@ -27,81 +30,18 @@ export interface FigurePart {
 export interface Figure {
   /** Logical grid size. */
   grid: number;
-  /** Explicit viewBox dims (§4.21.A: the hero pair is a non-square 16×31). */
+  /** Explicit viewBox dims (§4.21.A interface kept; the square figures are 32×32 / 16×16). */
   viewW: number;
   viewH: number;
   parts: readonly FigurePart[];
 }
 
-/* The §4.21.A shared 16×31 head fills: NOVA keeps the §4.20.D warm hair
- * mix; ASTRA's white hair = the nearest-white token (--color-text) with a
- * 72% surface-elevated under-shade — the §4.3 two-shade art discipline. */
-const NOVA_HAIR = 'color-mix(in srgb, var(--color-art-hair-3) 65%, var(--color-surface))';
-const ASTRA_HAIR_LOW =
-  'color-mix(in srgb, var(--color-text) 72%, var(--color-surface-elevated))';
-
 export const LANDING_FIGURES: Record<FigureName, Figure> = {
-  /* VECTOR (§4.20.G-b): the agent character card portrait — an agent in a
-   * sharp suit, monocle visor, accent tie. 32×32 → 96px. */
-  vector: {
-    grid: 32,
-    viewW: 32,
-    viewH: 32,
-    parts: [
-      {
-        fill: 'var(--color-surface)',
-        rects: [
-          [9, 3, 14, 3], // slicked hair, top
-          [9, 6, 2, 3], // hair, left
-          [21, 6, 2, 3] // hair, right
-        ]
-      },
-      {
-        fill: 'var(--color-art-skin-1)',
-        rects: [
-          [10, 6, 12, 10], // face
-          [19, 10, 2, 2] // monocle lens interior
-        ]
-      },
-      {
-        fill: 'var(--color-surface)',
-        rects: [
-          [13, 10, 2, 2], // left dot eye
-          [14, 13, 4, 1] // mouth
-        ]
-      },
-      {
-        // monocle visor ring (the single accent lens, right eye)
-        fill: 'var(--color-deepa-4)',
-        rects: [
-          [18, 9, 4, 1],
-          [18, 12, 4, 1],
-          [18, 10, 1, 2],
-          [21, 10, 1, 2]
-        ]
-      },
-      {
-        fill: 'var(--color-surface-elevated)',
-        rects: [
-          [7, 18, 18, 2], // shoulders
-          [8, 20, 16, 8], // torso
-          [12, 20, 2, 6], // lapel, left
-          [18, 20, 2, 6] // lapel, right
-        ]
-      },
-      {
-        fill: 'var(--color-text)',
-        rects: [
-          [14, 18, 4, 2], // shirt collar
-          [15, 20, 2, 3] // shirt front
-        ]
-      },
-      {
-        fill: 'var(--color-deepa-4)',
-        rects: [[15, 21, 2, 5]] // accent tie
-      }
-    ]
-  },
+  /* BLEAK (renamed per §4.22.D): the agent character card portrait — an
+   * agent in a sharp suit, monocle visor, accent tie. 32×32 → 96px. The
+   * rect data is the shared personage module's (byte-identical to the
+   * pre-rename agent-card art; §4.22.E: also the /income* mascot figure). */
+  bleak: BLEAK_FIGURE,
 
   /* BLOOM (§4.20.G-a): the stat-card glyph — a pixel flower with a
    * signal-antenna bloom, accent center. 32×32 → 56px. */
@@ -198,8 +138,9 @@ export const LANDING_FIGURES: Record<FigureName, Figure> = {
     ]
   },
 
-  /* GLITCH (§4.20.F + §4.20.B): the robo-cat agent — round charcoal head,
-   * accent ears, dot eyes. 16×16 → 48px (chat strip) / 24px (tagline glyph). */
+  /* GLITCH (§4.20.F): the robo-cat agent — round charcoal head, accent
+   * ears, dot eyes. 16×16 → 48px (chat strip — now its ONLY appearance:
+   * the header tagline-glyph slot retired with the taglines, §4.22.A). */
   glitch: {
     grid: 16,
     viewW: 16,
@@ -235,123 +176,6 @@ export const LANDING_FIGURES: Record<FigureName, Figure> = {
       {
         fill: 'var(--color-deepa-4)',
         rects: [[7, 9, 2, 1]] // accent nose
-      }
-    ]
-  },
-
-  /* NOVA (§4.21.A): the hero scene's LEFT figure — the owner kept it ("the
-   * left personage is good"). Back three-quarter view, warm-neutral hair,
-   * accent-striped scarf. 16×31 grid (explicit non-square viewBox). */
-  nova: {
-    grid: 16,
-    viewW: 16,
-    viewH: 31,
-    parts: [
-      {
-        fill: NOVA_HAIR,
-        rects: [
-          [4, 3, 8, 2], // hair top
-          [2, 5, 12, 8], // hair mid
-          [3, 13, 10, 3] // hair low (under-shade)
-        ]
-      },
-      {
-        fill: 'var(--color-art-skin-2)',
-        rects: [[6, 16, 4, 2]] // neck
-      },
-      {
-        fill: 'var(--color-text)',
-        rects: [[1, 18, 14, 4]] // scarf
-      },
-      {
-        fill: 'var(--color-deepa-4)',
-        rects: [
-          [4, 18, 2, 4], // scarf stripe, left
-          [10, 18, 2, 4] // scarf stripe, right
-        ]
-      },
-      {
-        fill: 'var(--color-surface-elevated)',
-        rects: [
-          [2, 22, 12, 5], // coat
-          [0, 23, 2, 5], // arm, left
-          [14, 23, 2, 5], // arm, right
-          [3, 27, 4, 4], // leg, left
-          [9, 27, 4, 4] // leg, right
-        ]
-      },
-      {
-        fill: 'var(--color-text)',
-        rects: [
-          [2, 30, 5, 1], // shoe, left
-          [9, 30, 5, 1] // shoe, right
-        ]
-      }
-    ]
-  },
-
-  /* ASTRA (§4.21.A): the hero scene's RIGHT figure — a copy of NOVA (same
-   * body/proportions/pose) with only the head changed: WHITE hair
-   * (--color-text lit rows + the 72% surface-elevated under-shade) and two
-   * small PURPLE horns (--color-deepa-4 2×3u columns rising from the hair
-   * top, each with a --color-text glint cell). BYTE retires (§4.21.A). */
-  astra: {
-    grid: 16,
-    viewW: 16,
-    viewH: 31,
-    parts: [
-      {
-        fill: 'var(--color-deepa-4)',
-        rects: [[3, 0, 2, 3]] // horn, left
-      },
-      {
-        fill: 'var(--color-deepa-4)',
-        rects: [[11, 0, 2, 3]] // horn, right
-      },
-      {
-        fill: 'var(--color-text)',
-        rects: [
-          [3, 0, 2, 1], // horn glint, left
-          [11, 0, 2, 1], // horn glint, right
-          [4, 3, 8, 2], // hair top (white, lit)
-          [2, 5, 12, 8] // hair mid (white, lit)
-        ]
-      },
-      {
-        fill: ASTRA_HAIR_LOW,
-        rects: [[3, 13, 10, 3]] // hair low (white under-shade)
-      },
-      {
-        fill: 'var(--color-art-skin-2)',
-        rects: [[6, 16, 4, 2]] // neck
-      },
-      {
-        fill: 'var(--color-text)',
-        rects: [[1, 18, 14, 4]] // scarf
-      },
-      {
-        fill: 'var(--color-deepa-4)',
-        rects: [
-          [4, 18, 2, 4], // scarf stripe, left
-          [10, 18, 2, 4] // scarf stripe, right
-        ]
-      },
-      {
-        fill: 'var(--color-surface-elevated)',
-        rects: [
-          [2, 22, 12, 5], // coat
-          [0, 23, 2, 5], // arm, left
-          [14, 23, 2, 5], // arm, right
-          [3, 27, 4, 4], // leg, left
-          [9, 27, 4, 4] // leg, right
-        ]
-      },
-      {
-        fill: 'var(--color-text)',
-        rects: [
-          [2, 30, 5, 1], // shoe, left
-          [9, 30, 5, 1] // shoe, right
-        ]
       }
     ]
   }

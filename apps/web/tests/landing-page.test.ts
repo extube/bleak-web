@@ -1,17 +1,18 @@
-/** Landing page tests (tz12-05, Concept §31+§32+§33, DESIGN §4.20 as
- * amended by §4.21 — the owner's photo-review adjustment batch): `/` keeps
- * the §4.20 showcase and applies all 7 §4.21 items — the hero pair redo
- * (NOVA + ASTRA: white hair + purple horns; BYTE retired), the agent
- * reminder box (pixel font, 1:3.5 strip, bottom-fixed in the taller
- * art block, up-down bob, big visible check mark), the compact stat card,
- * the §4.21.D three-section desktop layout (PHONE ORDER UNCHANGED), the
- * three BIG step blocks (FIND / CHAT / SHARE), the removed §4.20.I footer
- * blocks, the committed background.jpg app asset with the smooth vignette
- * edge, the contact footer, the PIP↔GLITCH mascot-chat strip (unchanged),
- * and the deep-link forwarding (?code= / ?u= → /income, query preserved).
- * The re-homed routes resolve to the EXISTING surfaces: /income renders
- * the join entry and /income/[room]/create renders the creation wizard
- * (the seeded JoinFlow persona step). */
+/** Landing page tests (tz12-06, Concept §31+§32+§33+§34, DESIGN §4.22 as
+ * amending §4.21/§4.20): `/` gets the §4.22 video-hero batch — the slimmed
+ * header (web icon + desktop nav anchors + language switcher ONLY; the
+ * taglines and the header START controls removed), the video block
+ * (LandingVideoHero: the committed mp4 app asset, full common-block width,
+ * the decisive attribute set with the reduced-motion-gated one-shot start,
+ * the play control, the failure degradation), the desktop overlay geometry
+ * (lead 27% / agents 26% floating over the video's dark edges; NO overlay
+ * on phone), the reminder-box contract migration (bottom-fixed inside the
+ * video block, 1:3.5, bob, check mark, the §4.22.C center-band desktop
+ * cap), the BLEAK rename (no agent-name leftovers on the landing), the
+ * black page background + dissolve, and the §4.22.G supersessions (the
+ * still image + the drawn hero pair + the ghost income mascot retired).
+ * Still in force: routes, Start → /income (6-digit), RU/EN parity (35
+ * keys), three step blocks, removed blocks stay removed, deep links. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -54,7 +55,8 @@ import { en } from '../src/lib/i18n/en';
 import { buildChatTimeline } from '../src/lib/components/landing/chatTimeline';
 import { ICON_RECTS } from '../src/lib/components/icons/registry';
 import { LANDING_FIGURES } from '../src/lib/components/landing/figures';
-import { existsSync, readFileSync } from 'node:fs';
+import { BLEAK_FIGURE } from '../src/lib/components/personage/bleakFigure';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, sep } from 'node:path';
 
 const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
@@ -64,13 +66,8 @@ function source(relativePath: string): string {
   return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
 }
 
-/** The 38 §4.20.M + §4.21.H keys — every landing string, RU/EN parity. */
+/** The 35 §4.20.M + §4.21.H + §4.22.H keys — every landing string, RU/EN parity. */
 const LANDING_KEYS = [
-  'landing.tagline.left.1',
-  'landing.tagline.left.2',
-  'landing.tagline.top',
-  'landing.tagline.right.1',
-  'landing.tagline.right.2',
   'landing.headline.1',
   'landing.headline.2',
   'landing.headline.accent',
@@ -79,7 +76,9 @@ const LANDING_KEYS = [
   'landing.dialog.line1',
   'landing.dialog.line2',
   'landing.dialog.line3',
-  'landing.hero.aria',
+  'landing.video.aria',
+  'landing.video.play',
+  'landing.video.pause',
   'landing.stat.title',
   'landing.stat.line1',
   'landing.stat.line2',
@@ -106,17 +105,27 @@ const LANDING_KEYS = [
   'landing.footer.copyright'
 ] as const;
 
-/** The two §4.20.I keys the §4.21.H amendment kills (§4.21.G removes the blocks). */
-const DEAD_KEYS = ['landing.footer.line', 'landing.footer.badge'] as const;
+/** The keys the §4.21.H + §4.22.H amendments kill — in NEITHER dictionary. */
+const DEAD_KEYS = [
+  'landing.footer.line',
+  'landing.footer.badge',
+  'landing.tagline.left.1',
+  'landing.tagline.left.2',
+  'landing.tagline.top',
+  'landing.tagline.right.1',
+  'landing.tagline.right.2',
+  'landing.hero.aria'
+] as const;
 
 const LANDING_SOURCES = [
   'src/routes/+page.svelte',
-  'src/lib/components/landing/LandingHeroScene.svelte',
+  'src/lib/components/landing/LandingVideoHero.svelte',
   'src/lib/components/landing/LandingReminder.svelte',
   'src/lib/components/landing/LandingChatStrip.svelte',
   'src/lib/components/landing/LandingFigure.svelte',
   'src/lib/components/landing/figures.ts',
-  'src/lib/components/landing/chatTimeline.ts'
+  'src/lib/components/landing/chatTimeline.ts',
+  'src/lib/components/personage/bleakFigure.ts'
 ];
 
 beforeEach(() => {
@@ -129,204 +138,318 @@ afterEach(() => {
   cleanup();
   setLocale('ru');
   localStorage.clear();
+  vi.unstubAllGlobals();
 });
 
-describe('/ — the §4.21 hero pair redo (Concept §33.1)', () => {
-  it('renders NOVA (left, unchanged) and ASTRA (right) — the BYTE robot appears nowhere on /', () => {
+describe('/ — the §4.22.A slimmed header (icon + nav + switcher ONLY)', () => {
+  it('renders exactly: the plate-less web icon (cutouts in --color-landing-bg), the two in-page anchors (desktop-only) and the LocaleControl', () => {
     const { container } = render(LandingPage, { props: {} });
-    const scene = screen.getByRole('img', { name: ru['landing.hero.aria'] });
-    expect(scene.querySelector('[data-figure="nova"]')).toBeTruthy();
-    expect(scene.querySelector('[data-figure="astra"]')).toBeTruthy();
-    // BYTE is retired from the hero AND from the whole landing (§4.21.A)
-    expect(container.querySelectorAll('[data-figure="byte"]')).toHaveLength(0);
-    // the §4.20.D handshake-node diamond + light beam are retired too
-    expect(container.querySelector('.node-pulse')).toBeNull();
-    expect(container.querySelector('.node-halo')).toBeNull();
+    const top = container.querySelector('header.top');
+    expect(top).toBeTruthy();
+    // the web icon: the §30 FormShell mark's graphic, 40px, aria-hidden
+    const icon = top?.querySelector('svg.app-icon');
+    expect(icon?.getAttribute('width')).toBe('40');
+    expect(icon?.getAttribute('height')).toBe('40');
+    expect(icon?.getAttribute('aria-hidden')).toBe('true');
+    const css = source('src/routes/+page.svelte');
+    // no background plate; the cutout cells are the landing page token
+    expect(css).toMatch(/\.app-icon\s*\{[^}]*flex:\s*none/);
+    expect(icon?.querySelector('g[fill="var(--color-landing-bg)"]')).toBeTruthy();
+    // the two anchors, names reusing the §4.20.M keys (no new nav keys)
+    const nav = top?.querySelector('.top-nav');
+    const links = [...(nav?.querySelectorAll('a') ?? [])];
+    expect(links.map((a) => a.getAttribute('href'))).toEqual(['#tutorial', '#agents']);
+    expect(nav?.textContent).toContain(ru['landing.tutorial.search']);
+    expect(nav?.textContent).toContain(ru['landing.agent.name']);
+    // desktop-only anchors (≥720px); the switcher is always there
+    expect(css).toMatch(/\.top-nav\s*\{[^}]*display:\s*none/);
+    expect(css).toMatch(/@media \(min-width: 720px\)[\s\S]*\.top-nav\s*\{[^}]*display:\s*flex/);
+    expect(top?.querySelector('.locale .segmented')).toBeTruthy();
+    // one non-sticky row (no position: sticky/fixed in the header rules)
+    expect(css).not.toMatch(/\.top\s*\{[^}]*position:\s*(sticky|fixed)/);
   });
 
-  it('ASTRA is a copy of NOVA — same body/proportions — with ONLY the head changed (white hair + purple horns)', () => {
-    const nova = LANDING_FIGURES.nova;
-    const astra = LANDING_FIGURES.astra;
-    // same non-square hero grid (§4.21.A: explicit viewW/viewH → 16×31)
-    expect(nova.viewW).toBe(16);
-    expect(nova.viewH).toBe(31);
-    expect(astra.viewW).toBe(16);
-    expect(astra.viewH).toBe(31);
-    // the body below the head is byte-identical: neck, scarf, stripes,
-    // coat, arms, legs, shoes — only the HEAD differs (§4.21.A)
-    const bodyParts = (fig: typeof nova) =>
-      fig.parts.filter((p) => p.rects.every((r) => r[1] >= 16));
-    expect(bodyParts(nova)).toEqual(bodyParts(astra));
-    // NOVA keeps the warm §4.20.D hair (the owner kept the left personage)
-    const novaHair = nova.parts
-      .flatMap((p) => (p.rects.every((r) => r[1] >= 3 && r[1] < 16) ? [p.fill] : []))
-      .join();
-    expect(novaHair).toContain('--color-art-hair-3');
-    // ASTRA's hair is WHITE: the nearest-white token --color-text (lit
-    // rows) + the 72% surface-elevated under-shade (§4.21.A)
-    const astraFills = astra.parts.map((p) => p.fill).join('|');
-    expect(astraFills).toContain('var(--color-text)');
-    expect(astraFills).toContain(
-      'color-mix(in srgb, var(--color-text) 72%, var(--color-surface-elevated))'
-    );
-    // ASTRA's white hair rect data equals NOVA's hair rect data (same head shape)
-    const headRects = (fig: typeof nova) =>
-      fig.parts.flatMap((p) => [...p.rects]).filter((r) => r[1] >= 3 && r[1] < 16);
-    expect(headRects(astra)).toEqual(headRects(nova));
-    // two small purple horns: 2×3-unit --color-deepa-4 columns + glints
-    const horns = astra.parts.filter(
-      (p) => p.fill === 'var(--color-deepa-4)' && p.rects.every((r) => r[1] === 0)
-    );
-    expect(horns).toHaveLength(2);
-    expect(horns.flatMap((p) => [...p.rects])).toEqual([
-      [3, 0, 2, 3],
-      [11, 0, 2, 3]
-    ]);
-    const glints = astra.parts
-      .filter((p) => p.fill === 'var(--color-text)')
-      .flatMap((p) => [...p.rects])
-      .filter((r) => r[1] === 0);
-    expect(glints).toEqual([
-      [3, 0, 2, 1],
-      [11, 0, 2, 1]
-    ]);
-    // NOVA has NO horns: nothing sits above the hair top row
-    expect(nova.parts.every((p) => p.rects.every((r) => r[1] >= 3))).toBe(true);
-  });
-
-  it('the pair renders through LandingFigure with the 16×31 viewBox and the idle sway kept', () => {
+  it('the tagline lines are gone (no DOM nodes) and the GLITCH figure appears ONLY inside the mascot-chat strip; the header carries no START control', () => {
     const { container } = render(LandingPage, { props: {} });
-    const svgs = [...container.querySelectorAll('.pair svg')];
-    expect(svgs).toHaveLength(2);
-    for (const svg of svgs) {
-      expect(svg.getAttribute('viewBox')).toBe('0 0 16 31');
+    for (const name of ['.tagline', '.tagline-left', '.tagline-top', '.tagline-right', '.tag-glyph']) {
+      expect(container.querySelector(name)).toBeNull();
     }
-    const fig = source('src/lib/components/landing/LandingFigure.svelte');
-    expect(fig).toMatch(/animation: figure-idle 1\.6s steps\(2\) infinite alternate/);
-    // the §4.21.B layer table: desktop 160px tall, mobile 64px tall
-    const scene = source('src/lib/components/landing/LandingHeroScene.svelte');
-    expect(scene).toMatch(/height:\s*64px/);
-    expect(scene).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?height:\s*160px/);
-    expect(scene).toMatch(/left:\s*2%/);
-    expect(scene).toMatch(/right:\s*2%/);
+    // no header START controls (§4.22.A: the entry points are exactly the
+    // lead Start CTA + the card TALK)
+    expect(container.querySelector('.start-pill')).toBeNull();
+    expect(container.querySelector('.start-link')).toBeNull();
+    const css = source('src/routes/+page.svelte');
+    expect(css).not.toMatch(/start-pill|start-link/);
+    // GLITCH's only appearance is the strip (the tagline glyph died with
+    // the taglines — §4.20.J's "no figure appears twice" is exact again)
+    const glitch = container.querySelectorAll('[data-figure="glitch"]');
+    expect(glitch).toHaveLength(1);
+    expect(glitch[0]?.closest('.chat-strip')).toBeTruthy();
+    // at 320px the header is icon + switcher — never empty, nothing clipped
+    expect(container.querySelector('.top')?.textContent).not.toBe('');
+  });
+
+  it('the LocaleControl still switches every landing string without a reload', async () => {
+    const { container } = render(LandingPage, { props: {} });
+    expect(container.querySelector('.agent-name')?.textContent).toBe(ru['landing.agent.name']);
+    setLocale('en');
+    await tick();
+    expect(container.querySelector('.agent-name')?.textContent).toBe(en['landing.agent.name']);
+    expect(goto).not.toHaveBeenCalled();
   });
 });
 
-describe('/ — the §4.21.B art block (taller, image background, smooth edge)', () => {
-  it('the committed app asset background.jpg exists and is imported via the #lib URL import (not hotlinked, not in static/)', () => {
-    const assetPath = 'src/lib/assets/landing/background.jpg';
+describe('/ — the §4.22.B video block (LandingVideoHero replaces the drawn hero)', () => {
+  it('the committed app asset background-video.mp4 exists and is imported via the #lib URL import (not hotlinked, not in static/)', () => {
+    const assetPath = 'src/lib/assets/landing/background-video.mp4';
     expect(existsSync(join(WEB_ROOT, assetPath))).toBe(true);
-    // a real JPEG (magic bytes), copied from the owner's background-img.jpg
+    // a real MP4 (the ISO-BMFF ftyp box at bytes 4..8), committed at ~4.4 MB
     const bytes = readFileSync(join(WEB_ROOT, assetPath));
-    expect(bytes.length).toBeGreaterThan(100_000);
-    expect(bytes[0]).toBe(0xff);
-    expect(bytes[1]).toBe(0xd8);
-    const scene = source('src/lib/components/landing/LandingHeroScene.svelte');
-    expect(scene).toMatch(/import backgroundUrl from '#lib\/assets\/landing\/background\.jpg';/);
-    expect(scene).toMatch(/src=\{backgroundUrl\}/);
-    expect(scene).not.toMatch(/assets\/landing\/background\.jpg\?raw/);
-    expect(existsSync(join(WEB_ROOT, 'static/background.jpg'))).toBe(false);
-  });
-
-  it('the block is taller (500px mobile / 680px ≥720px) and renders the image object-fit: cover with intrinsic dims (no CLS)', () => {
-    const { container } = render(LandingPage, { props: {} });
-    const css = source('src/lib/components/landing/LandingHeroScene.svelte');
-    expect(css).toMatch(/\.art-block\s*\{[^}]*height:\s*500px/);
-    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.art-block\s*\{[^}]*height:\s*680px/);
-    const img = container.querySelector('img.bg');
-    expect(img).toBeTruthy();
-    expect(img?.getAttribute('alt')).toBe('');
-    expect(img?.getAttribute('aria-hidden')).toBe('true');
-    expect(img?.getAttribute('loading')).toBe('eager');
-    expect(img?.getAttribute('decoding')).toBe('async');
-    expect(img?.getAttribute('width')).toBe('1024');
-    expect(img?.getAttribute('height')).toBe('1024');
-    expect(css).toMatch(/object-fit:\s*cover/);
-    expect(css).toMatch(/object-position:\s*50% 50%/);
-  });
-
-  it('the smooth transition: a radial vignette ::after dissolves every edge into exactly --color-bg (no hard line)', () => {
-    const css = source('src/lib/components/landing/LandingHeroScene.svelte');
-    expect(css).toMatch(
-      /radial-gradient\(\s*ellipse 80% 78% at 50% 46%,\s*transparent 0 52%,\s*color-mix\(in srgb, var\(--color-bg\) 45%, transparent\) 72%,\s*var\(--color-bg\) 100%/
+    expect(statSync(join(WEB_ROOT, assetPath)).size).toBeGreaterThan(1_000_000);
+    expect(bytes.slice(4, 8).toString('ascii')).toBe('ftyp');
+    const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
+    expect(hero).toMatch(
+      /import videoUrl from '#lib\/assets\/landing\/background-video\.mp4';/
     );
-    expect(css).toMatch(/pointer-events:\s*none/);
-    // the base tint shows only pre-load (an alpha mix of existing tokens)
-    expect(css).toMatch(/background:\s*color-mix\(in srgb, var\(--color-deepa-4\) 6%, var\(--color-bg\)\)/);
+    expect(hero).toMatch(/src=\{videoUrl\}/);
+    expect(existsSync(join(WEB_ROOT, 'static/background-video.mp4'))).toBe(false);
   });
 
-  it('the animated purple pixels are kept: 12 pixel dots, three alpha shades, steps(2) twinkle with staggered delays', () => {
+  it('the block spans the full common-block width with aspect-ratio 16/9 (no fixed 500/680px height) and object-fit: cover', () => {
+    const css = source('src/lib/components/landing/LandingVideoHero.svelte');
+    expect(css).toMatch(/\.video-block\s*\{[^}]*width:\s*100%/);
+    expect(css).toMatch(/\.video-block\s*\{[^}]*aspect-ratio:\s*16\s*\/\s*9/);
+    expect(css).toMatch(/\.video\s*\{[^}]*object-fit:\s*cover/);
+    expect(css).toMatch(/\.video\s*\{[^}]*width:\s*100%[^}]*height:\s*100%/);
+    // the §4.21.B fixed art-block heights are superseded — no px height
+    expect(css).not.toMatch(/height:\s*(500|680)px/);
+  });
+
+  it('renders the decisive attribute set verbatim: muted loop playsinline preload="metadata" disablepictureinpicture — NO autoplay attribute, NO native controls', () => {
     const { container } = render(LandingPage, { props: {} });
-    const dots = [...container.querySelectorAll('.dot')];
+    const video = container.querySelector('video.video') as HTMLVideoElement | null;
+    expect(video).toBeTruthy();
+    // the properties are set on mount (the muted property is the autoplay-
+    // policy load-bearing one; the rest stay attributes)
+    expect(video?.muted).toBe(true);
+    expect(video?.loop).toBe(true);
+    expect(video?.preload).toBe('metadata');
+    expect(video?.getAttribute('playsinline')).not.toBeNull();
+    expect(video?.getAttribute('disablepictureinpicture')).not.toBeNull();
+    expect(video?.getAttribute('aria-hidden')).toBe('true');
+    expect(video?.hasAttribute('autoplay')).toBe(false);
+    expect(video?.hasAttribute('controls')).toBe(false);
+    const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
+    expect(hero).toMatch(/muted\s*\n\s*loop\s*\n\s*playsinline\s*\n\s*preload="metadata"\s*\n\s*disablepictureinpicture\s*\n\s*aria-hidden="true"/);
+    // comment-stripped: no autoplay attribute, no native controls attribute
+    const stripped = hero.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(stripped).not.toMatch(/\bautoplay\b/);
+    expect(stripped).not.toMatch(/\bcontrols\b/);
+  });
+
+  it('autoplay is GATED: the one-shot mount effect checks prefers-reduced-motion — under reduce the video stays paused and the play control offers the opt-in', async () => {
+    const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
+    expect(hero).toMatch(
+      /prefers-reduced-motion:\s*reduce/);
+    expect(hero).toMatch(/\.play\(\)/);
+    // behavior: under reduced motion the video is not started — the play
+    // control is visible with the play label
+    // behavior: under reduced motion the video is not started — the play
+    // control is visible with the play label
+    vi.stubGlobal('matchMedia', vi.fn(() => ({
+      matches: true,
+      media: '(prefers-reduced-motion: reduce)',
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false
+    })));
+    const { container } = render(LandingPage, { props: {} });
+    await tick();
+    const control = container.querySelector<HTMLButtonElement>('button.play');
+    expect(control).toBeTruthy();
+    expect(control?.classList.contains('play-hidden')).toBe(false);
+    expect(control?.getAttribute('aria-label')).toBe(ru['landing.video.play']);
+  });
+
+  it('the play control: visible when playback is not running, hidden while playing, toggles; 48px target + focus ring; the pause label swaps in while playing', async () => {
+    const { container } = render(LandingPage, { props: {} });
+    await waitFor(() => {
+      // without reduced motion the mount effect started playback — the
+      // control hides while playing (happy-dom fires 'play' synchronously)
+      const hidden = container.querySelector('button.play');
+      expect(hidden?.classList.contains('play-hidden')).toBe(true);
+    });
+    const video = container.querySelector('video.video') as HTMLVideoElement;
+    // pause → the control returns with the play label; click toggles back
+    video.pause();
+    await tick();
+    const control = container.querySelector<HTMLButtonElement>('button.play');
+    expect(control?.classList.contains('play-hidden')).toBe(false);
+    expect(control?.getAttribute('aria-label')).toBe(ru['landing.video.play']);
+    await control?.click();
+    await tick();
+    expect(video.paused).toBe(false);
+    expect(control?.classList.contains('play-hidden')).toBe(true);
+    const css = source('src/lib/components/landing/LandingVideoHero.svelte');
+    // 48px target, bottom-right 16px insets, scrim chip, muted→text hover,
+    // focus ring; the pause label exists for the playing state
+    expect(css).toMatch(/\.play\s*\{[^}]*width:\s*48px[^}]*height:\s*48px/);
+    expect(css).toMatch(/right:\s*16px/);
+    expect(css).toMatch(
+      /background:\s*color-mix\(in srgb, var\(--color-landing-bg\) 60%, transparent\)/
+    );
+    expect(css).toMatch(/color:\s*var\(--color-text-muted\)/);
+    expect(css).toMatch(/\.play:hover\s*\{[^}]*color:\s*var\(--color-text\)/);
+    expect(css).toMatch(/\.play:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--color-deepa-4\)/);
+    expect(css).toMatch(/\.play-hidden\s*\{[^}]*display:\s*none/);
+    expect(css).toMatch(/aria-label=\{playing \? pauseLabel : playLabel\}/);
+  });
+
+  it('failure degradation: on the video error event the element hides — the block degrades to the landing-bg tint + the animated dots + the reminder (no glyph, no blank box, no layout shift)', async () => {
+    const { container } = render(LandingPage, { props: {} });
+    await tick();
+    const block = container.querySelector('.video-block');
+    expect(block).toBeTruthy();
+    // the base tint is the page token (seamless pre-load + failure state)
+    const css = source('src/lib/components/landing/LandingVideoHero.svelte');
+    expect(css).toMatch(/\.video-block\s*\{[^}]*background:\s*var\(--color-landing-bg\)/);
+    // the aspect-ratio box is fixed before the media arrives (no shift)
+    expect(css).toMatch(/aspect-ratio:\s*16\s*\/\s*9/);
+    expect(css).toMatch(/\.video-failed\s*\{[^}]*display:\s*none/);
+    // fire the error event — the element hides, the block keeps running
+    const video = container.querySelector('video.video') as HTMLVideoElement;
+    video.dispatchEvent(new Event('error'));
+    await tick();
+    expect(video.className).toContain('video-failed');
+    expect(block?.querySelectorAll('.dot')).toHaveLength(12);
+    expect(block?.querySelector('.reminder')).toBeTruthy();
+    // no poster attribute anywhere (the tint IS the pre/fallback state)
+    expect(css).not.toMatch(/poster=/);
+  });
+
+  it('the animated purple pixels are kept verbatim: 12 pixel dots, three alpha shades, steps(2) twinkle with staggered delays — re-anchored over the video', () => {
+    const { container } = render(LandingPage, { props: {} });
+    const block = container.querySelector('.video-block');
+    const dots = [...(block?.querySelectorAll('.dot') ?? [])];
     expect(dots).toHaveLength(12);
-    const css = source('src/lib/components/landing/LandingHeroScene.svelte');
+    const css = source('src/lib/components/landing/LandingVideoHero.svelte');
     expect(css).toMatch(/dot-twinkle 1\.6s steps\(2\) infinite/);
-    // the three violet alpha shades (the §4.20.D SHADE palette)
     expect(css).toMatch(/SHADE_ALPHA = \[18, 35, 60\]/);
     expect(css).toMatch(/var\(--color-deepa-4\) \$\{SHADE_ALPHA\[shade\]\}%, transparent/);
-    // staggered 0–1.2s delays
     const delays = dots.map((d) => parseFloat((d.getAttribute('style') ?? '').match(/--d:\s*([\d.]+)s/)?.[1] ?? '-1'));
     expect(Math.min(...delays)).toBeGreaterThanOrEqual(0);
     expect(Math.max(...delays)).toBeLessThanOrEqual(1.2);
-    // every dot sits OUTSIDE the protected rects (figures x 21–83 / y 44–80;
-    // bubble x 24–76 / y 2–22 — §4.21.B safe zone)
-    for (const dot of dots) {
-      const style = dot.getAttribute('style') ?? '';
-      const x = parseFloat(style.match(/left:\s*([\d.]+)%/)?.[1] ?? '0');
-      const y = parseFloat(style.match(/top:\s*([\d.]+)%/)?.[1] ?? '0');
-      const inFigures = x >= 21 && x <= 83 && y >= 44 && y <= 80;
-      const inBubble = x >= 24 && x <= 76 && y >= 2 && y <= 22;
-      expect(inFigures || inBubble).toBe(false);
-    }
+    // reduced motion: the twinkle collapses (static dots)
+    const reduced = css.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*\}/)?.[0] ?? '';
+    expect(reduced).toMatch(/\.dot\s*\{[^}]*animation:\s*none/);
   });
 
-  it('the hero pair stands in the bottom-corner flower band — outside the protected central scene', () => {
-    const { container } = render(LandingPage, { props: {} });
-    const nova = container.querySelector('.pair [data-figure="nova"]');
-    const astra = container.querySelector('.pair [data-figure="astra"]');
-    expect(nova).toBeTruthy();
-    expect(astra).toBeTruthy();
-    const css = source('src/lib/components/landing/LandingHeroScene.svelte');
-    // anchored to the outer 2% edges (§4.21.B layer 4)…
-    expect(css).toMatch(/:global\(\[data-figure='nova'\]\)\s*\{\s*left:\s*2%/);
-    expect(css).toMatch(/:global\(\[data-figure='astra'\]\)\s*\{\s*right:\s*2%/);
-    // …with the feet line above the reminder box (--reminder-h + 16px)
-    expect(css).toMatch(/bottom:\s*calc\(var\(--reminder-h\) \+ 16px\)/);
+  it('the dissolve (§4.22.F): the radial vignette outer stop is re-pointed to --color-landing-bg — no hard edge where the video meets the page', () => {
+    const css = source('src/lib/components/landing/LandingVideoHero.svelte');
+    expect(css).toMatch(
+      /radial-gradient\(\s*ellipse 80% 78% at 50% 46%,\s*transparent 0 52%,\s*color-mix\(in srgb, var\(--color-landing-bg\) 45%, transparent\) 72%,\s*var\(--color-landing-bg\) 100%/
+    );
+    expect(css).toMatch(/pointer-events:\s*none/);
   });
 });
 
-describe('/ — the §4.21.C agent reminder box (the dialogue box becomes the reminder)', () => {
-  it('lives INSIDE the art block, fixed at its bottom (absolute, bottom 16px) — not a sibling section', () => {
-    const { container } = render(LandingPage, { props: {} });
-    const reminder = container.querySelector('.reminder');
-    expect(reminder).toBeTruthy();
-    expect(container.querySelector('.art-block .reminder')).toBeTruthy();
+describe('/ — the §4.22.B desktop overlay geometry (≥720px) vs the phone stack', () => {
+  it('desktop: the lead block (27%) overlays the video LEFT edge and the agent card (26%) the RIGHT edge — both above the video (z-order), vertically centered on it; the chat strip flows below the video, right-aligned 280px', () => {
+    const css = source('src/routes/+page.svelte');
+    // the common-block grid: 27% / 1fr / 26% (the §4.21.D band, reused)
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)[\s\S]*grid-template-columns:\s*27% minmax\(0, 1fr\) 26%/
+    );
+    // the video spans the WHOLE width (row 1, columns 1..end), z 0
+    expect(css).toMatch(/\.area-video\s*\{[^}]*grid-column:\s*1 \/ -1[^}]*grid-row:\s*1[^}]*z-index:\s*0/);
+    // the overlays sit in row 1 (the video's row → vertically centered on
+    // the video via align-items: center), above the video (z 2)
+    expect(css).toMatch(/\.area-lead\s*\{[^}]*grid-column:\s*1[^}]*grid-row:\s*1[^}]*z-index:\s*2/);
+    expect(css).toMatch(/\.area-agents\s*\{[^}]*grid-column:\s*3[^}]*grid-row:\s*1[^}]*z-index:\s*2/);
+    expect(css).toMatch(/\.stage\s*\{[^}]*align-items:\s*center/);
+    // the chat strip: below the video (row 2), right-aligned, 280px
+    expect(css).toMatch(/\.area-chat\s*\{[^}]*grid-column:\s*3[^}]*grid-row:\s*2[^}]*justify-self:\s*end[^}]*width:\s*280px/);
+    // the hero overlays are width-banded exactly like §4.22.B (27% / 26%)
+    expect(css).toMatch(/grid-template-columns:\s*27%/);
+    expect(css).toMatch(/26%/);
+  });
+
+  it('PHONE: NO overlay — the exact §4.20.K stack (video full-width, blocks stacked below) with no horizontal scroll at 320px', () => {
+    const css = source('src/routes/+page.svelte');
+    // base canvas + stage = one column (flex); the DOM order IS the mobile order
+    expect(css).toMatch(/\.canvas\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/);
+    expect(css).toMatch(/\.stage\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/);
+    const order = ['area-lead', 'area-video', 'area-chat', 'area-agents', 'area-stat', 'area-tutorial', 'area-foot'];
+    const positions = order.map((name) => css.indexOf(name, css.indexOf('<main')));
+    expect(positions.every((p) => p > 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    // the overlay positioning exists ONLY inside the ≥720px media query —
+    // the base .stage rule is the plain flex column (no grid, no overlay)
+    const baseStage = css.match(/\.stage\s*\{[\s\S]*?\n\s*\}/)?.[0] ?? '';
+    expect(baseStage).toMatch(/display:\s*flex/);
+    expect(baseStage).not.toMatch(/grid|position/);
+    // no fixed widths outside the strip slot at phone widths; the canvas is
+    // capped at the 1000px desktop composition width
+    expect(css).toMatch(/max-width:\s*1000px/);
+    // the video block is full-width and overflow-guarded (no scroll at 320px)
+    const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
+    expect(hero).toMatch(/\.video-block\s*\{[^}]*width:\s*100%/);
+    expect(hero).toMatch(/\.video-block\s*\{[^}]*overflow:\s*hidden/);
+  });
+
+  it('the §4.22.B video block is a named region (landing.video.aria) and the reminder lives INSIDE it, bottom-fixed', () => {
+    render(LandingPage, { props: {} });
+    const block = screen.getByRole('region', { name: ru['landing.video.aria'] });
+    expect(block.querySelector('.reminder')).toBeTruthy();
+    expect(block.querySelector('video')).toBeTruthy();
     const css = source('src/lib/components/landing/LandingReminder.svelte');
     expect(css).toMatch(/\.reminder\s*\{[^}]*position:\s*absolute/);
     expect(css).toMatch(/\.reminder\s*\{[^}]*bottom:\s*16px/);
   });
+});
 
-  it('proportions = 1 : 3.5 (height:width) and adaptive — never overlays the nearest blocks at 320/390/1280', () => {
+describe('/ — the §4.22.C reminder-box migration (contracts verbatim, one width-cap amendment)', () => {
+  it('proportions = 1 : 3.5 (height:width) with the §4.22.C caps: phone min(100% - 32px, 256px) unchanged; desktop the 47%−48px center-band cap ≤348px', () => {
     const css = source('src/lib/components/landing/LandingReminder.svelte');
-    // the owner ratio: a wide strip (aspect-ratio 3.5/1)
     expect(css).toMatch(/aspect-ratio:\s*3\.5\s*\/\s*1/);
     expect(css).toMatch(/min-height:\s*64px/);
-    // capped width per breakpoint: 16px side insets mobile, 24px desktop
-    expect(css).toMatch(/width:\s*min\(100% - 32px, 256px\)/);
-    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.reminder\s*\{[^}]*width:\s*min\(100% - 48px, 348px\)/);
+    // the cap lives on the block (§4.22.C) and the box consumes it
+    const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
+    expect(hero).toMatch(/--reminder-w:\s*min\(100% - 32px, 256px\)/);
+    expect(hero).toMatch(/--reminder-w:\s*min\(calc\(47% - 48px\), 348px\)/);
+    expect(css).toMatch(/width:\s*var\(--reminder-w, min\(100% - 32px, 256px\)\)/);
     // centered without transforms (transform is reserved for the bob)
     expect(css).toMatch(/left:\s*0/);
     expect(css).toMatch(/right:\s*0/);
     expect(css).toMatch(/margin-inline:\s*auto/);
-    // the block exposes the resolved height for the pair's offset
-    const scene = source('src/lib/components/landing/LandingHeroScene.svelte');
-    expect(scene).toMatch(/--reminder-h:\s*calc\(var\(--reminder-w\) \/ 3\.5\)/);
-    // top-edge adaptivity (§4.21.B/§4.21.I-5): at the capped widths the top
-    // edge sits ≥81% of the block height at every tested width
-    // mobile 500px block, 256px reminder: (500 − 16 − 73.1) / 500
-    expect((500 - 16 - 256 / 3.5) / 500).toBeGreaterThanOrEqual(0.81);
-    // desktop 680px block, 348px reminder: (680 − 16 − 99.4) / 680
-    expect((680 - 16 - 348 / 3.5) / 680).toBeGreaterThanOrEqual(0.81);
+    // the block exposes the resolved height (the play control's phone
+    // geometry consumes it)
+    expect(hero).toMatch(/--reminder-h:\s*calc\(var\(--reminder-w\) \/ 3\.5\)/);
+  });
+
+  it('the desktop cap keeps the §33.2.2 no-overlay rule against the new flanking overlays — the reminder x-band never enters either side band at 720/760/1280', () => {
+    // verified per §4.22.C: block width → cap → centered band vs the
+    // 27% / 26% overlay bands
+    const check = (blockWidth: number): boolean => {
+      const cap = Math.min((47 / 100) * blockWidth - 48, 348);
+      const left = (blockWidth - cap) / 2;
+      const leadBand = 0.27 * blockWidth;
+      const agentBandStart = 0.74 * blockWidth;
+      return left > leadBand && left + cap < agentBandStart;
+    };
+    // 720/760px viewports: the block is the canvas minus 2×48px padding
+    expect(check(720 - 96)).toBe(true);
+    expect(check(760 - 96)).toBe(true);
+    // 1280px: the canvas caps at 1000px → block = 1000 − 96 = 904
+    expect(check(904)).toBe(true);
+    // phone cap unchanged — the reminder stays inside the block's padding
+    // box (16px side insets) at 320px: block = 320 − 2×16 = 288 →
+    // min(288 − 32, 256) = 256px
+    const blockAt320 = 320 - 32;
+    expect(Math.min(blockAt320 - 32, 256)).toBe(256);
   });
 
   it('the message font is PIXEL (Handjet stack), horizontally centered', () => {
@@ -366,7 +489,6 @@ describe('/ — the §4.21.C agent reminder box (the dialogue box becomes the re
     expect(css).toMatch(/top:\s*-10px/);
     expect(css).toMatch(/left:\s*-10px/);
     expect(css).toMatch(/spark-twinkle 1\.6s steps\(2\) infinite/);
-    // original §4.3 construction: 4 arms + 8 diagonal cells + center + highlight
     expect(spark?.querySelectorAll('rect')).toHaveLength(14);
   });
 
@@ -377,15 +499,11 @@ describe('/ — the §4.21.C agent reminder box (the dialogue box becomes the re
     expect(check?.getAttribute('width')).toBe('24');
     expect(check?.getAttribute('height')).toBe('24');
     const css = source('src/lib/components/landing/LandingReminder.svelte');
-    // 20px on mobile (§4.21.C: 24px desktop / 20px mobile)
     expect(css).toMatch(/@media \(max-width: 719\.98px\)\s*\{[\s\S]*?\.check svg\s*\{[^}]*width:\s*20px/);
-    // half-out over the frame edge, bottom-center
     expect(css).toMatch(/bottom:\s*0/);
     expect(css).toMatch(/transform:\s*translate\(-50%, 50%\)/);
-    // the glow pulse: 60% → 100% accent mix, 1.6s steps(2) alternate
     expect(css).toMatch(/check-glow 1\.6s steps\(2\) infinite alternate/);
     expect(css).toMatch(/drop-shadow\(0 0 6px color-mix\(in srgb, var\(--color-deepa-4\) 60%, transparent\)\)/);
-    // the vertex glint is present (12-grid run + the --color-text glint)
     const glint = check?.querySelector('rect[fill="var(--color-text)"]');
     expect(glint?.getAttribute('x')).toBe('4');
     expect(glint?.getAttribute('y')).toBe('8');
@@ -402,10 +520,141 @@ describe('/ — the §4.21.C agent reminder box (the dialogue box becomes the re
     expect(reduced).toMatch(/\.spark,\s*\.check\s*\{[^}]*animation:\s*none/);
     expect(reduced).toMatch(/\.reminder-line\s*\{[^}]*animation:\s*none[^}]*position:\s*static[^}]*opacity:\s*1/);
   });
+
+  it('the play control never overlaps the reminder band: 16px bottom insets on desktop (the 348px cap clears it); on phone the control rises above the reminder top edge', () => {
+    const css = source('src/lib/components/landing/LandingVideoHero.svelte');
+    // desktop: bottom 16px, right 16px — the capped reminder's centered
+    // band leaves the right corner free at every tested width
+    expect(css).toMatch(/right:\s*16px/);
+    expect(css).toMatch(/bottom:\s*16px/);
+    // phone: the verbatim 256px reminder spans nearly the whole 16:9
+    // block, so the control rises above its top edge (the §4.22.C/AC-7
+    // never-overlap rule wins at 320/390)
+    expect(css).toMatch(
+      /@media \(max-width: 719\.98px\)\s*\{[\s\S]*?\.play\s*\{[^}]*bottom:\s*calc\(16px \+ var\(--reminder-h\)\)/
+    );
+  });
 });
 
-describe('/ — the §4.20 unchanged zones (header, headline, cards, chat strip)', () => {
-  it('renders the 3-line headline with the single highlighted accent word', () => {
+describe('/ — the §4.22.D BLEAK rename + the §4.22.G supersessions', () => {
+  it('the agent card renders the BLEAK personage with the renamed name; the shared rect data is byte-identical to the promoted module (one source)', () => {
+    const { container } = render(LandingPage, { props: {} });
+    const agents = container.querySelector('#agents');
+    expect(agents?.querySelector('[data-figure="bleak"]')).toBeTruthy();
+    expect(agents?.querySelector('.agent-name')?.textContent).toBe(ru['landing.agent.name']);
+    expect(ru['landing.agent.name']).toBe('БЛИК');
+    expect(en['landing.agent.name']).toBe('BLEAK');
+    // RU follows the live dict's established transliteration («Блик»,
+    // join.wizard.agent.name) — untouched there
+    expect(ru['join.wizard.agent.name']).toBe('Блик');
+    // ONE source of truth: the landing card's figure IS the shared personage
+    expect(LANDING_FIGURES.bleak).toBe(BLEAK_FIGURE);
+    // the §4.20.G card shape is unchanged (single TALK action)
+    const actions = [...(agents?.querySelectorAll('button') ?? [])];
+    expect(actions).toHaveLength(1);
+    expect(actions[0]?.textContent?.trim()).toBe(ru['landing.agent.cta']);
+    expect(agents?.querySelector('.card')?.className).toContain('pixel-frame--strong');
+  });
+
+  it('grep-audit: no agent-name leftovers in the landing sources (case-insensitive)', () => {
+    for (const file of LANDING_SOURCES) {
+      const src = source(file);
+      expect(src, `${file} still names the old agent`).not.toMatch(/vector|вектор/i);
+    }
+    expect(ru['landing.agent.name']).not.toMatch(/вектор/i);
+    expect(en['landing.agent.name']).not.toMatch(/vector/i);
+  });
+
+  it('§4.22.G: the still image, the drawn hero pair and the hero scene component no longer exist', () => {
+    // background.jpg is retired: the asset file, its import, its usages
+    expect(existsSync(join(WEB_ROOT, 'src/lib/assets/landing/background.jpg'))).toBe(false);
+    for (const file of LANDING_SOURCES) {
+      expect(source(file), `${file} still uses the still image`).not.toMatch(/background\.jpg/);
+    }
+    // NOVA + ASTRA rect data and literals are gone from figures.ts; the
+    // cast is the four §4.22.I figures
+    const data = source('src/lib/components/landing/figures.ts');
+    for (const kind of ['bleak', 'bloom', 'pip', 'glitch']) {
+      expect(data).toMatch(new RegExp(`^  ${kind}:`, 'm'));
+    }
+    expect(data).not.toMatch(/nova|astra/i);
+    // LandingHeroScene.svelte no longer exists
+    expect(existsSync(join(WEB_ROOT, 'src/lib/components/landing/LandingHeroScene.svelte'))).toBe(false);
+    // landing.hero.aria is retired with the pair; the video block carries
+    // landing.video.aria
+    for (const key of DEAD_KEYS) {
+      expect(ru).not.toHaveProperty(key);
+      expect(en).not.toHaveProperty(key);
+    }
+    expect(ru['landing.video.aria']).toBeTruthy();
+  });
+
+  it('the landing cast: four DISTINCT figures — BLEAK (card only), BLOOM (stat only), PIP + GLITCH (strip only) — no figure appears twice (§4.22.I)', () => {
+    const { container } = render(LandingPage, { props: {} });
+    const kinds = [...container.querySelectorAll('[data-figure]')].map(
+      (el) => el.getAttribute('data-figure')
+    );
+    for (const kind of ['bleak', 'bloom', 'pip', 'glitch']) {
+      expect(kinds, `${kind} on the page`).toContain(kind);
+    }
+    for (const kind of ['byte', 'nova', 'astra']) {
+      expect(kinds).not.toContain(kind);
+    }
+    // each region carries its own figure — one node per figure on the page
+    for (const kind of ['bleak', 'bloom', 'pip', 'glitch']) {
+      expect(container.querySelectorAll(`[data-figure="${kind}"]`)).toHaveLength(1);
+    }
+    expect(container.querySelectorAll('.agent-card [data-figure="bloom"]')).toHaveLength(0);
+    expect(container.querySelectorAll('.stat-card [data-figure="bleak"]')).toHaveLength(0);
+    expect(container.querySelectorAll('.agent-card [data-figure="pip"]')).toHaveLength(0);
+  });
+});
+
+describe('/ — the §4.22.F black page background (scoped to /)', () => {
+  it('the derived token --color-landing-bg is declared in tokens.css and painted full-bleed by the page wrapper', () => {
+    const tokens = source('src/lib/styles/tokens.css');
+    expect(tokens).toMatch(
+      /--color-landing-bg:\s*color-mix\(in srgb, var\(--color-deepa-4\) 5%, var\(--color-surface\)\)/
+    );
+    const page = source('src/routes/+page.svelte');
+    expect(page).toMatch(/\.landing-page\s*\{[^}]*min-height:\s*100dvh[^}]*background:\s*var\(--color-landing-bg\)/);
+    // the 1000px canvas centered inside the full-bleed wrapper
+    expect(page).toMatch(/\.landing\s*\{[^}]*max-width:\s*1000px[^}]*margin:\s*0 auto/);
+  });
+
+  it('no new hex anywhere in the landing sources; the accent is the approved violet token', () => {
+    for (const file of LANDING_SOURCES) {
+      const src = source(file);
+      const withoutComments = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      expect(withoutComments, `${file} carries a raw hex`).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    }
+    const page = source('src/routes/+page.svelte');
+    expect(page).toMatch(/var\(--color-deepa-4\)/);
+    expect(page).not.toMatch(/--color-accent/);
+  });
+
+  it('no new dependencies, no canvas element, no animation library', () => {
+    const pkg = JSON.parse(source('package.json')) as { dependencies: Record<string, string> };
+    expect(Object.keys(pkg.dependencies).sort()).toEqual([
+      '@bleak/api-client',
+      '@fontsource-variable/handjet',
+      '@fontsource-variable/inter',
+      '@fontsource/press-start-2p',
+      'jsqr',
+      'uqr'
+    ]);
+    for (const file of LANDING_SOURCES) {
+      const src = source(file);
+      expect(src, `${file} must not use <canvas>`).not.toMatch(/<canvas/);
+      expect(src, `${file} must not import an animation library`).not.toMatch(
+        /from ['"](gsap|animejs|three|pixi\.js)['"]/
+      );
+    }
+  });
+});
+
+describe('/ — the §4.20 unchanged zones (headline, cards, chat strip, steps, footer)', () => {
+  it('renders the 3-line headline with the single highlighted accent word (§4.20.C verbatim)', () => {
     render(LandingPage, { props: {} });
     const h1 = screen.getByRole('heading', { level: 1 });
     const lines = [...h1.querySelectorAll('.hl-line')];
@@ -422,34 +671,6 @@ describe('/ — the §4.20 unchanged zones (header, headline, cards, chat strip)
     );
   });
 
-  it('carries the pixel-font taglines at the top corners (left pair always; top-center and right pair + GLITCH glyph on desktop)', () => {
-    const { container } = render(LandingPage, { props: {} });
-    expect(container.querySelector('.tagline-left')?.textContent).toContain(
-      ru['landing.tagline.left.1']
-    );
-    expect(container.querySelector('.tagline-left')?.textContent).toContain(
-      ru['landing.tagline.left.2']
-    );
-    expect(container.querySelector('.tagline-top')?.textContent).toBe(
-      ru['landing.tagline.top']
-    );
-    const right = container.querySelector('.tagline-right');
-    expect(right?.textContent).toContain(ru['landing.tagline.right.1']);
-    expect(right?.textContent).toContain(ru['landing.tagline.right.2']);
-    expect(right?.querySelector('[data-figure="glitch"]')).toBeTruthy();
-    const css = source('src/routes/+page.svelte');
-    expect(css).toMatch(/\.tagline-top\s*\{[^}]*display:\s*none/);
-    expect(css).toMatch(/\.tagline-right\s*\{[^}]*display:\s*none/);
-    expect(css).toMatch(/@media \(min-width: 720px\)[\s\S]*\.tagline-top\s*\{[^}]*display:\s*block/);
-    expect(css).toMatch(/@media \(min-width: 720px\)[\s\S]*\.top-nav\s*\{[^}]*display:\s*flex/);
-    expect(container.querySelector('.top-nav')?.textContent).toContain(
-      ru['landing.tutorial.search']
-    );
-    expect(container.querySelector('.top-nav')?.textContent).toContain(
-      ru['landing.agent.name']
-    );
-  });
-
   it('renders the stat card compact (§4.21.F): minimized padding, 17px title, 44/48px BLOOM', () => {
     const { container } = render(LandingPage, { props: {} });
     const stat = container.querySelector('.stat-card');
@@ -460,30 +681,14 @@ describe('/ — the §4.20 unchanged zones (header, headline, cards, chat strip)
     expect(stat?.querySelector('[data-figure="bloom"]')).toBeTruthy();
     expect(stat?.className).toContain('pixel-frame--strong');
     const css = source('src/routes/+page.svelte');
-    // padding 20px → 12px 14px mobile / 16px 20px desktop (was 20px uniform)
     expect(css).toMatch(/\.stat-body\s*\{[^}]*padding:\s*12px 14px/);
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stat-body\s*\{[^}]*padding:\s*16px 20px/);
-    // internal title 18px→17px, three lines keep 13px with 2px inter-line gaps
     expect(css).toMatch(/\.stat-title\s*\{[^}]*font-size:\s*17px/);
     expect(css).toMatch(/\.stat-line\s*\{[^}]*font-size:\s*13px/);
     expect(css).toMatch(/\.stat-line\s*\{[^}]*line-height:\s*1\.35/);
     expect(css).toMatch(/margin:\s*0 0 2px/);
-    // BLOOM glyph 56px → 44px mobile / 48px desktop
     expect(css).toMatch(/\.stat-glyph :global\(svg\)\s*\{[^}]*width:\s*44px/);
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stat-glyph :global\(svg\)\s*\{[^}]*width:\s*48px/);
-  });
-
-  it('renders the agent character card (VECTOR) with the single TALK action — unchanged by §4.21', () => {
-    const { container } = render(LandingPage, { props: {} });
-    const agents = container.querySelector('#agents');
-    expect(agents?.querySelector('[data-figure="vector"]')).toBeTruthy();
-    expect(agents?.querySelector('.agent-name')?.textContent).toBe(ru['landing.agent.name']);
-    expect(agents?.querySelector('.agent-badge')?.textContent).toBe(ru['landing.agent.badge']);
-    expect(agents?.querySelector('.agent-quote')?.textContent).toBe(ru['landing.agent.quote']);
-    const actions = [...(agents?.querySelectorAll('button') ?? [])];
-    expect(actions).toHaveLength(1);
-    expect(actions[0]?.textContent?.trim()).toBe(ru['landing.agent.cta']);
-    expect(agents?.querySelector('.card')?.className).toContain('pixel-frame--strong');
   });
 
   it('renders the mascot-chat animation strip: 4 alternating bubble turns (GLITCH → PIP → GLITCH → PIP) with per-char typewriter timing', () => {
@@ -546,70 +751,56 @@ describe('/ — the §4.20 unchanged zones (header, headline, cards, chat strip)
     expect(enTimeline.loopMs).not.toBe(timeline.loopMs);
   });
 
-  it('reduced motion: no typewriter, no loop — the chat bubbles render statically; the reminder collapses to a static box', () => {
+  it('reduced motion: no typewriter, no loop — the chat bubbles render statically; the video hero collapses its twinkle', () => {
     const chat = source('src/lib/components/landing/LandingChatStrip.svelte');
     expect(chat).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
     expect(chat).toMatch(/\.chat-bubble\s*\{[^}]*animation:\s*none[^}]*opacity:\s*1/);
     expect(chat).toMatch(/\.chat-bubble-text\s*\{[^}]*animation:\s*none[^}]*clip-path:\s*none/);
-    const scene = source('src/lib/components/landing/LandingHeroScene.svelte');
-    expect(scene).toMatch(/@media \(prefers-reduced-motion/);
+    const hero = source('src/lib/components/landing/LandingVideoHero.svelte');
+    expect(hero).toMatch(/@media \(prefers-reduced-motion/);
   });
-});
 
-describe('/ — the three BIG step blocks (§4.21.E, replaces the §4.20.H icon row)', () => {
-  it('three separate display blocks, each with the pixel step number, the pixel-font title, the step icon and a mini description', () => {
+  it('three separate step blocks, each with the pixel step number, the pixel-font title, the step icon and a mini description (§4.21.E intact)', () => {
     const { container } = render(LandingPage, { props: {} });
     const blocks = [...container.querySelectorAll('#tutorial .step-block')];
     expect(blocks).toHaveLength(3);
-    // pixel step numbers 01 / 02 / 03 (locale-invariant literals)
     expect(blocks.map((b) => b.querySelector('.step-num')?.textContent)).toEqual([
       '01', '02', '03'
     ]);
-    // pixel-font titles FIND / CHAT / SHARE (the kept §4.20.M keys)
     expect(blocks.map((b) => b.querySelector('.step-title')?.textContent)).toEqual([
       ru['landing.tutorial.search'],
       ru['landing.tutorial.chat'],
       ru['landing.tutorial.share']
     ]);
-    // the §4.20.H icon set incl. the contact-share glyph (aria-hidden)
     expect(blocks.map((b) => b.querySelector('.step-icon svg')?.getAttribute('viewBox'))).toEqual([
       '0 0 16 16', '0 0 16 16', '0 0 16 16'
     ]);
     expect(blocks.every((b) => b.querySelector('.step-icon svg')?.getAttribute('aria-hidden') === 'true')).toBe(true);
     expect(ICON_RECTS['contact-share'].length).toBeGreaterThan(0);
-    // one-line mini descriptions (the new §4.21.H keys)
     expect(blocks.map((b) => b.querySelector('.step-desc')?.textContent)).toEqual([
       ru['landing.steps.find.desc'],
       ru['landing.steps.chat.desc'],
       ru['landing.steps.share.desc']
     ]);
-    // non-interactive: no buttons/links inside the tutorial section
     expect(container.querySelectorAll('#tutorial button, #tutorial a')).toHaveLength(0);
-    // the old §4.20.H small-icon row is retired (no chevron connectors)
     expect(container.querySelectorAll('#tutorial .chevron')).toHaveLength(0);
   });
 
-  it('desktop = left-to-right equal row (repeat(3, 1fr), ~300px min-height); phone = top-to-bottom stack', () => {
+  it('steps layout: phone stacked (--space-5 gaps) / desktop equal thirds (~300px min-height) — §4.21.E intact', () => {
     const css = source('src/routes/+page.svelte');
-    // phone: stacked with --space-5 gaps, natural height
     expect(css).toMatch(/\.steps\s*\{[^}]*flex-direction:\s*column/);
     expect(css).toMatch(/\.steps\s*\{[^}]*gap:\s*var\(--space-5\)/);
-    // desktop: the equal thirds row
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.steps\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(3, 1fr\)/);
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.step-block \.step-body\s*\{[^}]*min-height:\s*300px/);
   });
-});
 
-describe('/ — the §4.21.G contact footer + the §4.20.I removals', () => {
-  it('renders ONE site contact block: the kept copyright row + EMAIL/GITHUB links', () => {
+  it('renders ONE site contact block: the kept copyright row + EMAIL/GITHUB links (§4.21.G intact)', () => {
     const { container } = render(LandingPage, { props: {} });
     const contact = container.querySelector('.contact');
     expect(contact?.tagName).toBe('FOOTER');
     expect(contact?.className).toContain('pixel-frame--strong');
-    // row 1: the kept landing.footer.copyright content (brand + year)
     expect(contact?.querySelector('.brand-name')?.textContent).toBe('bleak-web');
     expect(contact?.querySelector('.foot-year')?.textContent).toBe('· 2026');
-    // row 2: EMAIL → mailto:extube@proton.me, GITHUB → github.com/extube
     const links = [...(contact?.querySelectorAll('a.foot-link') ?? [])];
     expect(links).toHaveLength(2);
     const [email, github] = links;
@@ -625,21 +816,16 @@ describe('/ — the §4.21.G contact footer + the §4.20.I removals', () => {
       ru['landing.footer.contact.github.label']
     );
     expect(github?.querySelector('.link-value')?.textContent).toBe('github.com/extube');
-    // the labels are pixel-font (Handjet), the value text-colored + glow hover
     const css = source('src/routes/+page.svelte');
     expect(css).toMatch(/\.link-label\s*\{[^}]*font-family:\s*var\(--font-pixel\)/);
     expect(css).toMatch(/\.link-value\s*\{[^}]*font-family:\s*var\(--font-pixel\)/);
     expect(css).toMatch(/\.link-value\s*\{[^}]*color:\s*var\(--color-text\)/);
-    // max-width 560px, centered, padding 16px 20px (§4.21.G)
     expect(css).toMatch(/\.contact\s*\{[^}]*max-width:\s*560px/);
     expect(css).toMatch(/\.contact\s*\{[^}]*margin:\s*0 auto/);
     expect(css).toMatch(/\.foot-body\s*\{[^}]*padding:\s*16px 20px/);
-    // the /income entry points are now exactly two: Start CTA + agent TALK
-    // (the §4.20.I CTA badge dies with its link role)
-    expect(container.querySelectorAll('a[href="/income"]')).toHaveLength(1);
   });
 
-  it('the two §4.20.I footer blocks are ABSENT — no DOM node, no rendered copy, no dead keys in either dictionary', () => {
+  it('the two §4.20.I footer blocks are ABSENT — no DOM node, no rendered copy', () => {
     const { container } = render(LandingPage, { props: {} });
     expect(container.querySelector('.area-ftpos')).toBeNull();
     expect(container.querySelector('.badge-block')).toBeNull();
@@ -648,14 +834,10 @@ describe('/ — the §4.21.G contact footer + the §4.20.I removals', () => {
     expect(container.textContent).not.toContain('КАЖДЫЙ КОНТАКТ ВАЖЕН');
     expect(container.textContent).not.toContain('START NOW');
     expect(container.textContent).not.toContain('СТАРТ СЕЙЧАС');
-    for (const key of DEAD_KEYS) {
-      expect(ru).not.toHaveProperty(key);
-      expect(en).not.toHaveProperty(key);
-    }
   });
 });
 
-describe('/ — behavior (§4.20.L, §4.21.G amendment)', () => {
+describe('/ — behavior (§4.20.L; §4.22.A made the entry points exact)', () => {
   it('the Start CTA navigates to /income — the 6-digit entry page', async () => {
     const { container } = render(LandingPage, { props: {} });
     const start = container.querySelector<HTMLButtonElement>('.cta-main');
@@ -673,13 +855,19 @@ describe('/ — behavior (§4.20.L, §4.21.G amendment)', () => {
     expect(goto).toHaveBeenCalledWith('/income');
   });
 
-  it('the header carries the working RU/EN switch and both START controls (mobile pill / desktop link)', () => {
+  it('the /income entry points are EXACTLY the lead Start CTA + the card TALK — the header carries none (§4.22.A)', () => {
     const { container } = render(LandingPage, { props: {} });
-    expect(container.querySelector('.locale .segmented')).toBeTruthy();
-    expect(container.querySelector('.start-pill')?.textContent?.trim()).toBe(ru['landing.cta']);
-    const link = container.querySelector<HTMLAnchorElement>('.start-link');
-    expect(link?.getAttribute('href')).toBe('/income');
-    expect(link?.textContent?.trim()).toBe(ru['landing.cta']);
+    const incomeTargets = [...container.querySelectorAll('a[href="/income"]')];
+    expect(incomeTargets).toHaveLength(0);
+    expect(container.querySelectorAll('.cta-main')).toHaveLength(1);
+    expect(container.querySelectorAll('.talk')).toHaveLength(1);
+    // the header carries no START control (its only buttons are the
+    // LocaleControl's radio options)
+    expect(
+      container.querySelector(
+        'header.top .start-pill, header.top .start-link, header.top .cta-main'
+      )
+    ).toBeNull();
   });
 
   it('the bottom tab bar is not rendered on / (the layout isJoin check covers the landing)', () => {
@@ -689,9 +877,9 @@ describe('/ — behavior (§4.20.L, §4.21.G amendment)', () => {
   });
 });
 
-describe('/ — RU/EN parity (the 38 §4.20.M+§4.21.H keys, the working switch)', () => {
-  it('every landing key exists in BOTH dictionaries, non-empty — and the two dead keys exist in NEITHER', () => {
-    expect(LANDING_KEYS).toHaveLength(38);
+describe('/ — RU/EN parity (the 35 §4.20.M+§4.21.H+§4.22.H keys, the working switch)', () => {
+  it('every landing key exists in BOTH dictionaries, non-empty — and the dead keys exist in NEITHER', () => {
+    expect(LANDING_KEYS).toHaveLength(35);
     for (const key of LANDING_KEYS) {
       expect(ru, `ru missing ${key}`).toHaveProperty(key);
       expect(en, `en missing ${key}`).toHaveProperty(key);
@@ -704,46 +892,53 @@ describe('/ — RU/EN parity (the 38 §4.20.M+§4.21.H keys, the working switch)
     }
   });
 
-  it('verbatim §4.21.H copy in both languages (new keys + the hero.aria amendment)', () => {
-    expect(ru['landing.steps.find.desc']).toBe('Радар показывает, кто рядом прямо сейчас.');
-    expect(en['landing.steps.find.desc']).toBe('The radar shows who is around you right now.');
-    expect(ru['landing.steps.chat.desc']).toBe('Ваши агенты заводят разговор до вашего прихода.');
-    expect(en['landing.steps.chat.desc']).toBe('Your agents break the ice before you arrive.');
-    expect(ru['landing.steps.share.desc']).toBe('Одно рукопожатие — и контакты обменяны.');
-    expect(en['landing.steps.share.desc']).toBe('One handshake — and contacts are exchanged.');
-    expect(ru['landing.footer.contact.email.label']).toBe('ПОЧТА');
-    expect(en['landing.footer.contact.email.label']).toBe('EMAIL');
-    expect(ru['landing.footer.contact.github.label']).toBe('ГИТХАБ');
-    expect(en['landing.footer.contact.github.label']).toBe('GITHUB');
-    expect(ru['landing.hero.aria']).toBe(
-      'Пиксельная сцена: двое у фиолетового города под светящимся приветствием'
+  it('verbatim §4.22.H copy in both languages (video keys + the rename)', () => {
+    expect(ru['landing.video.aria']).toBe(
+      'Видео: двое у фиолетового города под светящимся приветствием'
     );
-    expect(en['landing.hero.aria']).toBe(
-      'Pixel scene: two figures before a violet city under a glowing hello'
+    expect(en['landing.video.aria']).toBe(
+      'Video: two figures before a violet city under a glowing hello'
     );
+    expect(ru['landing.video.play']).toBe('Запустить видео');
+    expect(en['landing.video.play']).toBe('Play video');
+    expect(ru['landing.video.pause']).toBe('Поставить на паузу');
+    expect(en['landing.video.pause']).toBe('Pause video');
+    expect(ru['landing.agent.name']).toBe('БЛИК');
+    expect(en['landing.agent.name']).toBe('BLEAK');
   });
 
-  it('the switch re-renders EVERY landing string (headline, accent word, taglines, reminder lines, bubbles, cards, steps, footer labels) without a reload', async () => {
+  it('the switch re-renders EVERY landing string (headline, accent word, video labels, reminder lines, bubbles, cards, steps, footer labels) without a reload', async () => {
     const { container } = render(LandingPage, { props: {} });
     expect(container.querySelector('.accent-word')?.textContent?.trim()).toBe(
       ru['landing.headline.accent']
     );
-    expect(container.querySelector('.tagline-top')?.textContent).toBe(ru['landing.tagline.top']);
     expect(container.querySelector('.agent-name')?.textContent).toBe(ru['landing.agent.name']);
+    const playButton = container.querySelector('button.play');
+    // the video starts on mount (no reduced motion) — the label is the
+    // playing-state one; either §4.22.H label is locale-correct here
+    expect([ru['landing.video.play'], ru['landing.video.pause']]).toContain(
+      playButton?.getAttribute('aria-label')
+    );
     // flip to EN through the shared store — the same DOM re-renders
     setLocale('en');
     await tick();
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1.textContent).toContain(en['landing.headline.1']);
     expect(h1.textContent).toContain(en['landing.headline.accent']);
-    expect(container.querySelector('.tagline-top')?.textContent).toBe(en['landing.tagline.top']);
     expect(container.querySelector('.sub')?.textContent).toBe(en['landing.sub']);
     expect(container.querySelector('.agent-name')?.textContent).toBe(en['landing.agent.name']);
     expect(container.querySelector('.stat-title')?.textContent).toBe(en['landing.stat.title']);
     expect(container.querySelector('.chat-label')?.textContent).toBe(en['landing.chat.label']);
     expect(container.textContent).toContain(en['landing.chat.bubble4']);
     expect(container.textContent).toContain(en['landing.dialog.line3']);
-    // the step blocks re-render (titles + descriptions)
+    const videoRegion = screen.getByRole('region', { name: en['landing.video.aria'] });
+    expect(videoRegion).toBeTruthy();
+    expect(
+      videoRegion.querySelector('button.play')?.getAttribute('aria-label') ===
+        en['landing.video.play'] ||
+        videoRegion.querySelector('button.play')?.getAttribute('aria-label') ===
+          en['landing.video.pause']
+    ).toBe(true);
     const descs = [...container.querySelectorAll('.step-desc')].map((d) => d.textContent);
     expect(descs).toEqual([
       en['landing.steps.find.desc'],
@@ -756,13 +951,11 @@ describe('/ — RU/EN parity (the 38 §4.20.M+§4.21.H keys, the working switch)
       en['landing.tutorial.chat'],
       en['landing.tutorial.share']
     ]);
-    // the contact footer labels swap without a reload
     const labels = [...container.querySelectorAll('.link-label')].map((l) => l.textContent);
     expect(labels).toEqual([
       en['landing.footer.contact.email.label'],
       en['landing.footer.contact.github.label']
     ]);
-    // the chat strip re-derived its locale-dependent loop + keyframes
     const strip = screen.getByRole('img', { name: en['landing.chat.aria'] });
     expect(strip.getAttribute('style')).toMatch(/--loop: \d+ms/);
     const enBubbles = [...strip.querySelectorAll('.chat-bubble')];
@@ -771,121 +964,7 @@ describe('/ — RU/EN parity (the 38 §4.20.M+§4.21.H keys, the working switch)
     );
     expect(document.head.innerHTML).toContain('@keyframes lp-pop-0');
     expect(document.head.innerHTML).toContain('@keyframes lp-type-3');
-    // no navigation happened — the switch is purely client-side
     expect(goto).not.toHaveBeenCalled();
-  });
-});
-
-describe('/ — adaptive layout + palette discipline (§4.21.D + §4.20.K/§4.20.A, source pins)', () => {
-  it('PHONE ORDER UNCHANGED: single-column stacking in the §4.20.K order (minus the two removed blocks, reminder merged into the art block)', () => {
-    const css = source('src/routes/+page.svelte');
-    // base canvas = one column (flex), the DOM order IS the mobile order
-    expect(css).toMatch(/\.canvas\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/);
-    const canvas = css.match(/\.canvas\s*\{[\s\S]*?\n\s*\}/)?.[0] ?? '';
-    const order = ['area-lead', 'area-art', 'area-chat', 'area-agents', 'area-stat', 'area-tutorial', 'area-foot'];
-    const positions = order.map((name) => css.indexOf(name, css.indexOf('<main')));
-    expect(positions.every((p) => p > 0)).toBe(true);
-    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
-    // the removed §4.20.I blocks are gone from the tail (no area-ftpos/badge areas)
-    expect(css).not.toMatch(/area-ftpos|area-badge/);
-    // the canvas is capped at the 1000px desktop composition width
-    expect(css).toMatch(/max-width:\s*1000px/);
-    // the art block is full-width and overflow-guarded (no scroll at 320px)
-    const scene = source('src/lib/components/landing/LandingHeroScene.svelte');
-    expect(scene).toMatch(/\.art-block\s*\{[^}]*width:\s*100%/);
-    expect(scene).toMatch(/\.art-block\s*\{[^}]*overflow:\s*hidden/);
-    expect(canvas || css).toBeTruthy();
-  });
-
-  it('desktop ≥720px: the §4.21.D three-section grid (27% minmax(0,1fr) 26%) via CSS-only grid areas', () => {
-    const css = source('src/routes/+page.svelte');
-    expect(css).toMatch(
-      /@media \(min-width: 720px\)[\s\S]*grid-template-columns:\s*27% minmax\(0, 1fr\) 26%/
-    );
-    const areaSrc = css.match(/grid-template-areas:([\s\S]*?;)/)?.[1] ?? '';
-    const rows = [...areaSrc.matchAll(/'([^']*)'/g)].map((m) => m[1] ?? '');
-    // section 2 = lead | art | agent+chat; section 3 = stat + tut rows; footer
-    expect(rows).toEqual([
-      'lead art   agent',
-      'lead art   chat',
-      'stat stat  stat',
-      'tut  tut   tut',
-      'foot foot  foot'
-    ]);
-    expect(css).toMatch(/grid-template-rows:\s*auto 1fr/);
-    // the headline scales 36px → 44px (≥480px) → 64px (≥720px)
-    expect(css).toMatch(/\.headline\s*\{[^}]*font-size:\s*36px/);
-    expect(css).toMatch(/@media \(min-width: 480px\)\s*\{[\s\S]*?font-size:\s*44px/);
-    expect(css).toMatch(/@media \(min-width: 720px\)[\s\S]*?\.headline\s*\{[^}]*font-size:\s*64px/);
-  });
-
-  it('the mascot-chat strip keeps its desktop slot UNDER the agent card in the right column (§4.21.D re-verification)', () => {
-    const css = source('src/routes/+page.svelte');
-    // agent row 1, chat row 2, same 26% column — never shares space with
-    // the art block or the reminder (the art area is column 2 only)
-    const areaSrc = css.match(/grid-template-areas:([\s\S]*?;)/)?.[1] ?? '';
-    const rows = [...areaSrc.matchAll(/'([^']*)'/g)].map((m) => m[1] ?? '');
-    expect(rows[0]?.endsWith('agent')).toBe(true);
-    expect(rows[1]?.endsWith('chat')).toBe(true);
-    // the art column exists only in the section-2 rows (never with stat/tut/foot)
-    expect(rows.map((r) => r.split(/\s+/).filter((c) => c === 'art').length)).toEqual([
-      1, 1, 0, 0, 0
-    ]);
-  });
-
-  it('palette discipline: no raw hex anywhere in the landing sources; the accent is the approved violet token', () => {
-    for (const file of LANDING_SOURCES) {
-      const src = source(file);
-      const withoutComments = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-      expect(withoutComments, `${file} carries a raw hex`).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
-    }
-    const page = source('src/routes/+page.svelte');
-    expect(page).toMatch(/var\(--color-deepa-4\)/);
-    expect(page).not.toMatch(/--color-accent/);
-  });
-
-  it('no new dependencies, no canvas element, no animation library (§4.21.I-22)', () => {
-    const pkg = JSON.parse(source('package.json')) as { dependencies: Record<string, string> };
-    expect(Object.keys(pkg.dependencies).sort()).toEqual([
-      '@bleak/api-client',
-      '@fontsource-variable/handjet',
-      '@fontsource-variable/inter',
-      '@fontsource/press-start-2p',
-      'jsqr',
-      'uqr'
-    ]);
-    for (const file of LANDING_SOURCES) {
-      const src = source(file);
-      expect(src, `${file} must not use <canvas>`).not.toMatch(/<canvas/);
-      expect(src, `${file} must not import an animation library`).not.toMatch(
-        /from ['"](gsap|animejs|three|pixi\.js)['"]/
-      );
-    }
-  });
-
-  it('the mascot cast: six DISTINCT figures — NOVA + ASTRA (hero), VECTOR, BLOOM, PIP, GLITCH — BYTE retired (§4.20.J + §4.21.A)', () => {
-    const { container } = render(LandingPage, { props: {} });
-    const kinds = [...container.querySelectorAll('[data-figure]')].map(
-      (el) => el.getAttribute('data-figure')
-    );
-    for (const kind of ['nova', 'astra', 'vector', 'bloom', 'pip', 'glitch']) {
-      expect(kinds, `${kind} on the page`).toContain(kind);
-    }
-    expect(kinds).not.toContain('byte');
-    // each region carries its own figure — VECTOR only in the agent card,
-    // BLOOM only in the stat card, PIP only in the chat strip
-    expect(container.querySelectorAll('.agent-card [data-figure="bloom"]')).toHaveLength(0);
-    expect(container.querySelectorAll('.stat-card [data-figure="vector"]')).toHaveLength(0);
-    expect(container.querySelectorAll('.agent-card [data-figure="pip"]')).toHaveLength(0);
-    // NOVA/ASTRA exist ONLY inside the hero pair (each has exactly one node)
-    expect(container.querySelectorAll('[data-figure="nova"]')).toHaveLength(1);
-    expect(container.querySelectorAll('[data-figure="astra"]')).toHaveLength(1);
-    // the cast table (figures.ts) declares exactly the six figure kinds
-    const data = source('src/lib/components/landing/figures.ts');
-    for (const kind of ['vector', 'bloom', 'pip', 'glitch', 'nova', 'astra']) {
-      expect(data).toMatch(new RegExp(`^  ${kind}: \\{`, 'm'));
-    }
-    expect(data).not.toMatch(/^\s*byte:/m);
   });
 });
 

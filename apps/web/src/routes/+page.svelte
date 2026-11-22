@@ -1,42 +1,47 @@
 <script lang="ts">
   /**
-   * `/` — the landing page (tz12-05, Concept §31+§32+§33, DESIGN §4.20 as
-   * amended by §4.21 — the owner's photo-review adjustment batch):
+   * `/` — the landing page (tz12-06, Concept §31+§32+§33+§34, DESIGN §4.22
+   * amending §4.21/§4.20 item by item):
    *
-   * - Canvas: the existing --color-bg (near-black); the landing accent is
-   *   the approved Deepa violet (--color-deepa-4 — every color is an
-   *   existing §4.1 token or a color-mix alpha variant; no new values, no
-   *   new dependencies, no canvas, no animation library).
-   * - Section 1 — header (§4.20.B, unchanged): pixel-font taglines, the
-   *   working RU/EN switch (the shared LocaleControl), desktop in-page
-   *   anchors and the START pill (mobile) / text link (desktop).
-   * - Section 2 (desktop grid 27% / 1fr / 26%, §4.21.D): left — the
-   *   headline block + subheadline + START CTA (§4.20.C verbatim); center
-   *   — the taller pixel-art composition block (§4.21.B: the owner's
-   *   background image, the smooth edge vignette, the animated purple
-   *   pixels, the NOVA + ASTRA pair, and the agent reminder box FIXED at
-   *   the block's bottom, §4.21.C); right — the VECTOR agent card (§4.20.G-b)
-   *   above the mascot-chat strip (§4.20.F, unchanged).
+   * - Canvas: the NEW §4.22.F page background — `--color-landing-bg` (the
+   *   near-black page matching the hero video's own near-black background),
+   *   painted full-bleed by the page wrapper; the 1000px content canvas is
+   *   centered inside. Every other page keeps --color-bg.
+   * - Section 1 — header (§4.22.A, taglines dropped): ONLY the web icon
+   *   (the §30 FormShell mark, plate-less, cutouts in
+   *   `--color-landing-bg`), the desktop-only in-page anchors and the
+   *   working RU/EN switch (the shared LocaleControl) — one non-sticky row;
+   *   on phone the header is icon + switcher only.
+   * - Section 2 — the `.stage` hero (§4.22.B): DOM order = the phone
+   *   stacking order — lead block (headline + subheadline + Start CTA,
+   *   §4.20.C verbatim) → video block (`LandingVideoHero`: the owner's
+   *   16:9 video, full common-block width, the vignette dissolve into the
+   *   page token, the animated purple pixels, the bottom-fixed reminder
+   *   §4.22.C, the gated play control) → mascot-chat strip (§4.20.F
+   *   verbatim) → the BLEAK agent card (§4.20.G-b as renamed §4.22.D).
+   *   Desktop ≥720px: the lead and agent blocks OVERLAY the video from
+   *   their sides (floating over the video's vignette-dissolved dark
+   *   edges, vertically centered on the video); the chat strip flows below
+   *   the video, right-aligned, 280px. PHONE: no overlay — the blocks
+   *   stack in exactly this order.
    * - Section 3: the stat card — compact per §4.21.F, full-width — then
-   *   the three BIG step blocks (§4.21.E, replaces the §4.20.H icon row):
-   *   FIND / CHAT / SHARE, each with the pixel step number, the pixel-font
-   *   title, the step icon and a one-line description.
-   * - Footer (§4.21.G, replaces §4.20.I): the site contact block —
-   *   extube@proton.me + github.com/extube with RU/EN labels; the two
-   *   §4.20.I footer blocks are REMOVED (their keys die, §4.21.H).
-   * - Mascots (§4.20.J + §4.21.A): six distinct figures — NOVA + ASTRA
-   *   (the hero pair; BYTE retired), VECTOR (card), BLOOM (stat card),
-   *   PIP/GLITCH (chat strip + tagline glyph) — all original SVG-rect art.
-   * - Adaptive: PHONE ORDER UNCHANGED — mobile-first single column in the
-   *   §4.20.K order (art block now carries the reminder inside it; the
-   *   two removed blocks drop from the tail); ≥720px re-composes into the
-   *   §4.21.D three-section grid — CSS-only rearrangement, same DOM.
-   * - Behavior (§4.20.L + §4.21.G amendment): the /income entry points are
-   *   exactly two — the Start CTA and the agent-card TALK; nothing on /
-   *   fetches; the join deep links (?code= / ?u=) still forward to
-   *   /income with the query preserved (the §3.1 guard, unchanged).
-   * - RU/EN parity: every landing string goes through the 38 §4.20.M+§4.21.H
-   *   keys; the header switch re-renders the page without a reload.
+   *   the three BIG step blocks (§4.21.E): FIND / CHAT / SHARE.
+   * - Footer (§4.21.G): the site contact block — extube@proton.me +
+   *   github.com/extube with RU/EN labels.
+   * - Mascots (§4.20.J as amended by §4.22.I): four figures — BLEAK (the
+   *   agent card, promoted shared personage §4.22.E), BLOOM (stat card),
+   *   PIP + GLITCH (the chat strip; the tagline glyph slot retired with
+   *   the taglines). NOVA + ASTRA retire with the drawn hero scene
+   *   (§4.22.G) — the video carries its own cast.
+   * - Behavior (§4.20.L + §4.21.G amendment, §4.22.A made exact): the
+   *   /income entry points are EXACTLY TWO — the Start CTA and the
+   *   agent-card TALK (the header START controls are removed, §4.22.A);
+   *   nothing on / fetches; the join deep links (?code= / ?u=) still
+   *   forward to /income with the query preserved (the §3.1 guard,
+   *   unchanged).
+   * - RU/EN parity: every landing string goes through the 35 §4.20.M +
+   *   §4.21.H + §4.22.H keys; the header switch re-renders the page
+   *   without a reload.
    */
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -44,7 +49,7 @@
   import { locale, translate } from '#lib/i18n/locale';
   import LocaleControl from '#lib/components/join/LocaleControl.svelte';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
-  import LandingHeroScene from '#lib/components/landing/LandingHeroScene.svelte';
+  import LandingVideoHero from '#lib/components/landing/LandingVideoHero.svelte';
   import LandingChatStrip from '#lib/components/landing/LandingChatStrip.svelte';
   import LandingFigure from '#lib/components/landing/LandingFigure.svelte';
   import type { ChatBubbleSpec } from '#lib/components/landing/chatTimeline';
@@ -67,11 +72,9 @@
     void goto(resolve('/income'));
   }
 
-  /** The tagline's first word cluster carries the accent tint (§4.20.B). */
-  function splitFirstWord(line: string): [string, string] {
-    const at = line.indexOf(' ');
-    return at === -1 ? [line, ''] : [line.slice(0, at), line.slice(at)];
-  }
+  const videoAria = $derived(translate($locale, 'landing.video.aria'));
+  const videoPlay = $derived(translate($locale, 'landing.video.play'));
+  const videoPause = $derived(translate($locale, 'landing.video.pause'));
 
   const dialogLines = $derived([
     translate($locale, 'landing.dialog.line1'),
@@ -114,32 +117,39 @@
   const copyright = $derived(translate($locale, 'landing.footer.copyright'));
   const copyrightBrand = $derived(copyright.split(' · ')[0] ?? '');
   const copyrightYear = $derived(copyright.split(' · ')[1] ?? '');
-
-  const leftTagline = $derived(translate($locale, 'landing.tagline.left.1'));
-  const leftTaglineSplit = $derived(splitFirstWord(leftTagline));
 </script>
 
-<div class="landing">
-  <!-- SECTION 1 — HEADER (§4.20.B): taglines + the locale switch + the START control. -->
-  <header class="top">
-    <div class="tagline tagline-left">
-      <span class="tag-line">
-        <span class="tint">{leftTaglineSplit[0]}</span>{leftTaglineSplit[1]}
-      </span>
-      <span class="tag-line">{translate($locale, 'landing.tagline.left.2')}</span>
-    </div>
-    <p class="tagline tagline-top">{translate($locale, 'landing.tagline.top')}</p>
-    <div class="tagline tagline-right">
-      <span class="tag-glyph" aria-hidden="true">
-        <LandingFigure kind="glitch" size={24} idle={false} />
-      </span>
-      <span class="tag-lines">
-        <span class="tag-line">{translate($locale, 'landing.tagline.right.1')}</span>
-        <span class="tag-line">{translate($locale, 'landing.tagline.right.2')}</span>
-      </span>
-    </div>
-    <div class="top-actions">
-      <div class="locale"><LocaleControl /></div>
+<!-- §4.22.F: the full-bleed landing page background — --color-landing-bg
+     (scoped to /; every other page keeps --color-bg), the 1000px canvas
+     centered inside. -->
+<div class="landing-page">
+  <div class="landing">
+    <!-- SECTION 1 — HEADER (§4.22.A): the web icon + the navigation + the
+         language switcher ONLY — one non-sticky row; on phone icon +
+         switcher (the anchors are a desktop convenience). -->
+    <header class="top">
+      <!-- the §30 FormShell app mark, plate-less; the cutout cells are the
+           landing page background token so the mark dissolves into the new
+           black page (§4.22.A; token fills, no hex). -->
+      <svg
+        class="app-icon"
+        viewBox="0 0 64 64"
+        width="40"
+        height="40"
+        shape-rendering="crispEdges"
+        aria-hidden="true"
+      >
+        <g fill="var(--color-deepa-4)">
+          <rect x="16" y="14" width="32" height="8" />
+          <rect x="12" y="22" width="40" height="16" />
+          <rect x="16" y="38" width="32" height="8" />
+        </g>
+        <g fill="var(--color-landing-bg)">
+          <rect x="20" y="26" width="8" height="8" />
+          <rect x="36" y="26" width="8" height="8" />
+          <rect x="28" y="30" width="8" height="4" />
+        </g>
+      </svg>
       <!-- desktop-only in-page anchors; their accessible names reuse the
            §4.20.M keys (§4.20.M: no extra nav keys). -->
       <div class="top-nav">
@@ -150,174 +160,184 @@
         </a>
         <a href="#agents">{translate($locale, 'landing.agent.name')}</a>
       </div>
-      <button type="button" class="start-pill cta-pill" onclick={start}>
-        {translate($locale, 'landing.cta')}
-      </button>
-      <a class="start-link" href={resolve('/income')}>
-        {translate($locale, 'landing.cta')}
-      </a>
-    </div>
-  </header>
+      <div class="locale"><LocaleControl /></div>
+    </header>
 
-  <main class="canvas">
-    <!-- SECTION 2 · lead — HEADLINE BLOCK + START CTA (§4.20.C verbatim) -->
-    <section class="copy area-lead">
-      <h1 class="headline">
-        <span class="hl-line">{translate($locale, 'landing.headline.1')}</span>
-        <span class="hl-line">{translate($locale, 'landing.headline.2')}</span>
-        <span class="hl-line accent-line">
-          <span class="accent-word">
-            {translate($locale, 'landing.headline.accent')}
-            <svg
-              class="sparkle spark-a"
-              viewBox="0 0 8 8"
-              aria-hidden="true"
-              shape-rendering="crispEdges"
-              fill="var(--color-deepa-4)"
-            >
-              <rect x="3" y="0" width="2" height="8" />
-              <rect x="0" y="3" width="8" height="2" />
-            </svg>
-            <svg
-              class="sparkle spark-b"
-              viewBox="0 0 8 8"
-              aria-hidden="true"
-              shape-rendering="crispEdges"
-              fill="var(--color-deepa-4)"
-            >
-              <rect x="3" y="0" width="2" height="8" />
-              <rect x="0" y="3" width="8" height="2" />
-            </svg>
-          </span>
-        </span>
-      </h1>
-      <p class="sub">{translate($locale, 'landing.sub')}</p>
-      <button type="button" class="cta-main" onclick={start}>
-        {translate($locale, 'landing.cta')}
-      </button>
-    </section>
-
-    <!-- SECTION 2 · art — the §4.21.B composition block (background image,
-         vignette, purple pixels, NOVA + ASTRA, the bottom-fixed reminder) -->
-    <div class="area-art">
-      <LandingHeroScene
-        label={translate($locale, 'landing.hero.aria')}
-        lines={dialogLines}
-        srLine={dialogLines[0] ?? ''}
-      />
-    </div>
-
-    <!-- SECTION 2 · chat — MASCOT-CHAT ANIMATION STRIP (§4.20.F, unchanged) -->
-    <div class="area-chat">
-      <LandingChatStrip
-        label={translate($locale, 'landing.chat.label')}
-        aria={translate($locale, 'landing.chat.aria')}
-        bubbles={chatBubbles}
-      />
-    </div>
-
-    <!-- SECTION 2 · agent — AGENT CHARACTER CARD (§4.20.G-b) -->
-    <section class="area-agents" id="agents">
-      <article class="card pixel-corners pixel-frame pixel-frame--strong agent-card">
-        <div class="card-body pixel-corners agent-body">
-          <div class="agent-portrait">
-            <LandingFigure kind="vector" size={96} idle={false} />
-          </div>
-          <h2 class="agent-name">{translate($locale, 'landing.agent.name')}</h2>
-          <span class="agent-badge">{translate($locale, 'landing.agent.badge')}</span>
-          <p class="agent-traits">{translate($locale, 'landing.agent.traits')}</p>
-          <p class="agent-quote">{translate($locale, 'landing.agent.quote')}</p>
-          <button type="button" class="talk" onclick={talk}>
-            {translate($locale, 'landing.agent.cta')}
-          </button>
-        </div>
-      </article>
-    </section>
-
-    <!-- SECTION 3 · STAT / FEATURE CARD (§4.20.G-a, compact per §4.21.F) -->
-    <section class="area-stat">
-      <article class="card pixel-corners pixel-frame pixel-frame--strong stat-card">
-        <div class="card-body pixel-corners stat-body">
-          <div class="stat-copy">
-            <h2 class="stat-title">{translate($locale, 'landing.stat.title')}</h2>
-            <p class="stat-line">{translate($locale, 'landing.stat.line1')}</p>
-            <p class="stat-line">{translate($locale, 'landing.stat.line2')}</p>
-            <p class="stat-line">{translate($locale, 'landing.stat.line3')}</p>
-          </div>
-          <div class="stat-glyph">
-            <LandingFigure kind="bloom" size={48} />
-          </div>
-        </div>
-      </article>
-    </section>
-
-    <!-- SECTION 3 · the three BIG step blocks (§4.21.E, replaces §4.20.H):
-         FIND → CHAT → SHARE, number + pixel title + icon + description -->
-    <section class="tutorial area-tutorial" id="tutorial">
-      <ol class="steps">
-        {#each tutorialSteps as step (step.icon)}
-          <li class="step-block pixel-corners pixel-frame pixel-frame--strong">
-            <div class="step-body pixel-corners">
-              <span class="step-num" aria-hidden="true">{step.num}</span>
-              <h3 class="step-title">{step.label}</h3>
-              <span class="step-icon">
-                <PixelIcon name={step.icon} size={32} />
+    <main class="canvas">
+      <!-- SECTION 2 · the .stage hero (§4.22.B). DOM order = the phone
+           stacking order: lead → video → chat strip → agent card. -->
+      <div class="stage">
+        <!-- SECTION 2 · lead — HEADLINE BLOCK + START CTA (§4.20.C verbatim) -->
+        <section class="copy area-lead">
+          <h1 class="headline">
+            <span class="hl-line">{translate($locale, 'landing.headline.1')}</span>
+            <span class="hl-line">{translate($locale, 'landing.headline.2')}</span>
+            <span class="hl-line accent-line">
+              <span class="accent-word">
+                {translate($locale, 'landing.headline.accent')}
+                <svg
+                  class="sparkle spark-a"
+                  viewBox="0 0 8 8"
+                  aria-hidden="true"
+                  shape-rendering="crispEdges"
+                  fill="var(--color-deepa-4)"
+                >
+                  <rect x="3" y="0" width="2" height="8" />
+                  <rect x="0" y="3" width="8" height="2" />
+                </svg>
+                <svg
+                  class="sparkle spark-b"
+                  viewBox="0 0 8 8"
+                  aria-hidden="true"
+                  shape-rendering="crispEdges"
+                  fill="var(--color-deepa-4)"
+                >
+                  <rect x="3" y="0" width="2" height="8" />
+                  <rect x="0" y="3" width="8" height="2" />
+                </svg>
               </span>
-              <p class="step-desc">{step.desc}</p>
-            </div>
-          </li>
-        {/each}
-      </ol>
-    </section>
+            </span>
+          </h1>
+          <p class="sub">{translate($locale, 'landing.sub')}</p>
+          <button type="button" class="cta-main" onclick={start}>
+            {translate($locale, 'landing.cta')}
+          </button>
+        </section>
 
-    <!-- FOOTER — the §4.21.G site contact block (replaces both §4.20.I blocks) -->
-    <footer class="contact area-foot pixel-corners pixel-frame pixel-frame--strong">
-      <div class="foot-body pixel-corners">
-        <div class="foot-brand">
-          <svg
-            viewBox="0 0 64 64"
-            width="16"
-            height="16"
-            shape-rendering="crispEdges"
-            aria-hidden="true"
-          >
-            <g fill="var(--color-deepa-4)">
-              <rect x="16" y="14" width="32" height="8" />
-              <rect x="12" y="22" width="40" height="16" />
-              <rect x="16" y="38" width="32" height="8" />
-            </g>
-            <g fill="var(--color-bg)">
-              <rect x="20" y="26" width="8" height="8" />
-              <rect x="36" y="26" width="8" height="8" />
-              <rect x="28" y="30" width="8" height="4" />
-            </g>
-          </svg>
-          <span class="brand-name">{copyrightBrand}</span>
-          <span class="foot-year">· {copyrightYear}</span>
+        <!-- SECTION 2 · video — the §4.22.B video block (the owner's video,
+             the vignette dissolve, the purple pixels, the bottom-fixed
+             reminder, the gated play control) -->
+        <div class="area-video">
+          <LandingVideoHero
+            aria={videoAria}
+            playLabel={videoPlay}
+            pauseLabel={videoPause}
+            lines={dialogLines}
+            srLine={dialogLines[0] ?? ''}
+          />
         </div>
-        <div class="foot-links">
-          <a class="foot-link" href="mailto:extube@proton.me">
-            <span class="link-label">{translate($locale, 'landing.footer.contact.email.label')}</span>
-            <span class="link-value">extube@proton.me</span>
-          </a>
-          <a
-            class="foot-link"
-            href="https://github.com/extube"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <span class="link-label">{translate($locale, 'landing.footer.contact.github.label')}</span>
-            <span class="link-value">github.com/extube</span>
-          </a>
+
+        <!-- SECTION 2 · chat — MASCOT-CHAT ANIMATION STRIP (§4.20.F):
+             desktop — below the video, right-aligned 280px; phone — the
+             full-width §4.20.K slot -->
+        <div class="area-chat">
+          <LandingChatStrip
+            label={translate($locale, 'landing.chat.label')}
+            aria={translate($locale, 'landing.chat.aria')}
+            bubbles={chatBubbles}
+          />
         </div>
+
+        <!-- SECTION 2 · agent — AGENT CHARACTER CARD (§4.20.G-b, renamed
+             BLEAK per §4.22.D) -->
+        <section class="area-agents" id="agents">
+          <article class="card pixel-corners pixel-frame pixel-frame--strong agent-card">
+            <div class="card-body pixel-corners agent-body">
+              <div class="agent-portrait">
+                <LandingFigure kind="bleak" size={96} idle={false} />
+              </div>
+              <h2 class="agent-name">{translate($locale, 'landing.agent.name')}</h2>
+              <span class="agent-badge">{translate($locale, 'landing.agent.badge')}</span>
+              <p class="agent-traits">{translate($locale, 'landing.agent.traits')}</p>
+              <p class="agent-quote">{translate($locale, 'landing.agent.quote')}</p>
+              <button type="button" class="talk" onclick={talk}>
+                {translate($locale, 'landing.agent.cta')}
+              </button>
+            </div>
+          </article>
+        </section>
       </div>
-    </footer>
-  </main>
+
+      <!-- SECTION 3 · STAT / FEATURE CARD (§4.20.G-a, compact per §4.21.F) -->
+      <section class="area-stat">
+        <article class="card pixel-corners pixel-frame pixel-frame--strong stat-card">
+          <div class="card-body pixel-corners stat-body">
+            <div class="stat-copy">
+              <h2 class="stat-title">{translate($locale, 'landing.stat.title')}</h2>
+              <p class="stat-line">{translate($locale, 'landing.stat.line1')}</p>
+              <p class="stat-line">{translate($locale, 'landing.stat.line2')}</p>
+              <p class="stat-line">{translate($locale, 'landing.stat.line3')}</p>
+            </div>
+            <div class="stat-glyph">
+              <LandingFigure kind="bloom" size={48} />
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <!-- SECTION 3 · the three BIG step blocks (§4.21.E):
+           FIND → CHAT → SHARE, number + pixel title + icon + description -->
+      <section class="tutorial area-tutorial" id="tutorial">
+        <ol class="steps">
+          {#each tutorialSteps as step (step.icon)}
+            <li class="step-block pixel-corners pixel-frame pixel-frame--strong">
+              <div class="step-body pixel-corners">
+                <span class="step-num" aria-hidden="true">{step.num}</span>
+                <h3 class="step-title">{step.label}</h3>
+                <span class="step-icon">
+                  <PixelIcon name={step.icon} size={32} />
+                </span>
+                <p class="step-desc">{step.desc}</p>
+              </div>
+            </li>
+          {/each}
+        </ol>
+      </section>
+
+      <!-- FOOTER — the §4.21.G site contact block -->
+      <footer class="contact area-foot pixel-corners pixel-frame pixel-frame--strong">
+        <div class="foot-body pixel-corners">
+          <div class="foot-brand">
+            <svg
+              viewBox="0 0 64 64"
+              width="16"
+              height="16"
+              shape-rendering="crispEdges"
+              aria-hidden="true"
+            >
+              <g fill="var(--color-deepa-4)">
+                <rect x="16" y="14" width="32" height="8" />
+                <rect x="12" y="22" width="40" height="16" />
+                <rect x="16" y="38" width="32" height="8" />
+              </g>
+              <g fill="var(--color-landing-bg)">
+                <rect x="20" y="26" width="8" height="8" />
+                <rect x="36" y="26" width="8" height="8" />
+                <rect x="28" y="30" width="8" height="4" />
+              </g>
+            </svg>
+            <span class="brand-name">{copyrightBrand}</span>
+            <span class="foot-year">· {copyrightYear}</span>
+          </div>
+          <div class="foot-links">
+            <a class="foot-link" href="mailto:extube@proton.me">
+              <span class="link-label">{translate($locale, 'landing.footer.contact.email.label')}</span>
+              <span class="link-value">extube@proton.me</span>
+            </a>
+            <a
+              class="foot-link"
+              href="https://github.com/extube"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span class="link-label">{translate($locale, 'landing.footer.contact.github.label')}</span>
+              <span class="link-value">github.com/extube</span>
+            </a>
+          </div>
+        </div>
+      </footer>
+    </main>
+  </div>
 </div>
 
 <style>
-  /* Canvas (§4.20.A): the near-black page bg is the app shell's; the
-   * content canvas is centered at 1000px. */
+  /* §4.22.F: the full-bleed near-black page background (the video's own
+   * near-black, 5% Deepa cast) — scoped to /; the 1000px canvas centered
+   * inside. */
+  .landing-page {
+    min-height: 100dvh;
+    background: var(--color-landing-bg);
+  }
   .landing {
     width: 100%;
     max-width: 1000px;
@@ -333,66 +353,17 @@
     }
   }
 
-  /* ---------- section 1: header (§4.20.B, unchanged) ---------- */
+  /* ---------- section 1: header (§4.22.A — slimmed) ---------- */
   .top {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: var(--space-4);
+    min-height: 56px;
   }
-  .tagline {
-    font-family: var(--font-pixel);
-    font-weight: 600;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    line-height: 1.4;
-    color: var(--color-text);
-  }
-  .tagline-left {
-    display: flex;
-    flex-direction: column;
-  }
-  .tag-line {
+  .app-icon {
     display: block;
-  }
-  .tint {
-    color: var(--color-deepa-4);
-  }
-  .tagline-top {
-    display: none;
-    margin: 0;
-    color: var(--color-deepa-4);
-  }
-  .tagline-right {
-    display: none;
-    align-items: flex-start;
-    gap: var(--space-2);
-  }
-  .tag-glyph {
-    line-height: 0;
     flex: none;
-  }
-  .tag-lines {
-    display: flex;
-    flex-direction: column;
-  }
-  .top-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    flex: none;
-  }
-  .locale {
-    display: flex;
-    align-items: center;
-    height: 40px;
-  }
-  .locale :global(.segmented) {
-    padding: 2px;
-  }
-  .locale :global(.segmented button) {
-    min-height: 36px;
   }
   .top-nav {
     display: none;
@@ -411,116 +382,80 @@
   .top-nav a:hover {
     color: var(--color-deepa-4);
   }
-  .start-link {
-    display: none;
-    font-family: var(--font-pixel);
-    font-weight: 600;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--color-text);
-    transition: color 120ms ease-out;
+  .locale {
+    display: flex;
+    align-items: center;
+    height: 40px;
+    flex: none;
   }
-  .start-link:hover {
-    color: var(--color-deepa-4);
+  .locale :global(.segmented) {
+    padding: 2px;
+  }
+  .locale :global(.segmented button) {
+    min-height: 36px;
   }
   @media (min-width: 720px) {
-    .top {
-      display: grid;
-      grid-template-columns: 27% minmax(0, 1fr) 26%;
-      column-gap: var(--space-6);
-      row-gap: var(--space-4);
-      align-items: start;
-    }
-    .tagline {
-      font-size: 13px;
-    }
-    .tagline-left {
-      grid-column: 1;
-      grid-row: 1;
-    }
-    .tagline-top {
-      display: block;
-      grid-column: 2;
-      grid-row: 1;
-      justify-self: center;
-      text-align: center;
-      font-size: 12px;
-    }
-    .tagline-right {
-      display: flex;
-      grid-column: 3;
-      grid-row: 1;
-      justify-self: end;
-      text-align: right;
-    }
-    .top-actions {
-      grid-column: 1 / -1;
-      grid-row: 2;
-      justify-self: end;
-    }
+    /* icon · anchors · switcher, left→right (§4.22.A) */
     .top-nav {
       display: flex;
     }
-    .start-pill {
-      display: none;
-    }
-    .start-link {
-      display: inline-block;
-    }
   }
 
-  /* ---------- sections 2 + 3: the canvas (§4.21.D) ----------
-   * PHONE ORDER UNCHANGED (§4.20.K): the DOM order below IS the mobile
-   * stack — headline → sub → Start → art block (the reminder lives inside
-   * it at the bottom) → chat strip → agent card → stat card → the three
-   * step blocks → contact footer. Desktop (≥720px) is the §4.21.D
-   * three-section grid: CSS-only rearrangement, same DOM. */
+  /* ---------- sections 2 + 3: the canvas (§4.22.B) ----------
+   * PHONE ORDER (§4.20.K preserved): the DOM order below IS the mobile
+   * stack — header → headline → sub → Start → video block (the reminder
+   * lives inside it at the bottom) → chat strip → agent card → stat card
+   * → the three step blocks → contact footer. Desktop (≥720px) overlays
+   * the lead/agent blocks on the video's side edges — CSS-only
+   * re-composition, same DOM. */
   .canvas {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
     min-width: 0;
   }
+  .stage {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    min-width: 0;
+  }
   @media (min-width: 720px) {
-    .canvas {
+    /* §4.22.B desktop composition: the video is the full common-block
+     * width (it spans the whole row); the lead (27%) and agent-card (26%)
+     * blocks overlay the video's side edges, vertically centered on the
+     * video, ABOVE it in z-order; the chat strip flows below the video,
+     * right-aligned, 280px wide. The 47% clear center band (100% − 27% −
+     * 26%) is the reminder's §4.22.C desktop cap band. */
+    .stage {
       display: grid;
       grid-template-columns: 27% minmax(0, 1fr) 26%;
-      grid-template-areas:
-        'lead art   agent'
-        'lead art   chat'
-        'stat stat  stat'
-        'tut  tut   tut'
-        'foot foot  foot';
-      grid-template-rows: auto 1fr;
+      grid-template-rows: auto auto;
+      align-items: center;
       column-gap: var(--space-6);
       row-gap: var(--space-6);
-      align-items: start;
     }
-    .area-lead {
-      grid-area: lead;
-    }
-    .area-art {
-      grid-area: art;
+    .area-video {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      z-index: 0;
       min-width: 0;
     }
-    .area-chat {
-      grid-area: chat;
-      width: 100%;
+    .area-lead {
+      grid-column: 1;
+      grid-row: 1;
+      z-index: 2;
     }
     .area-agents {
-      grid-area: agent;
+      grid-column: 3;
+      grid-row: 1;
+      z-index: 2;
     }
-    .area-stat {
-      grid-area: stat;
-    }
-    .area-tutorial {
-      grid-area: tut;
-    }
-    .area-foot {
-      grid-area: foot;
-      justify-self: center;
-      width: 100%;
+    .area-chat {
+      grid-column: 3;
+      grid-row: 2;
+      justify-self: end;
+      width: 280px;
     }
   }
 
@@ -612,8 +547,7 @@
   /* CTA pills (§4.20.C/G): the landing accent pill — violet fill, light
    * text (AA on the violet), glow on hover, scale(0.98) on press. */
   .cta-main,
-  .talk,
-  .start-pill {
+  .talk {
     border: none;
     border-radius: var(--radius-pill);
     background: var(--color-deepa-4);
@@ -635,20 +569,13 @@
     padding: 10px 28px;
     min-height: var(--touch-target);
   }
-  .start-pill {
-    padding: 6px 14px;
-    min-height: 36px;
-    font-size: 12px;
-  }
   .cta-main:hover,
-  .talk:hover,
-  .start-pill:hover {
+  .talk:hover {
     filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-deepa-4) 50%, transparent))
       drop-shadow(0 0 24px color-mix(in srgb, var(--color-deepa-4) 22%, transparent));
   }
   .cta-main:active,
-  .talk:active,
-  .start-pill:active {
+  .talk:active {
     transform: scale(0.98);
   }
 

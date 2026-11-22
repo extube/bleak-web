@@ -3899,6 +3899,510 @@ two dead keys.
    confirm (or substitute) before landing — it is published contact
    information.
 
+### 4.22 v3.16 feature design (2026-11-22, owner-approved Concept §34): §34 video hero + header cleanup + Vector→Bleak
+
+The owner added a 16:9 `.mp4` video (workspace root: `background-video.mp4`,
+~4.4 MB, the clip's own background is near-black — the owner explicitly
+matches the page background to it) and issued the six-item §34 batch. This
+section amends the §4.20/§4.21 landing spec item by item; **where §4.22 is
+silent, §4.20/§4.21 stand verbatim** (headline block + Start CTA §4.20.C,
+mascot-chat strip content/timing §4.20.F, cards §4.20.G/§4.21.F, step blocks
+§4.21.E, contact footer §4.21.G, behavior §4.20.L, motion/a11y baselines
+§4.20.L/§4.6). Constraint on inspection: **no video-inspection tooling exists
+in this environment** (no ffmpeg/ffprobe rights; the mp4 is not readable
+here) — every choice that depends on the video's exact frames is specced
+DEFENSIVELY below (attribute-based fallbacks, the structural dissolve, no
+frame-dependent geometry). The owner's still `background-img.jpg` (boy +
+robot in a purple flower field before a violet city skyline, under a glowing
+HELLO bubble, near-black purple-cast ground) is treated as the preview of the
+clip's art and the tone reference. Hard constraints unchanged: **no new
+dependencies, no new color values (§4.1 — tokens or `color-mix` alpha
+variants only), no canvas, no animation library; routes `/income` +
+`/income/[room]/create` untouched structurally (the income mascot swap is
+content-only); §23 no-background-plates; §24–§29 wizard geometry contracts
+untouched; PHONE stacking order preserved except the video restructure.**
+**API endpoints used: none** — unchanged; the landing stays fetch-free
+(§4.20 preamble), no loading/empty/error data states exist; the video adds
+media states only (§4.22.B). Task: tz12-06 (`feature/a4e2a3c6-tz12-06-video-hero`).
+
+#### 4.22.A Header slim-down (amends §4.20.B — taglines dropped, icon added)
+
+The header keeps ONLY the **web icon + the navigation + the language
+switcher**. Removed from `/` entirely:
+
+- the §4.20.B **top-left tagline pair** (`landing.tagline.left.1/.2`);
+- the **top-center line** (`landing.tagline.top`, ≥720px);
+- the **top-right tagline pair + the 24px GLITCH glyph**
+  (`landing.tagline.right.1/.2`) — the glyph was tagline-bound and dies with
+  the taglines (GLITCH remains only in the mascot-chat strip — this restores
+  §4.20.J's "no figure appears twice" cleanly);
+- the **header START controls** (`.start-pill` mobile / `.start-link`
+  desktop) — not in the owner's keep-list; the `/income` entry points return
+  to **exactly two: the lead-block Start CTA and the agent-card TALK**
+  (§4.21.G's rule, now truly exact — see §4.22.K flag 1).
+
+What remains, one non-sticky row on both breakpoints (height ~56px):
+
+- **Left: the web icon** — the FormShell header's exact app mark (§30
+  header-left treatment: the PWA mark's graphic itself, **no background
+  plate**, 40px, `aria-hidden` decorative). Token fills; its cutout cells
+  use the landing page background token (`--color-landing-bg`, §4.22.F) so
+  the cutouts dissolve into the new black page instead of reading as
+  `--color-bg` chips.
+- **Center/right: the nav anchors** — the existing two in-page anchors
+  (`#tutorial`, `#agents`; accessible names reuse `landing.tutorial.*` +
+  `landing.agent.name`, no new keys), **desktop-only (≥720px) as
+  established**: icon · anchors · switcher left→right. On phone the header
+  is icon + switcher only (the anchors were already a desktop convenience;
+  phone navigates by scroll) — stated explicitly so the header is never
+  empty at 320px.
+- **Right: the LocaleControl** (the shared control, unchanged sizing from
+  the live header).
+
+i18n keys retired from BOTH dictionaries: `landing.tagline.left.1`,
+`landing.tagline.left.2`, `landing.tagline.top`, `landing.tagline.right.1`,
+`landing.tagline.right.2` (§4.22.H).
+
+#### 4.22.B The video block — structure, stage layout, attributes
+
+**Structure.** The hero common block is built around the **video**. The
+`.stage` wrapper (new; replaces §4.21.D's three-column grid for section 2)
+contains, in this DOM order (= the phone stacking order): **lead block**
+(headline + subheadline + Start CTA, §4.20.C verbatim) → **video block** →
+**mascot-chat strip** (§4.20.F verbatim) → **agent card** (BLEAK, §4.20.G-b
+as renamed §4.22.D). Section 3 (stat card, step blocks) and the contact
+footer follow below, unchanged.
+
+- **Video block** (`LandingVideoHero.svelte` — replaces
+  `LandingHeroScene.svelte`, which is deleted with its only consumer): one
+  block, **full common-block width** (the 1000px canvas's content width;
+  ~888px at ≥1120px viewports), `aspect-ratio: 16 / 9` (the video's own
+  ratio — the block height derives from the video: ~500px desktop, ~150–200px
+  phone; the fixed 500/680px art-block heights of §4.21.B are superseded).
+  Layers bottom→top: ① the `<video>` (`width/height: 100%`,
+  `object-fit: cover` — with the block ratio pinned to the video's 16:9,
+  cover degrades to exact-fit; defensive if the true ratio drifts slightly,
+  it crops minimally instead of letterboxing); ② the edge-fade vignette
+  (§4.22.F); ③ the **animated purple pixels** — the §4.21.B layer-3 dot mesh
+  **kept verbatim** (the same 12 `DOTS` table, three `--color-deepa-4` alpha
+  shades 18/35/60%, `steps(2)` twinkle 1.6s, staggered 0–1.2s delays,
+  `aria-hidden`), re-anchored over the video block (the percent positions are
+  breakpoint-independent; the §4.21.B protected-scenario rects are RETIRED
+  with the still image — see §4.22.G); ④ the reminder box (§4.22.C); ⑤ the
+  play control (below).
+
+- **Video attributes (decisive set):**
+
+  ```html
+  <video src={videoUrl} muted loop playsinline preload="metadata"
+         disablepictureinpicture aria-hidden="true"></video>
+  ```
+
+  - **No `autoplay` attribute** (it cannot be conditional) and **no
+    `controls`** (the custom control replaces it). Playback starts from a
+    one-shot mount effect: `if (!matchMedia('(prefers-reduced-motion:
+    reduce)').matches) video.play().catch(showControl)` — **muted + loop +
+    playsinline** make this policy-compliant in every evergreen browser;
+    `preload="metadata"` keeps the initial payload light (the clip streams
+    progressively; ~4.4 MB is acceptable as a committed hero asset).
+  - **Reduced motion:** the video stays **paused** (static first frame where
+    the browser paints one; otherwise the base tint + dots show) — the
+    owner's "autoplay-off under reduced motion", specced as the gated
+    `.play()` above; the play control (below) lets the user opt in.
+  - **Play control fallback:** a 48px-target ghost button, bottom-right of
+    the video block (16px insets; never overlaps the reminder's centered
+    band at any tested width), translucent scrim chip
+    (`color-mix(in srgb, var(--color-landing-bg) 60%, transparent)`) with an
+    inline pixel play/pause glyph (§4.4 rect construction, `currentColor`,
+    `--color-text-muted`, hover `--color-text`, `:focus-visible` ring).
+    Visible **only when playback is not running** (paused, failed, or
+    reduced-motion); hidden while playing. `aria-label`:
+    `landing.video.play` / `landing.video.pause` (§4.22.H); toggles
+    playback; a rejected `.play()` (autoplay blocked) reveals it.
+  - **Failure degradation:** on the video `error` event the element is
+    hidden — the block degrades to the **black background + the purple pixel
+    treatment**: base tint = `var(--color-landing-bg)` (seamless with the
+    page), the vignette, the animated dots and the reminder all keep
+    running. No broken-media glyph, never a blank box, no layout shift (the
+    `aspect-ratio` box is fixed before the media arrives). **No `poster`**
+    (the still image is retired; the tint IS the pre/fallback state).
+
+- **Desktop composition (≥720px) — the owner's overlay rule.** The video is
+  the full common-block width; the two side blocks **overlay the video from
+  their sides**, floating over the video's dark (vignette-dissolved) edges:
+
+  ```css
+  .stage { position: relative; }                       /* ≥720px */
+  .video-block { position: relative; z-index: 0; }      /* in flow, full width */
+  .area-lead  { position: absolute; z-index: 2; left: 0;  top: 50%;
+                transform: translateY(-50%); width: 27%; }
+  .area-agents { position: absolute; z-index: 2; right: 0; top: 50%;
+                transform: translateY(-50%); width: 26%; }
+  ```
+
+  Widths 27% / 26% = the established §4.21.D grid columns (~26–28% band);
+  both overlays are **vertically centered** on the video. The overlays sit
+  above the block (z 2 > 0); the block's internal layers stay inside its own
+  stacking context. The lead overlay may run slightly taller than a short
+  video at the narrow desktop edge — it floats over the page background too;
+  no clipping is required. The agent-card overlay's hover/press states
+  (§4.20.G) are unchanged and still work over the video.
+  **The chat strip on desktop:** it cannot fit under the agent card inside
+  the 26% overlay (card ≈ full overlay height), so it flows **below the
+  video block, right-aligned, 280px wide** (inside `.stage`, normal flow
+  after the video block: `margin-left: auto; width: 280px;`) — decided
+  placement, **no conflict with the reminder box** (the reminder lives
+  inside the video block's bottom; the strip is below the block entirely).
+  On phone the strip keeps its §4.20.K full-width slot in the same DOM
+  position. Section 3 + footer are unchanged full-width rows below
+  `.stage` (§4.21.D rows 2–3 carry over as plain blocks).
+
+- **PHONE (<720px) — NO overlay; the exact stacking order (§33's phone order
+  preserved; only the art block becomes the video block):** ① slimmed header
+  (icon + switcher); ② headline block (centered, accent word); ③
+  subheadline; ④ **Start CTA**; ⑤ **video block** (full-width 16:9 video,
+  purple dots, the reminder bottom-fixed inside it, play control when
+  paused); ⑥ mascot-chat strip (full-width); ⑦ agent card (BLEAK); ⑧ stat
+  card; ⑨ the three step blocks (01→03 stacked); ⑩ contact footer. Same DOM
+  on both breakpoints; the desktop overlay is CSS-only re-composition; no
+  horizontal scroll at 320px.
+
+#### 4.22.C Reminder-box contract migration (amends §4.21.B layer 5 / §4.21.C)
+
+The §33/§4.21.C reminder box now lives **inside the video block,
+bottom-fixed over the video** — its geometry/animation contracts carry over
+**verbatim**: the retro pixel-frame (`--frame-strong`, 2px `--color-text`
+border, 4px stepped notches, bg `--color-surface`), the **1 : 3.5
+height:width ratio** (`aspect-ratio: 3.5 / 1; min-height: 64px`), the
+Handjet centered message (16px mobile / 18px desktop), the 24px sparkle
+emoji at the top-left corner (−10, −10), the ≥20px glowing pixel check at
+the bottom-center, the three cycling asterisk lines (12s loop, 200ms
+cross-fade, sr-only static line), and the **3s ease-in-out bob**
+(translateY 0→−6px mobile / −10px desktop, transform-only; everything
+collapses under `prefers-reduced-motion`).
+
+- **Width-cap change over a full-width video (the one amendment):** on
+  desktop the reminder must keep the §33.2.2 no-overlay rule **against the
+  new flanking overlays** (27% + 26% of the block). The ≥720px cap becomes
+  `--reminder-w: min(calc(47% - 48px), 348px)` — 47% = 100% − 27% − 26%
+  (the clear center band), 48px = two 24px gutters. Verified: 888px block →
+  348px (the old cap); 608px → ~238px; the reminder's x-band never enters
+  either overlay's band at 720/760/1280. **Phone cap unchanged:**
+  `min(100% - 32px, 256px)` — no flanking blocks exist on phone. Bottom
+  inset stays 16px; `--reminder-h` stays exposed on the block (the
+  video-block consumers that used it — the retired pair — are gone, but the
+  variable stays for the play-control geometry if needed).
+- The §4.21.B **protected central safe zone** (figures/bubble rects) is
+  **retired with the still image** — the video is a moving composition and
+  no static rect contract is enforceable; the owner's standing rules that
+  replace it are exactly the two above (reminder bottom-fixed inside the
+  block; flanking overlays cover only the side edges).
+
+#### 4.22.D Vector → Bleak rename (landing) — item 4a
+
+- **Card title / i18n:** `landing.agent.name` — EN `VECTOR` → **`BLEAK`**;
+  RU `ВЕКТОР` → **`БЛИК`**. **RU form decision (grounded in the live dict):**
+  the income mascot is already named «Блик» / "Bleak" in
+  `join.wizard.agent.name` + `join.wizard.intro.title` — RU transliteration
+  is the established brand handling, so the card's RU name becomes the same
+  character's name («БЛИК», uppercase per the card's styling). The header
+  anchor and every consumer of the key follow automatically.
+- **Component/code rename:** `figures.ts` — `FigureName` `'vector'` →
+  `'bleak'`; the record key and its comments renamed; **the rect data is
+  UNCHANGED** (the personage art is identical — only the name changes);
+  `+page.svelte` `kind="vector"` → `kind="bleak"`; all comments updated.
+- **Alt text / aria labels:** the card carries no image alt (the portrait is
+  `LandingFigure`, decorative by default); the header `#agents` anchor's
+  accessible name = `landing.agent.name` (follows the rename). No other
+  landing label names the agent.
+- **Grep-audit AC:** no `vector`/`VECTOR`/`Вектор`/`ВЕКТОР` remains in the
+  landing sources (`routes/+page.svelte`, `lib/components/landing/*`, both
+  i18n dicts) — case-insensitive, excluding unrelated matches outside the
+  landing scope (e.g. `vector-effect` in the radar).
+
+#### 4.22.E Income surfaces — mascot swap to the Bleak personage — item 4b
+
+**Audit (live code):** the mascots rendered on `/income*` today are ALL
+`BleakMascot.svelte` (the 12×12 ghost) at exactly these mounts:
+
+| Surface | Component | Mount |
+| --- | --- | --- |
+| `/income` — 6-digit entry form | `CodeEntry.svelte` | FormShell middle, mascot-at-top: `<BleakMascot size={96} idle />` |
+| `/income` — room intro (create-profile / change-code choice) | `RoomPreview.svelte` | FormShell middle, mascot-at-top: `<BleakMascot size={96} idle />` |
+| `/income/[room]/create` — wizard intro + steps | `CreationWizard.svelte` | two mascot rows: `<BleakMascot size={96} />` (intro) + `<BleakMascot size={112} />` (steps) |
+| `/income/[room]/create` — the interviewer's chat avatar rows | `MessageBubble.svelte` via the `mascot` prop (set only by CreationWizard) | agent-bubble row: `<BleakMascot size={28} idle />` |
+
+No other surface mounts `BleakMascot` (the main-room transcript never sets
+`mascot: true` — the swap is behavior-neutral there). The import/vault
+surfaces (`VaultList`, `ImportUsers`) render no mascot.
+
+**Swap mechanism — promote/reuse, do not duplicate.** The Bleak personage
+art already exists as the agent-card portrait (the `bleak` figure,
+§4.22.D). It becomes the shared mascot figure:
+
+1. **Promote the data:** move the personage's `Figure` entry (rect data
+   verbatim) out of `landing/figures.ts` into a shared module (e.g.
+   `lib/components/personage/bleakFigure.ts`), re-exported into
+   `landing/figures.ts` as its `bleak` entry so `LandingFigure` and the
+   agent card keep rendering the SAME data — one source of truth, zero art
+   duplication.
+2. **Re-point `BleakMascot.svelte`:** its public API is kept EXACTLY
+   (`size` px height, `idle` boolean, `label` accessible name; decorative
+   by default) and its body becomes a renderer of the promoted figure (the
+   §4.3 rect technique / or an internal `LandingFigure kind="bleak"`
+   wrapper) — the 32×32 square personage renders identically to the old
+   square ghost at every mounted size, so **no geometry moves**.
+3. **Idle contract amended:** the ghost's 2-frame blink no longer exists in
+   the personage; `idle` now maps to the personage's established idle — the
+   §4.20.J card-portrait sway (1.6s `steps(2)` ±2°, transform-origin
+   50% 100%; base.css reduced-motion catch-all governs, no local override).
+   `mascot.test.ts` is amended accordingly (§4.22.J).
+4. **Contracts that must stay green, untouched:** §23.1.1 **no background**
+   (the personage is plate-less by construction); §23.1.2/§23.1.3
+   **mascot-at-top ordering** (the swap is inside the same mount slots —
+   mascot → title → content order unchanged); §30 **FormShell three-block
+   geometry** (the shell is untouched; content-only swap); §24–§29 wizard
+   geometry (sizes kept 96/112/28 — square for square, boxes identical);
+   the «Привет! Я Блик.» / "Hi! I'm Bleak." intro copy is now literally
+   accurate — **no copy change**; `join.wizard.agent.name` («Блик»/"Bleak")
+   unchanged.
+
+#### 4.22.F Black page background + dissolve — item 5
+
+- **Resolution against §4.1 (no new colors):** the landing page background
+  becomes a **near-black with the video's faint violet cast**, expressed as
+  ONE derived token declared in `tokens.css` (the §4.1-sanctioned place for
+  derived variants):
+  `--color-landing-bg: color-mix(in srgb, var(--color-deepa-4) 5%,
+  var(--color-surface))` — built from the established black-family token
+  (`--color-surface` #101213, the palette's near-black) with a 5% Deepa
+  violet cast (the same recipe family as the §4.21.B base tint). Plain
+  `--color-bg` (#1A1C20) is too light/cool to sit seamlessly against the
+  clip's purple-cast black; `--color-surface` alone is neutral — the 5%
+  mix is the owner's "black matching the video clip's background" without a
+  new hex. **Scoped to `/` only** — every other page keeps `--color-bg`;
+  the landing route paints it full-bleed (a page wrapper, `min-height:
+  100dvh`, `background: var(--color-landing-bg)`) with the 1000px canvas
+  centered inside.
+- **The dissolve (§4.21.B adapted):** the video block's edge-fade vignette
+  is kept with its outer stop re-pointed to the page token —
+  `radial-gradient(ellipse 80% 78% at 50% 46%, transparent 0 52%,
+  color-mix(in srgb, var(--color-landing-bg) 45%, transparent) 72%,
+  var(--color-landing-bg) 100%)` — **no hard edge** at any breakpoint. The
+  block's own base/fallback tint = `var(--color-landing-bg)` (invisible
+  against the page until the video paints). **Defensive note:** the clip's
+  exact background value is unverifiable here (no inspection tooling), so
+  seamlessness is guaranteed STRUCTURALLY (the vignette dissolves every
+  edge into exactly the page color) rather than by value-matching; if the
+  owner wants a closer cast match, the mix ratio is a one-line tokens.css
+  tweak (§4.22.K flag 3). Header icon cutouts and the play-control scrim
+  consume the same token (§4.22.A/§4.22.B).
+
+#### 4.22.G Supersessions (explicit record)
+
+1. **The video fully replaces the still image.** The §33 drawn-scene
+   composition (§4.21.B) is superseded: **`background.jpg` is RETIRED** —
+   delete `apps/web/src/lib/assets/landing/background.jpg`, its `#lib`
+   import, its usages and its tests (the §4.21.B asset test re-targets the
+   mp4, §4.22.J).
+2. **The §33 SVG hero pair retires.** **NOVA + ASTRA are removed from the
+   landing** — the video carries its own cast (the boy + robot of the
+   owner's art). `figures.ts`: delete the `nova` + `astra` entries and
+   their `FigureName` literals (audit: referenced only by
+   `LandingHeroScene.svelte` — safe; the explicit `viewW/viewH` interface
+   stays, no churn). BYTE was already retired (§4.21.A). The §4.21.J-1
+   ADVICE flag (SVG pair vs the image's own cast) is **resolved by this
+   supersession**: the video's duo is the only hero cast; no SVG figures
+   overlay the video.
+3. **`LandingHeroScene.svelte` is deleted** (its only consumer is the
+   landing page); the video block is the new `LandingVideoHero.svelte`
+   (§4.22.B).
+4. **`landing.hero.aria` is retired** with the SVG pair; the video block
+   carries `landing.video.aria` (§4.22.H).
+5. **The §4.21.B protected-scenario rects and the fixed 500/680px block
+   heights are retired** with the still image (§4.22.B/§4.22.C replace
+   them with the owner's standing overlay rules).
+6. **The header taglines + the GLITCH tagline glyph are retired**
+   (§4.22.A); §4.20.B's tagline specs are dead text. §4.20.J's cast table
+   is amended accordingly (§4.22.I).
+7. **The income mascot (the ghost) retires from the income surfaces** —
+   the Bleak personage is the mascot everywhere on `/income*` (§4.22.E);
+   `BleakMascot`'s ghost art is deleted with the component's re-point.
+
+#### 4.22.H RU/EN i18n delta (on §4.20.M + §4.21.H; both dictionaries required)
+
+| Δ | Key | RU | EN |
+| --- | --- | --- | --- |
+| − | `landing.tagline.left.1` | — | — |
+| − | `landing.tagline.left.2` | — | — |
+| − | `landing.tagline.top` | — | — |
+| − | `landing.tagline.right.1` | — | — |
+| − | `landing.tagline.right.2` | — | — |
+| − | `landing.hero.aria` | — | — |
+| ~ | `landing.agent.name` | ВЕКТОР → **БЛИК** | VECTOR → **BLEAK** |
+| + | `landing.video.aria` | Видео: двое у фиолетового города под светящимся приветствием | Video: two figures before a violet city under a glowing hello |
+| + | `landing.video.play` | Запустить видео | Play video |
+| + | `landing.video.pause` | Поставить на паузу | Pause video |
+
+New parity total: **35 keys** (38 − 5 taglines − 1 hero.aria + 3 video
+keys). All other landing keys unchanged. The RU form of the brand follows
+the live dict's established transliteration («Блик», `join.wizard.agent.name`)
+— untouched there. The wizard's own keys are untouched. Parity test
+amended: 35/35 in both dicts; the six dead keys exist in NEITHER.
+
+#### 4.22.I Mascot cast update (amends §4.20.J)
+
+| Figure | Where | Status |
+| --- | --- | --- |
+| NOVA | was hero scene, left | **RETIRED** (§4.22.G) |
+| ASTRA | was hero scene, right | **RETIRED** (§4.22.G) |
+| BYTE | — | retired (§4.21.A) |
+| **BLEAK** (ex-VECTOR) | agent-card portrait **+ the income-forms mascot** (§4.22.E — promoted shared personage) | renamed, art unchanged |
+| BLOOM | stat-card glyph | unchanged |
+| PIP | mascot-chat strip, left | unchanged |
+| GLITCH | mascot-chat strip, right | unchanged (the header tagline-glyph slot died with the taglines — the strip is now GLITCH's only appearance) |
+
+Landing cast = four figures (BLEAK, BLOOM, PIP, GLITCH); no figure appears
+twice on the page.
+
+#### 4.22.J Acceptance criteria (checkable)
+
+**Header (item 1):**
+1. The `/` header renders exactly: the web icon (the §30 FormShell mark,
+   plate-less, cutouts in `--color-landing-bg`), the two in-page anchors
+   (`#tutorial`, `#agents` — ≥720px only) and the LocaleControl; the
+   LocaleControl still switches every landing string without a reload.
+2. No tagline text renders anywhere on `/` (left pair, top-center line,
+   right pair — no DOM nodes); the GLITCH figure appears only inside the
+   mascot-chat strip; the header carries no START control.
+3. At 320px the header is icon + switcher (no horizontal scroll, nothing
+   clipped); the phone header is never empty.
+
+**Video block (items 2/3/6):**
+4. The committed app asset `apps/web/src/lib/assets/landing/background-video.mp4`
+   exists and is imported via the `#lib` URL import (not hotlinked, not in
+   `static/`); the source-level test asserts both (the §4.21.B jpg-test
+   pattern re-targeted); `make build` emits the mp4 into the client build
+   (CI-verified).
+5. The video block spans the full common-block width with
+   `aspect-ratio: 16/9` (height derives from the width — no fixed 500/680px
+   height remains), `object-fit: cover`, and renders `muted loop playsinline
+   preload="metadata" disablepictureinpicture` with NO `autoplay` attribute
+   and NO native `controls`.
+6. Autoplay is gated: with `prefers-reduced-motion: reduce` the video does
+   not start (stays paused); without it, playback starts on mount via the
+   one-shot gated `.play()`.
+7. The play control: visible when playback is not running (reduced-motion,
+   autoplay-blocked, or user-paused) with the play label
+   (`landing.video.play`), hidden while playing, toggles playback, 48px
+   target, focus ring, never overlapping the reminder's band at
+   320/390/1280.
+8. Failure degradation: with the video source failing/erroring, the block
+   shows the `--color-landing-bg` base tint + the animated purple dots + the
+   reminder — no broken-media glyph, no blank box, no layout shift.
+9. Desktop ≥720px (test 1280×800 and 760px): the lead block overlays the
+   video's LEFT edge (absolute, left 0, vertically centered, 27% width) and
+   the agent card overlays the RIGHT edge (right 0, vertically centered,
+   26% width); both sit above the video (z-order); the chat strip sits
+   below the video block, right-aligned, 280px wide. No horizontal scroll.
+10. Phone <720px (test 320×640 and 390×844): NO overlay — the exact stack
+    is header → headline → sub → Start → video block → chat strip → agent
+    card → stat card → three step blocks → contact footer; the video is
+    full-width; no horizontal scroll at 320px.
+11. The animated purple pixels animate over the video (the kept 12-dot
+    mesh, steps(2) twinkle, staggered; static under reduced motion).
+12. `background.jpg` is gone: the asset file, its import, its usages and
+    its tests no longer exist; NOVA/ASTRA rect data and `nova`/`astra`
+    literals no longer exist in `figures.ts`; `LandingHeroScene.svelte` no
+    longer exists.
+
+**Reminder contracts (item 3):**
+13. The reminder box lives inside the video block, absolute, bottom 16px,
+    centered; ratio 1:3.5 at 320/390/1280 (measured width per the caps:
+    ~256px phone, ≤348px desktop); Handjet centered text, top-left sparkle
+    emoji, ≥20px glowing check, 3s ease-in-out bob (−6px/−10px), 3-line
+    cycle + sr-only line — all verbatim §4.21.C; static under reduced
+    motion.
+14. Desktop: the reminder never overlays the flanking lead/agent overlays
+    (the 47%−48px center-band cap holds at 720/760/1280); phone: it stays
+    within the block's padding box (16px side insets).
+
+**Bleak rename + income mascot swap (item 4):**
+15. The agent card renders the BLEAK personage with `landing.agent.name` =
+    "BLEAK" (EN) / «БЛИК» (RU), swapping live with the locale switch; the
+    personage's rect data is byte-identical to the pre-rename VECTOR art.
+16. Grep-audit: no `vector`/`VECTOR`/`Вектор`/`ВЕКТОР` in
+    `routes/+page.svelte`, `lib/components/landing/*`, or either i18n dict
+    (landing-scope case-insensitive).
+17. Every `/income*` mascot mount (CodeEntry 96, RoomPreview 96,
+    CreationWizard 96 + 112, MessageBubble mascot rows 28) renders the
+    Bleak personage (the promoted shared figure) — the ghost art appears
+    nowhere on `/income*`.
+18. The swap is content-only: FormShell three-block geometry, the §23
+    mascot-at-top order, the §24–§29 wizard contracts and the no-background
+    rule are unchanged; `join.wizard.agent.name`/intro copy unchanged
+    («Блик»/"Bleak"); the main-room transcript is unaffected.
+19. The personage data has ONE source (the promoted shared module consumed
+    by both the landing card and `BleakMascot`); `BleakMascot`'s public API
+    (size/idle/label, decorative default) is unchanged, with `idle` =
+    the 1.6s steps(2) ±2° sway.
+
+**Black background + dissolve (item 5):**
+20. The landing page paints `--color-landing-bg`
+    (`color-mix(in srgb, var(--color-deepa-4) 5%, var(--color-surface))`,
+    declared in tokens.css) full-bleed on `/`; every other page keeps
+    `--color-bg`; no new hex anywhere (the sweep stays green).
+21. At every tested width the video's edges dissolve into
+    `--color-landing-bg` (the radial vignette) — no hard edge line where
+    the video meets the page background; the pre-load/fallback state is
+    seamless with the page.
+
+**Carried contracts:**
+22. The three step blocks (§4.21.E), the compact stat card (§4.21.F), the
+    contact footer (§4.21.G), the headline block + accent word + Start CTA
+    (§4.20.C) render unchanged; Start CTA and agent-card TALK navigate to
+    `/income`; the tab bar is not rendered on `/`; deep links forward
+    unchanged.
+23. The mascot-chat strip keeps its §4.20.F behavior (4 alternating
+    typewriter turns, infinite loop, reduced-motion static) in its new
+    desktop slot (below the video, right-aligned) and its unchanged phone
+    slot.
+24. i18n: exactly **35** `landing.*` keys in BOTH dictionaries;
+    `landing.tagline.*` (5) and `landing.hero.aria` exist in NEITHER; the
+    extended parity test is green.
+25. Suites amended and green: `landing-page.test.ts` (header/video/supersession
+    ACs above), `mascot.test.ts` (personage art + sway idle + the four
+    mounts), `i18n.test.ts` (35-key parity + dead keys), `join-flow.test.ts`
+    / `creation-wizard.test.ts` (mascot mounts via FormShell), `sweep.test.ts`
+    (token discipline incl. the one derived tokens.css declaration);
+    `make lint && make test && make build` green; no new dependencies, no
+    canvas, no animation library.
+
+#### 4.22.K Flags for the owner / concept (concept report)
+
+1. **ADVICE NEEDED — header START control removed:** the owner's keep-list
+   ("only the web icon, the navigation, and the language switcher") omits
+   the header START pill/link, so §4.22.A removes them; the `/income`
+   entry points become exactly the lead Start CTA + the card TALK (§4.21.G
+   made exact). If the owner wanted the header START kept, it is a
+   two-element restore.
+2. **ADVICE NEEDED — phone reminder proportion over a short video:** a
+   16:9 video at phone width is ~150–200px tall, so the verbatim §33
+   reminder (256×73px + bob) covers a larger share of the frame than it
+   did over the 500px art block. The verbatim geometry is kept per the
+   owner's standing contract; if the owner prefers, the phone cap is a
+   one-token reduction (or a taller phone block — rejected here as
+   defensive: cover-cropping the unknown framing could cut the scene).
+3. **ADVICE NEEDED — background value matching:** the clip's exact
+   background color is unverifiable in this sandbox (no video tooling), so
+   seamlessness is structural (vignette → `--color-landing-bg`), with the
+   5% violet cast as the best token-only estimate of the clip's purple
+   black. The mix ratio is a one-line tokens.css tweak if the owner wants
+   it closer.
+4. **RU brand form:** resolved from the live dict («Блик», the wizard's
+   established transliteration) — recorded per the caller's "be explicit";
+   a Latin "BLEAK" in RU is a one-value change if preferred.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)

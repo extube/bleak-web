@@ -1,14 +1,14 @@
 <script lang="ts">
   /**
-   * LandingFigure (DESIGN §4.20.J + §4.21.A): renders one of the landing's
-   * mascot cast figures (VECTOR / BLOOM / PIP / GLITCH / NOVA / ASTRA) from
+   * LandingFigure (DESIGN §4.20.J as amended by §4.22.D/§I): renders one of
+   * the landing's mascot cast figures (BLEAK / BLOOM / PIP / GLITCH) from
    * the hand-authored rect data in figures.ts — the §4.3 technique
    * (explicit viewBox from the figure's viewW/viewH, crisp SVG rects, token
    * fills, transparent background, NO plate: the wrapper is a transparent
    * inline box that reserves exactly the rendered size). Optional `idle`
    * runs the figure's two-frame idle motion (§4.6 live-dot family; the
-   * §4.21.A hero-pair sway kept: 1.6s steps(2) ±2°); the base.css
-   * reduced-motion catch-all collapses it to a static frame.
+   * card-portrait sway: 1.6s steps(2) ±2°); the base.css reduced-motion
+   * catch-all collapses it to a static frame.
    */
   import { LANDING_FIGURES, type FigureName } from './figures';
 

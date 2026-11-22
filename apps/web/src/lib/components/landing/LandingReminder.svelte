@@ -1,16 +1,20 @@
 <script lang="ts">
   /**
-   * LandingReminder (DESIGN §4.21.C, amends §4.20.E): the agent reminder
-   * box — the retro dialogue box becomes the reminder FIXED at the BOTTOM
-   * of the pixel-art composition block (owner photo review, Concept §33.2).
+   * LandingReminder (DESIGN §4.21.C as migrated by §4.22.C, Concept §33.2):
+   * the agent reminder box — the retro dialogue box becomes the reminder
+   * FIXED at the BOTTOM of the video block (§4.22.B/C — the video hero
+   * replaces the still-image art block; every §33/§4.21.C contract carries
+   * over verbatim).
    *
    * - Geometry: the owner's 1 : 3.5 height:width ratio (a wide strip) —
-   *   `aspect-ratio: 3.5 / 1`; width capped per breakpoint so it can never
-   *   overlay the nearest blocks left/right/top (16px/24px side insets);
+   *   `aspect-ratio: 3.5 / 1`; the width cap is the block-exposed
+   *   `--reminder-w` (§4.22.C: phone `min(100% - 32px, 256px)` unchanged;
+   *   ≥720px the §4.22.C center-band cap `min(calc(47% - 48px), 348px)` —
+   *   the no-overlay rule against the new flanking lead/agent overlays);
    *   absolute, bottom 16px, centered via left/right 0 + margin-inline auto
    *   (no transform centering — transform is reserved for the bob). The
-   *   block exposes the resolved height as `--reminder-h` (the hero pair's
-   *   bottom offset consumes it, §4.21.B).
+   *   block exposes the resolved height as `--reminder-h` (the play
+   *   control's phone geometry consumes it, §4.22.B).
    * - Frame: the §4.20.E pixel-frame stands — 2px --color-text simulated
    *   border, square corners with 4px stepped notches (the .pixel-notch
    *   utility), bg --color-surface.
@@ -109,16 +113,16 @@
 </div>
 
 <style>
-  /* Geometry (§4.21.C): the 1:3.5 wide strip, bottom-fixed inside the art
-   * block; the block computes --reminder-h from --reminder-w so the hero
-   * pair's feet offset tracks the box across breakpoints. */
+  /* Geometry (§4.21.C → §4.22.C): the 1:3.5 wide strip, bottom-fixed inside
+   * the video block; the width cap is the block-exposed --reminder-w (the
+   * §4.22.C phone cap / desktop center-band cap; fallback = the phone cap). */
   .reminder {
     position: absolute;
     bottom: 16px;
     left: 0;
     right: 0;
     margin-inline: auto;
-    width: min(100% - 32px, 256px);
+    width: var(--reminder-w, min(100% - 32px, 256px));
     aspect-ratio: 3.5 / 1;
     min-height: 64px;
     background: var(--color-text);
@@ -129,7 +133,6 @@
   }
   @media (min-width: 720px) {
     .reminder {
-      width: min(100% - 48px, 348px);
       --bob-amp: 10px;
     }
   }
