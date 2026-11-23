@@ -9218,6 +9218,36 @@ leaks). The §30 forms on the creation path (enter/room-intro/intro)
 share the same dynamic height — their §30 contracts stay green. RU/EN:
 zero delta (no copy changes).
 
+#### 4.31.2 iOS correction (2026-11-23, bug round, owner-reported)
+
+The §4.31.1 fix did not work on iOS Safari (iPhone/iPad): the keyboard
+did NOT shrink the screen — the whole page panned up (sometimes stayed
+panned after the keyboard closed). Deterministic root cause:
+`routes/+layout.svelte` declares `.app-shell { min-height: 100dvh }`,
+and the two §44.4.2 shell gates set `height: var(--app-height, 100dvh)`
+but never overrode the min-height — CSS computes height =
+max(min-height, height), and iOS does NOT resize the layout viewport on
+keyboard (unlike Chrome/Android), so `100dvh` stayed full-height while
+the listener correctly wrote a shrunk `--app-height`; the min-height
+pin kept the shell un-shrunk, the composer stayed behind the keyboard
+and iOS panned the document up. The fix (bug round task 136,
+`feature/5de72e33-ios-keyboard-viewport`): (1) `min-height: 0` on BOTH
+`.app-shell` gates (the persona-step and form-step shell gates — the
+wrapper gates already carried it); (2) in the same persona-step effect
+the documentElement overflow is locked TOO (the body-only lock does not
+stop iOS keyboard panning) and the window is pinned during the pan — a
+`visualViewport` SCROLL listener calls `window.scrollTo(0, 0)`; both
+are restored on teardown (the same no-leaks contract as the resize
+listener — remove/add pairs asserted). Everything else of §4.31.1 is
+untouched: the `--app-height` write/restore, the
+`100vh → 100dvh → var(--app-height, 100dvh)` fallback chain, the
+§24–§29 two-fixed-areas layout, every other join step/surface
+(behavior-neutral outside the persona step; negatives stay green).
+Suites: `tests/keyboard-viewport.test.ts` updated (min-height on both
+gates; the documentElement lock added/restored; the scroll-pin listener
+added/restored; the dvh + var assertions unchanged). Owner verifies
+manually on iOS Safari (iPhone + iPad). RU/EN: zero delta.
+
 ### 4.32 v3.26 feature design (2026-11-23, owner-approved Concept §45): §45 hero breakpoint/width/headline + Bleak margins
 
 The owner issued the three-item §45 follow-up batch (2026-11-23):

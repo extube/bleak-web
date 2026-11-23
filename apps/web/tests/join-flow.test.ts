@@ -1314,7 +1314,7 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
 
     // THE CHAIN: every flex-item link from the log up to (exclusive) the
     // shell is a flex column with min-height: 0 — one unbounded link is
-    // the recurrence bug; the shell provides the 100dvh definite height.
+    // the recurrence bug; the shell provides the definite height.
     const bounded: HTMLElement[] = [];
     for (let el = pLog.parentElement; el && el !== pShell; el = el.parentElement) {
       bounded.push(el);
@@ -1329,7 +1329,14 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
     const shellCs = getComputedStyle(pShell);
     expect(shellCs.display).toBe('flex');
     expect(shellCs.flexDirection).toBe('column');
-    expect(shellCs.minHeight).toContain('dvh');
+    // §44.4.2 iOS correction (DESIGN §4.31.2): the persona gate LIFTS the
+    // shell's min-height (0) — the layout's 100dvh pin would keep the
+    // shell un-shrunk on iOS (height = max(min-height, height), and the
+    // iOS layout viewport does not resize on keyboard); the definite
+    // height now comes from the gate's height trio (100vh fallback +
+    // 100dvh + the --app-height px).
+    expect(shellCs.minHeight).toBe('0');
+    expect(shellCs.height).toMatch(/px/);
 
     // THE LOG is the scroll container: overflow-y engages on it and on
     // NOTHING else in the whole rendered chain.

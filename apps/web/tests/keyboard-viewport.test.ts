@@ -1,17 +1,23 @@
 /** Keyboard viewport fix tests (Concept §44.4 owner addition, 2026-11-23;
- * DESIGN §4.31.1): the mobile keyboard viewport fix for
- * /income/[income_code]/create (esp. Safari/iOS) — the page is NOT pushed
- * upward off-screen when the on-screen keyboard opens; the creation
- * wrapper binds to DYNAMIC viewport units (the `100vh` fallback + `100dvh`
- * pair) and consumes the visualViewport-driven `--app-height` px, a
- * CREATION-SCOPED `window.visualViewport` resize listener (wired in
- * JoinFlow's mount effect — SSR-safe, listener removed on destroy) keeps
- * the variable current, the DOCUMENT scroll is locked while the creation
- * chat is mounted, and at the keyboard-shrunk height BOTH fixed areas —
- * the messages area and the input — remain inside the container (the
- * §24–§29 two-fixed-areas contract, now bound to the dynamic
- * visualViewport height). /chats is behavior-neutral (negative-tested).
- * @testing-library/svelte over happy-dom. */
+ * DESIGN §4.31.1 + the §4.31.2 iOS correction, 2026-11-23 bug round): the
+ * mobile keyboard viewport fix for /income/[income_code]/create (esp.
+ * Safari/iOS) — the page is NOT pushed upward off-screen when the
+ * on-screen keyboard opens; the creation wrapper binds to DYNAMIC
+ * viewport units (the `100vh` fallback + `100dvh` pair) and consumes the
+ * visualViewport-driven `--app-height` px, a CREATION-SCOPED
+ * `window.visualViewport` resize listener (wired in JoinFlow's mount
+ * effect — SSR-safe, listener removed on destroy) keeps the variable
+ * current, the DOCUMENT scroll is locked (body AND documentElement — the
+ * body-only lock does not stop iOS keyboard panning) while the creation
+ * chat is mounted, the window is pinned during the pan (a viewport
+ * scroll listener → window.scrollTo(0, 0)), the `.app-shell` gates carry
+ * `min-height: 0` (the layout's 100dvh min-height would pin the shell
+ * un-shrunk — iOS does not resize the layout viewport), and at the
+ * keyboard-shrunk height BOTH fixed areas — the messages area and the
+ * input — remain inside the container (the §24–§29 two-fixed-areas
+ * contract, now bound to the dynamic visualViewport height). /chats is
+ * behavior-neutral (negative-tested). @testing-library/svelte over
+ * happy-dom. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, sep } from 'node:path';
@@ -144,8 +150,30 @@ describe('Keyboard viewport (Concept §44.4, DESIGN §4.31.1) — the dynamic vi
     const effectAt = src.indexOf("$effect(() => {\n    if (flow.step !== 'persona') return;");
     expect(effectAt).toBeGreaterThan(-1);
     expect(viewportAt).toBeGreaterThan(effectAt);
-    // The listener is REMOVED on teardown (no leaks).
+    // The listeners are REMOVED on teardown (no leaks — both types).
     expect(src).toMatch(/removeEventListener\('resize', applyAppHeight\)/);
+    expect(src).toMatch(/removeEventListener\('scroll', pinWindow\)/);
+    // The documentElement overflow is LOCKED and restored (iOS panning).
+    expect(src).toMatch(/root\.style\.overflow = 'hidden'/);
+    expect(src).toMatch(/root\.style\.overflow = prevRootOverflow/);
+  });
+
+  it('min-height: 0 on BOTH .app-shell gates (§44.4.2 iOS correction): the layout pins .app-shell { min-height: 100dvh } and height = max(min-height, height) — iOS does not resize the layout viewport on keyboard, so the gates must lift the pin or the keyboard-shrunk --app-height never applies', () => {
+    const css = source('src/lib/components/join/JoinFlow.svelte');
+    const shellGates = [
+      /:global\(\.app-shell:has\(> \.join > \.persona-step\)\)\s*\{[^}]*\}/,
+      /:global\(\.app-shell:has\(> \.join > \.form-step\)\)\s*\{[^}]*\}/
+    ];
+    for (const pattern of shellGates) {
+      const rule = css.match(pattern)?.[0];
+      expect(rule, String(pattern)).toBeTruthy();
+      // min-height: 0 precedes the height trio — the pin is lifted.
+      expect(rule, String(pattern)).toMatch(/min-height:\s*0\s*;/);
+      const minHeights = [
+        ...(rule ?? '').matchAll(/(?<![-\w])min-height:\s*([^;]+);/g)
+      ].map((m) => m[1]?.trim() ?? '');
+      expect(minHeights[0], String(pattern)).toBe('0');
+    }
   });
 
   it('scope: --app-height and the visualViewport mechanism appear ONLY in the creation wrapper (JoinFlow) — no other surface, /chats included', () => {
@@ -169,23 +197,28 @@ describe('Keyboard viewport (Concept §44.4, DESIGN §4.31.1) — the dynamic vi
 });
 
 describe('Keyboard viewport — the creation-scoped visualViewport listener (behavior)', () => {
-  /** Own-property visualViewport stub (restored to the exact prior state). */
+  /** Own-property visualViewport stub (restored to the exact prior state).
+   * Listeners are tracked PER TYPE (resize + scroll — the §44.4.2 iOS
+   * correction adds a scroll-pin listener on the same object). */
   let restoreViewport: (() => void) | null = null;
   function installViewport(initialHeight: number): {
-    listeners: Array<() => void>;
+    resizeListeners: Array<() => void>;
+    scrollListeners: Array<() => void>;
     setHeight(h: number): void;
   } {
-    const listeners: Array<() => void> = [];
+    const resizeListeners: Array<() => void> = [];
+    const scrollListeners: Array<() => void> = [];
     const vv = {
       height: initialHeight,
       addEventListener: vi.fn((type: string, cb: () => void) => {
-        expect(type).toBe('resize');
-        listeners.push(cb);
+        expect(['resize', 'scroll']).toContain(type);
+        (type === 'resize' ? resizeListeners : scrollListeners).push(cb);
       }),
       removeEventListener: vi.fn((type: string, cb: () => void) => {
-        expect(type).toBe('resize');
-        const at = listeners.indexOf(cb);
-        if (at !== -1) listeners.splice(at, 1);
+        expect(['resize', 'scroll']).toContain(type);
+        const list = type === 'resize' ? resizeListeners : scrollListeners;
+        const at = list.indexOf(cb);
+        if (at !== -1) list.splice(at, 1);
       })
     };
     const owner = window as unknown as Record<string, unknown>;
@@ -201,7 +234,8 @@ describe('Keyboard viewport — the creation-scoped visualViewport listener (beh
       restoreViewport = null;
     };
     return {
-      listeners,
+      resizeListeners,
+      scrollListeners,
       setHeight(h: number): void {
         vv.height = h;
       }
@@ -217,6 +251,7 @@ describe('Keyboard viewport — the creation-scoped visualViewport listener (beh
     cleanup();
     localStorage.clear();
     document.documentElement.style.removeProperty('--app-height');
+    document.documentElement.style.removeProperty('overflow');
     document.body.style.removeProperty('overflow');
     restoreViewport?.();
   });
@@ -229,37 +264,62 @@ describe('Keyboard viewport — the creation-scoped visualViewport listener (beh
     expect(document.documentElement.style.getPropertyValue('--app-height')).toBe('800px');
     // Keyboard opens: the resize listener fires → the var shrinks.
     mock.setHeight(400);
-    for (const cb of [...mock.listeners]) cb();
+    for (const cb of [...mock.resizeListeners]) cb();
     await tick();
     expect(document.documentElement.style.getPropertyValue('--app-height')).toBe('400px');
     // Keyboard closes: back to the full visible height.
     mock.setHeight(800);
-    for (const cb of [...mock.listeners]) cb();
+    for (const cb of [...mock.resizeListeners]) cb();
     await tick();
     expect(document.documentElement.style.getPropertyValue('--app-height')).toBe('800px');
   });
 
-  it('document scroll locked while in the creation flow (body overflow hidden)', async () => {
+  it('document scroll locked while in the creation flow: BOTH the body and the documentElement overflow are hidden (body-only does not stop iOS keyboard panning)', async () => {
     installViewport(800);
     render(JoinFlow, { props: SEEDED });
     await screen.findByText(ru['join.wizard.intro.title']);
     expect(document.body.style.overflow).toBe('hidden');
+    // §44.4.2 iOS correction: the documentElement is locked too.
+    expect(document.documentElement.style.overflow).toBe('hidden');
   });
 
-  it('cleanup on unmount: the listener is removed, --app-height cleared and the prior document overflow restored (no leaks)', async () => {
+  it('the window is pinned during the keyboard pan: a viewport SCROLL listener calls window.scrollTo(0, 0) (the iOS layout viewport does not resize — the pan is pinned instead)', async () => {
+    const mock = installViewport(800);
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    try {
+      render(JoinFlow, { props: SEEDED });
+      await screen.findByText(ru['join.wizard.intro.title']);
+      // Exactly one scroll listener (paired with the one resize listener —
+      // no duplicates on re-runs of the effect).
+      expect(mock.scrollListeners).toHaveLength(1);
+      expect(mock.resizeListeners).toHaveLength(1);
+      // Firing the scroll event pins the window to the top.
+      expect(scrollTo).not.toHaveBeenCalled();
+      for (const cb of [...mock.scrollListeners]) cb();
+      expect(scrollTo).toHaveBeenCalledWith(0, 0);
+    } finally {
+      scrollTo.mockRestore();
+    }
+  });
+
+  it('cleanup on unmount: BOTH listeners are removed (resize + scroll — no leaks), --app-height cleared and the prior document/body overflow restored', async () => {
     const mock = installViewport(800);
     render(JoinFlow, { props: SEEDED });
     await screen.findByText(ru['join.wizard.intro.title']);
     expect(document.body.style.overflow).toBe('hidden');
+    expect(document.documentElement.style.overflow).toBe('hidden');
     expect(document.documentElement.style.getPropertyValue('--app-height')).toBe('800px');
     cleanup();
     await tick();
-    expect(mock.listeners).toHaveLength(0);
+    expect(mock.resizeListeners).toHaveLength(0);
+    expect(mock.scrollListeners).toHaveLength(0);
     expect(document.documentElement.style.getPropertyValue('--app-height')).toBe('');
     expect(document.body.style.overflow).toBe('');
+    // §44.4.2 iOS correction: the documentElement lock is restored too.
+    expect(document.documentElement.style.overflow).toBe('');
   });
 
-  it('a missing visualViewport (or SSR-less call path) is graceful: no throw, no variable, the lock still applies', async () => {
+  it('a missing visualViewport (or SSR-less call path) is graceful: no throw, no variable, the locks still apply', async () => {
     // No stub installed at all — window.visualViewport stays whatever the
     // environment provides (undefined in happy-dom without one).
     const owner = window as unknown as Record<string, unknown>;
@@ -270,9 +330,11 @@ describe('Keyboard viewport — the creation-scoped visualViewport listener (beh
       await screen.findByText(ru['join.wizard.intro.title']);
       expect(document.documentElement.style.getPropertyValue('--app-height')).toBe('');
       expect(document.body.style.overflow).toBe('hidden');
+      expect(document.documentElement.style.overflow).toBe('hidden');
       cleanup();
       await tick();
       expect(document.body.style.overflow).toBe('');
+      expect(document.documentElement.style.overflow).toBe('');
     } finally {
       if (prior) Object.defineProperty(owner, 'visualViewport', prior);
     }
@@ -282,9 +344,11 @@ describe('Keyboard viewport — the creation-scoped visualViewport listener (beh
     const mock = installViewport(800);
     render(JoinFlow, { props: {} }); // the code step (unseeded /income mount)
     await screen.findByText(ru['join.enter']);
-    expect(mock.listeners).toHaveLength(0);
+    expect(mock.resizeListeners).toHaveLength(0);
+    expect(mock.scrollListeners).toHaveLength(0);
     expect(document.documentElement.style.getPropertyValue('--app-height')).toBe('');
     expect(document.body.style.overflow).toBe('');
+    expect(document.documentElement.style.overflow).toBe('');
     cleanup();
     await tick();
   });

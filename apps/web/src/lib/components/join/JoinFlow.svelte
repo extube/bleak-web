@@ -396,9 +396,16 @@
   // the container shrinks to the remaining visible viewport instead,
   // keeping BOTH the top area (messages) and the bottom area (input)
   // visible (the §24–§29 two-fixed-areas contract, now bound to the
-  // dynamic visualViewport height). SSR-safe: no window/document access at
-  // module init — everything is wired inside this effect; the listener,
-  // the lock and the variable are fully restored on teardown (no leaks).
+  // dynamic visualViewport height). iOS correction (2026-11-23 bug
+  // round, DESIGN §4.31.2): iOS does NOT resize the layout viewport on
+  // keyboard, so the shell gates carry min-height: 0 (the layout's
+  // 100dvh min-height would pin the shell un-shrunk), the
+  // documentElement overflow is locked TOO (body-only does not stop the
+  // iOS panning) and the window is pinned during the pan (a viewport
+  // scroll listener scrolls the window back to the top). SSR-safe: no
+  // window/document access at module init — everything is wired inside
+  // this effect; the listeners, the locks and the variable are fully
+  // restored on teardown (no leaks).
   // /chats never mounts JoinFlow (and no other surface runs the persona
   // step) — behavior-neutral shared components (negative-tested).
   $effect(() => {
@@ -408,6 +415,7 @@
     const root = document.documentElement;
     const body = document.body;
     const prevOverflow = body.style.overflow;
+    const prevRootOverflow = root.style.overflow;
     const prevAppHeight = root.style.getPropertyValue('--app-height');
     const applyAppHeight = (): void => {
       if (viewport) root.style.setProperty('--app-height', `${viewport.height}px`);
@@ -415,11 +423,22 @@
     applyAppHeight();
     viewport?.addEventListener('resize', applyAppHeight);
     body.style.overflow = 'hidden';
+    // §44.4.2 iOS correction (2026-11-23 bug round): the BODY lock alone
+    // does not stop iOS keyboard panning — the documentElement is locked
+    // too, and the window is pinned during the pan (every visualViewport
+    // scroll event scrolls the window back to the top; iOS pans the
+    // document up to reveal the focused input instead of resizing the
+    // layout viewport). Both restored on teardown, same no-leaks contract.
+    root.style.overflow = 'hidden';
+    const pinWindow = (): void => window.scrollTo(0, 0);
+    viewport?.addEventListener('scroll', pinWindow);
     return () => {
       viewport?.removeEventListener('resize', applyAppHeight);
+      viewport?.removeEventListener('scroll', pinWindow);
       if (prevAppHeight === '') root.style.removeProperty('--app-height');
       else root.style.setProperty('--app-height', prevAppHeight);
       body.style.overflow = prevOverflow;
+      root.style.overflow = prevRootOverflow;
     };
   });
 </script>
@@ -638,6 +657,13 @@
    * wins). :has-gated on the persona step: /chats, /room and the other
    * join steps keep the content-driven shell. */
   :global(.app-shell:has(> .join > .persona-step)) {
+    /* §44.4.2 iOS correction (2026-11-23 bug round): min-height must be
+     * lifted — the layout pins .app-shell to a 100dvh min-height, and
+     * height computes as max(min-height, height): iOS does NOT resize
+     * the layout viewport on keyboard, so 100dvh stays full-height and
+     * the pin would keep the shell un-shrunk — the keyboard-shrunk
+     * --app-height would never apply. */
+    min-height: 0;
     height: 100vh;
     height: 100dvh;
     /* §44.4.2 (DESIGN §4.31.1): the visualViewport-driven --app-height —
@@ -670,6 +696,10 @@
     overflow-y: hidden;
   }
   :global(.app-shell:has(> .join > .form-step)) {
+    /* §44.4.2 iOS correction (2026-11-23 bug round): min-height lifted —
+     * see the persona gate above (the layout's 100dvh min-height would
+     * pin the shell un-shrunk on iOS). */
+    min-height: 0;
     height: 100vh;
     height: 100dvh;
     /* §44.4.2 (DESIGN §4.31.1): the visualViewport-driven --app-height —
