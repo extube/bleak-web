@@ -95,8 +95,6 @@ export const ru: Record<MessageKey, string> = {
   'join.import.dead':
     'Этот профиль больше не существует на сервере. Запись останется в списке, но вернуться в это событие нельзя.',
   'join.error.invite': 'Код приглашения недействителен или истёк.',
-  'join.resume.title': 'Продолжить в «{room}»',
-  'join.resume.another': 'Присоединиться к другому событию',
 
   /* --- camera scanner --- */
   'scan.title': 'Сканировать QR',

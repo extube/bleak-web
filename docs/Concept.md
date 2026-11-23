@@ -1999,6 +1999,17 @@ Follow-up adjustments (owner, 2026-11-23):
    description within each block; reduced-motion = visible
    immediately, per the standing fallback).
 
+---
+
+## 47. Owner order: remove the "Continue to \<room\>" form — ✅ APPROVED (2026-11-23)
+
+On the entry page, the **resume-session form ("Continue to \<Room's
+name\>") is removed** — the **default form with the 6-digit input
+always shows** (owner, 2026-11-23). This supersedes the §30 middle-block
+"resume-session" affordance on the entry surface: no stored-session
+resume variant; the 6-digit entry form is the only form there.
+Dead markup/styles/tests/i18n keys (both locales) are removed with it.
+
 All other §31–§33 contracts stay in force (routes, Start → `/income`
 with the 6-digit input, RU/EN parity, reminder box contracts, three
 step blocks, existing suites green).

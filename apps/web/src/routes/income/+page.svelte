@@ -2,8 +2,8 @@
   /**
    * `/income` — the room-income (entry) page (tz12-02 route re-homing,
    * Concept §31): the whole pre-room join flow re-homed here from `/` —
-   * the resume card, the §2.8 notice card, the deep-link handshake and
-   * JoinFlow (the 6-digit code entry → room intro → creation/vault).
+   * the §2.8 notice card, the deep-link handshake and JoinFlow (the
+   * 6-digit code entry → room intro → creation/vault).
    * Pre-room screen, no tab bar (layout).
    *
    * - §2.8 global-401 notice: the `bleak.authNotice` sessionStorage flag is
@@ -16,23 +16,22 @@
    *   both are ignored (AC 19) and the normal join card renders.
    *   (`/` forwards these query strings here — the persona QR / invite
    *   links land on the landing page first, tz12-02.)
-   * - Resume card: "join another event" clears the identity AND the
-   *   one-time mutual code (clearIdentity, §10.4) but keeps the vault.
+   * - Resume card: REMOVED (Concept §47, 2026-11-23) — the default form
+   *   with the 6-digit input ALWAYS shows; JoinFlow renders
+   *   unconditionally, there is no stored-session resume variant on the
+   *   entry surface. The identity read stays: the §3.8 persona panel is
+   *   still gated on an existing identity.
    * - The creation wizard itself lives under /income/[income_code]/create
    *   (JoinFlow navigates there when "Create profile" is chosen).
    */
-  import { goto } from '$app/navigation';
-  import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import { locale, translate } from '#lib/i18n/locale';
-  import { identity, clearIdentity } from '#lib/stores/identity';
+  import { identity } from '#lib/stores/identity';
   import { parseJoinDeepLink } from '#lib/join';
   import { api, AUTH_NOTICE_KEY } from '#lib/api/client';
   import type { User } from '@bleak/api-client';
   import JoinFlow from '#lib/components/join/JoinFlow.svelte';
   import NoticeCard from '#lib/components/join/NoticeCard.svelte';
   import DeepLinkHandshake from '#lib/components/join/DeepLinkHandshake.svelte';
-  import LocaleControl from '#lib/components/join/LocaleControl.svelte';
 
   const deepLink = $derived(parseJoinDeepLink(page.url.searchParams));
   const me = $derived($identity);
@@ -55,27 +54,6 @@
         /* ignore */
       }
     }
-  });
-
-  // Resume card: the room name for «Продолжить в «{room}»» (one fetch per
-  // identity; no Poller on the join entry, §2.2).
-  let resumeRoomName = $state<string | null>(null);
-  $effect(() => {
-    const id = me;
-    resumeRoomName = null;
-    if (!id) return;
-    let alive = true;
-    api
-      .getRoom(id.roomAddress)
-      .then((room) => {
-        if (alive) resumeRoomName = room.name;
-      })
-      .catch(() => {
-        /* unreachable/deleted room: the address stands in as the label */
-      });
-    return () => {
-      alive = false;
-    };
   });
 
   // Persona deep link (AC 19): only meaningful with an existing identity —
@@ -106,55 +84,30 @@
       alive = false;
     };
   });
-
-  function continueToRoom(): void {
-    void goto(resolve('/room'));
-  }
-
-  function joinAnother(): void {
-    // Clears the identity AND the one-time mutual code (§10.4); the
-    // device token vault is KEPT (Concept §6.2).
-    clearIdentity();
-  }
 </script>
 
-{#if me}
-  <div class="join">
-    <section class="card pixel-corners resume">
-      <h1 class="resume-title">
-        {translate($locale, 'join.resume.title', { room: resumeRoomName ?? me.roomAddress })}
-      </h1>
-      <button type="button" class="cta" onclick={continueToRoom}>
-        {translate($locale, 'join.enter')}
-      </button>
-      <button type="button" class="secondary" onclick={joinAnother}>
-        {translate($locale, 'join.resume.another')}
-      </button>
-      <div class="footer">
-        <LocaleControl />
-      </div>
-    </section>
-  </div>
-
-  <!-- §3.8 routine via deep link (no camera): the full mutual/single-
-       direction flow including the confirm card, result states reused. -->
-  {#if personaLink}
-    <DeepLinkHandshake
-      open={!personaPanelDismissed}
-      userAddress={personaLink.userAddress}
-      mutualCode={personaLink.mutualCode}
-      members={personaMembers}
-      onClosed={() => (personaPanelDismissed = true)}
-    />
-  {/if}
-{:else}
-  <div class="join">
-    {#if authNotice}
-      <NoticeCard />
-    {/if}
-    <JoinFlow deepLinkCode={deepLink?.kind === 'code' ? deepLink.code : null} />
-  </div>
+<!-- §3.8 routine via deep link (no camera): the full mutual/single-
+     direction flow including the confirm card, result states reused.
+     Gated on an EXISTING identity (personaLink ⇒ me !== null). -->
+{#if personaLink}
+  <DeepLinkHandshake
+    open={!personaPanelDismissed}
+    userAddress={personaLink.userAddress}
+    mutualCode={personaLink.mutualCode}
+    members={personaMembers}
+    onClosed={() => (personaPanelDismissed = true)}
+  />
 {/if}
+
+<!-- Concept §47 (2026-11-23): the 6-digit entry form is the ONLY form on
+     the entry surface — JoinFlow renders unconditionally (no stored-
+     session resume variant). -->
+<div class="join">
+  {#if authNotice}
+    <NoticeCard />
+  {/if}
+  <JoinFlow deepLinkCode={deepLink?.kind === 'code' ? deepLink.code : null} />
+</div>
 
 <style>
   .join {
@@ -168,48 +121,19 @@
     max-width: 480px;
     margin: 0 auto;
   }
-  .resume {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
-  .resume-title {
-    font-size: 32px;
-    overflow-wrap: anywhere;
-  }
-  .secondary {
-    background: transparent;
-    border: 1px solid var(--color-text-disabled-strong);
-    color: var(--color-text);
-    border-radius: var(--radius-pill);
-    min-height: var(--touch-target);
-    padding: 0 var(--space-5);
-    font-size: 14px;
-    font-weight: 600;
-  }
-  .footer {
-    display: flex;
-  }
   @media (min-width: 720px) {
     .join {
       justify-content: center;
     }
   }
   /* v2.6 (Concept §12, DESIGN §4.12.1 item 5): phone (<720px) full-screen
-   * forms — the join container drops its own gutter and the resume card
-   * becomes the page (same treatment as the JoinFlow card below it). The
-   * card's --space-5 padding is the content gutter. Desktop (min-width:
-   * 720px) is unchanged. */
+   * forms — the join container drops its own gutter and the JoinFlow form
+   * becomes the page. The form's --space-5 padding is the content gutter.
+   * Desktop (min-width: 720px) is unchanged. */
   @media (max-width: 719px) {
     .join {
       max-width: none;
       padding: 0;
-    }
-    .resume {
-      border-radius: 0;
-      clip-path: none;
-      flex: 1;
     }
   }
 </style>

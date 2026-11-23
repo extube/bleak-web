@@ -18,6 +18,12 @@ describe('i18n dictionaries (RU primary, EN second)', () => {
     expect(ruKeys).toEqual(enKeys);
   });
 
+  it('Concept §47 (2026-11-23): the resume-card keys are GONE from BOTH dictionaries — the 6-digit form is the only form on /income', () => {
+    for (const dict of [en, ru]) {
+      expect(Object.keys(dict).filter((k) => k.startsWith('join.resume'))).toEqual([]);
+    }
+  });
+
   it('every entry is a non-empty string in both languages', () => {
     for (const dict of [en, ru]) {
       for (const value of Object.values(dict)) {

@@ -96,6 +96,7 @@ vi.mock('#lib/api/client', () => ({
 
 import { goto } from '$app/navigation';
 import { setLocale } from '#lib/i18n/locale';
+import { clearIdentity, saveIdentity } from '#lib/stores/identity';
 import LandingPage from '../src/routes/+page.svelte';
 import IncomePage from '../src/routes/income/+page.svelte';
 import CreatePage from '../src/routes/income/[income_code]/create/+page.svelte';
@@ -2189,12 +2190,31 @@ describe('/ — §4.28 the v3.22 font ladder + the §40 phone widths (tz12-12)',
 });
 
 describe('/income — the room-income entry page (the re-homed join flow)', () => {
+  afterEach(() => {
+    // The §47 test seeds an identity — drop it so later describes start clean.
+    clearIdentity();
+  });
+
   it('resolves to the EXISTING join surface: the 6-digit DigitInput card renders (no identity)', async () => {
     render(IncomePage, { props: {} });
     expect(await screen.findByRole('group', { name: ru['join.code.label'] })).toBeTruthy();
     expect(screen.getByRole('button', { name: ru['join.enter'] })).toBeTruthy();
-    // Pre-room: the resume card is not shown without an identity.
-    expect(screen.queryByText(ru['join.resume.another'])).toBeNull();
+    // Concept §47 (2026-11-23): the resume card is GONE from the entry
+    // surface — its i18n keys were deleted from BOTH dictionaries, so the
+    // RU literals are asserted (title + "join another event" action).
+    expect(screen.queryByText(/Продолжить в «/)).toBeNull();
+    expect(screen.queryByText('Присоединиться к другому событию')).toBeNull();
+  });
+
+  it('§47 (2026-11-23): the 6-digit form renders EVEN WITH an existing identity — no stored-session resume variant on /income', async () => {
+    saveIdentity({ roomAddress: '0xroom47', userAddress: '0xuser47', token: 'tok47' });
+    render(IncomePage, { props: {} });
+    // The default form ALWAYS shows — the DigitInput card + the Enter CTA,
+    // exactly the same surface an anonymous visitor gets.
+    expect(await screen.findByRole('group', { name: ru['join.code.label'] })).toBeTruthy();
+    expect(screen.getByRole('button', { name: ru['join.enter'] })).toBeTruthy();
+    // The resume card never renders, even though an identity exists.
+    expect(screen.queryByText(/Продолжить в «/)).toBeNull();
   });
 });
 

@@ -144,7 +144,9 @@ to be replaced by pixel-art SVG glyphs per §4.4.)
 - `/` when identity exists → shows a resume card ("Продолжить в «{room.name}»"
   / "Continue to {room.name}") plus a secondary "Присоединиться к другому
   событию" ("Join another event") that clears identity and reveals the code
-  entry.
+  entry. **SUPERSEDED (Concept §47, 2026-11-23): the resume card is removed
+  from the entry surface (`/` → now `/income`) — the default 6-digit form
+  always shows; no stored-session resume variant.**
 - `/host` never redirects on missing identity.
 - Back behavior: `/chats/[address]` header has a back control (history back;
   if `history.length` makes back meaningless → `/chats`). All other navigation
@@ -539,7 +541,11 @@ title after successful resolution. The 401 notice card is announced
     with a way back to persona creation.
 15. With an existing identity, `/` shows the resume card with the room name
     and a working "join another event" action that clears identity and the
-    `mutualCode` store but keeps the vault.
+    `mutualCode` store but keeps the vault. **SUPERSEDED (Concept §47,
+    2026-11-23): /income (the entry surface) ALWAYS shows the default
+    6-digit form — the resume variant and its "join another event" action
+    are removed; test expectation: the form renders with or without an
+    existing identity.**
 16. The RU|EN segmented control switches all visible strings on this page and
     persists across reloads.
 17. All six digit cells are keyboard-reachable; paste of a 6-digit string

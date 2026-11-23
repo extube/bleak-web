@@ -863,25 +863,37 @@ describe('JoinFlow — phone full-screen forms (Concept §12, DESIGN §4.12.1 it
     expect(digitCss).toMatch(/\.digit-input\s*\{[^}]*min-width:\s*0/);
   });
 
-  it('the resume card (the same join screen) carries the identical treatment', () => {
-    // tz12-02: the join entry (the resume card + JoinFlow) lives on
-    // /income — the route file re-homed from routes/+page.svelte.
-    const phone = phoneBlock(source('src/routes/income/+page.svelte'));
+  it('the resume card is REMOVED (Concept §47): the phone treatment lives only on the .join wrapper', () => {
+    // tz12-02: the join entry (JoinFlow) lives on /income — the route
+    // file re-homed from routes/+page.svelte.
+    const src = source('src/routes/income/+page.svelte');
+    const phone = phoneBlock(src);
     expect(phone).toMatch(/\.join\s*\{[^}]*max-width:\s*none/);
     expect(phone).toMatch(/\.join\s*\{[^}]*padding:\s*0/);
-    expect(phone).toMatch(/\.resume\s*\{[^}]*border-radius:\s*0/);
-    expect(phone).toMatch(/\.resume\s*\{[^}]*clip-path:\s*none/);
-    expect(phone).toMatch(/\.resume\s*\{[^}]*flex:\s*1/);
+    // Concept §47 (2026-11-23): no stored-session resume variant on the
+    // entry surface — the resume card markup/styles/i18n keys are gone.
+    expect(src).not.toMatch(/\.resume\b/);
+    expect(src).not.toMatch(/join\.resume\./);
+    // Tokens only (sweep discipline).
     expect(phone).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 
   it('desktop is untouched: the overrides exist only inside the phone query', () => {
-    for (const file of [
-      'src/lib/components/join/JoinFlow.svelte',
-      // tz12-02: the join entry (the resume card + JoinFlow) lives on
-      // /income — the route file re-homed from routes/+page.svelte.
-      'src/routes/income/+page.svelte'
-    ]) {
+    // Concept §47 (2026-11-23): the resume card (and its border-radius/clip
+    // overrides) is GONE from the route file — the page keeps only the
+    // wrapper's max-width override; the JoinFlow card keeps its own
+    // chrome-dropping overrides in the component file.
+    const phoneOverrides: Record<string, string[]> = {
+      'src/lib/components/join/JoinFlow.svelte': [
+        'border-radius: 0',
+        'clip-path: none',
+        'max-width: none'
+      ],
+      // tz12-02: the join entry (JoinFlow) lives on /income — the route
+      // file re-homed from routes/+page.svelte.
+      'src/routes/income/+page.svelte': ['max-width: none']
+    };
+    for (const [file, decls] of Object.entries(phoneOverrides)) {
       let css = source(file);
       // tz11-08 (task 109): the persona-scoped :global wrapper rule is the
       // Concept §25 conduit — the page-level .join wrapper is bounded and
@@ -901,13 +913,13 @@ describe('JoinFlow — phone full-screen forms (Concept §12, DESIGN §4.12.1 it
       expect(css, file).toMatch(/@media \(min-width:\s*720px\)/);
       // Each chrome-dropping declaration appears exactly once in the file —
       // inside the 719px query, never in the base (desktop) rules.
-      for (const decl of ['border-radius: 0', 'clip-path: none', 'max-width: none']) {
+      for (const decl of decls) {
         expect(css.split(decl).length - 1, `${file}: "${decl}"`).toBe(1);
       }
       const base = baseCss(css);
-      expect(base).not.toContain('border-radius: 0');
-      expect(base).not.toContain('clip-path: none');
-      expect(base).not.toContain('max-width: none');
+      for (const decl of decls) {
+        expect(base).not.toContain(decl);
+      }
     }
   });
 });

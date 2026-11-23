@@ -95,8 +95,6 @@ export const en = {
   'join.import.dead':
     'This profile no longer exists on the server. The entry stays listed, but you cannot return to it.',
   'join.error.invite': 'The invite code is invalid or expired.',
-  'join.resume.title': 'Continue to {room}',
-  'join.resume.another': 'Join another event',
 
   /* --- camera scanner (DESIGN §3.8, §4.7) --- */
   'scan.title': 'Scan QR code',
