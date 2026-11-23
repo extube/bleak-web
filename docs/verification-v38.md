@@ -1,5 +1,47 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.25.2 ROUND NOTE (bug round — the §44.4 iOS keyboard viewport fix was
+> ineffective on iPhone/iPad, owner-reported — appended by the process
+> 2026-11-23, post-round three-gate run GREEN: lint clean · 1024 tests
+> total (49 api-client + 8 helper + 967 web, 53 files; keyboard-viewport
+> suite 11) · build 0 errors, dev `0f87fc2`):**
+> **FIXED per the deterministic diagnosis** (bug context:
+> `docs/bugs/ios-keyboard-viewport-1.md`, committed; fix by the SAME
+> worker `5de72e33` — session resumed — on
+> `feature/5de72e33-ios-keyboard-viewport`, DESIGN §4.31.2 recorded):
+> root cause = the layout's `.app-shell { min-height: 100dvh }` pinning
+> `height = max(min-height, height)` (iOS does not resize the layout
+> viewport on keyboard — the shrunk `--app-height` never applied; the
+> composer stayed behind the keyboard and iOS panned the document up).
+> Changes: (1) `min-height: 0` on BOTH `.app-shell` shell gates in
+> `JoinFlow.svelte` (persona-step + form-step); (2) the persona-step
+> `$effect` additionally locks `documentElement.style.overflow` (restored
+> on teardown) and pins the window during the keyboard pan
+> (`visualViewport` `scroll` listener → `window.scrollTo(0, 0)`, removed
+> on teardown — no-leak add/remove pairs asserted); (3) untouched: the
+> `--app-height` write/restore, the `100vh → 100dvh → var(--app-height,
+> 100dvh)` fallback chain, the §24–§29 two-fixed-areas layout, every
+> other join step/surface (negatives green; the tz11-10 cascade test
+> updated to the lifted-min-height contract — the only full-suite
+> break).
+> **Flow deviation (disclosed):** task 134 was `done` (terminal) when the
+> bug arrived — `task.py` forbids both bug-filing and reopening on
+> `done`; the fix therefore runs under the lineage card **136** (same
+> worker hash `5de72e33`, same resumed session, branch
+> `feature/5de72e33-ios-keyboard-viewport` — the established
+> feature/-prefix bug-card deviation) and the bug record lives in
+> `docs/bugs/ios-keyboard-viewport-1.md` (not in the `bugs` table).
+> Manual checks for the owner (iOS Safari, iPhone + iPad): open
+> `/income/<code>/create`, focus the composer — the container shrinks to
+> the visible viewport (messages + composer both visible), NO page pan,
+> NO stuck scroll after close; desktop/Android unchanged.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/5de72e33-ios-keyboard-viewport` (17 entries total; the profile
+> branch `f6ab8db7` still excluded — awaiting the owner's merge
+> approval); owner refs stay untracked.
+
 > **v3.26 ROUND NOTE (§45 hero breakpoint/width/headline + Bleak margins,
 > Concept §45 — appended by the process 2026-11-23, post-round three-gate
 > run GREEN: lint clean · 1022 tests total (49 api-client + 8 helper +
