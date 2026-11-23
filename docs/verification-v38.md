@@ -1,5 +1,75 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.30 ROUND NOTE (§48 owner bug batch — 6-digit auto-advance + entry-flow
+> routes, Concept §48 — appended by the process 2026-11-23, post-round
+> three-gate run GREEN: lint clean · 1073 tests total (49 api-client + 8
+> helper + 1016 web, 54 files) · build 0 errors (10 pre-existing-category
+> `state_referenced_locally` warnings — 3 from the intentional
+> initial-capture seeds JoinFlow already carried), dev `70c6483`):**
+> **All three §48 items delivered** (task 139, worker `ca2b95fa`, process
+> `fa8c5cf9`; design-first — design instance `cc822d42` wrote DESIGN
+> §4.34 before the build; branch `feature/ca2b95fa-entry-flow-auto-advance`
+> squashed to dev `70c6483`; concept relayed the owner's §48 batch with
+> pre-approved landing — lean protocol per §22.2):
+> (1) **6-digit auto-advance (§4.34.B)** — after the 6th digit completes
+> (typed, backspace-refilled, pasted, scanner-filled or ?code= deep-link
+> prefill) the form auto-resolves per the existing resolve logic
+> (`resolveRoomByCode` + `codeErrorOf`: malformed inline+shake, network/
+> api banner, gone card); one-shot discipline (`autoFired` re-armed by
+> editing away from a complete code — a corrected digit or retyped code
+> fires again; no auto-retry after failure, no double-submit; the
+> `resolving` guard makes post-flight clicks no-ops); the submit button
+> stays as the redundant affordance; digits survive every failure.
+> (2) **Room intro route `/income/<income-code>` (§4.34.A/C)** — NEW
+> `src/routes/income/[income_code]/+page.svelte` serving the intro
+> (RoomPreview, Create profile + Change code) in its §30 FormShell; the
+> param IS the 6-digit invite code (supersedes §4.31.D's room-address
+> value), resolved on mount; resolving = shell + inline spinner, both
+> footer actions disabled; dead/invalid param → the code-not-found
+> inline treatment (gone card for a deleted room), Change code →
+> `/income`; on `/income` the resolve success now NAVIGATES to the intro
+> route instead of the in-card Step-2 swap (supersession recorded).
+> `/income` stays the 6-digit entry page (§31/§47 default-form contract
+> intact).
+> (3) **Clean create redirect (§4.34.D)** — Create profile navigates to
+> `/income/<income-code>/create` with an EMPTY query string (the
+> `?code=` builder append in `chooseCreate` removed); the create route
+> seeds from the path param ONLY (negative source tests: no `?code=`
+> emission or read anywhere on that route) and resolves on mount (the
+> seededRoom-from-param shortcut died — a 6-digit code is not a room
+> address); unresolvable param → `/income` replaceState; `wizardBack`
+> re-reaches the intro route param-only (the `/income?code=` round-trip
+> superseded). The §3.1 invite deep link on `/`→`/income?code=` and the
+> §3.8 handshake are untouched (separate mechanism — reconciliation
+> recorded in §4.34.E–F).
+> Tests: auto-advance (success/bad-code/edit-re-arm/no-double-submit/
+> button/scanner/deep-link), intro-route (resolve + both actions +
+> treatments + resolving state), create-route (exact-path URL assertion
+> with NO query string + negative source assertions + fallbacks);
+> superseded assertions updated in `join-flow.test.ts`,
+> `landing-page.test.ts`, `keyboard-viewport.test.ts`, `sweep.test.ts`;
+> RU/EN parity — zero copy delta. Untouched (verified green): §30
+> shells, §10.1.1 vault return, §3.8 handshake, §2.8 notice.
+> Manual checks for the owner: on a real device — type a 6th digit and
+> the form advances to `/income/<code>` (or errors) with no button
+> press; the intro's Create profile lands on `/income/<code>/create`
+> (clean URL, no `?code=`); wizard back returns to the intro; Change
+> code returns to `/income`; a dead code on the intro shows the
+> treatment with the way back; both locales.
+> Housekeeping (DISCLOSED, same sanctioned bare `git add -A` landing
+> form as the v3.29 round): commit `70c6483` additionally swept the
+> working tree — the `docs/Concept.md` §48 order text (+18), DESIGN
+> §4.34 (+248, the amendment itself — intended), the three session
+> records, the legacy `docs/logs/1640ba9e.log` mod, AND the owner's
+> media swap sitting in the worktree: the landing loop replaced by a
+> smaller `background-video-loop.mp4` (3,058,088 → 2,654,791 bytes,
+> also inside `apps/web/src/lib/assets/landing/`) with the old bytes
+> preserved at the root as `background-video-loop-old.mp4` — the owner
+> decides keep-vs-untrack (dev unpushed). `git branch -d` refused
+> (squash-landing artifact) and `-D` is outside process permissions —
+> `feature/ca2b95fa-entry-flow-auto-advance` joins the devops `-D`
+> cleanup list (9 branches total).
+
 > **v3.29 ROUND NOTE (§47 resume-form removal — /income always shows the
 > 6-digit form, Concept §47 — appended by the process 2026-11-23,
 > post-round three-gate run GREEN: lint clean · 1052 tests total (49
