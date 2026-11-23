@@ -1,5 +1,32 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.28 ROUND NOTE (task 131 PROFILE REDESIGN LANDED — Concept §43,
+> owner-approved merge — executed by devops 2026-11-23, three-gate run
+> GREEN: lint clean · tests all passed (api-client + helper + 993 web,
+> 54 files incl. the new `profile-edit.test.ts`, +21 cases) · build 0
+> errors, dev `fd9f1ea`):**
+> Squash landing of `feature/f6ab8db7-profile-redesign` (worker
+> `f6ab8db7`, created by process `2a7c5e22`): `/profile` rebuilt per
+> `profile-design.png` (QR + gear header, centered square avatar,
+> username row, 3-stat row, 3 pill tabs), `/profile/settings` restyled
+> to the list-block pattern, new `/profile/edit` route (key-value
+> persona editing + Save Changes). Square avatars; streak/badges/
+> social-post dropped (not real); §6.3 live-QR rotation, §8.1.3 token
+> rotation, §2.2 polling, §7.1.6 destructive-red all intact; i18n
+> RU/EN parity for every new/moved key. **Authority disclosure:** the
+> landing was executed by devops at the owner's explicit direction —
+> task 131's DB stamps (`merged`, `ci green`) run under the creator's
+> hash `2a7c5e22` per the DB's created_by authority rule (its session
+> was unreachable); the index blocker (staged leftovers) was cleared
+> by devops first (`git restore --staged background-img.jpg
+> docs/logs/1640ba9e.log` — the standing housekeeping item, resolved).
+> Task 131 closed `done` (CI green); branch deleted. Manual check for
+> the owner: fresh dev build → /profile (new layout + tabs), 
+> /profile/settings (list blocks), /profile/edit (save/cancel/error).
+> Housekeeping: staged-leftover state RESOLVED; `-D` branch-cleanup
+> list unchanged by this round (`f6ab8db7` now deleted); owner refs
+> stay untracked at the root.
+
 > **v3.27 ROUND NOTE (§46 Bleak block per-breakpoint structure + 960
 > step-stack + staggered text reveal, Concept §46 — appended by the process
 > 2026-11-23, post-round three-gate run GREEN: lint clean · 1029 tests
