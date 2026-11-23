@@ -36,6 +36,7 @@ import { identity } from '../src/lib/stores/identity';
 import { ru } from '../src/lib/i18n/ru';
 
 const alice: User = {
+  active: true,
   address: '0xalice',
   room: '0xroom',
   name: 'Алиса',

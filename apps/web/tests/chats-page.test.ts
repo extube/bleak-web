@@ -81,6 +81,7 @@ function minutesAgo(minutes: number): string {
 
 function person(address: string, name: string, createdMinutesAgo: number, bio = ''): User {
   return {
+    active: true,
     address,
     room: ROOM,
     name,

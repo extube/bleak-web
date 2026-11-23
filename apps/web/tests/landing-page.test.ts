@@ -261,6 +261,7 @@ beforeEach(() => {
   mockedApi.getRoom.mockResolvedValue(INTRO_ROOM);
   mockedApi.listRoomUsers.mockResolvedValue([
     {
+      active: true,
       address: '0xa',
       room: INTRO_ROOM.address,
       name: 'Алиса',

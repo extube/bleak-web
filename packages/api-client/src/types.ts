@@ -22,6 +22,15 @@ export interface Room {
 
 /** model.User */
 export interface User {
+  /**
+   * Active users are matched by the auto-matchmaking worker; the flag is
+   * true by default and togglable via the user update endpoint.
+   * Reconciled 2026-11-23 (feature #36, Concept §49 / DESIGN §4.35.A):
+   * REQUIRED — the server always serializes it (example: true); a missing
+   * `active` in any User literal is a compile error. Web fixtures sweep:
+   * mechanical `active: true`.
+   */
+  active: boolean;
   address: string;
   room: string;
   name: string;
@@ -121,6 +130,13 @@ export interface CreateUserRequest {
 
 /** server.UpdateUserRequest — omitted fields keep their value. */
 export interface UpdateUserRequest {
+  /**
+   * Active opts the persona in/out of the auto-matchmaking worker
+   * (feature #36); omitted keeps the current flag. Reconciled
+   * 2026-11-23 (Concept §49 / DESIGN §4.35.A) — optional, so a toggle
+   * can send `{ active }` alone (the PUT contract keeps name/bios).
+   */
+  active?: boolean;
   name?: string;
   public_bio?: string;
   private_bio?: string;

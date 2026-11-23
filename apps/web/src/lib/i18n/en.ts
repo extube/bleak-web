@@ -233,6 +233,13 @@ export const en = {
   'profile.title': 'My profile',
   'profile.subtitle': 'Your profile in this room.',
   'profile.language.meta': 'Agent language: {language}',
+  // §4.35.E (Concept §49, 2026-11-23): auto-handshake opt-out — the row
+  // label is the owner's ADOPTED wording (verbatim); the other three are
+  // design inventions for tone ratification (standing precedent).
+  'profile.auto_handshake.row': 'Automatically send handshake',
+  'profile.auto_handshake.label': 'Auto-handshake',
+  'profile.auto_handshake.on': 'on',
+  'profile.auto_handshake.off': 'off',
   'profile.greeting.caption': "Opens each of your agent's new dialogs",
   'profile.greeting.rule':
     'The greeting opens every new dialog. No questions — statements only.',

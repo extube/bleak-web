@@ -10647,6 +10647,302 @@ resolving treatment adds no text (spinner only).
    no new palette value, no new dependency; the three items are fully
    specified in §4.34.A–E.
 
+### 4.35 feature amendment (2026-11-23, owner-approved Concept §49): auto-handshake opt-out (`active` flag) — `/profile` indicator + `/profile/settings` toggle
+
+bleak-node's v2 backend added the persona field **`active`** (boolean,
+`true` by default) — the server-side auto-matchmaking opt-out (backend
+feature #36). Swagger facts this section reconciles against (read-only,
+2026-11-23): `model.User.active` — *"Active users are matched by the
+auto-matchmaking worker; the flag is true by default and togglable via the
+user update endpoint."* and `server.UpdateUserRequest.active` — *"Active
+opts the persona in/out of the auto-matchmaking worker (feature #36);
+omitted keeps the current flag."*; the endpoint is the existing
+**PUT `/api/room/{room}/user/{address}`** ("Updates name, bios and the
+active flag … Omitted fields keep their value."). bleak-web exposes it as
+(1) a read-only **indicator** on `/profile` and (2) the **first real
+toggle-backed setting** on `/profile/settings`, labeled (adopted wording,
+verbatim): EN **"Automatically send handshake"** / RU **«Отправлять
+рукопожатия автоматически»**. Binding scope notes: default is `true`
+(opt-out model — existing personas need NO migration), **no mocks** (real
+reads and real writes through the real field only), RU/EN parity, no new
+dependencies, all other §43/§4.29 contracts stay in force. Grounded in the
+live code (read-only audit, 2026-11-23):
+`packages/api-client/src/types.ts` (`User` lines 24–43 lacks `active`;
+`UpdateUserRequest` lines 122–127 lacks `active`); the client method
+`updateRoomUser` already exists; `apps/web/src/routes/profile/+page.svelte`
++ the badge component (identity block); `apps/web/src/routes/profile/settings/+page.svelte`
+(Block 2 renders regardless of the entry-row load state).
+
+#### 4.35.A api-client type reconciliation (FIRST)
+
+1. **`User` gains `active: boolean` — REQUIRED** (no `?`), reconciled
+   against swagger `model.User` (which always serializes it; `example:
+   true`), positioned in the interface's field order among
+   `address`/`created_at`/… (alphabetical, as generated). Doc comment
+   verbatim from swagger: *"Active users are matched by the
+   auto-matchmaking worker; the flag is true by default and togglable via
+   the user update endpoint."* **Recorded divergence from the
+   `mutual_code_live` precedent:** that flag was typed optional ONLY so
+   existing web fixtures stayed source-compatible (types.ts lines 36–42);
+   `active` is typed REQUIRED per this deliverable set, which makes every
+   existing `User` fixture in the test suites gain `active: true` — a
+   mechanical, compile-enforced sweep, and the honest shape (the server
+   never omits it). No fallback "treat missing as active" client logic is
+   written anywhere.
+2. **`UpdateUserRequest` gains `active?: boolean`** — optional, comment
+   verbatim from swagger: *"Active opts the persona in/out of the
+   auto-matchmaking worker (feature #36); omitted keeps the current
+   flag."* The interface's "omitted fields keep their value" contract
+   (types.ts line 122) carries — this is exactly why a toggle can send
+   `{ active }` alone.
+3. **No client-shape changes beyond the two types.** The write path is the
+   EXISTING `updateRoomUser` client method → PUT
+   `/api/room/{room}/user/{address}` (Bearer auto-injected, §2.8 gate on
+   401); no new method, no URL/serializer change, no version bump, no new
+   dependency. Reads come from the existing `getRoomUser` (token-gated
+   where the flag semantics require it — the indicator and the toggle both
+   read the token-gated persona fetch).
+4. **Default `true`, opt-out model, no migration:** the server defaults
+   new and existing personas to active; the web app writes the flag only
+   on an explicit user toggle and never "repairs" it.
+
+#### 4.35.B `/profile` — the auto-handshake indicator (§4.29.A amendment)
+
+**Placement — DECIDED: a muted status line in the identity block (A.4),
+directly under the read-only language-meta line.** Rejected
+alternatives (recorded): a fourth StatTile (the §2.2/§4.9.5 3-stat
+contract is not extended by a behavior flag), and a tab-panel block (the
+flag belongs to the identity, not to About/Interests/QR content). It is
+an **indicator, NOT a control** — no interactive element, no edit
+affordance (the page stays READ-ONLY, §4.29.A; the control lives on
+`/profile/settings`, §4.35.C).
+
+- **Component spec:** plain text line inside the existing identity column
+  (the badge component's identity section) — no new component. 14px
+  `--font-body` regular, `--color-text-muted`, centered with the column,
+  `gap: var(--space-1)` under the meta line, `overflow-wrap: anywhere`
+  (same wrap rule as the name, A.4). Leading inline `PixelIcon`
+  **`status-active`** (existing glyph — NO new glyph, §4.29.D record
+  stands), 16px, muted, `aria-hidden`. Copy: the composed pair
+  `profile.auto_handshake.label` + ": " + `profile.auto_handshake.on|off`
+  — EN "Auto-handshake: on"/"Auto-handshake: off", RU «Авто-рукопожатия:
+  вкл.»/«Авто-рукопожатия: выкл.». Accent discipline (§4.3): the line is
+  muted in BOTH states — the state word carries the meaning; no accent
+  fill (the identity block's only accent stays the avatar backdrop).
+- **Data source — server state only:** the line renders from the
+  server-provided `user.active` of the EXISTING token-gated `getRoomUser`
+  persona fetch (the §6.3 4 s poll already re-fetches the persona; the
+  indicator re-renders with it). **Both `true` and `false` must render**
+  — the line is present whenever `user` is present; there is NO
+  local-only/optimistic state on this page, and no write path exists
+  here. NO new fetch and NO new poller are introduced (§4.29.F.4 cadences
+  unchanged).
+- **States:** loading → the line is absent (the existing identity
+  skeleton shape covers it; no separate skeleton node is added — the
+  skeleton stays as-is); load/API error → the existing `ErrorBanner` +
+  retry path (line absent); persona 404 → the existing not-found card
+  verbatim.
+- **Accessibility:** the line is plain readable text (both words in one
+  text node order — it announces as a full pair, the stat-tile reading
+  pattern); the glyph is `aria-hidden`; no live region is added (it is
+  not an async status; rotation notes and the existing live regions
+  carry). Focus is never involved (non-interactive).
+- **Contract guards:** the A.4 identity-block composition becomes
+  avatar → name → language meta → **auto-handshake line** (last); A.1
+  header buttons, A.5 stats row, A.6 pill tabs, A.7 tab semantics, A.8
+  states, A.9 responsive (the line wraps within the centered column at
+  320/360/390px) and the §6.3 live-QR mechanics are UNTOUCHED.
+
+#### 4.35.C `/profile/settings` — the auto-handshake toggle row (§4.29.B amendment)
+
+**Placement — DECIDED: the FIRST row of Block 2 (app settings), above the
+Language row.** Rationale: the token-rotation row stays LAST in the block
+so its `rotatedFlash`/`rotateError` lines remain directly under their row
+(§4.29.B.3.2) — appending the toggle after rotation would interleave a
+row between the rotation row and its messages. Block 2 row order after
+this rev: **(1) auto-handshake toggle, (2) Language (inline
+`LocaleControl`), (3) token-rotation.** Blocks 1/3 (entry row; leave
+button) untouched.
+
+**Row anatomy (B.2 carried):** min-height 48px; leading 16px `PixelIcon`
+**`status-active`** (muted — a suitable glyph exists; no new glyph);
+label left (`--font-body` 15px/600, `--color-text`) =
+`profile.auto_handshake.row` — EN **"Automatically send handshake"** /
+RU **«Отправлять рукопожатия автоматически»** (adopted wording, verbatim
+— Concept §49); trailing control = the switch; 1px
+`--color-surface-elevated` divider between rows; `.pixel-corners` stays
+on the Block card, never on the row's control.
+
+**Switch control spec (the design system has no switch component —
+recorded):**
+
+- A real native **`<input type="checkbox" role="switch">`** (never a
+  div-toggle — §2.6 "real buttons/controls"), visually styled as a
+  ~40×24px pill track centered in a `--touch-target` (48×48px) hit area.
+  Tokens only: **ON** = track `--color-accent`, knob `--color-accent-ink`;
+  **OFF** = track transparent with a 1px `--color-text-disabled-strong`
+  border, knob `--color-text-muted`. No new palette value, no new token;
+  the pill is smooth (§4.5 — pills never `.pixel-corners`).
+- The visible label is the row label, associated via `label[for]` —
+  activating the label toggles too; the row itself is not a giant button
+  (the divider grid and the icon stay non-interactive).
+- **Keyboard & a11y (§2.6):** space toggles the focused switch (native
+  checkbox behavior); `aria-checked` always mirrors the CURRENT state;
+  the `:focus-visible` accent outline is never removed; hit target ≥
+  48px.
+- **Mount state:** seeded from the EXISTING §4.29.B.5 `getRoomUser`
+  mount fetch (`user.active`) — no extra fetch, no poller. While the
+  persona record loads, the control renders **disabled** (no fake
+  default — the server truth is unknown until the fetch); a load error
+  keeps it disabled behind the existing `ErrorBanner` + retry, and a
+  successful retry seeds it.
+- **Toggle semantics — optimistic update + revert-on-error (the
+  acceptable pattern; no optimistic-only fake state):** on change, flip
+  the visible state immediately and call
+  `updateRoomUser(id.roomAddress, id.userAddress, { active: next })` —
+  the body carries **ONLY `active`** (name/public_bio/private_bio
+  omitted; omitted fields keep their value per the PUT contract). While
+  in flight the control is disabled (double-toggle impossible; one
+  toggle at a time). **Success:** the state stands and now matches the
+  server — the control IS the feedback, so NO «Сохранено» flash fires
+  for this row (recorded; differs from the editor flow's flash, C.5).
+  **Error:** an inline error line renders UNDER the row —
+  `role="alert"` (the rotation-row pattern, §4.29.B.3.2) — with the
+  server text via the existing `serverText` mapping; `NetworkError` →
+  the existing `common.error.network`; **401 → the §2.8 global gate**
+  (never handled locally); and the switch **REVERTS to the last
+  server-truth value** (the mount value, or the last successfully
+  applied toggle). No silent failure, no stale fake state; a re-toggle
+  after a failure re-issues the PUT.
+- **Reduced motion:** the knob/track transition is the 120 ms
+  color/transform pattern (§2.5/§4.6) and is INSTANT under
+  `prefers-reduced-motion: reduce`.
+- **Contract guards:** B.1 chrome, B.2's FAQ/Terms clause (still nothing
+  invented), B.3.1 entry row, B.3.2 language + rotation rows (copy,
+  dialog, vault writes), B.3.3 leave button, B.5 (the mount fetch IS the
+  seed source), B.6 responsive, B.7 accessibility all carry; only B.2's
+  toggle clause and B.3's Block 2 row list change (below).
+
+#### 4.35.D Supersessions (explicit record) — dated 2026-11-23
+
+1. **§4.29.B.2's "No toggle rows" clause SUPERSEDED** (owner-approved
+   Concept §49): the app now HAS its first real toggle-backed setting —
+   the §4.35.C row. The SAME sentence's "no FAQ/Terms/policy rows"
+   clause CARRIES unchanged (still nothing invented there).
+2. **§4.29.H item 17 ("Settings contains NO persona-edit rows and NO
+   toggle rows") AMENDED:** persona-edit rows remain absent; the
+   no-toggle half is superseded by the §4.35.C row.
+3. **§4.29.I decision 4 — partially superseded:** the grouping record
+   (two blocks + bottom leave button; Language inline, no sub-page)
+   carries; its "no toggle rows" parenthetical is superseded.
+4. **§4.29.I decision 7 ("No toggle rows: no real toggle-backed setting
+   exists") SUPERSEDED** — it described the pre-§49 state truthfully and
+   is now historical.
+5. **§4.29.A.4 AMENDED:** the identity block gains the auto-handshake
+   status line as its final element (§4.35.B). A.1/A.5/A.6/A.7–A.10
+   carry.
+6. Carried unchanged: §4.29.B otherwise, §4.29.C (/profile/edit), D–I
+   otherwise; §4.29.F.4 polling cadences; §43 scope (all §43 profile
+   contracts stay in force outside this flag); §2.2, §2.6, §2.8.
+
+#### 4.35.E i18n delta (both dictionaries; RU/EN parity CI-enforced)
+
+**New keys (4).** The row label is the ADOPTED wording (Concept §49 —
+owner-owned, not a design invention); the other three are design
+inventions for tone ratification (standing precedent, §4.29.I-14):
+
+| Key | RU | EN |
+| --- | --- | --- |
+| `profile.auto_handshake.row` | «Отправлять рукопожатия автоматически» | "Automatically send handshake" |
+| `profile.auto_handshake.label` | «Авто-рукопожатия» | "Auto-handshake" |
+| `profile.auto_handshake.on` | «вкл.» | "on" |
+| `profile.auto_handshake.off` | «выкл.» | "off" |
+
+Composed strings (assembled in markup, keys above): the `/profile`
+indicator reads "Auto-handshake: on" / «Авто-рукопожатия: вкл.» (and the
+off pair); the settings row renders `profile.auto_handshake.row`
+verbatim in both locales. **No value edits, no retired keys, zero
+reuse-of-convenience:** `profile.saved`, `common.error.network`,
+`common.locale` etc. are reused unchanged where named. Net per
+dictionary: **+4**; the `i18n.test.ts` per-dictionary count assertions
+update to the new count.
+
+#### 4.35.F Acceptance criteria (checkable)
+
+api-client:
+
+1. The `User` interface declares required `active: boolean` — reconciled
+   against swagger `model.User.active` with the verbatim description; a
+   missing `active` in any `User` literal is a compile error.
+2. `UpdateUserRequest` declares optional `active?: boolean` — reconciled
+   against swagger `server.UpdateUserRequest.active`.
+3. `updateRoomUser` is unchanged in signature/URL; a `{ active }` patch
+   serializes a PUT `/api/room/{room}/user/{address}` body containing
+   ONLY `active` (the existing omitted-field tests stay green).
+
+web — `/profile` indicator:
+
+4. Via the established mocked-fetch seam (`vi.mock('#lib/api/client')` —
+   the API layer, NOT a UI mock): a persona fixture with `active: true`
+   renders the indicator as the on-state pair ("Auto-handshake: on" /
+   «Авто-рукопожатия: вкл.»); `active: false` renders the off-state
+   pair; BOTH fixtures asserted in the profile-page suite.
+5. The indicator is non-interactive (no button/link/input in its DOM),
+   renders for both states from the server value only (no local write
+   path on the page), and the existing §4.29.A contracts stay green
+   (identity block, stats row, pill tabs, header buttons, live-QR
+   rotation mechanics).
+
+web — `/profile/settings` toggle row:
+
+6. Block 2 contains the toggle row labeled exactly EN "Automatically
+   send handshake" / RU «Отправлять рукопожатия автоматически» — both
+   locale renderings asserted (parity), placed as the FIRST row of
+   Block 2.
+7. On mount the switch reflects `user.active` from the mocked
+   `getRoomUser` (true and false both tested); no API call beyond the
+   existing mount fetch is issued for the row (no poller).
+8. Toggling issues `updateRoomUser` with the payload `{ active: bool }`
+   and nothing else; while in flight the control is disabled.
+9. Rejecting the toggle (mocked rejection) renders the inline error
+   line with `role="alert"` and the switch state REVERTS to the
+   pre-toggle server value; a subsequent toggle re-issues the PUT.
+10. The control is a real checkbox with `role="switch"`: space toggles
+    it, `aria-checked` mirrors the current state, the hit target is ≥
+    48px, and the transition is instant under
+    `prefers-reduced-motion: reduce`.
+
+cross-cutting:
+
+11. Exactly the four §4.35.E keys are added to BOTH dictionaries (RU/EN
+    parity + per-dictionary count assertions green); `i18n.test.ts`,
+    `profile-page`, `profile-settings`, `profile-edit` and `sweep`
+    suites stay green; `make lint && make test && make build` green.
+12. No new dependency, no new glyph (`status-active` reused in both
+    surfaces), no new token/palette value; default `true` needs no
+    migration — existing personas and fixtures behave unchanged apart
+    from the mechanical fixture `active: true` sweep.
+
+#### 4.35.G Flags for the owner / concept (design report)
+
+1. **DESIGN NOTE — indicator placement (§4.35.B):** a status line under
+   the language meta in the identity block was chosen over a StatTile or
+   a tab-panel block; reversible one-liner if the owner prefers a
+   tile/row treatment.
+2. **DESIGN NOTE — Block 2 row order (§4.35.C):** the toggle is placed
+   FIRST so the token-rotation row stays last with its flash/error lines
+   directly beneath it; reversible.
+3. **DESIGN NOTE — no «Saved» flash on the toggle:** the switch is its
+   own feedback (success = the state stands); the flash stays bound to
+   the editor flows. A flash could be added if the owner wants audible
+   parity with the editors.
+4. **RU copy ratification:** `profile.auto_handshake.row` is the owner's
+   adopted wording (verbatim); «Авто-рукопожатия», «вкл.», «выкл.» are
+   design inventions for tone ratification (standing precedent).
+5. **ADVICE NEEDED — none blocking:** the api-client shape, both
+   surfaces, the toggle semantics and the copy are fully specified in
+   §4.35.A–E; no palette value, dependency or glyph decision is open.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)

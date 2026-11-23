@@ -9,17 +9,22 @@
    * old internal `view = rows|persona|greeting|contact` state machine and
    * the three editor rows are GONE (the editors re-host on /profile/edit;
    * the «Saved» flash moves with them). §23.2 5.6 stands: no interests
-   * editor anywhere. No toggle rows and no FAQ/Terms/policy rows — the app
-   * has no toggle-backed setting and no such content (§4.29.B.2, I-rec 4/7).
+   * editor anywhere. FAQ/Terms/policy rows: still none invented (§4.29.B.2
+   * carried); the NO-toggle-rows clause is SUPERSEDED by Concept §49
+   * (DESIGN §4.35.D) — the auto-handshake row is the app's first real
+   * toggle-backed setting.
    *
-   * Rows (the real rows only, §4.29.B.3):
+   * Rows (the real rows only, §4.29.B.3 + §4.35.C):
    *   Block 1 — the profile entry row → /profile/edit (real link; the
    *             accessible name is `profile.edit.title`).
-   *   Block 2 — Language row (the RU|EN LocaleControl INLINE as the
-   *             trailing control — no language sub-page, I-rec 8) and the
-   *             token-rotation row (key glyph + chevron → ConfirmDialog;
-   *             pending → the spinner replaces the chevron; flash/error
-   *             lines under the row).
+   *   Block 2 — the auto-handshake toggle row (FIRST — a real
+   *             `<input type="checkbox" role="switch">`; optimistic PUT
+   *             { active } with revert-on-error), the Language row (the
+   *             RU|EN LocaleControl INLINE as the trailing control — no
+   *             language sub-page, I-rec 8) and the token-rotation row
+   *             (key glyph + chevron → ConfirmDialog; pending → the
+   *             spinner replaces the chevron; flash/error lines under
+   *             the row).
    *   Leave room — the STANDALONE full-width bottom outline-red button
    *             (§7.1.6/§4.9.3 roles verbatim: border --color-danger, font
    *             --color-danger-text, TRANSPARENT background) + its
@@ -90,6 +95,9 @@
     if (!id) return;
     try {
       user = await api.getRoomUser(id.roomAddress, id.userAddress);
+      // §4.35.C: the toggle's mount state is seeded from the SAME fetch —
+      // no extra call, no poller, no fake default while it loads.
+      activeFlag = user.active;
       loadError = null;
     } catch (cause) {
       loadError = bannerOf(cause);
@@ -100,6 +108,40 @@
     if (!guarded) return;
     void loadUser();
   });
+
+  // --- auto-handshake toggle (§4.35.C, Concept §49 / backend feature #36) -----
+  // `activeFlag === null` while the persona record loads (disabled, no fake
+  // default). Optimistic update + revert-on-error; the PUT body carries ONLY
+  // `active` (name/bios omitted — omitted fields keep their value). 401 goes
+  // through the §2.8 global gate (personaGate) — never handled locally. On
+  // success the state STANDS (the switch is its own feedback — no «Saved»
+  // flash for this row).
+  let activeFlag = $state<boolean | null>(null);
+  let pendingActive = $state(false);
+  let activeError = $state<string | null>(null);
+
+  async function toggleAutoHandshake(): Promise<void> {
+    const id = me;
+    const current = activeFlag;
+    if (!id || current === null || pendingActive) return;
+    const next = !current;
+    activeFlag = next; // optimistic — revert to server truth on failure
+    pendingActive = true;
+    activeError = null;
+    try {
+      await api.updateRoomUser(id.roomAddress, id.userAddress, { active: next });
+    } catch (cause) {
+      activeFlag = current;
+      // 401 → the §2.8 global gate already navigated; no local error line.
+      if (cause instanceof ApiError && cause.status === 401) return;
+      activeError =
+        cause instanceof NetworkError
+          ? translate(get(locale), 'common.error.network')
+          : serverText(cause) ?? translate(get(locale), 'common.error.network');
+    } finally {
+      pendingActive = false;
+    }
+  }
 
   // --- token rotation (§8.1.3 — untouched) ------------------------------------
   let rotateOpen = $state(false);
@@ -224,9 +266,30 @@
       </div>
     {/if}
 
-    <!-- §4.29.B.3.2: Block 2 — app settings: the INLINE language control
-         and the token-rotation row (chevron → ConfirmDialog). -->
+    <!-- §4.29.B.3.2 amended (DESIGN §4.35.C): Block 2 — the auto-handshake
+         toggle (FIRST row; the rotation row stays LAST so its flash/error
+         lines remain directly under it), the INLINE language control, and
+         the token-rotation row. -->
     <section class="block" aria-label={translate($locale, 'profile.settings.title')}>
+      <div class="row toggle-row">
+        <PixelIcon name="status-active" size={16} />
+        <label class="row-label" for="auto-handshake-switch">
+          {translate($locale, 'profile.auto_handshake.row')}
+        </label>
+        <input
+          id="auto-handshake-switch"
+          type="checkbox"
+          role="switch"
+          class="switch"
+          checked={activeFlag === true}
+          aria-checked={activeFlag === true}
+          disabled={activeFlag === null || pendingActive}
+          onchange={toggleAutoHandshake}
+        />
+      </div>
+      {#if activeError}
+        <p class="field-error" role="alert" aria-live="polite">{activeError}</p>
+      {/if}
       <div class="row">
         <span class="row-label">{translate($locale, 'common.locale')}</span>
         <LocaleControl />
@@ -361,6 +424,82 @@
   .rotate-row:disabled {
     cursor: default;
     opacity: 0.6;
+  }
+  /* §4.35.C: the auto-handshake toggle row — leading muted glyph, the row
+   * label LEFT, the switch as the trailing control. */
+  .toggle-row :global(svg:first-child) {
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+  }
+  /* The switch: a REAL native checkbox with role="switch" (never a
+   * div-toggle, §2.6), visually drawn as a ~40×24px pill track centered in
+   * the 48px (--touch-target) hit area. Tokens only — ON: accent track +
+   * accent-ink knob; OFF: transparent track + 1px disabled-strong border +
+   * muted knob. Smooth pill (never .pixel-corners, §4.5). */
+  .switch {
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0 0 0 auto;
+    width: var(--touch-target);
+    height: var(--touch-target);
+    flex-shrink: 0;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+  .switch::before {
+    content: '';
+    width: 40px;
+    height: 24px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--color-text-disabled-strong);
+    background: transparent;
+    transition:
+      background-color 120ms ease-out,
+      border-color 120ms ease-out;
+  }
+  .switch::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 8px;
+    width: 16px;
+    height: 16px;
+    border-radius: var(--radius-pill);
+    background: var(--color-text-muted);
+    transform: translateY(-50%);
+    transition:
+      transform 120ms ease-out,
+      background-color 120ms ease-out;
+  }
+  .switch:checked::before {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+  .switch:checked::after {
+    transform: translateY(-50%) translateX(16px);
+    background: var(--color-accent-ink);
+  }
+  /* The accent :focus-visible outline is never removed (§2.6). */
+  .switch:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-pill);
+  }
+  .switch:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+  /* §2.5/§4.6: the 120 ms morph is INSTANT under reduced motion. */
+  @media (prefers-reduced-motion: reduce) {
+    .switch::before,
+    .switch::after {
+      transition: none;
+    }
   }
   /* §4.29.B.3.1: the entry row — mini square avatar + name + muted
    * address (single-line ellipsis) + chevron; a real link. */

@@ -19,6 +19,7 @@ const NOW = Date.parse('2026-11-14T12:00:00Z');
 
 function user(address: string, name: string, created_at: string, public_bio = ''): User {
   return {
+    active: true,
     address,
     room: '0xroom',
     name,

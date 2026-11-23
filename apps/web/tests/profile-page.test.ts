@@ -59,6 +59,7 @@ const mockedApi = vi.mocked(api, true);
 
 function userFixture(overrides: Partial<User> = {}): User {
   return {
+    active: true,
     address: ME,
     room: ROOM,
     name: 'Трамвайщик',
@@ -707,5 +708,84 @@ describe('phone full-screen form (Concept §12, DESIGN §4.12.1 item 5)', () => 
     const base = source.replace(/@media \(max-width:\s*719px\)[\s\S]*$/, '');
     expect(base).not.toContain('border-radius: 0');
     expect(base).not.toContain('clip-path: none');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Auto-handshake indicator (Concept §49, DESIGN §4.35.B): a muted status
+// line in the identity block, composed label + ": " + on|off from the
+// SERVER-provided User.active (no write path on this page, no local state).
+// ---------------------------------------------------------------------------
+
+describe('auto-handshake indicator (§4.35.B)', () => {
+  it('renders the on-state pair from user.active = true (RU composed string)', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(userFixture({ active: true }));
+    await renderPage();
+    expect(
+      screen.getByText(`${ru['profile.auto_handshake.label']}: ${ru['profile.auto_handshake.on']}`)
+    ).toBeTruthy();
+  });
+
+  it('renders the off-state pair from user.active = false (RU composed string)', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(userFixture({ active: false }));
+    await renderPage();
+    expect(
+      screen.getByText(`${ru['profile.auto_handshake.label']}: ${ru['profile.auto_handshake.off']}`)
+    ).toBeTruthy();
+    // Only ONE state word ever renders — never both.
+    expect(
+      screen.queryByText(`${ru['profile.auto_handshake.label']}: ${ru['profile.auto_handshake.on']}`)
+    ).toBeNull();
+  });
+
+  it('EN parity: the same pair reads "Auto-handshake: on/off" via the locale store', async () => {
+    const { setLocale } = await import('../src/lib/i18n/locale');
+    const { en } = await import('../src/lib/i18n/en');
+    mockedApi.getRoomUser.mockResolvedValue(userFixture({ active: true }));
+    await renderPage();
+    setLocale('en');
+    await tick();
+    await tick();
+    expect(
+      screen.getByText(`${en['profile.auto_handshake.label']}: ${en['profile.auto_handshake.on']}`)
+    ).toBeTruthy();
+    setLocale('ru');
+    await tick();
+  });
+
+  it('the indicator is NON-INTERACTIVE and the identity block carries no controls (the page stays read-only)', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(userFixture({ active: false }));
+    await renderPage();
+    const line = document.querySelector('.auto-handshake');
+    expect(line).toBeTruthy();
+    expect(line?.querySelector('button, a, input, [role]')).toBeNull();
+    // No write path exists anywhere on /profile (§4.35.B: the toggle lives
+    // on /profile/settings).
+    expect(mockedApi.updateRoomUser).toBeUndefined();
+  });
+
+  it('the line is the LAST element of the identity block, under the language-meta line (source-level, §4.35.B guards)', async () => {
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/lib/components/profile/ProfileBadge.svelte'),
+      'utf8'
+    );
+    // Identity-block composition (A.4 amended): avatar → name → meta →
+    // auto-handshake line (last).
+    const identity = source.match(/<header class="identity">[\s\S]*?<\/header>/)?.[0] ?? '';
+    expect(identity.indexOf('class="meta-stack"')).toBeGreaterThan(
+      identity.indexOf('class="name"')
+    );
+    expect(identity.indexOf('class="auto-handshake"')).toBeGreaterThan(
+      identity.indexOf('class="meta"')
+    );
+    // 14px muted line, tight space-1 stack under the meta, the reused
+    // status-active glyph decorative (no label prop → PixelIcon renders
+    // aria-hidden itself) — tokens only, no new glyph.
+    const block = source.match(/\.auto-handshake\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(block).toContain('font-size: 14px');
+    expect(block).toContain('color: var(--color-text-muted)');
+    expect(identity).toContain('PixelIcon name="status-active"');
+    expect(identity).not.toMatch(/PixelIcon name="status-active"[^>]*label=/);
+    expect(source).not.toMatch(/class="auto-handshake[^"]*pixel-corners/);
   });
 });

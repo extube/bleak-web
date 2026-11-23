@@ -85,6 +85,7 @@ function secondsAgo(seconds: number): string {
 
 function person(address: string, name: string): User {
   return {
+    active: true,
     address,
     room: ROOM,
     name,

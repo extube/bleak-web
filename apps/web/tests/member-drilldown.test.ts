@@ -18,6 +18,7 @@ vi.mock('$app/paths', () => ({
 }));
 
 const MEMBER: User = {
+  active: true,
   address: '0xa',
   room: '0xroom',
   name: 'Алиса',

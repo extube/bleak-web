@@ -56,6 +56,7 @@ const mockedApi = vi.mocked(api, true);
 
 function userFixture(overrides: Partial<User> = {}): User {
   return {
+    active: true,
     address: ME,
     room: ROOM,
     name: 'Трамвайщик',

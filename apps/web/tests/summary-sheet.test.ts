@@ -59,6 +59,7 @@ const TRANSCRIPT_SOURCE = readFileSync(
 );
 
 const ALICE: User = {
+  active: true,
   address: '0xalice',
   room: '0xroom',
   name: 'Алиса',

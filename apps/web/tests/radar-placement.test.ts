@@ -30,6 +30,7 @@ import type { User } from '@bleak/api-client';
 
 function user(address: string): User {
   return {
+    active: true,
     address,
     room: '0xroom',
     name: `User ${address}`,

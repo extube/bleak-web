@@ -233,6 +233,13 @@ export const ru: Record<MessageKey, string> = {
   'profile.title': 'Мой профиль',
   'profile.subtitle': 'Ваш профиль в этой комнате.',
   'profile.language.meta': 'Язык агента: {language}',
+  // §4.35.E (Concept §49, 2026-11-23): auto-handshake opt-out — the row
+  // label is the owner's ADOPTED wording (verbatim); the other three are
+  // design inventions for tone ratification (standing precedent).
+  'profile.auto_handshake.row': 'Отправлять рукопожатия автоматически',
+  'profile.auto_handshake.label': 'Авто-рукопожатия',
+  'profile.auto_handshake.on': 'вкл.',
+  'profile.auto_handshake.off': 'выкл.',
   'profile.greeting.caption': 'Открывает каждый новый диалог агента',
   'profile.greeting.rule':
     'Приветствие открывает каждый новый диалог. Без вопросов — только утверждения.',

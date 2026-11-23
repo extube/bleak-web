@@ -305,6 +305,38 @@ describe('v3.23 profile-redesign keys (DESIGN §4.29.E, Concept §42)', () => {
   });
 });
 
+describe('§4.35.E auto-handshake keys (Concept §49, DESIGN §4.35.E)', () => {
+  it('exactly the four §4.35.E keys exist in BOTH dictionaries (RU/EN parity)', () => {
+    for (const key of [
+      'profile.auto_handshake.row',
+      'profile.auto_handshake.label',
+      'profile.auto_handshake.on',
+      'profile.auto_handshake.off'
+    ] as const) {
+      expect(en[key]?.trim().length, `en missing "${key}"`).toBeGreaterThan(0);
+      expect(ru[key]?.trim().length, `ru missing "${key}"`).toBeGreaterThan(0);
+    }
+  });
+
+  it('the keys carry the verbatim §4.35.E copy (the row label is the owner-adopted wording)', () => {
+    expect(ru['profile.auto_handshake.row']).toBe('Отправлять рукопожатия автоматически');
+    expect(en['profile.auto_handshake.row']).toBe('Automatically send handshake');
+    expect(ru['profile.auto_handshake.label']).toBe('Авто-рукопожатия');
+    expect(en['profile.auto_handshake.label']).toBe('Auto-handshake');
+    expect(ru['profile.auto_handshake.on']).toBe('вкл.');
+    expect(en['profile.auto_handshake.on']).toBe('on');
+    expect(ru['profile.auto_handshake.off']).toBe('выкл.');
+    expect(en['profile.auto_handshake.off']).toBe('off');
+    // The composed /profile indicator pairs read as designed (§4.35.E).
+    expect(`${ru['profile.auto_handshake.label']}: ${ru['profile.auto_handshake.on']}`).toBe(
+      'Авто-рукопожатия: вкл.'
+    );
+    expect(`${en['profile.auto_handshake.label']}: ${en['profile.auto_handshake.on']}`).toBe(
+      'Auto-handshake: on'
+    );
+  });
+});
+
 describe('§4.13.3 contact-share keys (Concept §13.1.3, DESIGN §4.13.3)', () => {
   it('the slide and contact-card field copy exist in BOTH dictionaries (RU/EN parity)', () => {
     for (const key of [

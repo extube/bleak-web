@@ -18,7 +18,7 @@ import { join, sep } from 'node:path';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
-import { ApiError, type User } from '@bleak/api-client';
+import { ApiError, NetworkError, type User } from '@bleak/api-client';
 import { identity, saveIdentity } from '../src/lib/stores/identity';
 import { mutualCode } from '../src/lib/stores/mutualCode';
 import { tokenVault } from '../src/lib/stores/tokenVault';
@@ -62,6 +62,7 @@ const mockedApi = vi.mocked(api, true);
 
 function userFixture(overrides: Partial<User> = {}): User {
   return {
+    active: true,
     address: ME,
     room: ROOM,
     name: 'Трамвайщик',
@@ -175,7 +176,7 @@ describe('profile entry row (§4.29.B.3.1; AC 13, 17)', () => {
     expect(entry.querySelectorAll('svg').length).toBeGreaterThan(0);
   });
 
-  it('the three old persona-edit rows are GONE; no toggle rows; no interests row (§23.2 5.6; AC 17)', async () => {
+  it('the three old persona-edit rows are GONE; no interests row (§23.2 5.6; AC 17; §4.35.D supersession)', async () => {
     await renderPage();
     // §4.29.E.3: the editor-row keys are RETIRED from the dictionaries —
     // the rows are gone with them (the editors re-host on /profile/edit).
@@ -183,14 +184,19 @@ describe('profile entry row (§4.29.B.3.1; AC 13, 17)', () => {
     expect(ru['profile.greeting.edit' as keyof typeof ru]).toBeUndefined();
     expect(ru['profile.settings.persona' as keyof typeof ru]).toBeUndefined();
     expect(screen.queryByRole('button', { name: 'Интересы' })).toBeNull();
-    // Exactly one block carries rows — no toggle markup anywhere (B.2:
-    // nothing invented; there is no toggle-backed setting).
+    // §4.35.D: the §4.29.B.2 "no toggle rows" clause is SUPERSEDED — the
+    // app now has its FIRST (and only) toggle-backed setting, the
+    // auto-handshake switch. No other toggle markup exists (the FAQ/Terms
+    // clause of B.2 still carries — nothing invented).
     const source = readFileSync(
       join(WEB_ROOT, 'src/routes/profile/settings/+page.svelte'),
       'utf8'
     );
-    expect(source).not.toMatch(/type="checkbox"/);
-    expect(source).not.toMatch(/role="switch"/);
+    // Exactly ONE real checkbox in the markup, and it IS the switch.
+    expect(source.match(/^\s*<input\b/m)?.length ?? 0).toBe(1);
+    expect(source).toMatch(
+      /<input\s+id="auto-handshake-switch"\s+type="checkbox"\s+role="switch"/
+    );
   });
 
   it('a load error shows ErrorBanner + retry; a retry re-fetches the persona record', async () => {
@@ -413,5 +419,181 @@ describe('outline-style leave button (§4.29.B.3.3; Concept §8.1.3, DESIGN §4.
     // WCAG 1.4.11 non-text ≥3:1 holds (the 3.43 value recorded here
     // supersedes the earlier 4.5 note; see tokens.css lineage comment).
     expect(contrast('#c53030', '#101213')).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Auto-handshake toggle row (Concept §49, DESIGN §4.35.C): the app's FIRST
+// real toggle-backed setting — a native checkbox with role="switch", seeded
+// from the §4.29.B.5 mount fetch, optimistic PUT { active } with
+// revert-on-error, no «Saved» flash (the switch IS the feedback).
+// ---------------------------------------------------------------------------
+
+describe('auto-handshake toggle row (§4.35.C)', () => {
+  it('Block 2 opens with the toggle row labeled EXACTLY EN/RU (adopted wording, parity; associated via label[for])', async () => {
+    const { setLocale } = await import('../src/lib/i18n/locale');
+    const { en } = await import('../src/lib/i18n/en');
+    await renderPage();
+    const sw = screen.getByRole('switch') as HTMLInputElement;
+    expect(sw.tagName).toBe('INPUT');
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    const label = document.querySelector('label[for="auto-handshake-switch"]');
+    expect(label?.textContent).toBe(ru['profile.auto_handshake.row']);
+    // EN parity: the same row re-renders through the locale store.
+    setLocale('en');
+    await tick();
+    await tick();
+    expect(document.querySelector('label[for="auto-handshake-switch"]')?.textContent).toBe(
+      en['profile.auto_handshake.row']
+    );
+    setLocale('ru');
+    await tick();
+  });
+
+  it('the toggle row is the FIRST row of Block 2 — before the Language row, the rotation row stays LAST with its lines under it (§4.35.C)', () => {
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/routes/profile/settings/+page.svelte'),
+      'utf8'
+    );
+    const section = source.match(/<section class="block"[\s\S]*?<\/section>/)?.[0] ?? '';
+    expect(section).toContain('toggle-row');
+    expect(section.indexOf('toggle-row')).toBeLessThan(
+      section.indexOf("translate($locale, 'common.locale')")
+    );
+    expect(section.indexOf('rotate-row')).toBeGreaterThan(
+      section.indexOf("translate($locale, 'common.locale')")
+    );
+    expect(section.indexOf('rotated-flash')).toBeGreaterThan(section.indexOf('rotate-row'));
+  });
+
+  it('the switch seeds from the §4.29.B.5 mount fetch — true AND false both render (aria-checked mirrors the server state)', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(userFixture({ active: false }));
+    await renderPage();
+    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('false');
+    // No extra fetch, no poller: the mount fetch is the seed source.
+    const calls = mockedApi.getRoomUser.mock.calls.length;
+    expect(calls).toBe(1);
+  });
+
+  it('while the persona record loads the control is DISABLED — no fake default', async () => {
+    mockedApi.getRoomUser.mockReturnValue(new Promise(() => undefined));
+    render(Page, { props: {} });
+    await tick();
+    await tick();
+    const sw = screen.getByRole('switch') as HTMLInputElement;
+    expect(sw.disabled).toBe(true);
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('toggling issues updateRoomUser with the payload { active: bool } and NOTHING else; success = the state stands (no flash)', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(userFixture({ active: false }));
+    mockedApi.updateRoomUser.mockResolvedValue(userFixture({ active: true }));
+    await renderPage();
+    const sw = screen.getByRole('switch') as HTMLInputElement;
+    await sw.click();
+    await waitFor(() => expect(mockedApi.updateRoomUser).toHaveBeenCalledTimes(1));
+    expect(mockedApi.updateRoomUser).toHaveBeenCalledWith(ROOM, ME, { active: true });
+    for (const call of mockedApi.updateRoomUser.mock.calls) {
+      const body = call[2] as Record<string, unknown>;
+      expect(Object.keys(body)).toEqual(['active']);
+    }
+    // The optimistic state stands and mirrors the new server truth.
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    // No «Saved» flash for this row — the switch IS the feedback.
+    expect(screen.queryByText(ru['profile.rotate.done'])).toBeNull();
+  });
+
+  it('while the toggle PUT is in flight the control is disabled (double-toggle impossible)', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(userFixture({ active: false }));
+    let resolvePut: (u: User) => void = () => undefined;
+    mockedApi.updateRoomUser.mockReturnValue(
+      new Promise<User>((resolve) => (resolvePut = resolve))
+    );
+    await renderPage();
+    const sw = screen.getByRole('switch') as HTMLInputElement;
+    await sw.click();
+    await tick();
+    expect(sw.disabled).toBe(true);
+    resolvePut(userFixture({ active: true }));
+    await waitFor(() => expect(sw.disabled).toBe(false));
+  });
+
+  it('a failed toggle renders the inline role="alert" line, REVERTS the switch to the pre-toggle server truth, and a re-toggle re-issues the PUT', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(userFixture({ active: false }));
+    mockedApi.updateRoomUser
+      .mockRejectedValueOnce(new ApiError(500, '/api/room/0xroom/user/0xme', 'db locked'))
+      .mockResolvedValueOnce(userFixture({ active: true }));
+    await renderPage();
+    const sw = screen.getByRole('switch') as HTMLInputElement;
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    await sw.click();
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect(screen.getByRole('alert').textContent).toContain('db locked');
+    // Reverted to the pre-toggle server truth — no stale fake state.
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    // A re-toggle after the failure re-issues the PUT.
+    await sw.click();
+    await waitFor(() => expect(mockedApi.updateRoomUser).toHaveBeenCalledTimes(2));
+    expect(mockedApi.updateRoomUser).toHaveBeenLastCalledWith(ROOM, ME, { active: true });
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    // The error line cleared on the successful re-toggle.
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('a NetworkError maps the inline line to common.error.network (revert stands)', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(userFixture({ active: true }));
+    mockedApi.updateRoomUser.mockRejectedValueOnce(
+      new NetworkError('/api/room/0xroom/user/0xme', new Error('offline'))
+    );
+    await renderPage();
+    await (screen.getByRole('switch') as HTMLInputElement).click();
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect(screen.getByRole('alert').textContent).toBe(ru['common.error.network']);
+    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('a 401 goes through the §2.8 global gate — NEVER a local error line', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(userFixture({ active: true }));
+    mockedApi.updateRoomUser.mockRejectedValueOnce(
+      new ApiError(401, '/api/room/0xroom/user/0xme', 'invalid token')
+    );
+    await renderPage();
+    await (screen.getByRole('switch') as HTMLInputElement).click();
+    await waitFor(() =>
+      expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true')
+    );
+    // The state reverted but no inline alert rendered for the gate case.
+    await tick();
+    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('the control is a real checkbox with role="switch" — 48px hit target, accent :focus-visible outline, instant under reduced motion (source-level)', () => {
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/routes/profile/settings/+page.svelte'),
+      'utf8'
+    );
+    expect(source).toMatch(
+      /<input\s+id="auto-handshake-switch"\s+type="checkbox"\s+role="switch"/
+    );
+    const sw = source.match(/\.switch\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(sw).toContain('width: var(--touch-target)');
+    expect(sw).toContain('height: var(--touch-target)');
+    expect(sw).toContain('appearance: none');
+    // ON accent track/accent-ink knob; OFF transparent/disabled-strong/muted.
+    expect(source).toMatch(/\.switch:checked::before\s*\{[^}]*var\(--color-accent\)/);
+    expect(source).toMatch(/\.switch:checked::after\s*\{[^}]*var\(--color-accent-ink\)/);
+    expect(source).toMatch(/\.switch::before\s*\{[^}]*var\(--color-text-disabled-strong\)/);
+    expect(source).toMatch(/\.switch::after\s*\{[^}]*var\(--color-text-muted\)/);
+    // The pill stays smooth — never .pixel-corners on the control.
+    expect(source).not.toMatch(/class="switch[^"]*pixel-corners/);
+    const focus = source.match(/\.switch:focus-visible\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(focus).toContain('var(--color-accent)');
+    const motion = source.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    expect(motion).toContain('.switch::before');
+    expect(motion).toContain('.switch::after');
+    // Tokens only, no raw hex (sweep discipline).
+    const block = source.slice(source.indexOf('.switch {'), source.indexOf('@media (min-width: 720px)'));
+    expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 });

@@ -85,6 +85,7 @@ const SEEDED = { incomeCodeParam: '123456' };
 
 function user(address: string, name: string, privateBio = ''): User {
   return {
+    active: true,
     address,
     room: room.address,
     name,

@@ -31,6 +31,7 @@
   import type { InterestChip } from '#lib/stores/interests';
   import { locale, translate } from '#lib/i18n/locale';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
+  import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import Chip from '#lib/components/Chip.svelte';
   import StatTile from '#lib/components/StatTile.svelte';
   import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
@@ -67,6 +68,13 @@
   const languageMeta = $derived(
     translate($locale, 'profile.language.meta', { language: user.language })
   );
+  // §4.35.B: the composed pair — label + ": " + on|off, from the
+  // server-provided `user.active` only (no local write path on this page).
+  const autoHandshakeLabel = $derived(
+    `${translate($locale, 'profile.auto_handshake.label')}: ${
+      user.active ? translate($locale, 'profile.auto_handshake.on') : translate($locale, 'profile.auto_handshake.off')
+    }`
+  );
   const qrAlt = $derived(translate($locale, 'profile.qr.aria'));
   const qrCaption = $derived(translate($locale, 'profile.qr.caption'));
   const qrOnetime = $derived(translate($locale, 'profile.qr.onetime'));
@@ -98,7 +106,17 @@
   <header class="identity">
     <PixelAvatar address={user.address} size={96} own label={user.name} />
     <h2 class="name">{user.name}</h2>
-    <p class="meta">{languageMeta}</p>
+    <!-- §4.29.A.4 amended (DESIGN §4.35.B): the auto-handshake status line
+         is the identity block's LAST element, a tight space-1 stack under
+         the language-meta line. Indicator only — no control on /profile
+         (the toggle lives on /profile/settings, §4.35.C). -->
+    <div class="meta-stack">
+      <p class="meta">{languageMeta}</p>
+      <p class="auto-handshake">
+        <PixelIcon name="status-active" size={16} />
+        <span>{autoHandshakeLabel}</span>
+      </p>
+    </div>
   </header>
 
   <div class="stats">
@@ -279,6 +297,29 @@
     margin: 0;
     font-size: 14px;
     color: var(--color-text-muted);
+  }
+  /* §4.35.B: the meta line + the auto-handshake indicator form a tight
+   * sub-column (gap space-1) inside the identity column (which keeps its
+   * space-2 rhythm for avatar → name → meta). */
+  .meta-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-1);
+  }
+  /* The indicator line: 14px body regular, muted in BOTH states (the state
+   * word carries the meaning — §4.3 accent discipline, no accent fill);
+   * the leading glyph is muted + aria-hidden; wraps like the name. */
+  .auto-handshake {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    font-family: var(--font-body);
+    font-size: 14px;
+    color: var(--color-text-muted);
+    overflow-wrap: anywhere;
   }
   .stats {
     display: grid;

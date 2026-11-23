@@ -11,6 +11,7 @@ afterEach(() => {
 });
 
 const alice: User = {
+  active: true,
   address: '0xalice',
   room: '0xroom',
   name: 'Алиса',

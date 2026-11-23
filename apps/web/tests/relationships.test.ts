@@ -18,6 +18,7 @@ const THIRD = '0xthird';
 
 function user(address: string): User {
   return {
+    active: true,
     address,
     room: '0xroom',
     name: address,
