@@ -55,6 +55,8 @@ vi.mock('#lib/api/client', () => ({
   }
 }));
 
+import { resolveInviteCode } from '#lib/api/invite-resolve';
+import { api } from '#lib/api/client';
 import JoinFlow from '../src/lib/components/join/JoinFlow.svelte';
 import { ru } from '../src/lib/i18n/ru';
 
@@ -69,8 +71,9 @@ const room: Room = {
   deleted_at: null
 };
 
-/** The create-route seed (the flow opens directly IN the persona step). */
-const SEEDED = { incomeCodeParam: room.address, deepLinkCode: '123456' };
+/** The create-route seed (§4.34.D): the flow opens directly IN the
+ * persona step; the param IS the 6-digit invite code, resolved on mount. */
+const SEEDED = { incomeCodeParam: '123456' };
 
 const WEB_ROOT = process.cwd().endsWith(sep + 'apps' + sep + 'web')
   ? process.cwd()
@@ -245,6 +248,11 @@ describe('Keyboard viewport — the creation-scoped visualViewport listener (beh
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    // §4.34.D: the create route resolves the param code on mount — the
+    // seeded renders below rely on the default happy-path mocks.
+    vi.mocked(resolveInviteCode).mockResolvedValue({ roomAddress: room.address });
+    vi.mocked(api.getRoom).mockResolvedValue(room);
+    vi.mocked(api.listRoomUsers).mockResolvedValue([]);
   });
 
   afterEach(() => {

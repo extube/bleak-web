@@ -80,9 +80,20 @@ vi.mock('$app/paths', () => ({
     params?.income_code ? route.replace('[income_code]', params.income_code) : route
 }));
 
-// The create-route page mounts the real JoinFlow — its mount-time
+// The create/intro route pages mount the real JoinFlow — its mount-time
 // dependencies are stubbed the same way join-flow.test.ts stubs them.
-vi.mock('#lib/api/invite-resolve', () => ({ resolveInviteCode: vi.fn() }));
+// §4.34.C/D: both parametrized routes resolve the param code on mount.
+vi.mock('#lib/api/invite-resolve', () => {
+  class InviteResolveError extends Error {
+    readonly kind: 'malformed' | 'not_found';
+    constructor(kind: 'malformed' | 'not_found') {
+      super(kind);
+      this.name = 'InviteResolveError';
+      this.kind = kind;
+    }
+  }
+  return { InviteResolveError, resolveInviteCode: vi.fn() };
+});
 vi.mock('#lib/crypto/secrets', () => ({ generateTokenSecret: vi.fn(() => 'generated-raw-token') }));
 vi.mock('#lib/api/client', () => ({
   api: {
@@ -95,10 +106,14 @@ vi.mock('#lib/api/client', () => ({
 }));
 
 import { goto } from '$app/navigation';
+import { InviteResolveError, resolveInviteCode } from '#lib/api/invite-resolve';
+import { api } from '#lib/api/client';
+import { NetworkError, type Room } from '@bleak/api-client';
 import { setLocale } from '#lib/i18n/locale';
 import { clearIdentity, saveIdentity } from '#lib/stores/identity';
 import LandingPage from '../src/routes/+page.svelte';
 import IncomePage from '../src/routes/income/+page.svelte';
+import IntroPage from '../src/routes/income/[income_code]/+page.svelte';
 import CreatePage from '../src/routes/income/[income_code]/create/+page.svelte';
 import { ru } from '../src/lib/i18n/ru';
 import { en } from '../src/lib/i18n/en';
@@ -114,6 +129,21 @@ const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
 function source(relativePath: string): string {
   return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
 }
+
+/** The §4.34 route fixtures: the room the 6-digit code resolves to (the
+ * intro and create routes resolve the param on mount — §4.34.C/D). */
+const INTRO_ROOM: Room = {
+  address: '0xroom123',
+  name: 'Хостел «Пиксель»',
+  description: 'Митап по пиксель-арту',
+  language: 'ru',
+  max_user: 50,
+  created_at: '',
+  updated_at: '',
+  deleted_at: null
+};
+const mockedResolve = vi.mocked(resolveInviteCode);
+const mockedApi = vi.mocked(api);
 
 /** The 23 §4.20.M keys (unchanged) + the §4.26.L keys minus the 4
  * §4.27.G-removed sim chat keys + the 1 §4.27.G ring aria key — 55 total,
@@ -223,6 +253,26 @@ beforeEach(() => {
   mockPage.url = new URL('http://localhost/');
   mockPage.params = {};
   localStorage.clear();
+  // §4.34.C/D: the intro and create routes resolve the param code on
+  // mount — the route-page renders below rely on the default happy-path
+  // mocks (individual tests override before render when they need
+  // failures).
+  mockedResolve.mockResolvedValue({ roomAddress: INTRO_ROOM.address });
+  mockedApi.getRoom.mockResolvedValue(INTRO_ROOM);
+  mockedApi.listRoomUsers.mockResolvedValue([
+    {
+      address: '0xa',
+      room: INTRO_ROOM.address,
+      name: 'Алиса',
+      greeting: '',
+      public_bio: '',
+      private_bio: '',
+      language: 'ru',
+      created_at: '',
+      updated_at: '',
+      deleted_at: null
+    }
+  ]);
 });
 
 afterEach(() => {
@@ -2218,24 +2268,119 @@ describe('/income — the room-income entry page (the re-homed join flow)', () =
   });
 });
 
-describe('/income/[income_code]/create — the creation process (the re-homed wizard flow; the param renamed [room] → [income_code], Concept §44.3/§4.31.D)', () => {
-  it('resolves at /income/<income_code>/create with the param NAMED income_code: the seeded flow opens IN the wizard step (resolution behavior byte-identical — the value carried is still the room address)', async () => {
-    mockPage.params = { income_code: '0xroom123' };
-    mockPage.url = new URL('http://localhost/income/0xroom123/create?code=654321');
+/* ---- §4.34 (Concept §48, 2026-11-23) ------------------------------------
+ * The entry-flow route map: /income (6-digit entry, auto-advance) →
+ * /income/[income_code] (the room intro — NEW route) →
+ * /income/[income_code]/create (the wizard, seeded from the PATH PARAM
+ * only — no query parameters, ever). Both parametrized routes resolve the
+ * param code on mount per the existing resolve logic; the param IS the
+ * 6-digit invite code (supersedes §4.31.D's room-address value). */
+
+describe('/income/[income_code] — the room intro route (§4.34.C, Concept §48)', () => {
+  it('resolves the param code on mount and renders the room intro in the §30 FormShell with BOTH actions', async () => {
+    mockPage.params = { income_code: '123456' };
+    mockPage.url = new URL('http://localhost/income/123456');
+    render(IntroPage, { props: {} });
+    await screen.findByText(INTRO_ROOM.name);
+    // The param IS the 6-digit invite code — resolved with the existing
+    // resolve logic (invite-resolve → room → member count).
+    expect(mockedResolve).toHaveBeenCalledWith('123456');
+    expect(mockedApi.getRoom).toHaveBeenCalledWith(INTRO_ROOM.address);
+    expect(screen.getByText('Митап по пиксель-арту')).toBeTruthy();
+    expect(screen.getByText(/Участников: 1/)).toBeTruthy();
+    // BOTH footer actions (the multi-button footer, §4.22.E).
+    expect(screen.getByRole('button', { name: ru['join.create_persona'] })).toBeTruthy();
+    expect(screen.getByRole('button', { name: ru['join.change_code'] })).toBeTruthy();
+  });
+
+  it('"Create profile" navigates to /income/<code>/create with an EMPTY query string — no ?code= anywhere (§4.34.D)', async () => {
+    mockPage.params = { income_code: '123456' };
+    mockPage.url = new URL('http://localhost/income/123456');
+    render(IntroPage, { props: {} });
+    await screen.findByText(INTRO_ROOM.name);
+    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income/123456/create'));
+    // Negative: the URL carries the income code in the PATH only.
+    expect(goto).not.toHaveBeenCalledWith(expect.stringContaining('?code='));
+  });
+
+  it('"Change code" goes back to /income (the entry page)', async () => {
+    mockPage.params = { income_code: '123456' };
+    mockPage.url = new URL('http://localhost/income/123456');
+    render(IntroPage, { props: {} });
+    await screen.findByText(INTRO_ROOM.name);
+    await screen.getByRole('button', { name: ru['join.change_code'] }).click();
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income'));
+  });
+
+  it('a dead param (404 on the resolve) shows the code-not-found treatment; Change code returns to /income', async () => {
+    mockPage.params = { income_code: '999999' };
+    mockPage.url = new URL('http://localhost/income/999999');
+    mockedResolve.mockRejectedValueOnce(new InviteResolveError('not_found'));
+    render(IntroPage, { props: {} });
+    await screen.findByText(ru['join.error.unknown']);
+    expect(goto).not.toHaveBeenCalled();
+    await screen.getByRole('button', { name: ru['join.change_code'] }).click();
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income'));
+  });
+
+  it('a network failure shows the banner with a working retry (no skeleton, §4.34.C)', async () => {
+    mockPage.params = { income_code: '123456' };
+    mockPage.url = new URL('http://localhost/income/123456');
+    mockedResolve.mockRejectedValueOnce(
+      new NetworkError('/api/invite/123456', new Error('offline'))
+    );
+    render(IntroPage, { props: {} });
+    await screen.findByText(ru['common.error.network']);
+    expect(document.querySelector('.skeleton')).toBeNull();
+    // Retry re-runs the intro resolve.
+    await screen.getByRole('button', { name: ru['common.retry'] }).click();
+    await screen.findByText(INTRO_ROOM.name);
+  });
+});
+
+describe('/income/[income_code]/create — the creation process (§4.34.D, Concept §48: the param IS the 6-digit invite code, NO ?code=, ever)', () => {
+  it('seeds from the path param only: the flow opens IN the wizard step after the mount-time resolve', async () => {
+    mockPage.params = { income_code: '123456' };
+    // Negative-shape URL: even WITH a leftover ?code= on the address bar
+    // the route never reads it — the param is the only seed.
+    mockPage.url = new URL('http://localhost/income/123456/create');
     render(CreatePage, { props: {} });
-    expect(await screen.findByText(ru['join.wizard.intro.title'])).toBeTruthy();
-    expect(await screen.findByText(ru['join.wizard.intro.line'])).toBeTruthy();
+    await screen.findByText(ru['join.wizard.intro.title']);
+    // The seeded resolve ran with the param (the 6-digit invite code).
+    expect(mockedResolve).toHaveBeenCalledWith('123456');
+    expect(mockedApi.getRoom).toHaveBeenCalledWith(INTRO_ROOM.address);
     await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
     await screen.findByText(ru['join.wizard.name.question']);
     // The entry surfaces are not here: the wizard route is the creation.
     expect(screen.queryByRole('group', { name: ru['join.code.label'] })).toBeNull();
   });
 
-  it('without a valid ?code= the route falls back to the entry page (replaceState) — with the renamed param', async () => {
-    mockPage.params = { income_code: '0xroom123' };
-    mockPage.url = new URL('http://localhost/income/0xroom123/create');
+  it('an unresolvable param falls back to the entry page (replaceState) — the §4.31.D rule carried by §4.34.D', async () => {
+    mockPage.params = { income_code: '999999' };
+    mockPage.url = new URL('http://localhost/income/999999/create');
+    mockedResolve.mockRejectedValueOnce(new InviteResolveError('not_found'));
     render(CreatePage, { props: {} });
     await waitFor(() => expect(goto).toHaveBeenCalledWith('/income', { replaceState: true }));
+  });
+
+  it('a missing/invalid income_code param falls back to the entry page (replaceState)', async () => {
+    mockPage.params = {};
+    mockPage.url = new URL('http://localhost/income//create');
+    render(CreatePage, { props: {} });
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income', { replaceState: true }));
+  });
+
+  it('negative (source): the route NEVER reads ?code= — no query parameter consumption on the create route', () => {
+    const src = source('src/routes/income/[income_code]/create/+page.svelte');
+    // Comments are prose — the contract is about CODE (the same strip the
+    // sweep's hex rule applies).
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/[^\n]*$/gm, '');
+    expect(code).not.toMatch(/searchParams/);
+    expect(code).not.toMatch(/\?code=/);
+    // The seed is the param alone (resolved on mount inside JoinFlow).
+    expect(code).toMatch(/incomeCodeParam=\{incomeCodeParam\}/);
+    expect(code).not.toMatch(/deepLinkCode/);
   });
 });
 

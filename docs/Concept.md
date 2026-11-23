@@ -2010,6 +2010,24 @@ always shows** (owner, 2026-11-23). This supersedes the §30 middle-block
 resume variant; the 6-digit entry form is the only form there.
 Dead markup/styles/tests/i18n keys (both locales) are removed with it.
 
+---
+
+## 48. Owner bug batch: auto-advance on 6-digit + entry-flow routes — ✅ APPROVED (2026-11-23)
+
+Owner-reported bugs/changes on the entry flow (owner, 2026-11-23):
+
+1. **Auto-advance on the 6-digit code:** after the 6th digit is
+   entered, the form **automatically proceeds to the next step (or
+   shows an error)** — it must NOT wait for the submit button.
+2. **Room intro route:** the room intro page (the **create user /
+   change code** actions) lives at **`/income/<income-code>`** (moved
+   to the income-code-based route).
+3. **Create-profile redirect is clean:** picking **create profile**
+   redirects into **`/income/<income-code>/create`** — **without any
+   URL params**: the `?code=…` query string is removed (the income
+   code travels in the path param only; the address param IS the
+   income code).
+
 All other §31–§33 contracts stay in force (routes, Start → `/income`
 with the 6-digit input, RU/EN parity, reminder box contracts, three
 step blocks, existing suites green).

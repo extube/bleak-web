@@ -58,10 +58,11 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
     ]);
   });
 
-  it('the landing `/`, the join entry `/income` and the create route use NO poller (§2.2 cadence table — mount-time fetches only; tz12-02 re-homing)', () => {
+  it('the landing `/`, the join entry `/income`, the room intro `/income/[income_code]` and the create route use NO poller (§2.2 cadence table — mount-time fetches only; tz12-02 re-homing; §4.34.A route map)', () => {
     for (const file of [
       'src/routes/+page.svelte',
       'src/routes/income/+page.svelte',
+      'src/routes/income/[income_code]/+page.svelte',
       'src/routes/income/[income_code]/create/+page.svelte'
     ]) {
       const source = readFileSync(join(WEB_ROOT, file), 'utf8');

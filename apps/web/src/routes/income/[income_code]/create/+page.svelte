@@ -1,22 +1,22 @@
 <script lang="ts">
   /**
    * `/income/[income_code]/create` — the creation process (tz12-02 route
-   * re-homing, Concept §31; the param RENAMED `[room]` → `[income_code]`
-   * per Concept §44.3/§4.31.D — the param carries the room ADDRESS, only
-   * the name changes, resolution behavior byte-identical): the creation
-   * wizard flow under its own route. The room context rides the ROUTE
-   * PARAM, the 6-digit invite
-   * code rides the `?code=` query; the same JoinFlow is seeded directly
-   * into its persona (wizard) step — the forms themselves are unchanged
-   * (lib/join.ts untouched).
+   * re-homing, Concept §31; §4.34.D, Concept §48 owner bug batch
+   * 2026-11-23): the creation wizard flow under its own route. The param
+   * IS the 6-digit invite code (§4.34.F.1 supersedes §4.31.D's
+   * room-address value) and the route takes NO QUERY PARAMETERS, ever —
+   * the `?code=` seed is removed; the same JoinFlow is seeded directly
+   * into its persona (wizard) step and RESOLVES the param code on mount
+   * (§4.34.D — a 6-digit code is not a room address; the seeded
+   * Room-from-param shortcut is superseded).
    *
-   * - Reached from the room intro (the /income page): "Create profile"
-   *   navigates here with the resolved room address + the entered code.
-   * - Direct open without a valid code (or a missing income_code param) →
-   *   the entry page `/income` (replaceState — the URL matches the
-   *   surface).
-   * - Back from the wizard → `/income?code=…` (JoinFlow): the entry page
-   *   re-resolves the code and lands on the room intro again.
+   * - Reached from the room intro (/income/[income_code], §4.34.C):
+   *   "Create profile" navigates here with the income code in the PATH
+   *   only — the clean redirect (§4.34.D).
+   * - Direct open without a valid 6-digit income_code param → the entry
+   *   page /income (replaceState — the §4.31.D rule, carried by §4.34.D).
+   * - Back from the wizard → the INTRO route /income/[income_code]
+   *   (param-only — §4.34.D; the /income?code= round-trip is superseded).
    */
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -25,15 +25,14 @@
   import JoinFlow from '#lib/components/join/JoinFlow.svelte';
 
   const incomeCodeParam = $derived(page.params.income_code ?? null);
-  const codeParam = $derived(page.url.searchParams.get('code'));
+  // §4.34.D: seeding = the param only (a valid 6-digit invite code). The
+  // route NEVER reads ?code= — deep links (?code=/?u=/ handshakes) target
+  // the entry surface only (§4.34.D reconciliation).
   const seeded = $derived(
-    incomeCodeParam !== null &&
-      incomeCodeParam !== '' &&
-      codeParam !== null &&
-      isValidInviteCode(codeParam)
+    incomeCodeParam !== null && incomeCodeParam !== '' && isValidInviteCode(incomeCodeParam)
   );
 
-  // Not seedable (direct open without the code/room context) → the entry
+  // Not seedable (direct open without the param context) → the entry
   // page. The valid-seed case never fires the redirect.
   $effect(() => {
     if (!seeded) {
@@ -44,7 +43,7 @@
 
 {#if seeded}
   <div class="join">
-    <JoinFlow incomeCodeParam={incomeCodeParam} deepLinkCode={codeParam} />
+    <JoinFlow incomeCodeParam={incomeCodeParam} />
   </div>
 {/if}
 

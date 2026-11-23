@@ -10399,6 +10399,254 @@ assertions are UNTOUCHED and stay green (RU/EN 55/55).
    round), no palette value added, no route or /income change, no
    dependency; the five items are fully specified above (§4.33.A–E).
 
+### 4.34 owner bug-batch amendment (2026-11-23, owner-approved Concept §48): entry flow — 6-digit auto-advance + room intro route + clean create redirect
+
+Owner bug batch (Concept §48, 2026-11-23), three entry-flow changes: (1)
+auto-advance on the 6-digit code, (2) the room intro gets its own route
+`/income/<income-code>`, (3) the create-profile redirect is clean (no query
+string). All other §31–§33 contracts stay in force (§48 binding). This
+section amends §3.1 (the join page, now the `/income` entry surface),
+§4.31.D (the param rename) and §4.31.H where they collide; everything not
+named below carries verbatim. No code shape is mandated here — the
+ARCHITECTURE pass owns the implementation plan; this section owns the UX
+contract.
+
+#### 4.34.A The entry-flow route map
+
+The pre-room flow is three routes; the income code (the 6-digit invite code)
+travels in the **path param only** on both parametrized routes — never in a
+query string:
+
+| Route | Page | Role | Source of the room context |
+| --- | --- | --- | --- |
+| `/income` | 6-digit entry (`CodeEntry` in the §30 FormShell) | the entry surface — §31/§47 contract intact: the default 6-digit form ALWAYS shows (no resume variant) | none — the user types / pastes / scans / deep-links the code here |
+| `/income/[income_code]` | room intro (`RoomPreview` in the §30 FormShell) — **NEW route** `src/routes/income/[income_code]/+page.svelte` | the create-user / change-code choice page | the param IS the 6-digit invite code; resolved on mount (§4.34.C) |
+| `/income/[income_code]/create` | creation wizard (`JoinFlow` seeded into the persona step) | the persona creation interview | the param IS the 6-digit invite code; resolved on mount (§4.34.D) — **NO query params, ever** |
+
+Flow: `/income` (6 digits complete → auto-resolve) → `/income/[income_code]`
+(intro: create profile / change code) → `/income/[income_code]/create`
+(wizard) → `/room`. "Change code" anywhere goes back to `/income` (§3.1
+Step-1 affordance; on the intro route it is one of the two footer actions —
+§4.19/§4.22.E carry). The layout comment in §3.1 that the room-preview
+"card content swaps" in place after resolution is superseded by this map:
+on `/income` a successful resolve NAVIGATES to `/income/[income_code]`
+(§4.34.B); the §3.1 Step-2 region relocates verbatim to the intro route.
+
+#### 4.34.B Auto-advance on the 6-digit code (`CodeEntry`)
+
+After the **6th digit is entered** — typed, backspace-refilled, pasted as a
+6-digit string, or filled by the scanner/`?code=` deep link (§3.1, §3.8) —
+the entry form **automatically performs the resolve** (exactly what the
+submit button does today: the `JoinFlow.submitCode` → `resolveInviteCode`
+seam, ARCHITECTURE §10.6, endpoint `GET /api/invite/{code}` — public read,
+no token) and either **proceeds to the intro route** or **shows the error**
+— it never waits for the submit button.
+
+- **Trigger discipline (no double-submit):** the auto-resolve fires ONCE per
+  completion. While a resolve is in flight the form is `busy`: further
+  digit edits do not re-trigger, a submit-button press is a no-op, and the
+  CTA shows the §3.1 inline spinner, disabled. A resolve that FAILS
+  re-enables the form; it does NOT auto-retry — the next attempt is the
+  user's (edit a digit, or tap submit). No debounce timing is introduced;
+  the trigger is the completion event itself.
+- **Error mapping — exactly the existing `codeErrorOf` treatments** (§3.1
+  state table carries): malformed (400) → inline field error + 120ms shake
+  (§2.6 reduced-motion aware); `NetworkError` / API error → `ErrorBanner`
+  (§2.1); unknown/dead code (404) → the code-not-found inline treatment
+  («Код не найден — уточните его у организатора.»). On every error the
+  **entered digits survive** in the cells (the existing preservation rule),
+  the CTA re-enables, and focus stays in the digit field.
+- **Success:** on resolve, navigate to `/income/[income_code]` with the
+  resolved code as the path param (§4.34.A). The 6-digit string resolved
+  remains the `invite_code` carried into `CreateUserRequestV2` at persona
+  creation (§3.1 unchanged on this point — the code itself, not the room
+  address, is what creation consumes).
+- **The submit button STAYS** as a redundant affordance, unchanged (disabled
+  until 6 digits; pressing it with a fresh/edited code re-runs the resolve).
+- **Reconciliation with §3.1 deep-link auto-submit:** the `?code=NNNNNN`
+  prefill-and-auto-submit behavior on `/income` **stays untouched** — it is
+  the invite-deep-link mechanism (§3.8 invite QR; the host share kit's
+  `{INVITE_URL_BASE}?code=NNNNNN`), NOT the create-route seed, and it now
+  shares the same completion→resolve→navigate path as typed entry. The §3.8
+  scanner context (a) is likewise untouched: a scanned code enters Step 1
+  exactly as if typed and then auto-advances by the same rule.
+
+#### 4.34.C The room intro route `/income/[income_code]`
+
+New SvelteKit route `src/routes/income/[income_code]/+page.svelte`
+mounting the existing `RoomPreview` component (create profile / change
+code) inside the §30 FormShell instantiation it has today (§4.22.E table:
+`BleakMascot` 96 idle at top; the multi-button footer — create profile +
+change code). The route param is the 6-digit invite code.
+
+- **Resolve on mount:** the intro page resolves the param code with the
+  existing resolve logic (`GET /api/invite/{income_code}` → room address →
+  `GET /api/room/{address}` public read for name/description/language/
+  max_user, and the member count via `GET /api/room/{room}/user` length —
+  the §3.1 Step-2 data set). The resolve runs on mount and on re-entry;
+  it is public (no token), rate-limited per source (swagger).
+- **Resolving treatment:** consistent with the §30 shell and §3.1's
+  "Resolving code" state — the shell renders normally (header/locale +
+  mascot + title) and the content region shows a small inline spinner
+  with no new copy (no skeleton — §3.1's "skeleton not used" rule). The
+  footer actions are disabled until the room context is present.
+- **Dead/invalid param:** the SAME treatments as §3.1's code errors,
+  relocated to this route: unknown/dead code (404) → the code-not-found
+  inline treatment (the «Код не найден…» copy — no shake, since there is
+  no field here); malformed-looking param → same state; `NetworkError` /
+  API error → `ErrorBanner` with a retry affordance. In all error states
+  the **Change code action remains available** (or is the sole action) and
+  goes back to `/income`.
+- **Actions (unchanged contracts):** create profile →
+  `goto(resolve('/income/[income_code]/create', { income_code }))` with
+  NO query string (§4.34.D); change code → `/income`.
+
+#### 4.34.D The clean create redirect — path-param-only create contract
+
+`/income/[income_code]/create` takes **no query parameters, ever**. The
+`?code=` append dies: `JoinFlow.chooseCreate` navigates with the income
+code in the path only —
+`goto(resolve('/income/[income_code]/create', { income_code: flow.code }))`.
+
+- **Seeding (supersedes today's shortcut):** the create route can no longer
+  build a `Room` directly from the path param (a 6-digit code is not a room
+  address). On mount it **resolves the code with the existing resolve
+  logic** — `GET /api/invite/{income_code}` → room address →
+  `GET /api/room/{address}` for the `Room` object the persona submit needs
+  (`room.address` in `POST /api/room/{room}/user`) — then opens the wizard
+  at its step exactly as the seeded path does today (§4.31.D's resolution
+  skeleton otherwise unchanged). Resolve failures route as today: anything
+  that cannot resolve → `goto(resolve('/income'), { replaceState: true })`
+  (the §4.31.D rule; the network case MAY show the `ErrorBanner` with
+  retry instead of silently redirecting — worker's call per §2.1, but no
+  dead-end blank shell).
+- **Reconciliation — §3.8 deep-link handling vs the param-only create
+  route:** `?code=` deep links (`{INVITE_URL_BASE}?code=NNNNNN`, scanned or
+  opened) target **`/income` only** (forwarded there per §4.20.L/§4.23.G
+  behavior). The create route ignores/strips no deep link — it simply never
+  receives one; the §3.8 handshake deep links (`?u=`, `?u=…&m=…`) are
+  room-internal and untouched. §3.1's deep-link clause is thereby SCOPED:
+  `?code=` belongs to the entry surface, never to the create route.
+- **Grep-audited consumers to re-wire (worker surface, not exhaustive
+  code-spec):** `JoinFlow.chooseCreate` (the navigation above),
+  `JoinFlow.wizardBack` — which today round-trips `/income?code=…` —
+  becomes the param-only round-trip `resolve('/income/[income_code]',
+  { income_code })` (back to the intro route), and the seeded-`?code=`
+  assertions in `tests/landing-page.test.ts` + `tests/join-flow.test.ts`
+  (and any resolve-mock shapes carrying `?code=`) follow the new contract.
+  §4.31.D's item-4 test list is the baseline; the `?code=` spellings die
+  from it.
+
+#### 4.34.E Reconciliation notes
+
+1. **§30 FormShell contracts stay:** the intro route keeps its shell
+   instantiation (§4.19's multi-button footer), the 6-digit form keeps its
+   shell, the wizard keeps its shell — the §4.31.1/§4.31.2 keyboard-
+   viewport mechanism covers the creation path as shipped and the intro
+   route rides the same shell geometry. The auto-advance changes NO shell
+   geometry (the CTA spinner and the disabled state are §3.1 states).
+2. **§3.1 carries with two scoping amendments:** the Step-2 in-card swap
+   becomes the §4.34.A navigation; the auto-advance adds the completion
+   trigger to the existing DigitInput contract ("when 6 digits present the
+   CTA enables" now also means: the resolve fires). Everything else in
+   §3.1 — i18n, vault, scan entry, error table, RU/EN — carries.
+3. **Rate-limit note:** `GET /api/invite/{code}` is rate-limited per source
+   (swagger 429). The one-shot trigger discipline (§4.34.B) keeps a single
+   resolve per completion; a 429 surfaces as the banner treatment (retry by
+   user action), matching the honest-error rule.
+
+#### 4.34.F Supersessions (explicit record)
+
+1. **§4.31.D's "the VALUE carried is still the room address" clause
+   SUPERSEDED:** the `[income_code]` param now carries the **6-digit invite
+   code itself** on BOTH parametrized routes; the room address is only ever
+   a resolved value inside the page, never a route value.
+2. **§4.31.D's seeded contract ("seeded = non-empty `income_code` param + a
+   valid `?code=` query") SUPERSEDED:** the create route takes NO query
+   string; seeding = param + resolve on mount (§4.34.D). Its
+   "anything else → `/income` replaceState" rule carries.
+3. **§4.31.D's `JoinFlow` navigation clause** (`…create` with `?code=`)
+   SUPERSEDED by §4.34.D's clean redirect; `wizardBack`'s `/income?code=…`
+   round-trip dies with it.
+4. **§3.1's Step-2 in-card swap SUPERSEDED** by the intro route (§4.34.A);
+   §3.1's `?code=` deep-link clause re-scoped to `/income` (§4.34.D).
+5. **The seeded-`?code=` test assertions** (§4.31.D item 4's spellings)
+   SUPERSEDED by path-param assertions.
+6. Carried unchanged: §3.1's error-state table, vault flow, scan entry,
+   RU/EN; §3.8 both scanner contexts; §4.19–§4.22.E FormShell/mascot
+   contracts; §4.31.1/§4.31.2 keyboard-viewport mechanism; Start/TALK →
+   `/income`; the §44.4 mechanism; §47's "default form always shows".
+
+#### 4.34.G i18n: ZERO delta
+
+No key is added, removed or edited — both dictionaries stay byte-identical
+(55 `landing.*` keys per dictionary, §4.31.F carries). Route params are
+never rendered; the intro route reuses the existing Step-2/RoomPreview copy
+and the existing error keys («Код не найден…», the §2.1 banner keys); the
+resolving treatment adds no text (spinner only).
+
+#### 4.34.H Acceptance criteria (checkable)
+
+1. Typing (or pasting, or scanner-filling) the 6th digit on `/income`
+   triggers the resolve automatically — no submit press is needed.
+2. A successful auto-resolve navigates to `/income/<the-entered-code>` (the
+   code in the path, nothing in the query).
+3. On resolve error the entered digits remain in the cells, the CTA
+   re-enables, and the error shows the §3.1-mapped treatment (malformed →
+   inline+shake; network/API → banner; 404 → code-not-found).
+4. No double resolve: while in flight, digit edits and submit presses do
+   not re-trigger; after an error, no auto-retry until user action.
+5. The submit button is still present and functional (disabled until 6
+   digits; pressing it resolves).
+6. `?code=NNNNNN` on `/income` still prefills + auto-submits (§3.1
+   deep-link mechanism unchanged, including after a scan).
+7. `/income` always shows the default 6-digit form (§47) — no resume
+   variant, with or without an existing identity.
+8. `/income/<code>` exists, shows the room intro (create-profile +
+   change-code actions) in the §30 FormShell, resolved from the param.
+9. While resolving on the intro route: shell renders, spinner only, footer
+   actions disabled; no skeleton.
+10. A dead/invalid param code on the intro route shows the code-not-found
+    treatment (or banner on network error) and Change code returns to
+    `/income`.
+11. "Create profile" navigates to `/income/<code>/create` with an EMPTY
+    query string — no `?code=` anywhere in the URL.
+12. `/income/<code>/create` resolves the param code on mount and opens the
+    wizard with a valid `Room`; an unresolvable param redirects to
+    `/income` (replaceState).
+13. Wizard back returns to `/income/<code>` (param-only), never
+    `/income?code=…`.
+14. `?code=`, `?u=`, `?u=…&m=` deep links never target the create route;
+    `?code=` forwarding lands on `/income` (§4.20.L behavior).
+15. Both dictionaries byte-identical (i18n suite green); all touched
+    suites (`landing-page.test.ts`, `join-flow.test.ts`, sweep) green;
+    `make lint && make test && make build` green.
+16. `/chats`, `/room`, the profile routes, and all §31–§33/§47 contracts
+    outside the three changes are behavior-neutral.
+
+#### 4.34.I Flags for the owner / concept (design report)
+
+1. **DESIGN NOTE — wizardBack destination (§4.34.D):** the owner contract
+   says only that `wizardBack` "currently round-trips /income?code=…"
+   without naming the new target. Interpreted as the param-only
+   `/income/<code>` (the intro route) since the wizard was entered from
+   there; a straight `/income` would force re-entering the code. Reversible
+   one-liner if the owner wants `/income` instead.
+2. **DESIGN NOTE — resolve-success on /income navigates (§4.34.A):** the
+   route map makes a successful auto-resolve NAVIGATE to the intro route
+   rather than swap the preview card in place (the owner contract places
+   the intro page on its own route, which leaves nothing for the in-card
+   Step-2 to do). Recorded as the faithful reading of §48 item 2.
+3. **DESIGN NOTE — create-route seeding adds one resolve round-trip
+   (§4.34.D):** today the seeded shortcut builds the `Room` from the param
+   without a call; the param is now a 6-digit code, so the resolve is
+   unavoidable (the owner contract says so explicitly). The resolving
+   treatment on the create route is the §4.34.C spinner contract applied
+   to the create shell — flagged so the worker does not invent a skeleton.
+4. **ADVICE NEEDED — none blocking:** no copy invented (zero-delta round),
+   no new palette value, no new dependency; the three items are fully
+   specified in §4.34.A–E.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)

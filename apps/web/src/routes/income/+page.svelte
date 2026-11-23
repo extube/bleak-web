@@ -10,19 +10,28 @@
    *   consumed on mount and rendered as the NoticeCard above the flow
    *   (binding Concept §6.1 copy, aria-live polite, no retry control).
    * - Deep links: ?code=NNNNNN → the JoinFlow code entry (prefill +
-   *   auto-submit). ?u={userAddress}&m={code} / ?u={userAddress} with an
-   *   identity run the §3.8 handshake routines — full routine including
-   *   the confirm card (DeepLinkHandshake, no camera); without an identity
-   *   both are ignored (AC 19) and the normal join card renders.
-   *   (`/` forwards these query strings here — the persona QR / invite
-   *   links land on the landing page first, tz12-02.)
+   *   auto-submit). SCOPED per §4.34.D: ?code= belongs to the ENTRY
+   *   surface only (the §3.1/§3.8 invite deep-link mechanism is untouched)
+   *   — the create route never receives one. ?u={userAddress}&m={code} /
+   *   ?u={userAddress} with an identity run the §3.8 handshake routines —
+   *   full routine including the confirm card (DeepLinkHandshake, no
+   *   camera); without an identity both are ignored (AC 19) and the
+   *   normal join card renders. (`/` forwards these query strings here —
+   *   the persona QR / invite links land on the landing page first,
+   *   tz12-02.) The auto-submit now rides the §4.34.B auto-advance (the
+   *   mount-time completion fires the resolve).
+   * - §4.34.A route map (Concept §48, 2026-11-23): a successful resolve
+   *   here NAVIGATES to the room intro route /income/[income_code]
+   *   (§4.34.B) — the in-card Step-2 swap is superseded; the creation
+   *   wizard lives under /income/[income_code]/create (the clean
+   *   redirect, §4.34.D — no query string).
    * - Resume card: REMOVED (Concept §47, 2026-11-23) — the default form
    *   with the 6-digit input ALWAYS shows; JoinFlow renders
    *   unconditionally, there is no stored-session resume variant on the
    *   entry surface. The identity read stays: the §3.8 persona panel is
    *   still gated on an existing identity.
-   * - The creation wizard itself lives under /income/[income_code]/create
-   *   (JoinFlow navigates there when "Create profile" is chosen).
+   * - The room intro itself lives at /income/[income_code] and the
+   *   creation wizard under /income/[income_code]/create (§4.34.A).
    */
   import { page } from '$app/state';
   import { identity } from '#lib/stores/identity';
