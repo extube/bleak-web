@@ -1,5 +1,46 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.26 ROUND NOTE (§45 hero breakpoint/width/headline + Bleak margins,
+> Concept §45 — appended by the process 2026-11-23, post-round three-gate
+> run GREEN: lint clean · 1022 tests total (49 api-client + 8 helper +
+> 965 web, 53 files; landing suite 95) · build 0 errors, dev `092d67b`):**
+> **Landing adjusted per ALL 3 §45 items** (task 135, worker `1c622991`;
+> design-first — design instance `b5720895` wrote DESIGN §4.32): (1)
+> **<960px open state = lead ALONE** — CSS-only, DOM unmoved: the base
+> `.stage` lost `min-height: 100dvh` + centering; a `≤959.98px` media
+> gives `.area-lead` the 100dvh flex-centered region — the lead centered
+> ALONE in the first viewport, BLEAK strictly below the fold (reveals on
+> scroll — its marker dropped `data-reveal-load` → bare `data-reveal`,
+> the 13th scroll unit; at ≥960 its IO fires at the scroll origin — net
+> same on-open reveal); `min-height: 100dvh` moved into the ≥960 media —
+> the §37 open-state rule now scoped ≥960 only (supersedes the §44.1
+> <960 stack); (2) **Bleak card wider — symmetric edges** — the 240px
+> cap + auto margins DELETED; the card fills its `1fr` track
+> (`width: 100%`); the container's 48px padding included on BOTH sides →
+> card-right-margin == lead-left-margin == `calc(10% + 48px)` at every
+> ≥960 width (card ≈288@960 / ≈407@1280 / ≈640@1920); (3) **headline
+> bigger** — ≥960 clamp(28,4vw,48) → **`clamp(32px, 4.5vw, 64px)`**
+> (<960 ladder byte-unchanged; agent-name 28px stays subordinate; line
+> fit + open-state fit verified at 960/1280/1920 — row max ≈370/371/392px
+> fits any realistic desktop height; `min-height: 100dvh` kept
+> grow-allowed). i18n ZERO delta (55/55); no new deps; tokens/routes/
+> income untouched; the reveal + reduced-motion mechanics unchanged.
+> §4.32.H records (no blocking flags): the DOM-stays-put rationale; the
+> padding-inclusive symmetry reading; the ≥960 origin-fire reveal timing;
+> the clamp value = design's call (one-literal revert band 56–72px cap if
+> the smoke dislikes the 1920 scale).
+> Manual checks for the owner: the landing at 800/960/1280/1920 (phone/
+> narrow: ONLY the lead centered on open, BLEAK below the fold; desktop:
+> lead + BLEAK both visible and centered, the BLEAK card's right edge
+> symmetric with the lead's left margin, the bigger headline in BOTH
+> locales), Start/TALK → /income, reduced-motion.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/1c622991-tz12-15-hero-breakpoint-bleak` (16 branches total;
+> the profile branch `f6ab8db7` still excluded — awaiting the owner's
+> merge approval); owner refs stay untracked.
+
 > **v3.25.1 ROUND NOTE (§44.4 mobile keyboard viewport fix for
 > income/[income_code]/create, Concept §44.4 — appended by the process
 > 2026-11-23, post-round three-gate run GREEN: lint clean · 1022 tests
