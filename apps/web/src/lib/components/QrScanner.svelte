@@ -681,6 +681,32 @@
     width: 8px;
     height: 100%;
   }
+  /* Per-corner orientation (Concept §50, the classic viewfinder framing):
+   * the two bars of each bracket sit at ITS corner — top-left opens
+   * right/down (bars at top + left), top-right opens left/down (top +
+   * right), bottom-left opens right/up (bottom + left), bottom-right opens
+   * left/up (bottom + right). Tokens only; the transform/opacity motion
+   * rules (§4.6) are untouched (opacity flash above). */
+  .tl::before,
+  .tl::after {
+    top: 0;
+    left: 0;
+  }
+  .tr::before,
+  .tr::after {
+    top: 0;
+    right: 0;
+  }
+  .bl::before,
+  .bl::after {
+    bottom: 0;
+    left: 0;
+  }
+  .br::before,
+  .br::after {
+    bottom: 0;
+    right: 0;
+  }
   .frame.flash .bracket::before,
   .frame.flash .bracket::after {
     opacity: 1;

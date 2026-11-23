@@ -1,8 +1,9 @@
 /** /profile page tests — LEAN suite, re-targeted to the §4.29 redesign
- * (v3.23 profile redesign, Concept §42): the header (h1 + the QR
- * affordance icon button + the settings gear icon link, AC 1), the
- * header-QR tab-switch affordance with EXACTLY ONE QrCodeBadge instance
- * (AC 2), the centered identity block (AC 3), the exactly-three stat tiles
+ * (v3.23 profile redesign, Concept §42): the header (h1 + the scan
+ * affordance icon button + the settings gear icon link, AC 1), the header
+ * scan button opening the shared §3.8 QrScanner (Concept §50, superseding
+ * the §4.29.A.2 tab-switch reading; the QR display stays reachable via its
+ * tab panel, EXACTLY ONE QrCodeBadge instance), the centered identity block (AC 3), the exactly-three stat tiles
  * above the tabs (AC 4, Concept §8.1.5), the three pill tabs with real
  * tablist/tab/tabpanel semantics and the About default (AC 5), the tab
  * contents (AC 6–7), the live QR block (AC 8), live QR
@@ -32,6 +33,7 @@ vi.mock('#lib/api/client', () => ({
     getRoomUser: vi.fn(),
     listHandshakesOfUser: vi.fn(),
     listChatsOfUser: vi.fn(),
+    listRoomUsers: vi.fn(),
     registerMutualCode: vi.fn()
   }
 }));
@@ -114,6 +116,7 @@ beforeEach(() => {
   mockedApi.getRoomUser.mockResolvedValue(userFixture({ mutual_code_live: true }));
   mockedApi.listHandshakesOfUser.mockResolvedValue([]);
   mockedApi.listChatsOfUser.mockResolvedValue([]);
+  mockedApi.listRoomUsers.mockResolvedValue([]);
   mockedApi.registerMutualCode.mockResolvedValue(undefined);
 });
 
@@ -149,7 +152,8 @@ describe('header (§4.29.A.1, AC 1)', () => {
     await renderPage();
 
     expect(screen.getByRole('heading', { level: 1, name: ru['profile.title'] })).toBeTruthy();
-    // QR affordance: an icon-only button with the new aria-label (E.1).
+    // Scan affordance: an icon-only button; the label announces scanner
+    // intent (Concept §50 — the §4.29.E copy retargeted, both dictionaries).
     const qrBtn = screen.getByRole('button', { name: ru['profile.header.qr'] });
     expect(qrBtn).toBeTruthy();
     // Gear: a real link (§2.6) styled as an icon button, navigating to the
@@ -179,6 +183,9 @@ describe('header (§4.29.A.1, AC 1)', () => {
     expect(header).toContain("resolve('/profile/settings')");
     expect(header).toContain('PixelIcon name="scan"');
     expect(header).toContain('PixelIcon name="gear"');
+    // Concept §50: the scan button's target is the §3.8 scanner, not the
+    // QR tab.
+    expect(header).toContain('onclick={openScanner}');
     // Icon-button treatment: full touch target, muted → text hover, tokens
     // only (§4.29.A.1).
     const block = source.match(/\.icon-btn\s*\{[\s\S]*?\}/)?.[0] ?? '';
@@ -188,13 +195,10 @@ describe('header (§4.29.A.1, AC 1)', () => {
   });
 });
 
-describe('header QR affordance = tab-switch (§4.29.A.2, AC 2)', () => {
-  it('tapping the header QR button activates the QR tab; EXACTLY ONE QrCodeBadge instance exists', async () => {
-    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
-    const { container } = await renderPage();
-
-    // Exactly one QR mount in the whole DOM (the QR tab panel's).
-    expect(container.querySelectorAll('figure.qr-badge').length).toBe(1);
+describe('header scan affordance → §3.8 QrScanner (Concept §50, supersedes §4.29.A.2)', () => {
+  it('tapping the header scan button opens the QrScanner overlay, NOT the QR tab; members fetched ONCE per open', async () => {
+    mockedApi.listRoomUsers.mockResolvedValue([]);
+    await renderPage();
 
     // Default tab on mount is About (the QR panel starts hidden — hidden
     // panels are inaccessible to role queries, so they are checked by id).
@@ -202,36 +206,71 @@ describe('header QR affordance = tab-switch (§4.29.A.2, AC 2)', () => {
       (screen.getByRole('tab', { name: ru['profile.tab.about'] }).getAttribute('aria-selected'))
     ).toBe('true');
     expect(
-      container.querySelector('#profile-panel-qr')?.hasAttribute('hidden')
+      document.querySelector('#profile-panel-qr')?.hasAttribute('hidden')
     ).toBe(true);
 
     await screen.getByRole('button', { name: ru['profile.header.qr'] }).click();
     await tick();
     await tick();
+
+    // The §3.8 scanner dialog is open (the overlay target, NOT the display).
+    expect(screen.getByRole('dialog', { name: ru['scan.aria'] })).toBeTruthy();
+    // The QR tab did NOT activate — the button's target changed (Concept §50).
+    expect(
+      (screen.getByRole('tab', { name: ru['profile.tab.about'] }).getAttribute('aria-selected'))
+    ).toBe('true');
+    expect(
+      document.querySelector('#profile-panel-qr')?.hasAttribute('hidden')
+    ).toBe(true);
+
+    // The persona members list is fetched ONCE per open (no polling).
+    expect(mockedApi.listRoomUsers).toHaveBeenCalledTimes(1);
+    expect(mockedApi.listRoomUsers).toHaveBeenCalledWith(ROOM);
+  });
+
+  it('a member-list failure still opens the scanner (empty list — §3.8 empty-membership semantics)', async () => {
+    mockedApi.listRoomUsers.mockRejectedValue(new Error('offline'));
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.header.qr'] }).click();
+    await tick();
+    await tick();
+    expect(screen.getByRole('dialog', { name: ru['scan.aria'] })).toBeTruthy();
+    expect(mockedApi.listRoomUsers).toHaveBeenCalledTimes(1);
+  });
+
+  it('closing the scanner and re-opening refetches the members list (once per open, still no polling)', async () => {
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.header.qr'] }).click();
+    await tick();
+    await tick();
+    await screen.getByRole('button', { name: ru['scan.close'] }).click();
+    await tick();
+    expect(screen.queryByRole('dialog', { name: ru['scan.aria'] })).toBeNull();
+    await screen.getByRole('button', { name: ru['profile.header.qr'] }).click();
+    await tick();
+    await tick();
+    expect(mockedApi.listRoomUsers).toHaveBeenCalledTimes(2);
+  });
+
+  it('the QR DISPLAY stays reachable via its tab-panel affordance (§43 A.2 carried); EXACTLY ONE QrCodeBadge', async () => {
+    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
+    const { container } = await renderPage();
+
+    // Exactly one QR mount in the whole DOM (the QR tab panel's).
+    expect(container.querySelectorAll('figure.qr-badge').length).toBe(1);
+    // No scanner open by default — the header button targets the scanner,
+    // the tab panel remains the QR display affordance.
+    expect(screen.queryByRole('dialog', { name: ru['scan.aria'] })).toBeNull();
+
+    await openQrTab();
     expect(
       (screen.getByRole('tab', { name: ru['profile.tab.qr'] }).getAttribute('aria-selected'))
     ).toBe('true');
     expect(
       container.querySelector('#profile-panel-qr')?.hasAttribute('hidden')
     ).toBe(false);
-    // The QR is now visible and announced exactly once.
+    // The QR is visible and announced exactly once.
     expect(screen.getAllByRole('img', { name: ru['profile.qr.aria'] }).length).toBe(1);
-  });
-
-  it('tapping the header QR button when the QR tab is ALREADY active scrolls the QR block into view (no second QR)', async () => {
-    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
-    await renderPage();
-    await openQrTab();
-    const spy = vi
-      .spyOn(Element.prototype, 'scrollIntoView')
-      .mockImplementation(() => undefined);
-    await screen.getByRole('button', { name: ru['profile.header.qr'] }).click();
-    await tick();
-    expect(spy).toHaveBeenCalledTimes(1);
-    // Still exactly one QR mount — the affordance is a tab-switch/scroll,
-    // never a second QR instance.
-    expect(document.querySelectorAll('figure.qr-badge').length).toBe(1);
-    spy.mockRestore();
   });
 });
 

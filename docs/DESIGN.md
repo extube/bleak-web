@@ -10943,6 +10943,131 @@ cross-cutting:
    surfaces, the toggle semantics and the copy are fully specified in
    §4.35.A–E; no palette value, dependency or glyph decision is open.
 
+### 4.36 owner bug-batch amendment (2026-11-23, owner-approved Concept §50): profile scan button → scanner, viewfinder bracket orientation, /profile/edit phone overflow + shared kv-row width
+
+Owner-reported fixes (Concept §50): (1) the `/profile` header scan button
+opened the QR **display** — it must open the QR **scanner**; (2) the
+scanner's four viewfinder brackets all opened in one direction — each
+corner must face its own angle; (3) `/profile/edit` at phone widths had a
+horizontal overflow from the Save button, and the key-value edit rows had
+ragged label widths. Scope: §43/§49 profile contracts otherwise in force;
+§3.8 scanner contract otherwise in force (camera lifecycle, focus return,
+state machine untouched); RU/EN parity; no new deps.
+
+#### 4.36.A Header scan button → the §3.8 QrScanner (supersedes §4.29.A.2)
+
+The §4.29.A.2 reading — "tapping the header QR icon activates the QR tab /
+scrolls it into view" — is **SUPERSEDED (Concept §50)**: the header scan
+icon button (§4.29.A.1, glyph `scan`, 48px touch target) now opens the
+shared §3.8 `QrScanner` overlay, **context persona**, mounted on
+`/profile` next to `</main>` (`bind:open`, same full-screen machine,
+camera lifecycle and focus return as on `/room`). The QR **display**
+affordance is NOT removed: the live badge QR lives EXACTLY ONCE inside the
+QR tab panel (A.6) and stays reachable through its tab-panel affordance —
+only the scan button's target changes.
+
+- **Members for the persona routine:** fetched ONCE per scanner open via
+  the gated `api.listRoomUsers(roomAddress)` (the `/room` pattern, §3.2);
+  **no polling**. On failure an EMPTY list is passed — the §3.8
+  empty-membership semantics (the foreign check is skipped, `memberName`
+  falls back to the scanned address). The list is cleared at open, so no
+  stale members survive between opens.
+- **A.2's scroll-into-view behavior retires with the tab-switch reading:**
+  the header button is a scanner toggle now; the `scrollQrIntoView` card
+  ref is retired from `/profile`.
+- **Aria-label retargeted (E.1 amended):** `profile.header.qr` announces
+  scanner intent — «Сканировать QR» / "Scan QR code" (the same copy as
+  `scan.title`; RU/EN parity kept, both dictionaries updated). The key
+  name stays `profile.header.qr` (the header's QR-family affordance).
+
+#### 4.36.B Viewfinder bracket geometry (§3.8 layout 2 amendment)
+
+The scan frame's four 48px accent corner brackets each orient its bars at
+ITS corner — the classic viewfinder framing (Concept §50). The shared
+anatomy is unchanged (`::before` = full-width 8px bar, `::after` =
+full-height 8px bar, `--color-accent`, opacity 0.85 → 1 flash, §4.6
+transform/opacity motion only); only the per-corner bar PLACEMENT is
+specified:
+
+| Bracket | Position | Bars at | Opens |
+| --- | --- | --- | --- |
+| `.tl` | top: 0; left: 0 | top + left | right/down |
+| `.tr` | top: 0; right: 0 | top + right | left/down |
+| `.bl` | bottom: 0; left: 0 | bottom + left | right/up |
+| `.br` | bottom: 0; right: 0 | bottom + right | left/up |
+
+Tokens only; no new glyph, dependency or palette value.
+
+#### 4.36.C `/profile/edit` phone-width save button + shared kv-row width
+
+1. **Save-button overhang (C.4/C.8 amendment):** at `<720px` the Save
+   Changes button keeps its `margin: 0 var(--space-5)` inset but switches
+   to `width: auto` — the flex column stretches it to the container minus
+   2×`--space-5`, so the border box stays inside and the page has NO
+   horizontal overflow at phone viewports (375/390/320px:
+   `scrollWidth <= clientWidth`). The base rule keeps `width: 100%` for
+   ≥720px; the inset pill look is kept (not full-bleed — the field-group
+   cards stay full-bleed per §4.12.1, the CTA keeps its floating shape).
+2. **Shared key-value row width (C.3 row anatomy amendment):** every
+   single-line kv row of the `/profile/edit` form uses ONE label width so
+   the name row (PersonaEditor) and the contact-card row
+   (ContactCardEditor) align their value inputs at one common left edge —
+   no ragged offsets. Spec: the page's `.form` owns a shared custom
+   property `--kv-label-width: 148px` (custom properties inherit into the
+   scoped component styles; defined exactly once); both editors'
+   `.kv-label` consume `flex: 0 0 var(--kv-label-width, 148px)` with
+   `white-space: nowrap` + ellipsis overflow so the row stays ONE line at
+   every viewport (148px fits the longest label, «Контактная карточка» /
+   "Contact card", at 14px down to 320px). The greeting block and the
+   label-above bio fields are unaffected (I-rec 10 carried).
+
+#### 4.36.D Acceptance criteria
+
+1. The `/profile` header scan button opens the QrScanner dialog
+   (`role="dialog"`, `scan.aria`), NOT the QR tab (the About tab stays
+   selected, the QR panel stays hidden under the button tap).
+2. The members list is fetched exactly once per scanner open
+   (`api.listRoomUsers(roomAddress)`); a rejection still opens the
+   scanner (empty list); close → re-open refetches (twice total across
+   two opens); no polling calls while the page idles.
+3. The QR display stays reachable via the tab panel: the QR tab still
+   activates through its tab button, exactly one `QrCodeBadge` mount,
+   announced once (`profile.qr.aria`).
+4. Bracket orientation per §4.36.B asserted source-level: all four
+   corner rules exist, pairwise DIFFERENT, each with its own
+   top/bottom + left/right placement; the shared bar anatomy
+   (100%/8px, accent, opacity 0.85→1 flash) is intact; no hardcoded hex.
+5. `/profile/edit` phone block: the `.save` rule carries `width: auto`
+   under `margin: 0 var(--space-5)` (no `width: 100%` at <720px — border
+   box inside the container at 375/390/320px); the ≥720px base keeps
+   `width: 100%`.
+6. The shared kv-row spec: `--kv-label-width` defined exactly once on the
+   page; both editors consume `var(--kv-label-width, 148px)` on a
+   single-line flex row.
+7. `profile.header.qr` carries the scanner-intent copy in BOTH
+   dictionaries («Сканировать QR» / "Scan QR code"); the superseded
+   tab-switch assertions in `profile-page.test.ts` are updated, not left
+   failing; `i18n` + `sweep` suites stay green; `make lint && make test
+   && make build` green.
+
+#### 4.36.E Flags for the owner / concept (design report)
+
+1. **Copy change needing ratification (E.1):** the header scan button's
+   aria-label changed «Показать QR-код» / "Show QR code" → «Сканировать
+   QR» / "Scan QR code" — required so the control announces scanner
+   intent (its function changed); the copy reuses `scan.title` verbatim,
+   RU/EN parity kept.
+2. **DESIGN NOTE — save button inset kept (§4.36.C.1):** the phone fix
+   keeps the space-5 inset pill instead of the full-bleed alternative
+   (the card criteria allowed either); reversible one-liner if the owner
+   prefers full-bleed parity with the field-group cards.
+3. **DESIGN NOTE — `--kv-label-width: 148px` (§4.36.C.2):** sized to fit
+   the longest label («Контактная карточка») on one line at 14px down to
+   320px; a different shared width (e.g. 40% relative) is a one-token
+   change if the owner prefers another proportion.
+4. **ADVICE NEEDED — none blocking:** all three fixes are fully
+   specified above; no dependency, glyph or palette decision is open.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)

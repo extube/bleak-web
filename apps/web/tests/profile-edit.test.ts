@@ -428,3 +428,73 @@ describe('chrome + navigation (§4.29.C.1/C.6/C.8; AC 18, 22)', () => {
     expect(source).not.toMatch(/uqr|QrCodeBadge/);
   });
 });
+
+describe('phone-width layout + shared kv rows (Concept §50, 2026-11-23)', () => {
+  /** The phone (<720px) media block of the route's scoped styles. */
+  function phoneBlock(): string {
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/routes/profile/edit/+page.svelte'),
+      'utf8'
+    );
+    return (
+      source.match(/@media \(max-width: 719px\)\s*\{[\s\S]*?\n\s{2}\}/)?.[0] ?? ''
+    );
+  }
+
+  it('the Save button has NO overhang at phone widths (375/390/320px: width:auto under the margins — border box inside the container)', () => {
+    const block = phoneBlock();
+    expect(block).not.toBe('');
+    // The §50 fix: `width: auto` (the flex column stretches the button to
+    // the container minus the margins) — the old `width: 100%` + margins
+    // border box overhung and caused the horizontal scroll.
+    const save = block.match(/\.save\s*\{([\s\S]*?)\}/)?.[1] ?? '';
+    expect(save).not.toBe('');
+    expect(save).toMatch(/width:\s*auto/);
+    expect(save).toMatch(/margin:\s*0 var\(--space-5\)/);
+    expect(save).not.toMatch(/width:\s*100%/);
+    // The base (desktop) rule keeps width: 100% — the override is scoped to
+    // the phone query only.
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/routes/profile/edit/+page.svelte'),
+      'utf8'
+    );
+    const base = source.match(/(?<=^|;|\n)\s*\.save\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(base).toMatch(/width:\s*100%/);
+  });
+
+  it('the kv rows share ONE label width: the page owns `--kv-label-width`, both editors consume it (inputs align across the groups)', () => {
+    const page = readFileSync(
+      join(WEB_ROOT, 'src/routes/profile/edit/+page.svelte'),
+      'utf8'
+    );
+    // The shared spec is defined ONCE on the page's form container.
+    const decls = page.match(/--kv-label-width:\s*[^;]+;/g) ?? [];
+    expect(decls.length).toBe(1);
+    expect(decls[0]).toMatch(/--kv-label-width:\s*\d+px/);
+
+    for (const editor of ['PersonaEditor', 'ContactCardEditor']) {
+      const css = readFileSync(
+        join(WEB_ROOT, `src/lib/components/profile/${editor}.svelte`),
+        'utf8'
+      );
+      const row = css.match(/\.kv-row\s*\{([\s\S]*?)\}/)?.[1] ?? '';
+      const label = css.match(/\.kv-label\s*\{([\s\S]*?)\}/)?.[1] ?? '';
+      expect(row).not.toBe('');
+      // Single-line flex row.
+      expect(row).toMatch(/display:\s*flex/);
+      // The label takes the SAME shared width token (the page value wins;
+      // the px fallback only guards a standalone render).
+      expect(label).toMatch(/flex:\s*0 0 var\(--kv-label-width,\s*\d+px\)/);
+    }
+    // The two editors reference the token exactly once in CODE (comments
+    // are prose — stripped, same pattern as codeOf above).
+    const persona = codeOf('src/lib/components/profile/PersonaEditor.svelte').match(
+      /var\(--kv-label-width/g
+    );
+    const contact = codeOf('src/lib/components/profile/ContactCardEditor.svelte').match(
+      /var\(--kv-label-width/g
+    );
+    expect(persona?.length).toBe(1);
+    expect(contact?.length).toBe(1);
+  });
+});

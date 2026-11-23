@@ -343,7 +343,10 @@ export const en = {
   // v3.23 (DESIGN §4.29.E.3): profile.settings.persona RETIRED — the
   // persona block became the ONE profile entry row → /profile/edit.
   // v3.23 (DESIGN §4.29.E): new keys — the reference's header/tab/edit copy.
-  'profile.header.qr': 'Show QR code',
+  // Concept §50 (2026-11-23): profile.header.qr retargeted to the scanner —
+  // the header scan icon opens the §3.8 QrScanner, so the label announces
+  // scanner intent (same copy as scan.title; RU/EN parity kept).
+  'profile.header.qr': 'Scan QR code',
   'profile.tab.about': 'About',
   'profile.tab.interests': 'Interests',
   'profile.tab.qr': 'QR code',

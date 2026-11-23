@@ -11,6 +11,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
+import { readFileSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import { ApiError, NetworkError, type Chat, type User } from '@bleak/api-client';
 
 vi.mock('$app/paths', () => ({
@@ -34,6 +36,10 @@ vi.mock('#lib/scanner/decode', () => ({
 import QrScanner from '../src/lib/components/QrScanner.svelte';
 import { identity } from '../src/lib/stores/identity';
 import { ru } from '../src/lib/i18n/ru';
+
+const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
+  ? process.cwd()
+  : join(process.cwd(), 'apps', 'web');
 
 const alice: User = {
   active: true,
@@ -417,5 +423,83 @@ describe('persona routine (context *b*, v2 server-mediated §3.8)', () => {
     await screen.getByRole('button', { name: ru['scan.confirm.cancel'] }).click();
     await waitFor(() => expect(gUM).toHaveBeenCalledTimes(2)); // camera restarted
     expect(apiMock.createMutualHandshake).not.toHaveBeenCalled();
+  });
+});
+
+describe('viewfinder bracket orientation (Concept §50, 2026-11-23)', () => {
+  /** The component's <style> block (source-level: jsdom has no layout, the
+   * per-corner geometry is asserted on the CSS itself). */
+  function styleBlock(): string {
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/lib/components/QrScanner.svelte'),
+      'utf8'
+    );
+    return source.match(/<style>[\s\S]*<\/style>/)?.[0] ?? '';
+  }
+
+  /** The `.corner::before, .corner::after` rule block, if present. */
+  function cornerRule(css: string, corner: string): string {
+    const pattern = new RegExp(
+      `\\.${corner}::before,\\s*\\n\\s*\\.${corner}::after\\s*\\{([\\s\\S]*?)\\}`
+    );
+    return css.match(pattern)?.[1] ?? '';
+  }
+
+  it('each bracket orients its bars at its own corner: tl top+left, tr top+right, bl bottom+left, br bottom+right', () => {
+    const css = styleBlock();
+    const tl = cornerRule(css, 'tl');
+    const tr = cornerRule(css, 'tr');
+    const bl = cornerRule(css, 'bl');
+    const br = cornerRule(css, 'br');
+
+    // top-left opens right/down — bars at top + left
+    expect(tl).toMatch(/top:\s*0/);
+    expect(tl).toMatch(/left:\s*0/);
+    expect(tl).not.toMatch(/right|bottom/);
+    // top-right opens left/down — bars at top + right
+    expect(tr).toMatch(/top:\s*0/);
+    expect(tr).toMatch(/right:\s*0/);
+    expect(tr).not.toMatch(/bottom/);
+    expect(tr).not.toMatch(/left:\s*0/);
+    // bottom-left opens right/up — bars at bottom + left
+    expect(bl).toMatch(/bottom:\s*0/);
+    expect(bl).toMatch(/left:\s*0/);
+    expect(bl).not.toMatch(/top:\s*0/);
+    expect(bl).not.toMatch(/right/);
+    // bottom-right opens left/up — bars at bottom + right
+    expect(br).toMatch(/bottom:\s*0/);
+    expect(br).toMatch(/right:\s*0/);
+    expect(br).not.toMatch(/top:\s*0/);
+    expect(br).not.toMatch(/left:\s*0/);
+  });
+
+  it('the four corners DIFFER pairwise (no shared orientation); the shared bar anatomy keeps accent + 8px steps + opacity motion', () => {
+    const css = styleBlock();
+    const tl = cornerRule(css, 'tl');
+    const tr = cornerRule(css, 'tr');
+    const bl = cornerRule(css, 'bl');
+    const br = cornerRule(css, 'br');
+    // All four rules exist and no two are identical.
+    for (const rule of [tl, tr, bl, br]) expect(rule).not.toBe('');
+    expect(new Set([tl, tr, bl, br]).size).toBe(4);
+
+    // Shared anatomy (§3.8): full-width 8px bar + full-height 8px bar,
+    // accent color, opacity 0.85 → 1 on flash (§4.6 motion rules).
+    const before = css.match(/\.bracket::before\s*\{([\s\S]*?)\}/)?.[1] ?? '';
+    // The `::after` standalone rule follows the `::before` one — anchor on
+    // the closing brace so the combined selector is not matched.
+    const after = css.match(/\}\s*\.bracket::after\s*\{([\s\S]*?)\}/)?.[1] ?? '';
+    expect(before).toMatch(/width:\s*100%/);
+    expect(before).toMatch(/height:\s*8px/);
+    expect(after).toMatch(/width:\s*8px/);
+    expect(after).toMatch(/height:\s*100%/);
+    const shared = css.match(/\.bracket::before,\s*\n\s*\.bracket::after\s*\{([\s\S]*?)\}/)?.[1] ?? '';
+    expect(shared).toMatch(/background:\s*var\(--color-accent\)/);
+    expect(shared).toMatch(/opacity:\s*0\.85/);
+    expect(shared).toMatch(/transition:\s*opacity/);
+    expect(css).toMatch(/\.frame\.flash \.bracket::before,[\s\S]*?\.bracket::after\s*\{[^}]*opacity:\s*1/);
+    // Tokens only — no hardcoded hex in the bracket styles.
+    const bracketCss = css.slice(css.indexOf('.bracket'), css.indexOf('.hint'));
+    expect(bracketCss).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 });

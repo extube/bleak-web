@@ -284,8 +284,11 @@ describe('v3.23 profile-redesign keys (DESIGN §4.29.E, Concept §42)', () => {
   });
 
   it('the new keys carry the §4.29.E verbatim copy (RU is a design invention — I-rec 14)', () => {
-    expect(ru['profile.header.qr']).toBe('Показать QR-код');
-    expect(en['profile.header.qr']).toBe('Show QR code');
+    // Concept §50 (2026-11-23): profile.header.qr announces scanner intent —
+    // the header scan icon opens the §3.8 QrScanner (the old tab-switch
+    // reading is superseded); same copy as scan.title, RU/EN parity kept.
+    expect(ru['profile.header.qr']).toBe('Сканировать QR');
+    expect(en['profile.header.qr']).toBe('Scan QR code');
     expect(ru['profile.tab.about']).toBe('Обо мне');
     expect(en['profile.tab.about']).toBe('About');
     expect(ru['profile.tab.interests']).toBe('Интересы');

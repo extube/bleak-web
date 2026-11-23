@@ -344,7 +344,10 @@ export const ru: Record<MessageKey, string> = {
   // persona block became the ONE profile entry row → /profile/edit.
   // v3.23 (DESIGN §4.29.E): new keys — the reference's header/tab/edit copy.
   // RU is a design invention for tone ratification (I-rec 14).
-  'profile.header.qr': 'Показать QR-код',
+  // Concept §50 (2026-11-23): profile.header.qr retargeted to the scanner —
+  // the header scan icon opens the §3.8 QrScanner, so the label announces
+  // scanner intent (same copy as scan.title; RU/EN parity kept).
+  'profile.header.qr': 'Сканировать QR',
   'profile.tab.about': 'Обо мне',
   'profile.tab.interests': 'Интересы',
   'profile.tab.qr': 'QR-код',

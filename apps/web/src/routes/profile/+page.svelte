@@ -7,10 +7,12 @@
    * auto-injected on every credentialed call (ARCHITECTURE §10.8).
    *
    * Header (§4.29.A.1): the h1 left («Мой профиль»), the top-right cluster
-   * holds two icon-only buttons — the QR affordance (A.2: tab-switch, NOT a
-   * second QR; the live badge QR lives EXACTLY ONCE, inside the QR tab
-   * panel) and the settings gear → /profile/settings (§4.10.2 carried, G.5:
-   * labeled button → icon button).
+   * holds two icon-only buttons — the SCAN affordance (Concept §50,
+   * superseding the §4.29.A.2 tab-switch reading: the header scan icon
+   * opens the shared §3.8 QrScanner overlay, context persona; the live
+   * badge QR lives EXACTLY ONCE, inside the QR tab panel, still reachable
+   * through the tab-panel affordance) and the settings gear →
+   * /profile/settings (§4.10.2 carried, G.5: labeled button → icon button).
    *
    * Live badge QR (Concept §6.3): a 4 s Poller polls the token-gated
    * `getRoomUser` (own address → persona Bearer, returns `private_bio` and
@@ -23,6 +25,9 @@
    * tick retries. When the rotation fires while another tab is active, the
    * app switches to the QR tab first (§4.29.A.3 — the rotation is visible
    * by design). Stats are fetched on mount + after mutations (§2.2 row).
+   * The scanner's members list is fetched ONCE per open (no polling): on
+   * failure an empty list — the §3.8 empty-membership semantics (the
+   * foreign check is skipped, the name falls back to the address).
    *
    * Concept §10.1.4 / §42.3 / DESIGN §4.29.A: this page is READ-ONLY — no
    * edit affordance exists on it (G.3); persona editing lives on
@@ -48,6 +53,7 @@
   } from '#lib/stores/interests';
   import { decideBadgeAction, registerFreshMutualCode } from '#lib/components/profile/liveQr';
   import ProfileBadge, { type ProfileTab } from '#lib/components/profile/ProfileBadge.svelte';
+  import QrScanner from '#lib/components/QrScanner.svelte';
   import ErrorBanner from '#lib/components/ErrorBanner.svelte';
   import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
@@ -70,10 +76,33 @@
   let chatCount = $state(0);
 
   // The pill tabs (§4.29.A.6/A.7): the default tab on mount is About; the
-  // header QR affordance and the live rotation switch it from outside.
+  // live rotation switches it from outside. The QR tab itself stays
+  // reachable through its tab-panel affordance (§43 A.2 carried).
   let activeTab = $state<ProfileTab>('about');
-  // Component ref for the A.2 "already on the QR tab → scroll into view".
-  let card = $state<{ scrollQrIntoView(): void } | null>(null);
+
+  // --- the §3.8 scanner (Concept §50) ----------------------------------------
+  // The header scan icon opens the shared QrScanner overlay (context
+  // persona). Members for the persona routine are fetched ONCE per open
+  // (`api.listRoomUsers`, gated, the room/+page pattern) — NEVER polled; a
+  // failure passes an empty list: the §3.8 empty-membership semantics (the
+  // foreign check is skipped, `memberName` falls back to the address).
+  let scanOpen = $state(false);
+  let scannerMembers = $state<readonly User[]>([]);
+
+  function openScanner(): void {
+    scanOpen = true;
+    const id = get(identity);
+    if (!id) return;
+    scannerMembers = [];
+    api
+      .listRoomUsers(id.roomAddress)
+      .then((users) => {
+        if (scanOpen) scannerMembers = users;
+      })
+      .catch(() => {
+        scannerMembers = [];
+      });
+  }
 
   // The raw one-time mutual code backing this persona's badge QR
   // (`bleak.mutualCode`, validated against the identity on load).
@@ -116,19 +145,6 @@
     qrRefreshed = true;
     if (qrFlashTimer) clearTimeout(qrFlashTimer);
     qrFlashTimer = setTimeout(() => (qrRefreshed = false), 2000);
-  }
-
-  /**
-   * Header QR affordance (§4.29.A.2): if the active tab is not QR →
-   * activate the QR tab; if it already is → scroll the QR block into view
-   * (instant under prefers-reduced-motion — the card handles that).
-   */
-  function openQrTab(): void {
-    if (activeTab !== 'qr') {
-      activeTab = 'qr';
-      return;
-    }
-    card?.scrollQrIntoView();
   }
 
   /**
@@ -236,9 +252,10 @@
 </script>
 
 <main class="profile-page">
-  <!-- Header (§4.29.A.1): the h1 left + the top-right cluster — the QR
-       affordance icon button and the settings gear (a real link styled as
-       an icon button, §2.6), both 48px touch targets. -->
+  <!-- Header (§4.29.A.1): the h1 left + the top-right cluster — the SCAN
+       affordance icon button (opens the §3.8 scanner, Concept §50) and the
+       settings gear (a real link styled as an icon button, §2.6), both 48px
+       touch targets. -->
   <header class="header">
     <h1>{translate($locale, 'profile.title')}</h1>
     <div class="corner">
@@ -246,7 +263,7 @@
         type="button"
         class="icon-btn"
         aria-label={translate($locale, 'profile.header.qr')}
-        onclick={openQrTab}
+        onclick={openScanner}
       >
         <PixelIcon name="scan" size={16} />
       </button>
@@ -296,7 +313,6 @@
     </div>
   {:else if user}
     <ProfileBadge
-      bind:this={card}
       bind:activeTab
       {user}
       {interests}
@@ -308,6 +324,15 @@
     />
   {/if}
 </main>
+
+<!-- The shared §3.8 scanner overlay (Concept §50): full-screen machine,
+     camera lifecycle and focus return untouched; context persona with the
+     once-per-open members list. -->
+<QrScanner
+  bind:open={scanOpen}
+  context="persona"
+  members={scannerMembers}
+/>
 
 <style>
   .profile-page {

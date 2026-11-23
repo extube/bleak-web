@@ -55,7 +55,14 @@
   .kv-label {
     color: var(--color-text-muted);
     font-size: 14px;
-    flex-shrink: 0;
+    /* Concept §50 shared kv-row spec: the SAME shared label width as the
+     * name row (PersonaEditor) — the value inputs align across the two
+     * groups at one common left edge, one line, no ragged offsets. */
+    flex: 0 0 var(--kv-label-width, 148px);
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   input {
     flex: 1;

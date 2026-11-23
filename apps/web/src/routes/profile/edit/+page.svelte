@@ -446,7 +446,22 @@
       clip-path: none;
     }
     .save {
+      /* Concept §50 phone-overflow fix: width:auto (not 100%) under the
+       * side margins — the flex column stretches the button to the
+       * container minus 2×space-5, so the border box stays inside and the
+       * page has NO horizontal overflow at phone widths (375/390/320px);
+       * the inset pill look is kept. */
+      width: auto;
       margin: 0 var(--space-5);
     }
+  }
+  /* Concept §50 shared key-value row spec: ONE label width for every
+   * single-line kv row of the form, so the name row (PersonaEditor) and
+   * the contact-card row (ContactCardEditor) align their value inputs at
+   * one common left edge — no ragged offsets between the groups. The
+   * components consume `var(--kv-label-width)`; the page owns the value
+   * (custom properties inherit into the scoped component styles). */
+  .form {
+    --kv-label-width: 148px;
   }
 </style>
