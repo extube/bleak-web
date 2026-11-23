@@ -1,12 +1,16 @@
-/** /profile page tests — LEAN suite. Covers the READ-ONLY badge page
- * (Concept §10.1.4, DESIGN §4.11.4): badge render (with the live-flag
- * no-registration assert), live QR registration/rotation/failure (hash-only
- * bodies — raw never sent), persona 404, the read-only display (NO persona
- * edit affordances — all persona editing lives in /profile/settings, whose
- * editors are covered by tests/profile-settings.test.ts), the exactly-three
- * stat tiles (Concept §8.1.5), the §9.1.2 settings corner button (DESIGN
- * §4.10.2), and the v2.3 amendments (Concept §9.1.1/§9.1.4 — private-bio
- * heading + interests title margin, DESIGN §4.10.3/4.10.4). */
+/** /profile page tests — LEAN suite, re-targeted to the §4.29 redesign
+ * (v3.23 profile redesign, Concept §42): the header (h1 + the QR
+ * affordance icon button + the settings gear icon link, AC 1), the
+ * header-QR tab-switch affordance with EXACTLY ONE QrCodeBadge instance
+ * (AC 2), the centered identity block (AC 3), the exactly-three stat tiles
+ * above the tabs (AC 4, Concept §8.1.5), the three pill tabs with real
+ * tablist/tab/tabpanel semantics and the About default (AC 5), the tab
+ * contents (AC 6–7), the live QR block (AC 8), live QR
+ * registration/rotation/failure (AC 9 — hash-only bodies, raw never sent;
+ * rotation switches to the QR tab when another tab is active), persona 404
+ * (AC 10), and the read-only display — NO persona edit affordances (AC 6;
+ * all persona editing lives on /profile/edit). The private-bio heading and
+ * interests-title-margin source contracts (Concept §9.1.1/§9.1.4) carry. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
@@ -121,14 +125,135 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-async function renderPage(): Promise<void> {
-  render(Page, { props: {} });
+async function renderPage(): Promise<{ container: HTMLElement }> {
+  const result = render(Page, { props: {} });
   await waitFor(() => expect(mockedApi.getRoomUser).toHaveBeenCalled());
+  await tick();
+  await tick();
+  return result;
+}
+
+/** Activate the QR tab through the real tab button (role queries skip the
+ * hidden panels, so QR-panel content queries go through this). */
+async function openQrTab(): Promise<void> {
+  await screen.getByRole('tab', { name: ru['profile.tab.qr'] }).click();
   await tick();
   await tick();
 }
 
-describe('badge card (AC 1, 9, 11)', () => {
+describe('header (§4.29.A.1, AC 1)', () => {
+  it('renders «Мой профиль» with the QR affordance button and the gear icon link to /profile/settings (RU + EN)', async () => {
+    const { setLocale } = await import('../src/lib/i18n/locale');
+    const { en } = await import('../src/lib/i18n/en');
+    await renderPage();
+
+    expect(screen.getByRole('heading', { level: 1, name: ru['profile.title'] })).toBeTruthy();
+    // QR affordance: an icon-only button with the new aria-label (E.1).
+    const qrBtn = screen.getByRole('button', { name: ru['profile.header.qr'] });
+    expect(qrBtn).toBeTruthy();
+    // Gear: a real link (§2.6) styled as an icon button, navigating to the
+    // settings sub-page; its accessible name is the settings title.
+    const gear = screen.getByRole('link', { name: ru['profile.settings.title'] }) as HTMLAnchorElement;
+    expect(gear.getAttribute('href')).toBe('/profile/settings');
+
+    // EN parity: the same header re-renders through the locale store.
+    setLocale('en');
+    await tick();
+    await tick();
+    expect(screen.getByRole('heading', { level: 1, name: en['profile.title'] })).toBeTruthy();
+    expect(screen.getByRole('button', { name: en['profile.header.qr'] })).toBeTruthy();
+    expect(screen.getByRole('link', { name: en['profile.settings.title'] })).toBeTruthy();
+    setLocale('ru');
+    await tick();
+  });
+
+  it('the header cluster sits top-right at the header level, icon buttons are token-styled (source-level)', () => {
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/routes/profile/+page.svelte'),
+      'utf8'
+    );
+    // The two affordances live INSIDE the header element (top-right).
+    const header = source.match(/<header class="header">[\s\S]*?<\/header>/)?.[0] ?? '';
+    expect(header).toContain('profile.header.qr');
+    expect(header).toContain("resolve('/profile/settings')");
+    expect(header).toContain('PixelIcon name="scan"');
+    expect(header).toContain('PixelIcon name="gear"');
+    // Icon-button treatment: full touch target, muted → text hover, tokens
+    // only (§4.29.A.1).
+    const block = source.match(/\.icon-btn\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(block).toContain('var(--touch-target)');
+    expect(block).toContain('color: var(--color-text-muted)');
+    expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+  });
+});
+
+describe('header QR affordance = tab-switch (§4.29.A.2, AC 2)', () => {
+  it('tapping the header QR button activates the QR tab; EXACTLY ONE QrCodeBadge instance exists', async () => {
+    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
+    const { container } = await renderPage();
+
+    // Exactly one QR mount in the whole DOM (the QR tab panel's).
+    expect(container.querySelectorAll('figure.qr-badge').length).toBe(1);
+
+    // Default tab on mount is About (the QR panel starts hidden — hidden
+    // panels are inaccessible to role queries, so they are checked by id).
+    expect(
+      (screen.getByRole('tab', { name: ru['profile.tab.about'] }).getAttribute('aria-selected'))
+    ).toBe('true');
+    expect(
+      container.querySelector('#profile-panel-qr')?.hasAttribute('hidden')
+    ).toBe(true);
+
+    await screen.getByRole('button', { name: ru['profile.header.qr'] }).click();
+    await tick();
+    await tick();
+    expect(
+      (screen.getByRole('tab', { name: ru['profile.tab.qr'] }).getAttribute('aria-selected'))
+    ).toBe('true');
+    expect(
+      container.querySelector('#profile-panel-qr')?.hasAttribute('hidden')
+    ).toBe(false);
+    // The QR is now visible and announced exactly once.
+    expect(screen.getAllByRole('img', { name: ru['profile.qr.aria'] }).length).toBe(1);
+  });
+
+  it('tapping the header QR button when the QR tab is ALREADY active scrolls the QR block into view (no second QR)', async () => {
+    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
+    await renderPage();
+    await openQrTab();
+    const spy = vi
+      .spyOn(Element.prototype, 'scrollIntoView')
+      .mockImplementation(() => undefined);
+    await screen.getByRole('button', { name: ru['profile.header.qr'] }).click();
+    await tick();
+    expect(spy).toHaveBeenCalledTimes(1);
+    // Still exactly one QR mount — the affordance is a tab-switch/scroll,
+    // never a second QR instance.
+    expect(document.querySelectorAll('figure.qr-badge').length).toBe(1);
+    spy.mockRestore();
+  });
+});
+
+describe('identity block (§4.29.A.4, AC 3)', () => {
+  it('a centered column: the 96px square avatar, the name and the read-only language meta', async () => {
+    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
+    await renderPage();
+    expect(screen.getByText('Трамвайщик')).toBeTruthy();
+    expect(screen.getByText(ru['profile.language.meta'].replace('{language}', 'ru'))).toBeTruthy();
+    // Square treatment is the PixelAvatar default (D.1): the badge carries
+    // NO border-radius / ring on the avatar frame — source-level.
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/lib/components/profile/ProfileBadge.svelte'),
+      'utf8'
+    );
+    const identity = source.match(/\.identity\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(identity).toContain('flex-direction: column');
+    expect(identity).toContain('align-items: center');
+    expect(identity).not.toMatch(/border-radius/);
+  });
+});
+
+describe('badge content tabs (AC 6, 7)', () => {
   it('renders name, greeting, bios, language meta, interest chips from the mirror, and stats; a live stored code re-renders WITHOUT a registration call', async () => {
     // The interests mirror (DESIGN §4.13.1): scoped rows under the shared
     // `bleak.interests` key — titles as stored at add time.
@@ -159,9 +284,8 @@ describe('badge card (AC 1, 9, 11)', () => {
     expect(screen.getByText(/Книги/)).toBeTruthy();
     expect(screen.getByText(ru['profile.stats.handshakes_label'])).toBeTruthy();
     // the stored code is LIVE → no registration call (fresh registration is
-    // covered by the next block)
+    // covered by the live-QR block)
     expect(mockedApi.registerMutualCode).not.toHaveBeenCalled();
-    expect(screen.getByRole('img', { name: ru['profile.qr.aria'] })).toBeTruthy();
   });
 
   it('unknown mirror keys fall back to the stored title (no fake emoji)', async () => {
@@ -197,9 +321,68 @@ describe('badge card (AC 1, 9, 11)', () => {
     setLocale('ru');
     await tick();
   });
+
+  it('the private bio carries the muted-red caption above the content (carried §4.10.3 markup)', async () => {
+    await renderPage();
+    const heading = document.querySelector('.private-bio-heading');
+    expect(heading?.textContent).toBe(ru['profile.private_bio.caption']);
+  });
 });
 
-describe('live badge QR (AC 14)', () => {
+describe('pill tabs semantics (§4.29.A.7, AC 5)', () => {
+  it('a real tablist with three tabs; default is About; panels are labelled and swap instantly (hidden attribute)', async () => {
+    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
+    const { container } = await renderPage();
+
+    const tablist = screen.getByRole('tablist');
+    expect(tablist).toBeTruthy();
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.length).toBe(3);
+    expect(screen.getByRole('tab', { name: ru['profile.tab.about'] })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: ru['profile.tab.interests'] })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: ru['profile.tab.qr'] })).toBeTruthy();
+
+    // Default tab on mount = About; its panel is the only visible one.
+    expect(
+      (screen.getByRole('tab', { name: ru['profile.tab.about'] }).getAttribute('aria-selected'))
+    ).toBe('true');
+    expect(container.querySelector('#profile-panel-about')?.hasAttribute('hidden')).toBe(false);
+    expect(container.querySelector('#profile-panel-interests')?.hasAttribute('hidden')).toBe(true);
+    expect(container.querySelector('#profile-panel-qr')?.hasAttribute('hidden')).toBe(true);
+
+    // Switch to Interests: aria-selected moves, the panel becomes visible —
+    // an instant content swap (hidden attribute, no animation).
+    await screen.getByRole('tab', { name: ru['profile.tab.interests'] }).click();
+    await tick();
+    expect(
+      (screen.getByRole('tab', { name: ru['profile.tab.interests'] }).getAttribute('aria-selected'))
+    ).toBe('true');
+    expect(container.querySelector('#profile-panel-interests')?.hasAttribute('hidden')).toBe(false);
+    expect(container.querySelector('#profile-panel-about')?.hasAttribute('hidden')).toBe(true);
+
+    // The active pill carries the fill-accent treatment, inactive
+    // outline-muted (source-level — happy-dom computes no styles).
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/lib/components/profile/ProfileBadge.svelte'),
+      'utf8'
+    );
+    const tab = source.match(/\.tab\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(tab).toContain('border-radius: var(--radius-pill)');
+    expect(tab).toContain('min-height: var(--touch-target)');
+    expect(tab).toContain('transition:');
+    const active = source.match(/\.tab\.active\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(active).toContain('background: var(--color-accent)');
+    expect(active).toContain('color: var(--color-accent-ink)');
+    // Pills stay smooth — never .pixel-corners on the tabs.
+    expect(source).not.toMatch(/class="tabs[^"]*pixel-corners/);
+    // The tablist/tab/tabpanel semantics are real roles.
+    expect(source).toContain('role="tablist"');
+    expect(container.querySelectorAll('[role="tab"]').length).toBe(3);
+    expect(container.querySelectorAll('[role="tabpanel"]').length).toBe(3);
+  });
+});
+
+describe('live badge QR (AC 8, 9)', () => {
   it('first load with no code: registers a fresh code sending the HASH only, never the raw', async () => {
     await renderPage();
     await waitFor(() => expect(mockedApi.registerMutualCode).toHaveBeenCalledTimes(1));
@@ -214,6 +397,26 @@ describe('live badge QR (AC 14)', () => {
     expect(localStorage.getItem('bleak.mutualCode')).toContain('MUTUALRAWCODE');
   });
 
+  it('the QR tab shows the badge skeleton until a code exists (never a broken payload)', async () => {
+    // Hang the registration: the skeleton stays until the fresh code lands.
+    mockedApi.registerMutualCode.mockReturnValue(new Promise(() => undefined));
+    await renderPage();
+    await openQrTab();
+    expect(document.querySelector('.qr-skeleton')).toBeTruthy();
+    expect(screen.queryByRole('img', { name: ru['profile.qr.aria'] })).toBeNull();
+  });
+
+  it('with a stored code the QR tab shows the framed QR with both captions (AC 8)', async () => {
+    localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
+    await renderPage();
+    await openQrTab();
+    expect(screen.getByRole('img', { name: ru['profile.qr.aria'] })).toBeTruthy();
+    expect(screen.getByText(ru['profile.qr.caption'])).toBeTruthy();
+    expect(screen.getByText(ru['profile.qr.onetime'])).toBeTruthy();
+    // The QR issues no network request of its own — only the badge poll ran.
+    expect(mockedApi.registerMutualCode).not.toHaveBeenCalled();
+  });
+
   it('a burned flag (mutual_code_live=false) rotates: fresh code, hash-only body, note auto-hides after 2 s', async () => {
     vi.useFakeTimers();
     try {
@@ -226,10 +429,37 @@ describe('live badge QR (AC 14)', () => {
       expect(mockedApi.registerMutualCode).toHaveBeenCalledTimes(1);
       expect(mockedApi.registerMutualCode).toHaveBeenCalledWith(ROOM, ME, 'FAKEHASH');
       expect(get(mutualCode)).toEqual({ userAddress: ME, code: 'MUTUALRAWCODE' });
-      // The transient note announces the swap and auto-hides after 2 s.
+      // The rotation switched the app to the QR tab first (§4.29.A.3) — the
+      // note announces the swap there and auto-hides after 2 s.
+      expect(
+        (screen.getByRole('tab', { name: ru['profile.tab.qr'] }).getAttribute('aria-selected'))
+      ).toBe('true');
+      expect(screen.getByText(ru['profile.qr.refreshed'], { exact: false })).toBeTruthy();
       await vi.advanceTimersByTimeAsync(2000);
       await tick();
       expect(screen.queryByText(ru['profile.qr.refreshed'], { exact: false })).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a rotation firing while ANOTHER tab is active switches to the QR tab first (§4.29.A.3)', async () => {
+    vi.useFakeTimers();
+    try {
+      localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'OLD' }));
+      mutualCode.set({ userAddress: ME, code: 'OLD' });
+      mockedApi.getRoomUser.mockResolvedValue(userFixture({ mutual_code_live: false }));
+      render(Page, { props: {} });
+      await vi.advanceTimersByTimeAsync(30);
+      await tick();
+      expect(mockedApi.registerMutualCode).toHaveBeenCalledTimes(1);
+      // The default tab was About; the rotation forced the QR tab active.
+      expect(
+        (screen.getByRole('tab', { name: ru['profile.tab.qr'] }).getAttribute('aria-selected'))
+      ).toBe('true');
+      expect(
+        (screen.getByRole('tab', { name: ru['profile.tab.about'] }).getAttribute('aria-selected'))
+      ).toBe('false');
     } finally {
       vi.useRealTimers();
     }
@@ -261,23 +491,20 @@ describe('live badge QR (AC 14)', () => {
   });
 });
 
-describe('read-only display (Concept §10.1.4, DESIGN §4.11.4)', () => {
-  it('NO persona edit affordances remain on /profile — no edit buttons, editors live in /profile/settings', async () => {
+describe('read-only display (Concept §42.3, DESIGN §4.29.A/G.3)', () => {
+  it('NO persona edit affordances remain on /profile — no edit buttons, editing lives on /profile/edit', async () => {
     localStorage.setItem('bleak.interests', JSON.stringify({}));
     await renderPage();
-    // The badge-header persona edit button and the greeting edit controls
-    // are GONE from the profile page; the removed interests keys (§23.2
-    // 5.6) no longer exist at all.
-    expect(screen.queryByRole('button', { name: ru['profile.persona.edit'] })).toBeNull();
-    expect(screen.queryByRole('button', { name: ru['profile.greeting.edit'] })).toBeNull();
+    // The removed edit keys no longer exist at all (§23.2 5.6 + E.3).
     expect(ru['profile.interests.edit' as keyof typeof ru]).toBeUndefined();
     expect(ru['profile.interests.add' as keyof typeof ru]).toBeUndefined();
     // The persona is still displayed in full: greeting preview, bios,
     // interests title (read-only section labels, not edit affordances).
     expect(screen.getByText('Привет! Я про трамваи.')).toBeTruthy();
     expect(screen.getByText('Поттер из Питера')).toBeTruthy();
-    expect(screen.getByText(ru['profile.interests.title'])).toBeTruthy();
-    // The persona records the page renders NO editing api calls.
+    expect(screen.getAllByText(ru['profile.interests.title']).length).toBeGreaterThan(0);
+    // The page renders NO editing api calls.
+    expect(mockedApi.updateRoomUser).toBeUndefined();
     expect(mockedApi.getRoomUser).toHaveBeenCalled(); // badge poll only
   });
 
@@ -295,7 +522,7 @@ describe('read-only display (Concept §10.1.4, DESIGN §4.11.4)', () => {
   });
 });
 
-describe('persona 404 (AC 8)', () => {
+describe('persona 404 (AC 10)', () => {
   it('renders the not-found card and the exit clears identity', async () => {
     localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
     mockedApi.getRoomUser.mockRejectedValue(new ApiError(404, '/api/room/0xroom/user/0xme', 'user not found'));
@@ -306,7 +533,7 @@ describe('persona 404 (AC 8)', () => {
   });
 });
 
-describe('profile stats — exactly three (Concept §8.1.5, DESIGN §4.9.5)', () => {
+describe('profile stats — exactly three, above the tabs (AC 4; Concept §8.1.5)', () => {
   it('renders EXACTLY three stat tiles — Sent / Added you / Chatting — with the renamed RU labels', async () => {
     localStorage.setItem('bleak.mutualCode', JSON.stringify({ userAddress: ME, code: 'LIVE' }));
     mockedApi.listHandshakesOfUser.mockResolvedValue([
@@ -328,6 +555,12 @@ describe('profile stats — exactly three (Concept §8.1.5, DESIGN §4.9.5)', ()
     expect(screen.getByText(ru['profile.stats.dialogs_label'])).toBeTruthy(); // «В диалогах»
     expect(screen.queryByText('Хендшейки')).toBeNull();
     expect(screen.queryByText('Диалоги')).toBeNull();
+
+    // The stats row sits ABOVE the pill tabs in the DOM (A.5).
+    const card = container.querySelector('article');
+    const stats = card?.querySelector('.stats');
+    const tabs = card?.querySelector('[role="tablist"]');
+    expect(stats && tabs && (stats.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
   });
 
   it('EN parity: the same three tiles read Sent / Added you / Chatting', async () => {
@@ -411,7 +644,8 @@ describe('private-bio heading (Concept §10.1.3, DESIGN §4.11.3)', () => {
 describe('interests title margin (Concept §9.1.4, DESIGN §4.10.4)', () => {
   it('a clear vertical gap sits between the «Interests» title row and the interest chips — tokens only', async () => {
     await renderPage();
-    // The title row is present on the badge, directly followed by the chips.
+    // The title row is present on the interests panel, directly followed by
+    // the chips.
     expect(document.querySelector('.row-head .bio-label')?.textContent)
       .toBe(ru['profile.interests.title']);
     const source = readFileSync(
@@ -426,86 +660,17 @@ describe('interests title margin (Concept §9.1.4, DESIGN §4.10.4)', () => {
   });
 });
 
-describe('settings relocation (Concept §8.1.3, DESIGN §4.9.3)', () => {
-  it('the leave/rotate rows are GONE from /profile; a settings nav link renders instead (RU + EN)', async () => {
-    const { setLocale } = await import('../src/lib/i18n/locale');
-    const { en } = await import('../src/lib/i18n/en');
-    await renderPage();
-    // No settings rows remain on the profile page itself.
-    expect(screen.queryByRole('button', { name: ru['profile.rotate.row'] })).toBeNull();
-    expect(screen.queryByRole('button', { name: ru['profile.leave'] })).toBeNull();
-    expect(screen.queryByText(ru['common.locale'])).toBeNull();
-    // The affordance is a real link to the new sub-page (§2.6).
-    const link = screen.getByRole('link', { name: ru['profile.settings.title'] }) as HTMLAnchorElement;
-    expect(link.getAttribute('href')).toBe('/profile/settings');
-    // EN parity: the same link re-renders through the locale store.
-    setLocale('en');
-    await tick();
-    await tick();
-    expect(screen.getByRole('link', { name: en['profile.settings.title'] })).toBeTruthy();
-    setLocale('ru');
-    await tick();
-  });
-});
-
-describe('settings corner button (Concept §9.1.2, DESIGN §4.10.2)', () => {
-  it('a settings link sits in the page header top-right corner; the body-level row is absorbed', async () => {
-    const { container } = render(Page, { props: {} });
-    await waitFor(() => expect(mockedApi.getRoomUser).toHaveBeenCalled());
-    await tick();
-    await tick();
-
-    // The entry lives at the header level, above the content column.
-    const corner = container.querySelector('.header .settings-corner') as HTMLAnchorElement | null;
-    expect(corner).toBeTruthy();
-    expect(corner?.getAttribute('href')).toBe('/profile/settings');
-    expect(corner?.textContent).toContain(ru['profile.settings.title']);
-    // The body-level settings row from the relocation task is absorbed —
-    // exactly ONE settings entry point (no duplicate route/affordance).
-    expect(container.querySelector('.settings-row')).toBeNull();
-  });
-
-  it('EN parity: the corner label follows the locale', async () => {
-    await renderPage();
-    const { setLocale } = await import('../src/lib/i18n/locale');
-    const { en } = await import('../src/lib/i18n/en');
-    setLocale('en');
-    await tick();
-    await tick();
-    const corner = document.querySelector('.settings-corner') as HTMLAnchorElement | null;
-    expect(corner?.textContent).toContain(en['profile.settings.title']);
-    setLocale('ru');
-    await tick();
-  });
-
-  it('the corner button is styled like the other icon buttons — rounded square, tokens only', () => {
-    const source = readFileSync(
-      join(WEB_ROOT, 'src/routes/profile/+page.svelte'),
-      'utf8'
-    );
-    const block = source.match(/\.settings-corner\s*\{[\s\S]*?\}/)?.[0] ?? '';
-    expect(block).toContain('border-radius: var(--radius-md)');
-    expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b/); // tokens only, no raw hex
-    // Header-level flex placement (top-right, above the content column).
-    const header = source.match(/\.header\s*\{[\s\S]*?\}/)?.[0] ?? '';
-    expect(header).toContain('justify-content: space-between');
-  });
-});
-
 describe('phone full-screen form (Concept §12, DESIGN §4.12.1 item 5)', () => {
   /**
-   * v2.6: at phone widths (<720px) the /profile badge card becomes the
+   * §4.29.G.6: at phone widths (<720px) the /profile content becomes the
    * page — full width/height, no rounded floating chrome, no pixel-corner
    * clip. happy-dom evaluates no media queries, so the contract is the
-   * repo's established source-read pattern. Growth reason: new phone
-   * breakpoint behavior. The overrides live ONLY inside the
+   * repo's established source-read pattern — now split across the route
+   * (container + header + the not-found card) and the ProfileBadge card
+   * (the panel cards). The overrides live ONLY inside the
    * `max-width: 719px` query — desktop (min-width: 720px) is untouched.
    */
-  const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
-    ? process.cwd()
-    : join(process.cwd(), 'apps', 'web');
-
-  it('the badge card becomes the page at phone widths — full-bleed, no floating chrome', () => {
+  it('the route drops its container chrome at phone widths — full-bleed, tab-bar clearance stays', () => {
     const source = readFileSync(
       join(WEB_ROOT, 'src/routes/profile/+page.svelte'),
       'utf8'
@@ -519,22 +684,21 @@ describe('phone full-screen form (Concept §12, DESIGN §4.12.1 item 5)', () => 
       /\.profile-page\s*\{[^}]*padding:\s*0 0 calc\(var\(--bottom-tabbar-height\)/
     );
     expect(phone).toMatch(/\.header\s*\{[^}]*padding:\s*var\(--space-5\)/);
-    // The badge card loses the floating chrome and fills the viewport
-    // height; its --space-5 padding stays the content gutter.
     expect(phone).toMatch(/\.badge\s*\{[^}]*border-radius:\s*0/);
-    expect(phone).toMatch(/\.badge\s*\{[^}]*clip-path:\s*none/);
-    expect(phone).toMatch(/\.badge\s*\{[^}]*flex:\s*1/);
     // Tokens only (sweep discipline).
     expect(phone).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 
-  it('desktop is untouched: the overrides exist only inside the phone query', () => {
+  it('the ProfileBadge panel cards drop their floating chrome at phone widths; desktop is untouched', () => {
     const source = readFileSync(
-      join(WEB_ROOT, 'src/routes/profile/+page.svelte'),
+      join(WEB_ROOT, 'src/lib/components/profile/ProfileBadge.svelte'),
       'utf8'
     );
-    // The desktop block is intact.
-    expect(source).toMatch(/@media \(min-width:\s*720px\)/);
+    const match = source.match(/@media \(max-width:\s*719px\)\s*\{([\s\S]*)<\/style>/);
+    expect(match, 'phone (max-width: 719px) block not found').toBeTruthy();
+    const phone = match?.[1] ?? '';
+    expect(phone).toMatch(/\.card\s*\{[^}]*border-radius:\s*0/);
+    expect(phone).toMatch(/\.card\s*\{[^}]*clip-path:\s*none/);
     // Each chrome-dropping declaration appears exactly once — inside the
     // 719px query, never in the base (desktop) rules.
     for (const decl of ['border-radius: 0', 'clip-path: none']) {

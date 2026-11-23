@@ -26,7 +26,11 @@ export type IconName =
   | 'phone'
   | 'contact-card'
   | 'heart'
-  | 'contact-share';
+  | 'contact-share'
+  // v3.23 (DESIGN §4.29.D.2): the settings gear — the one new glyph of the
+  // profile redesign; same construction rules (16×16 grid, 2px weight,
+  // currentColor). Fallback per the design was the `edit` glyph.
+  | 'gear';
 
 /** Tab glyphs (§1.2) reference the same set. */
 export const TAB_ICONS = {
@@ -250,5 +254,22 @@ export const ICON_RECTS: Record<IconName, readonly Rect[]> = {
     [11, 1, 2, 2],
     [13, 0, 2, 2],
     [13, 2, 2, 2]
+  ],
+  // SETTINGS GEAR (DESIGN §4.29.D.2): a pixel gear — four cardinal teeth, a
+  // segmented ring and a center hub, drawn with currentColor.
+  gear: [
+    [7, 1, 2, 2],
+    [7, 13, 2, 2],
+    [1, 7, 2, 2],
+    [13, 7, 2, 2],
+    [6, 3, 4, 2],
+    [6, 11, 4, 2],
+    [3, 6, 2, 4],
+    [11, 6, 2, 4],
+    [5, 5, 2, 2],
+    [9, 5, 2, 2],
+    [5, 9, 2, 2],
+    [9, 9, 2, 2],
+    [7, 7, 2, 2]
   ]
 };

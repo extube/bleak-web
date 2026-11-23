@@ -250,10 +250,52 @@ describe('DESIGN §4.7 copy table coverage', () => {
   });
 });
 
-describe('v2.1 UI-polish round keys (DESIGN §4.8)', () => {
-  it('the settings-block heading exists in both dictionaries (Concept §7.1.6; retitled per §11.1.3)', () => {
-    expect(en['profile.settings.title']).toBe('My profile');
-    expect(ru['profile.settings.title']).toBe('Мой профиль');
+describe('v2.1 UI-polish round keys (DESIGN §4.8) — v3.23 value edits applied', () => {
+  it('the settings heading reads «Настройки» / "Settings" (DESIGN §4.29.E: the old «Мой профиль» value moved to /profile)', () => {
+    expect(en['profile.settings.title']).toBe('Settings');
+    expect(ru['profile.settings.title']).toBe('Настройки');
+    expect(en['profile.title']).toBe('My profile');
+    expect(ru['profile.title']).toBe('Мой профиль');
+  });
+});
+
+describe('v3.23 profile-redesign keys (DESIGN §4.29.E, Concept §42)', () => {
+  it('the 9 new keys exist in BOTH dictionaries (RU/EN parity)', () => {
+    for (const key of [
+      'profile.header.qr',
+      'profile.tab.about',
+      'profile.tab.interests',
+      'profile.tab.qr',
+      'profile.edit.title',
+      'profile.edit.row.name',
+      'profile.edit.row.public_bio',
+      'profile.edit.row.private_bio',
+      'profile.edit.save'
+    ] as const) {
+      expect(en[key]?.trim().length, `en missing "${key}"`).toBeGreaterThan(0);
+      expect(ru[key]?.trim().length, `ru missing "${key}"`).toBeGreaterThan(0);
+    }
+  });
+
+  it('the new keys carry the §4.29.E verbatim copy (RU is a design invention — I-rec 14)', () => {
+    expect(ru['profile.header.qr']).toBe('Показать QR-код');
+    expect(en['profile.header.qr']).toBe('Show QR code');
+    expect(ru['profile.tab.about']).toBe('Обо мне');
+    expect(en['profile.tab.about']).toBe('About');
+    expect(ru['profile.tab.interests']).toBe('Интересы');
+    expect(en['profile.tab.interests']).toBe('Interests');
+    expect(ru['profile.tab.qr']).toBe('QR-код');
+    expect(en['profile.tab.qr']).toBe('QR code');
+    expect(ru['profile.edit.title']).toBe('Редактировать профиль');
+    expect(en['profile.edit.title']).toBe('Edit profile');
+    expect(ru['profile.edit.row.name']).toBe('Имя');
+    expect(en['profile.edit.row.name']).toBe('Name');
+    expect(ru['profile.edit.row.public_bio']).toBe('О себе');
+    expect(en['profile.edit.row.public_bio']).toBe('About you');
+    expect(ru['profile.edit.row.private_bio']).toBe('Для агента');
+    expect(en['profile.edit.row.private_bio']).toBe('For your agent');
+    expect(ru['profile.edit.save']).toBe('Сохранить изменения');
+    expect(en['profile.edit.save']).toBe('Save changes');
   });
 });
 
@@ -400,16 +442,28 @@ describe('v2.5 copy sweep (Concept §11.1.3, DESIGN §4.12.3)', () => {
     }
   });
 
-  it('edit-screen titles drop the word "Edit" (values only — key names intact; §23.2 5.6 removed the interests row)', () => {
-    expect(en['profile.persona.edit']).toBe('Profile');
-    expect(ru['profile.persona.edit']).toBe('Профиль');
-    expect(en['profile.greeting.edit']).toBe('Greeting');
-    expect(ru['profile.greeting.edit']).toBe('Приветствие');
+  it('edit-screen titles drop the word "Edit" — superseded for /profile/edit only (DESIGN §4.29.G.8: the owner\'s reference names that screen; the retired editor keys are gone)', () => {
+    // §4.29.E.3: profile.persona.edit / profile.greeting.edit are RETIRED
+    // from BOTH dictionaries — the editors' h2s were replaced by the field
+    // labels of C.3 (profile.edit.row.*).
+    expect(en).not.toHaveProperty('profile.persona.edit');
+    expect(ru).not.toHaveProperty('profile.persona.edit');
+    expect(en).not.toHaveProperty('profile.greeting.edit');
+    expect(ru).not.toHaveProperty('profile.greeting.edit');
+    // The screen title the owner's reference names explicitly keeps "Edit".
+    expect(en['profile.edit.title']).toBe('Edit profile');
+    expect(ru['profile.edit.title']).toBe('Редактировать профиль');
   });
 
-  it('the persona section heading is retitled "My profile" / «Мой профиль» (owner change request)', () => {
-    expect(en['profile.settings.persona']).toBe('My profile');
-    expect(ru['profile.settings.persona']).toBe('Мой профиль');
+  it('the persona section heading is retitled to the settings title (the block became the entry row; §4.29.E value edits)', () => {
+    // §4.29.E.3: profile.settings.persona is RETIRED — the settings persona
+    // block became the ONE profile entry row → /profile/edit.
+    expect(en).not.toHaveProperty('profile.settings.persona');
+    expect(ru).not.toHaveProperty('profile.settings.persona');
+    // The §4.29.E value edits: /profile takes «Мой профиль»/"My profile";
+    // the settings h1 becomes «Настройки»/"Settings".
+    expect(en['profile.settings.title']).toBe('Settings');
+    expect(ru['profile.settings.title']).toBe('Настройки');
   });
 
   it('no user-visible "persona" / "персона" remains in any dictionary value', () => {

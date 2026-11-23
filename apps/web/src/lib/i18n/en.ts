@@ -230,7 +230,9 @@ export const en = {
   'chat.host_view': 'Host view',
 
   /* --- profile (DESIGN §3.6, §4.7) --- */
-  'profile.title': 'Profile',
+  // v3.23 (DESIGN §4.29.E): value edit — "My profile" is the /profile screen
+  // title now; the settings h1 becomes "Settings".
+  'profile.title': 'My profile',
   'profile.subtitle': 'Your profile in this room.',
   'profile.language.meta': 'Agent language: {language}',
   'profile.greeting.caption': "Opens each of your agent's new dialogs",
@@ -240,9 +242,10 @@ export const en = {
     'Remove the question marks — the greeting must not contain questions.',
   'profile.greeting.label': 'Greeting',
   'profile.greeting.counter': '{n}/255',
-  'profile.greeting.edit': 'Greeting',
   'profile.greeting.regenerate': 'Regenerate',
-  'profile.persona.edit': 'Profile',
+  // v3.23 (DESIGN §4.29.E.3): profile.persona.edit / profile.greeting.edit
+  // RETIRED — the editors' h2s are replaced by the field labels of C.3
+  // (profile.edit.row.*); the persona block became the settings entry row.
   'profile.badge.about': 'About',
   'profile.badge.for_agent': 'For your agent',
   'profile.private_bio.caption': 'only your agent sees this',
@@ -331,8 +334,19 @@ export const en = {
   'profile.qr.refreshed': 'QR refreshed',
   'profile.qr.aria': 'Your one-time handshake QR',
   'profile.saved': 'Saved',
-  'profile.settings.title': 'My profile',
-  'profile.settings.persona': 'My profile',
+  'profile.settings.title': 'Settings',
+  // v3.23 (DESIGN §4.29.E.3): profile.settings.persona RETIRED — the
+  // persona block became the ONE profile entry row → /profile/edit.
+  // v3.23 (DESIGN §4.29.E): new keys — the reference's header/tab/edit copy.
+  'profile.header.qr': 'Show QR code',
+  'profile.tab.about': 'About',
+  'profile.tab.interests': 'Interests',
+  'profile.tab.qr': 'QR code',
+  'profile.edit.title': 'Edit profile',
+  'profile.edit.row.name': 'Name',
+  'profile.edit.row.public_bio': 'About you',
+  'profile.edit.row.private_bio': 'For your agent',
+  'profile.edit.save': 'Save changes',
   'profile.leave': 'Leave the room',
   'profile.leave.confirm_body':
     'You will leave the event. Your token stays on this device — you can return any time via Return to event.',

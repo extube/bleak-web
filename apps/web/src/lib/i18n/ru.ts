@@ -229,7 +229,10 @@ export const ru: Record<MessageKey, string> = {
   'chat.host_view': 'Наблюдение хоста',
 
   /* --- profile --- */
-  'profile.title': 'Профиль',
+  // v3.23 (DESIGN §4.29.E): value edit — the screen title moves to the
+  // reference's first screen («Мой профиль»); the old value belongs to
+  // /profile's title, the settings h1 becomes «Настройки».
+  'profile.title': 'Мой профиль',
   'profile.subtitle': 'Ваш профиль в этой комнате.',
   'profile.language.meta': 'Язык агента: {language}',
   'profile.greeting.caption': 'Открывает каждый новый диалог агента',
@@ -239,9 +242,10 @@ export const ru: Record<MessageKey, string> = {
     'Уберите вопросительные знаки — приветствие не может содержать вопросов.',
   'profile.greeting.label': 'Приветствие',
   'profile.greeting.counter': '{n}/255',
-  'profile.greeting.edit': 'Приветствие',
   'profile.greeting.regenerate': 'Сгенерировать заново',
-  'profile.persona.edit': 'Профиль',
+  // v3.23 (DESIGN §4.29.E.3): profile.persona.edit / profile.greeting.edit
+  // RETIRED — the editors' h2s are replaced by the field labels of C.3
+  // (profile.edit.row.*); the persona block became the settings entry row.
   'profile.badge.about': 'О себе',
   'profile.badge.for_agent': 'Для агента',
   'profile.private_bio.caption': 'видно только вашему агенту',
@@ -330,8 +334,20 @@ export const ru: Record<MessageKey, string> = {
   'profile.qr.refreshed': 'QR обновлён',
   'profile.qr.aria': 'Ваш одноразовый QR для обмена рукопожатиями',
   'profile.saved': 'Сохранено',
-  'profile.settings.title': 'Мой профиль',
-  'profile.settings.persona': 'Мой профиль',
+  'profile.settings.title': 'Настройки',
+  // v3.23 (DESIGN §4.29.E.3): profile.settings.persona RETIRED — the
+  // persona block became the ONE profile entry row → /profile/edit.
+  // v3.23 (DESIGN §4.29.E): new keys — the reference's header/tab/edit copy.
+  // RU is a design invention for tone ratification (I-rec 14).
+  'profile.header.qr': 'Показать QR-код',
+  'profile.tab.about': 'Обо мне',
+  'profile.tab.interests': 'Интересы',
+  'profile.tab.qr': 'QR-код',
+  'profile.edit.title': 'Редактировать профиль',
+  'profile.edit.row.name': 'Имя',
+  'profile.edit.row.public_bio': 'О себе',
+  'profile.edit.row.private_bio': 'Для агента',
+  'profile.edit.save': 'Сохранить изменения',
   'profile.leave': 'Выйти из комнаты',
   'profile.leave.confirm_body':
     'Вы покинете событие. Токен останется на этом устройстве — вы сможете вернуться в любой момент через «Вернуться на событие».',
