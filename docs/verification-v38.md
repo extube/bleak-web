@@ -1,5 +1,60 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.24 ROUND NOTE (§42 scroll-triggered animations + card/width/icon
+> tweaks, Concept §42 of 2026-11-23 — appended by the process 2026-11-23,
+> post-round three-gate run GREEN: lint clean · 1012 tests total (49
+> api-client + 8 helper + 955 web, 52 files; landing suite 94) · build 0
+> errors, dev `16773a6`):**
+> **Landing adjusted per ALL 5 §42 items** (task 132, worker `9626632b`;
+> design-first — design instance `72f54529` wrote DESIGN **§4.30** —
+> NUMBERING DEVIATION: the caller's cited §4.29 was already claimed by the
+> PARALLEL profile-redesign rev, see below): (1) **scroll-reveal** — new
+> native utility `landing/reveal.ts` (one shared IntersectionObserver,
+> threshold 0.15 / rootMargin −48px, one-shot per unit + unobserve,
+> `transitionend` + 720ms-fallback cleanup stripping the class+attribute,
+> 60ms sibling stagger; hidden state ONLY under `data-reveal="armed"` in
+> base.css — opacity 0 + translateY(16px), 320ms steps(4,end)/ease-out;
+> reduced-motion OR missing IO ⇒ never armed ⇒ everything visible
+> immediately; no-JS safe by construction); the below-fold blocks reveal
+> on scroll (banner, 3 steps, sim, privacy, 4 use-case pills, join,
+> footer); the §37 first-viewport pair (lead + BLEAK) animates on LOAD;
+> (2) **Bleak card narrower** — desktop `max-width: 240px` centered in its
+> third (phone 100%); (3) **icons +50%** in every below-first-screen
+> block: flower 44/48→66/72, status dot 6→9px, step icons 32→48 (wrapper
+> 72), step art 48→72, privacy 48→72, use-case 40→60, sim avatars 64→96 —
+> negatives unchanged (lead/BLEAK art, join mascot, footer glyph,
+> step-num, ring); (4) **step cards → the Bleak card's background** —
+> `.step-body` now `var(--color-surface)` (byte-equal to the `.card`
+> fill), the §38 glass rgba(15,14,22,0.65)+blur(10) SUPERSEDED on those
+> cards (hover glow/lift/frame/pills/illustrations kept); (5) **phone
+> banner stacking** — the flower icon + "AI Agents active nearby" caption
+> moved ON TOP of the text; desktop row unchanged. i18n ZERO delta
+> (55/55); no new deps; tokens untouched; all §31–§41 contracts green.
+> **PARALLEL-TRACK COORDINATION (for concept):** a second process instance
+> (`2a7c5e22`, parent concept) ran the profile-redesign track (task 131,
+> worker `f6ab8db7`, design `0fd398c9` — DESIGN §4.29) in parallel; its
+> code sits ready-for-merge on `feature/f6ab8db7-profile-redesign` (4
+> commits, cut from this same dev base). Its UNCOMMITTED doc records
+> (Concept's second "§42 profile redesign" + DESIGN §4.29) were folded
+> into THIS landing's docs commit so they would not dangle — **Concept.md
+> now contains TWO sections numbered §42** (2026-11-23 scroll-animations =
+> mine; 2026-11-22 profile = theirs) — concept should renumber; and their
+> landing (their process) now carries pure code (the docs are already
+> in). The uncommitted §4.29 profile spec described in this file is
+> theirs and lands with this commit — their code may supersede it
+> operationally once merged.
+> Manual checks for the owner: the landing on phone + desktop (blocks
+> fade/rise in on scroll; the site still opens on lead + BLEAK only; the
+> BLEAK card visibly narrower; icons notably bigger below the first
+> screen; step cards match the BLEAK card's dark surface; the phone
+> banner stacks icon-over-text in BOTH locales), reduced-motion
+> (everything visible immediately, no reveal).
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/9626632b-tz12-13-scroll-reveal-tweaks` (13 branches total);
+> owner refs stay untracked.
+
 > **v3.22.1 ROUND NOTE (§41 lead text color + copy changes, Concept §41 —
 > appended by the process 2026-11-22, post-round three-gate run GREEN:
 > lint clean · 1000 tests total (49 api-client + 8 helper + 943 web, 52
