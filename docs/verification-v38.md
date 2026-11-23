@@ -1,5 +1,47 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.31 ROUND NOTE (Concept §49 auto-handshake opt-out — `active` flag on
+> the profile surface — appended by the process 2026-11-23, post-round
+> three-gate run GREEN: lint clean · 1093 tests total (52 api-client + 8
+> helper + 1033 web, 54 files) · svelte-check 0 errors (10 pre-existing
+> `state_referenced_locally` warnings in untouched files), dev `632cf8d`):**
+> **The `active` flag is delivered end-to-end** (task 140, worker
+> `00210962`, design `13b68a65`, process `be0754c2`; branch
+> `feature/00210962-auto-handshake-opt-out` — 3 worker commits squashed to
+> ONE landing commit dev `632cf8d`; concept's §49 brief carried
+> pre-approved landing, lean protocol per §22.2). **Order of work per the
+> brief:** (1) api-client FIRST — `types.ts`: `User` gains required
+> `active: boolean` (swagger `model.User`, verbatim description),
+> `UpdateUserRequest` gains optional `active?: boolean` (omitted keeps the
+> flag); `updateRoomUser` untouched — a toggle PUT carries ONLY
+> `{active}` (omitted-fields semantics tested); existing `User` fixtures
+> gained `active: true` mechanically (21 web test files). (2) `/profile`
+> indicator — muted 14px status line in the identity block (§4.29.A.4)
+> under the language meta: "Auto-handshake: on/off" /
+> «Авто-рукопожатия: вкл./выкл.», rendered from server truth (existing
+> token-gated `getRoomUser`; both true/false render; non-interactive).
+> (3) `/profile/settings` toggle — FIRST row of Block 2: adopted wording
+> EN "Automatically send handshake" / RU «Отправлять рукопожатия
+> автоматически» verbatim, native `<input type="checkbox" role="switch">`
+> pill in a 48px target, optimistic + revert-on-error (in-flight
+> disabled, `role="alert"` inline error, 401 → §2.8 gate), no «Saved»
+> flash, no fake default (seeded from the mount fetch). (4) DESIGN
+> **§4.35** written design-first with the dated §4.29 supersession record
+> (B.2 "no toggle rows", H.17, I-rec 4/7) — the first real toggle-backed
+> setting; i18n delta exactly +4 keys, RU/EN parity CI-enforced.
+> **Untouched (verified green):** the §4.29.A–C profile contracts beyond
+> the two additions, the §30 form shells, all v38 landing/join contracts.
+> Manual checks for the owner: on a real device, `/profile` shows the
+> auto-handshake line matching the server flag; the settings toggle flips
+> it, the PUT persists across reload; a killed network mid-toggle shows
+> the inline error and the switch snaps back to server truth.
+> Housekeeping (DISCLOSED): `git branch -d` refused on the squash-landed
+> branch and `-D` is outside process permissions —
+> `feature/00210962-auto-handshake-opt-out` joins the devops `-D` cleanup
+> list (9 branches total); the landing commit was pathspec-scoped (only
+> the 30 touched files + the two session records — the uncommitted owner
+> edit to `docs/Concept.md` §49 was deliberately left unstaged).
+
 > **v3.30 ROUND NOTE (§48 owner bug batch — 6-digit auto-advance + entry-flow
 > routes, Concept §48 — appended by the process 2026-11-23, post-round
 > three-gate run GREEN: lint clean · 1073 tests total (49 api-client + 8
