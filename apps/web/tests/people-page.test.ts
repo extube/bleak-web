@@ -15,7 +15,10 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
+import { readFileSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import { ApiError, NetworkError, type Chat, type Handshake, type User } from '@bleak/api-client';
+import { goto } from '$app/navigation';
 import { chatsUnseen, markChatsSeen } from '../src/lib/stores/chatsSeen';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
@@ -626,5 +629,180 @@ describe('relationships module contract (TZ-02)', () => {
     expect(map.get('0xa')?.state).toBe('incoming');
     expect(map.get('0xb')?.state).toBe('none');
     expect(map.has(ME)).toBe(false);
+  });
+});
+
+// Raw .svelte/.css source helper for source-level CSS assertions (the
+// creation-wizard suite pattern — component styles are scoped, so the
+// compiled DOM cannot carry them).
+const WEB_ROOT = process.cwd().endsWith(sep + 'apps' + sep + 'web')
+  ? process.cwd()
+  : join(process.cwd(), 'apps', 'web');
+function source(relativePath: string): string {
+  return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
+}
+
+describe('/people — §4.37 searching new contacts badge (Concept §51)', () => {
+  it('renders FIRST in ul.cards when the SELF roster entry is active=true — PersonCard footprint, spinner + muted title; absent when active=false (AC 1)', async () => {
+    fixture.users = [person('0xa', 'Алиса', 10), { ...person(ME, 'Я', 20) }];
+    await renderPage();
+
+    const list = document.querySelector('ul.cards') as HTMLElement;
+    const badge = list.querySelector(':scope > .searching-badge') as HTMLElement;
+    expect(badge).toBeTruthy();
+    // §4.37.B: the first visual entry of the card list — above every
+    // PersonCard, pinned first in DOM order
+    expect(list.firstElementChild).toBe(badge);
+    const firstCard = list.querySelector('.person-card');
+    expect(firstCard).toBeTruthy();
+    expect(badge.compareDocumentPosition(firstCard as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
+    // the §3.3 card family footprint marker; token-level CSS below
+    expect(badge.classList.contains('pixel-corners')).toBe(true);
+    // content: the §4.13.4 loader (aria-hidden) + the muted title
+    const loader = badge.querySelector('.loader') as HTMLElement;
+    expect(loader).toBeTruthy();
+    expect(loader.getAttribute('aria-hidden')).toBe('true');
+    expect(badge.querySelector('.title')?.textContent).toBe(ru['people.searching']);
+    // NOT a user: the badge's ONLY text is the title — no self name, no
+    // real user data, no avatar
+    expect(badge.textContent?.trim()).toBe(ru['people.searching']);
+
+    // the same roster with active: false → NO badge; the card list itself
+    // is untouched (§4.37.A: self entry absent or active: false → absent)
+    cleanup();
+    fixture.users = [person('0xa', 'Алиса', 10), { ...person(ME, 'Я', 20), active: false }];
+    await renderPage();
+    expect(document.querySelector('.searching-badge')).toBeNull();
+    expect(document.querySelectorAll('.person-card')).toHaveLength(1);
+  });
+
+  it('is absent while the self entry is absent from the roster and during the initial skeleton state (AC 2)', async () => {
+    // no self entry in the roster → no badge (every pre-existing fixture
+    // stays green unchanged — no false badge)
+    fixture.users = [person('0xa', 'Алиса', 10)];
+    await renderPage();
+    expect(document.querySelector('.searching-badge')).toBeNull();
+
+    // initial skeleton: the badge is ABSENT — the skeleton branch replaces
+    // the list and `active` is not reliably present before the first tick;
+    // no separate skeleton node (§4.37.C)
+    cleanup();
+    let resolveUsers: ((users: User[]) => void) | undefined;
+    mockedApi.listRoomUsers.mockImplementation(
+      () => new Promise<User[]>((resolve) => (resolveUsers = resolve))
+    );
+    render(Page, { props: {} });
+    expect(document.querySelectorAll('.skeleton-card')).toHaveLength(3);
+    expect(document.querySelector('.searching-badge')).toBeNull();
+    // first tick lands (self entry active: true) → the badge follows the flag
+    fixture.users = [person('0xa', 'Алиса', 1), { ...person(ME, 'Я', 2) }];
+    resolveUsers?.(structuredClone(fixture.users));
+    await waitFor(() => expect(document.querySelector('.searching-badge')).toBeTruthy());
+    expect(document.querySelectorAll('.skeleton-card')).toHaveLength(0);
+  });
+
+  it('stays pinned first under a matching search; the empty-search and empty-room states render WITHOUT the badge (§4.37.C, AC 5)', async () => {
+    fixture.users = [
+      person('0xa', 'Алиса', 10, 'Поттер из Питера'),
+      person('0xb', 'Борис', 2, 'Трамвайщик'),
+      { ...person(ME, 'Я', 20) }
+    ];
+    await renderPage();
+
+    const badgeIndex = () => {
+      const list = document.querySelector('ul.cards') as HTMLElement;
+      return Array.from(list.children).indexOf(list.querySelector('.searching-badge') as Element);
+    };
+    expect(badgeIndex()).toBe(0);
+
+    // a query that still matches users: the badge is NEVER filtered out,
+    // NEVER reordered (§4.37.C — a SYSTEM state ignores the search)
+    const input = screen.getByLabelText(ru['people.search.label']) as HTMLInputElement;
+    input.value = 'поттер';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await waitFor(() => expect(screen.queryByText('Борис')).toBeNull());
+    expect(screen.getByText('Алиса')).toBeTruthy();
+    expect(document.querySelector('.searching-badge')).toBeTruthy();
+    expect(badgeIndex()).toBe(0);
+
+    // a query matching nobody → the empty-search branch REPLACES the <ul>
+    // (the badge's single render site) → no badge
+    input.value = 'хоккей';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await waitFor(() =>
+      expect(screen.getByText(ru['people.empty_search'].replace('{q}', 'хоккей'))).toBeTruthy()
+    );
+    expect(document.querySelector('.searching-badge')).toBeNull();
+
+    // the empty-room state likewise renders without the badge (§4.37.G.2)
+    cleanup();
+    fixture.users = [{ ...person(ME, 'Я', 1) }];
+    await renderPage();
+    expect(screen.getByText(ru['people.empty'])).toBeTruthy();
+    expect(document.querySelector('.searching-badge')).toBeNull();
+  });
+
+  it('is NOT a user entry: no button/link/role=button/tabindex, no navigation on tap; the spinner is aria-hidden and the title is the only announced text (AC 4)', async () => {
+    fixture.users = [person('0xa', 'Алиса', 10), { ...person(ME, 'Я', 20) }];
+    await renderPage();
+
+    const badge = document.querySelector('.searching-badge') as HTMLElement;
+    // non-interactive guarantees (§4.37.A): focus is never involved, it
+    // never navigates, no PersonCard behavior of any kind
+    expect(badge.querySelector('button, a, [role="button"], [tabindex]')).toBeNull();
+    expect(badge.querySelector('.chip, .expanded-actions, .action')).toBeNull();
+    expect(badge.querySelector('.row[role="button"]')).toBeNull();
+    // the spinner is decoration; the visible title is the only announced text
+    expect(badge.querySelector('.loader')?.getAttribute('aria-hidden')).toBe('true');
+    expect(badge.textContent?.trim()).toBe(ru['people.searching']);
+
+    // tapping the full-width row does NOTHING (goto is the app-wide nav seam)
+    await badge.click();
+    await tick();
+    expect(goto).not.toHaveBeenCalled();
+  });
+
+  it('footprint + loader are token/source-level exact (§4.37.A, AC 6–7): PersonCard tokens, 56px slot, 16px §4.13.4 ring, transform-only rotation; reduced motion = the base.css catch-all, no cursor: pointer', () => {
+    const css = source('src/lib/components/people/SearchingBadge.svelte');
+
+    // the root is the first-<li> badge with pixel-corners (§4.37.B)
+    expect(css).toMatch(/<li class="searching-badge pixel-corners">/);
+    // the .person-card footprint (§4.37.F item 6 — tokens only)
+    expect(css).toMatch(/\.searching-badge\s*\{[^}]*background:\s*var\(--color-surface\)/);
+    expect(css).toMatch(/\.searching-badge\s*\{[^}]*border-radius:\s*var\(--radius-md\)/);
+    expect(css).toMatch(/\.searching-badge\s*\{[^}]*padding:\s*var\(--space-4\)/);
+    // the 56px PixelAvatar slot — loader centered in it
+    expect(css).toMatch(/\.slot\s*\{[^}]*width:\s*56px/);
+    expect(css).toMatch(/\.slot\s*\{[^}]*height:\s*56px/);
+    // the §4.13.4 construction at the §3.1 .spinner standard 16px (AC 7)
+    expect(css).toMatch(/<span class="loader" aria-hidden="true"><\/span>/);
+    expect(css).toMatch(/\.loader\s*\{[^}]*width:\s*16px/);
+    expect(css).toMatch(/\.loader\s*\{[^}]*height:\s*16px/);
+    expect(css).toMatch(/\.loader\s*\{[^}]*border-radius:\s*50%/);
+    expect(css).toMatch(/\.loader\s*\{[^}]*border:\s*2px solid var\(--color-text-muted\)/);
+    expect(css).toMatch(/\.loader\s*\{[^}]*border-top-color:\s*transparent/);
+    expect(css).toMatch(/\.loader\s*\{[^}]*animation:\s*loader-spin 0\.9s linear infinite/);
+    // transform-only rotation (§4.6)
+    expect(css).toMatch(/@keyframes loader-spin\s*\{[^@]*transform:\s*rotate\(360deg\)/);
+    // the muted title — the .name family in --color-text-muted (§4.37.A)
+    expect(css).toMatch(/\.title\s*\{[^}]*font-size:\s*16px/);
+    expect(css).toMatch(/\.title\s*\{[^}]*font-weight:\s*600/);
+    expect(css).toMatch(/\.title\s*\{[^}]*color:\s*var\(--color-text-muted\)/);
+
+    // NOT clickable even though the row width equals a tappable PersonCard's;
+    // reduced motion: NO component-scoped @media — the base.css catch-all
+    // freezes the ring as a static circle (§4.37.D; asserted source-level
+    // like §4.36.D.4). Comments are excluded (the sweep precedent — naming
+    // a rule in prose is allowed; actual styles are not).
+    const stylesOnly = css
+      .slice(css.indexOf('<style>'))
+      .replaceAll(/\/\*[\s\S]*?\*\//g, '');
+    expect(stylesOnly).not.toMatch(/cursor:\s*pointer/);
+    expect(stylesOnly).not.toMatch(/prefers-reduced-motion/);
+    const base = source('src/lib/styles/base.css');
+    expect(base).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
+    expect(base).toMatch(/animation-duration:\s*0\.01ms\s*!important/);
   });
 });

@@ -161,6 +161,9 @@ export const ru: Record<MessageKey, string> = {
   // чат» (ведёт в существующий диалог, как убранная иконка).
   'people.action.back': 'Привет!',
   'people.action.open_chat': 'Открыть чат',
+  // §4.37 (Concept §51): заголовок системного бейджа «ищу новые контакты»
+  // на /people (состояние авто-маткинга — не пользователь).
+  'people.searching': 'Поиск новых контактов',
 
   /* --- chats --- */
   'chats.title': 'Диалоги',

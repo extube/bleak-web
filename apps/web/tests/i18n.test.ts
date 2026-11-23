@@ -340,6 +340,24 @@ describe('§4.35.E auto-handshake keys (Concept §49, DESIGN §4.35.E)', () => {
   });
 });
 
+describe('§4.37.E searching-badge key (Concept §51, DESIGN §4.37.E)', () => {
+  it('exactly the one §4.37.E key exists in BOTH dictionaries (RU/EN parity)', () => {
+    // The only `people.searching*` key in either dictionary — no value edits,
+    // no retired keys, no reuse-of-convenience (net +1 per dictionary).
+    for (const dict of [en, ru]) {
+      expect(Object.keys(dict).filter((k) => k.startsWith('people.searching'))).toEqual([
+        'people.searching'
+      ]);
+      expect(dict['people.searching']?.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('the key carries the verbatim concept-adopted copy (owner, 2026-11-23)', () => {
+    expect(en['people.searching']).toBe('Searching new contacts');
+    expect(ru['people.searching']).toBe('Поиск новых контактов');
+  });
+});
+
 describe('§4.13.3 contact-share keys (Concept §13.1.3, DESIGN §4.13.3)', () => {
   it('the slide and contact-card field copy exist in BOTH dictionaries (RU/EN parity)', () => {
     for (const key of [

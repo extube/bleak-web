@@ -11068,6 +11068,256 @@ Tokens only; no new glyph, dependency or palette value.
 4. **ADVICE NEEDED — none blocking:** all three fixes are fully
    specified above; no dependency, glyph or palette decision is open.
 
+### 4.37 feature amendment (2026-11-23, owner-approved Concept §51): "searching new contacts" badge on /people
+
+Concept §51 (owner, 2026-11-23): on the `/people` page, add a **badge
+above all users**, styled in the **same style family and dimensions as a
+user item**, containing a **loading-circle (spinner) animation** and the
+title **"Searching new contacts"** / «Поиск новых контактов»
+(concept-adopted wording, verbatim). The badge is shown when **the user
+is active** — the §49 `active` flag (the auto-matchmaking worker is
+running for this persona; §4.35 lineage: `model.User.active`, required,
+serialized always, `true` by default). It is a **system state, not a
+user**: no navigation, no PersonCard behavior, no relationship data.
+
+Grounded in the live code (read-only audit, 2026-11-23):
+`apps/web/src/routes/people/+page.svelte` — the 4 s poller trio
+(`pollTick` lines 66–82; `api.listRoomUsers(id.roomAddress)` line 70;
+`Poller intervalMs: 4000` line 101) already returns the **self** `User`
+entry in `users` (the `cards` derived filters it out at line 144 —
+`user.address !== me.userAddress` — proving self is in the roster), and
+the persona address is already on the page (`me = $derived($identity)`,
+line 127; `me.userAddress` lines 129/135/144). `packages/api-client/src/types.ts`
+line 33: `active: boolean` — REQUIRED (the §4.35.A deliverable, already
+merged). `apps/web/src/lib/components/people/PersonCard.svelte` — the
+user-item footprint this badge copies: `li.person-card.pixel-corners`
+(line 112), `.person-card` surface/`--radius-md`/`padding: var(--space-4)`
+(lines 203–211), `.row` 56px `PixelAvatar` + main + right meta
+(line 114, lines 212–217), name 16px/600 (lines 235–240), bio 14px muted
+(lines 241–248). Spinner precedents: the §4.13.4 unfinished-dialog
+circular loader — `apps/web/src/lib/components/chats/ChatCard.svelte`
+lines 304–322 (`.loader`: border ring with a transparent top arc,
+`--color-text-muted`, transform-only rotation 0.9s linear infinite;
+DESIGN line ~2165) — and the §3.1 CTA `.spinner` convention (16px ring,
+component-scoped: `profile/edit/+page.svelte` lines 412–424,
+`LiveRoom.svelte` 361–368, `InviteManager.svelte` 313–321). Reduced
+motion: the `base.css` catch-all (lines 57–68) freezes every animation
+under `prefers-reduced-motion: reduce`. Dictionaries: the `people.*`
+block (`en.ts`/`ru.ts` lines 149–163). Test seams:
+`tests/people-page.test.ts` mocks `#lib/api/client` (line 27,
+`listRoomUsers` line 29) and its `person()` fixture already carries
+`active: true` (line 62); `tests/i18n.test.ts` asserts RU/EN key-set
+equality (lines 15–19) and the §4.7 table count (94, line 206), with the
+dedicated-describe precedent for amendment keys (§4.35.E describe,
+line 311). Scope: `/people` page + its new component + the two
+dictionaries only; RU/EN parity; no new deps; existing suites green.
+
+**Live-contract note (binding):** §3.3's filter-chips row is RETIRED in
+the live app (v3.6, Concept §19.2 — the page header comment
+`+page.svelte` lines 3–6; `people.filter.*` keys retired,
+`i18n.test.ts` lines 155–157 and 564–575). The live list is search +
+the deterministic relationship-bucket sort (§4.15.4.2/4.15.4.3). This
+amendment binds to the LIVE contract; "above all users" means above the
+`PersonCard` stack.
+
+#### 4.37.A Anatomy (condition, data path, spinner, title, geometry)
+
+**Condition — server state only, no new fetch.** A page-level derived
+reads the SELF entry out of the ALREADY-POLLED `users` array — the entry
+whose `address` equals `me.userAddress` (the same entry the `cards`
+derived already excludes at line 144) — and takes its `active` boolean.
+The badge renders when the self entry EXISTS in `users` (not
+`deleted_at`-flagged, matching the count derivations' guard, lines
+132–138) AND `active === true` AND the initial load has completed
+(`loading === false` — the same moment the skeleton retires). Self entry
+absent or `active: false` → the badge is absent. **NO new endpoint call,
+no new poller, no mocks, no local-only state** — the field arrives
+inside the existing 4 s `listRoomUsers` response (§4.35.B precedent:
+server value only). A toggle flip on `/profile/settings` (§4.35.C PUT)
+propagates on the next poll tick, in place, without reordering the list.
+
+**Component.** New presentational component
+`apps/web/src/lib/components/people/SearchingBadge.svelte` (colocated
+with `PersonCard.svelte`; roots on a `<li>` exactly as PersonCard does;
+renders `$locale` copy; no props beyond the locale machinery). It is NOT
+part of the `cards` derived array, `sortedPeople`, `matchesQuery`,
+dismissals or relationships — pure markup as the first child of the
+`.cards` list.
+
+**Markup/CSS spec (tokens only; no new token, glyph or dependency):**
+
+| Element | Spec (mirrors PersonCard) |
+| --- | --- |
+| Root | `<li class="searching-badge pixel-corners">` — `background: var(--color-surface)`, `border-radius: var(--radius-md)`, `padding: var(--space-4)` (the `.person-card` footprint, PersonCard lines 203–211); `pixel-corners` per the §3.3 card family |
+| Row | flex, `align-items: center`, `gap: var(--space-3)` (the `.row`, lines 212–217) |
+| Left slot | a 56px square slot (the `PixelAvatar size={56}` slot, line 114) — NO avatar, NO placeholder box; a 16px spinner centered in it |
+| Spinner | `<span class="loader" aria-hidden="true"></span>` — the §4.13.4 construction (ChatCard lines 309–322): `border-radius: 50%`, `border: 2px solid var(--color-text-muted)`, transparent top arc, `animation: loader-spin 0.9s linear infinite`, transform-only rotation (§4.6) — at the §3.1 `.spinner` standard 16px diameter (component-scoped, the standing pattern) |
+| Title | `<p class="title">` — 16px, font-weight 600 (the `.name` family, lines 235–240) in `--color-text-muted`: the "muted/secondary styling" the Concept allows, so the row reads as a system state, not a user. Text = `translate($locale, 'people.searching')` — EN **"Searching new contacts"** / RU **«Поиск новых контактов»** (verbatim, Concept §51) |
+| Right column | none — no pill, no timestamp (a system row has no relationship state and no `created_at` story) |
+
+**Non-interactive guarantees (NOT a user):** no button, no link, no
+`role="button"`, no `tabindex`, no tap handler, no expand panel, no
+per-card error, no dismissal semantics; it never navigates. Focus is
+never involved. The badge is not clickable even though the row width
+equals a tappable incoming PersonCard's — no `cursor: pointer`.
+
+#### 4.37.B Placement rules — DECIDED: the first `<li>` of the `.cards` list
+
+The badge is the **first visual entry of the card list**, directly above
+every `PersonCard` — NOT above the header or the search control.
+
+- **Rationale (Concept §51 item 2):** "the same dimensions as a user
+  item (same footprint as the entries it sits above)" can only hold if
+  the badge lives IN the list container. At `<720px` the `.cards` list is
+  a stacked flex column with `gap: var(--space-3)` (= 12px, §3.3; tokens
+  line 125) — the badge is a full-width entry with a 12px gap to the
+  first card, identical margins to a PersonCard. At `≥720px` the list
+  becomes the two-column grid `repeat(auto-fill, minmax(360px, 1fr))`
+  (`+page.svelte` lines 403–411) — the badge becomes the **first grid
+  item**, occupying ONE cell at exactly a PersonCard's column width. A
+  badge hoisted ABOVE the `<ul>` would render as a full-width banner in
+  the grid layout — a different footprint from the entries it sits
+  above — which the Concept rules out.
+- **"Above all users" is literal:** above all USER entries. The badge is
+  pinned first — it never participates in the bucket sort, never
+  reorders on poll (§3.3 item 4 stands; poll diffing via `mergeRoster`
+  mutates cards in place and never touches the badge), and is never
+  filtered out by the search (A/C decisions below).
+- **No interference with list mechanics:** the §4.15.4.3 auto-open reads
+  `cards[0]` of the DERIVED array (page lines 170–180), not DOM position
+  — the badge does not shift it. The `memberCount`/`otherCount`
+  derivations, dismissals map and handshake actions are untouched.
+
+#### 4.37.C States and search/filter interaction — DECIDED
+
+- **Filter/search independence (the recorded rule):** the badge reflects
+  a SYSTEM state and never respects filters or the search query — inside
+  the card-list branch it is always first, regardless of what the query
+  filters or how the buckets sort. Filter chips are retired (v3.6), so
+  the question is moot in the live app; the standing rule if chips ever
+  return: the badge does NOT respect them.
+- **Page states (§3.3 states as amended):**
+  - *Initial loading (skeleton, page lines 261–274):* the badge is
+    ABSENT — the skeleton branch replaces the list and the `active`
+    value is not reliably present before the first tick; no separate
+    skeleton node is added for the badge.
+  - *Empty room (lines 275–276) and empty search (lines 277–281):* the
+    badge is ABSENT — these branches replace the `<ul>`, and the badge's
+    single render site is the list. The EmptyState treatments stand
+    alone (flagged in 4.37.G.2).
+  - *Error:* `ErrorBanner` renders above the controls; the list stays
+    visible and dimmed (`.cards.dimmed`, lines 369–371) — the badge dims
+    with the list (it is inside it); no separate error treatment.
+  - *Recovery:* nothing special — the next successful tick un-dims and
+    the badge follows the (unchanged) flag.
+- **Transitions:** flag flips are reflected on the poll tick that
+  delivers them; the badge appears/disappears as a plain list child — no
+  entrance animation beyond the §4.6 transform/opacity allowances, no
+  live region (it is a persistent ambient state, not an async
+  announcement — §4.35.B precedent).
+
+#### 4.37.D Reduced-motion fallback
+
+Under `prefers-reduced-motion: reduce` the `base.css` catch-all
+(lines 57–68: `animation-duration: 0.01ms !important;
+animation-iteration-count: 1 !important`) completes the rotation
+instantly — the ring freezes as a **static circle** (the transparent top
+arc stays as a fixed gap). This is the standing fallback pattern
+(§3.8/§4.13.4/§4.15.3 rely on the same catch-all; SkeletonBlock and the
+radar cite it). No component-scoped `@media` block is added for the
+badge.
+
+#### 4.37.E i18n delta (both dictionaries; RU/EN parity CI-enforced)
+
+**New keys: exactly ONE.** The wording is the concept-adopted pair
+(Concept §51 / owner, 2026-11-23 — verbatim, no design invention):
+
+| Key | RU | EN |
+| --- | --- | --- |
+| `people.searching` | «Поиск новых контактов» | "Searching new contacts" |
+
+The key follows the flat `people.*` naming convention (`people.empty`,
+`people.reset`, `people.dismiss` — `en.ts`/`ru.ts` lines 149–163) and
+slots into that block with a `§4.37` comment. **No value edits, no
+retired keys, no reuse-of-convenience.** Net per dictionary: **+1**. The
+`ru`/`en` key-set equality test (i18n.test.ts lines 15–19) covers parity
+automatically; the §4.7 `DESIGN_4_7_KEYS` table (94, line 206) is NOT
+extended — per the §4.35.E precedent, the key is asserted verbatim in a
+small dedicated `describe` (both locales, exact strings).
+
+#### 4.37.F Acceptance criteria (checkable)
+
+web — `/people` badge:
+
+1. Via the established mocked-fetch seam (`vi.mock('#lib/api/client')`,
+   `listRoomUsers` — NOT a UI mock): a roster containing the SELF user
+   (`address === identity.userAddress`) with `active: true` renders the
+   badge; the same fixture with `active: false` renders NO badge; BOTH
+   asserted in the people-page suite.
+2. The badge is absent while the self entry is absent from the roster
+   (every existing people-page fixture stays green unchanged — no false
+   badge), and absent during the initial skeleton state.
+3. The badge renders as the FIRST `<li>` inside `ul.cards`, before every
+   `PersonCard`; it is NOT an element of the `cards` derived array (the
+   `cards[0]` auto-open logic, bucket sort, search filtering, dismissal
+   and diffing behaviors are untouched — existing assertions stay
+   green).
+4. The badge DOM contains no button, link, `role="button"` or
+   `tabindex` — it is not clickable and never navigates; the spinner
+   span is `aria-hidden="true"`; the visible title is the only announced
+   text.
+5. With `active: true` and a non-empty search query that still matches
+   users, the badge stays pinned first (never filtered out, never
+   reordered); with a query matching nobody, the empty-search state
+   renders WITHOUT the badge (single render site — the empty-room state
+   likewise).
+6. The badge footprint matches a PersonCard: `--color-surface`
+   background, `--radius-md`, `padding: var(--space-4)`, `pixel-corners`
+   corners, a 56px left slot, the 12px (`--space-3`) list gap unchanged;
+   at `≥720px` the badge occupies ONE cell of the two-column
+   `minmax(360px, 1fr)` grid (never a full-width banner).
+7. The spinner is a border ring with a transparent top arc,
+   `--color-text-muted`, transform-only rotation, 0.9s linear infinite;
+   under `prefers-reduced-motion: reduce` it renders static (the
+   base.css catch-all; asserted source-level like §4.36.D.4).
+8. The title reads exactly EN "Searching new contacts" / RU «Поиск
+   новых контактов» per locale — verbatim assertions in the new i18n
+   describe.
+
+cross-cutting:
+
+9. Exactly the one §4.37.E key is added to BOTH dictionaries; the
+   `ru`/`en` key-set equality test and the §4.7 94-key count stay green;
+   `i18n`, `people-page`, `people-view` and `sweep` suites stay green;
+   `make lint && make test && make build` green.
+10. No new dependency, no new glyph, no new token/palette value; changes
+    confined to `apps/web/src/routes/people/+page.svelte`, the new
+    `SearchingBadge.svelte`, `en.ts`/`ru.ts` and their suites.
+
+#### 4.37.G Flags for the owner / concept (design report)
+
+1. **DESIGN NOTE — placement inside the list (§4.37.B):** the badge is
+   the first `<li>`/grid cell of the card list rather than a full-width
+   element above the list — the only structure that keeps "same
+   dimensions as a user item" true in the ≥720px two-column grid;
+   reversible one-liner if the owner prefers a banner treatment.
+2. **DESIGN NOTE — empty states without the badge (§4.37.C):** the
+   skeleton, empty-room and empty-search branches render without the
+   badge (single render site, the page's state machine untouched). If
+   the owner wants the badge above the empty-room EmptyState — the
+   "room is empty, but the worker is still searching for you" moment —
+   it is a small follow-up adding a second render site.
+3. **DESIGN NOTE — spinner size and tone (§4.37.A):** 16px (the app's
+   standard `.spinner` diameter) in the §4.13.4 muted construction,
+   centered in the otherwise empty 56px avatar slot; the title is muted
+   16px/600. Alternatives (14px ChatCard size, a larger slot-filling
+   ring, `--color-text` title) are one-value changes.
+4. **Copy:** EN/RU verbatim per the concept-adopted pair — nothing to
+   ratify (unlike §4.35.E's tone keys).
+5. **ADVICE NEEDED — none blocking:** the condition, data path,
+   anatomy, placement, states and copy are fully specified above; no
+   dependency, glyph or palette decision is open.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)
