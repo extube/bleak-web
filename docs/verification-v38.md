@@ -1,5 +1,51 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.25 ROUND NOTE (§44 wider lead + unified card borders + route param
+> rename, Concept §44 — appended by the process 2026-11-23, post-round
+> three-gate run GREEN: lint clean · 1013 tests total (49 api-client + 8
+> helper + 956 web, 55 files) · build 0 errors, dev `84e7e7f`):**
+> **Landing adjusted per ALL 3 §44 items** (task 133, worker `bbf8e50d`;
+> design-first — design instance `6ce29032` wrote DESIGN §4.31): (1)
+> **hero rework** — ≥960px: two-column `1.2fr 1fr` (lead col 1 ≈489px
+> @1280 / ≈348px @960 — the empty middle third retires; the agent card's
+> 240px cap carries), <960px: ONE centered column — lead centered, BLEAK
+> below (the 720px hero breakpoint superseded; the 100dvh + centering now
+> live on `.stage` at every width; the §37 open-state re-verified at 800 —
+> ~712px content fits); all other blocks' 720px rules stand; (2) **step
+> cards 01/02/03 borders unified** — ROOT CAUSE found: no per-card
+> divergence existed; the thick white bottom block on 01/03 was a
+> GRID-STRETCH LEAK (the desktop grid stretched the `li`s while
+> `.step-body`'s `height: auto` exposed the `pixel-frame--strong`
+> near-white layer below the shorter bodies); fix = `.step-body { height:
+> 100% }` + all three `li`s drop `pixel-frame--strong` → plain
+> `pixel-frame` (unified 2px ring / stepped corners /
+> `--color-surface-elevated`; agent + banner keep `--strong`); (3) **route
+> param rename** — `income/[room]/create` → `income/[income_code]/create`
+> (dir moved; `page.params.income_code`; JoinFlow resolve/prop
+> `roomParam`→`incomeCodeParam` + seed; comment-only income/layout
+> corrections; resolution behavior byte-identical; out-of-scope room
+> surfaces untouched). i18n ZERO delta (55/55); no new deps; tokens
+> untouched; §37 open state + all §31–§43 contracts green. Note: the
+> Concept §42→§43 renumber (the duplicate-§42 fix) rode this landing.
+> §4.31.I records (no blocking flags): the unified border color is
+> `--color-surface-elevated` (a one-class `--strong` revert if the owner
+> meant width/radius only); the headline clamp steps at the 960 boundary
+> (48→38.4px — single-value tweak possible); the phone hero behavior
+> changes by design <960 (the §37 RULE carries).
+> Manual checks for the owner: the landing at 800/960/1280 (the wider
+> lead, the centered stack below 960, the thirds ≥960), the three step
+> cards' identical outlines (no white bottoms in EITHER locale — the leak
+> was RU-height-dependent), the create deep link
+> `income/<income_code>/create` still resolving via the room intro,
+> Start/TALK → /income.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/bbf8e50d-tz12-14-wider-lead-borders-param` (15 branches total;
+> the profile branch `feature/f6ab8db7-profile-redesign` is NOT on the
+> list — still awaiting the owner's merge approval); owner refs stay
+> untracked.
+
 > **v3.24 ROUND NOTE (§42 scroll-triggered animations + card/width/icon
 > tweaks, Concept §42 of 2026-11-23 — appended by the process 2026-11-23,
 > post-round three-gate run GREEN: lint clean · 1012 tests total (49
