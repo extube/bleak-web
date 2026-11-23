@@ -1,5 +1,72 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.33 ROUND NOTE (Concept §51 owner batch — "searching new contacts"
+> badge on `/people` — appended by the process 2026-11-23, post-round
+> three-gate run GREEN: lint clean · 1106 tests total (52 api-client +
+> 8 helper + 1046 web, 54 files) · svelte-check 0 errors (10
+> pre-existing `state_referenced_locally` warnings in untouched
+> JoinFlow/TokenGate files), dev `3b54f4c`):**
+> **Delivered end-to-end** (task 142, worker `218464fd`, design
+> `4aa83761`, process `7ea101dc`; branch
+> `feature/218464fd-searching-new-contacts-badge` — one worker commit
+> `60615c9` squashed to ONE landing commit dev `3b54f4c`; DESIGN-FIRST
+> honored — feature-scoped design pass wrote the dated **DESIGN §4.37**
+> amendment (2026-11-23) BEFORE implementation; the uncommitted owner
+> edit to `docs/Concept.md` §51 and stray session/log records left
+> unstaged; the §4.37 amendment + the three instance session records
+> (worker/design/process) landed with the squash — landing staged by
+> pathspec, not `git add -A`; concept's §51 brief carried pre-approved
+> landing — lean protocol per §22.2):
+> (1) **Condition + data path** (§4.37.A/C): the badge renders only when
+> the SELF `User` entry exists in the ALREADY-polled `listRoomUsers`
+> roster (address === `me.userAddress`, `deleted_at`-guarded — the same
+> entry the `cards` derived excludes) AND `active === true` (the §49
+> flag, §4.35.A lineage, required on the model) AND the initial load has
+> completed; **no new fetch, no new poller, no mocks** — a
+> `/profile/settings` toggle flip propagates on the next 4 s poll tick,
+> in place, without reordering.
+> (2) **Anatomy — system state, not a user** (§4.37.A): new component
+> `SearchingBadge.svelte` — `<li class="searching-badge pixel-corners">`
+> with the exact PersonCard footprint (`--color-surface`,
+> `--radius-md`, `padding: var(--space-4)`, `.row` flex/gap); an EMPTY
+> 56px avatar slot (no avatar, no placeholder) centered on the §4.13.4
+> loader construction at the §3.1 standard 16px diameter (muted ring,
+> transparent top arc, transform-only 0.9s rotation, `aria-hidden`);
+> muted 16px/600 title — NON-interactive by construction: no button,
+> link, `role`, `tabindex`, tap handler, navigation or PersonCard
+> behavior. Reduced motion: the standing `base.css` catch-all renders
+> the spinner static (no component `@media` needed).
+> (3) **Placement** (§4.37.B): the badge is the FIRST `<li>` of
+> `ul.cards` — above every `PersonCard`, never sorted/reordered/
+> filtered; it is NOT in the `cards` derived array (the `cards[0]`
+> auto-open logic, bucket sort, search filtering, dismissals and
+> poll diffing are untouched). Rationale: only inside the list
+> container does "same dimensions as a user item" hold at ≥720px,
+> where it becomes ONE cell of the `minmax(360px, 1fr)` two-column
+> grid instead of a full-width banner (reversible one-liner per
+> §4.37.G.1 if the owner prefers a banner).
+> (4) **States** (§4.37.C): absent in the skeleton, empty-room and
+> empty-search branches (single render site); pinned first under an
+> active search. The owner follow-up "badge above the empty-room
+> EmptyState" is a small second render site if wanted (§4.37.G.2).
+> (5) **i18n** (§4.37.E): exactly +1 key pair — `people.searching` =
+> EN **"Searching new contacts"** / RU **«Поиск новых контактов»**
+> (verbatim, concept-adopted; RU/EN parity, the §4.7 94-key count and
+> key-set equality tests stay green).
+> **Tests:** people-page suite +5 (render-first with footprint/
+> spinner/title assertions; absent at `active: false`; absent without a
+> self entry + during the skeleton; pinned-first under search + absent
+> in empty-search/empty-room; negative no-click/no-navigate assertion)
+> plus source-level footprint/loader/reduced-motion assertions
+> (§4.36.D.4 precedent); i18n suite +1 dedicated describe (§4.35.E
+> precedent). Untouched: all other §3.3 people contracts, §4.35/§43
+> profile contracts, spinner precedents.
+> Housekeeping (DISCLOSED): `git branch -d` refused on the
+> squash-landed branch and `git branch -D` is outside process
+> permissions (mechanically denied) —
+> `feature/218464fd-searching-new-contacts-badge` joins the devops
+> `-D` cleanup list (11 branches total).
+
 > **v3.32 ROUND NOTE (Concept §50 owner bug batch — /profile scan button →
 > scanner, scanner corner orientation, /profile/edit phone overflow —
 > appended by the process 2026-11-23, post-round three-gate run GREEN:
