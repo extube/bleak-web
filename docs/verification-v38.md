@@ -1,5 +1,53 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.27 ROUND NOTE (§46 Bleak block per-breakpoint structure + 960
+> step-stack + staggered text reveal, Concept §46 — appended by the process
+> 2026-11-23, post-round three-gate run GREEN: lint clean · 1029 tests
+> total (49 api-client + 8 helper + 972 web, 53 files; landing suite 100)
+> · build 0 errors, dev `abd518d`):**
+> **Landing adjusted per ALL 5 §46 items** (task 137, worker `eda902cb`;
+> design-first — design instance `d20ab945` wrote DESIGN §4.33): (1)
+> **>960px heights-equal narrow card** — the ≥960 grid `align-items:
+> center` → `stretch`; the `height: 100%` chain
+> (.copy/.copy-body/.agent-card/.agent-body); `.agent-card` keeps
+> `max-width: 240px` but right-aligned (`margin-left: auto` — the §45.2
+> right-edge symmetry kept); TALK pinned via `margin-top: auto` — the
+> bottom lines align by construction; the wrap math picked 240px as the
+> narrowest width whose stack (≈364px with the 2-line RU quote) does not
+> exceed the lead's ≈371px (200–220px rejected — the RU quote wraps to 3
+> lines and the card would dictate the row; the 960-boundary floor
+> recorded); (2) **720–959.98px banner-structure card** — a band media
+> re-places the byte-unchanged DOM via named grid areas (the 96px
+> portrait spans rows 1–3; the class badge = the status chip in row 4;
+> name/traits/quote/TALK = the 1fr text side), the banner's EXACT glass
+> (`rgba(20,18,30,0.55)` + `blur(12px)` + 16/20 padding, byte-equal to
+> `.stat-body`); below the fold (the §45.1 lead-alone open state
+> unchanged); (3) **<720px carried verbatim**; (4) **steps stack at
+> <960** — the `repeat(3, 1fr)` grid moved to a new ≥960 media (stacked
+> at 800, row at ≥960; all other 720px rules stand); (5) **staggered text
+> reveal** — `reveal.ts` extended: units (observed) vs PARTS (slaved to
+> their unit's one-shot, never observed, per-part cleanup); 20
+> title/description part markers (part delay = unit delay + 60ms×index);
+> the use-cases section title = the 14th scroll unit; armed 14 → **35**;
+> the lead + BLEAK card carry no parts; reduced-motion/missing-IO =
+> immediate; base.css byte-unchanged. i18n ZERO delta (55/55); no new
+> deps; tokens untouched.
+> §4.33.J flags (records, none blocking): the 960-boundary row floor; the
+> 240-vs-220 computation; a one-new-key option if the owner ever wants
+> the literal dot+caption status on the band card; the privacy cascade's
+> 360ms tail (one-constant lever).
+> Manual checks for the owner: the landing at 800/960/1280/1920 (the
+> hero's shared bottom line at >960 with the narrow right-aligned BLEAK
+> card; the banner-structured BLEAK card in the 720–960 band below the
+> fold; steps stacked at 800 / row at ≥960; titles-then-descriptions
+> staggered reveal in BOTH locales; reduced-motion immediate).
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/eda902cb-tz12-16-bleak-breakpoints` (18 entries total; the
+> profile branch `f6ab8db7` still excluded — awaiting the owner's merge
+> approval); owner refs stay untracked.
+
 > **v3.25.2 ROUND NOTE (bug round — the §44.4 iOS keyboard viewport fix was
 > ineffective on iPhone/iPad, owner-reported — appended by the process
 > 2026-11-23, post-round three-gate run GREEN: lint clean · 1024 tests
