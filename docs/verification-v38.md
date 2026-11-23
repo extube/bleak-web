@@ -1,5 +1,46 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.25.1 ROUND NOTE (§44.4 mobile keyboard viewport fix for
+> income/[income_code]/create, Concept §44.4 — appended by the process
+> 2026-11-23, post-round three-gate run GREEN: lint clean · 1022 tests
+> total (49 api-client + 8 helper + 965 web, 53 files; new
+> keyboard-viewport suite 9) · build 0 errors, dev `fcc66be`):**
+> **The creation wizard no longer gets pushed off-screen by the mobile
+> keyboard** (task 134, worker `5de72e33`; NO design instance — lean
+> judgment: the owner's requirements were implementation-precise; the
+> worker wrote the dated DESIGN §4.31.1 owner-amendment record): (1)
+> **§44.4.1 dynamic viewport units** — the four §24–§30 height gates in
+> `JoinFlow.svelte` (persona main block, persona app-shell lock,
+> form-step gate, form-step shell lock) keep the `height: 100vh; height:
+> 100dvh;` fallback-then-dvh pair and consume the dynamic height as
+> `height: var(--app-height, 100dvh)` (unset elsewhere → the dvh fallback
+> stands); (2) **§44.4.2 visualViewport listener** — a creation-scoped
+> `$effect` gated on the persona step (the creation wizard): on
+> `window.visualViewport` resize, `--app-height: <px>` lands on the
+> document root + the body gets `overflow: hidden` (document scroll-lock)
+> while the creation flow runs — fully restored on teardown, SSR-safe
+> (guarded inside the effect, no module-init window access). **Scope
+> gate verified:** the mechanism exists only in JoinFlow (never mounted
+> by /chats) — negatives assert no `--app-height`/`visualViewport`/
+> scroll-lock in any chats route/component and nothing outside JoinFlow's
+> sources. The §24–§30 contracts HOLD — the "visible viewport" they bind
+> to is now the dynamic visualViewport height (geometry test: at a
+> keyboard-shrunk 400px bound, the messages area (flex:1/min-height:0/
+> overflow auto) and the input (flex:none) both stay in flow inside the
+> shrunk container). Listener/var/lock fully cleaned up on unmount.
+> RU/EN parity untouched; no new deps; tokens/routes/landing/profile
+> untouched; the §24–§30 contract suites green.
+> Manual checks for the owner: the creation wizard on a real phone
+> (Safari/iOS especially): open the keyboard — the page must not be
+> pushed up; the messages area and the input stay visible together;
+> closing the keyboard restores the full height; /chats unaffected.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/5de72e33-tz12-14a-keyboard-viewport` (15 branches total; the
+> profile branch `f6ab8db7` still excluded — awaiting the owner's merge
+> approval); owner refs stay untracked.
+
 > **v3.25 ROUND NOTE (§44 wider lead + unified card borders + route param
 > rename, Concept §44 — appended by the process 2026-11-23, post-round
 > three-gate run GREEN: lint clean · 1013 tests total (49 api-client + 8
