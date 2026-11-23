@@ -1880,9 +1880,89 @@ Small copy/color batch (owner, 2026-11-22):
      contacts, check compatibility, and get inspired by shared
      ideas!").
 
+---
+
+## 42. Owner batch: scroll animations + card/width/icon tweaks — ✅ APPROVED (2026-11-23)
+
+Follow-up adjustments (owner, 2026-11-23):
+
+1. **Scroll-triggered animations for all landing blocks:** blocks
+   animate in as they enter the viewport on scroll (reveal treatment
+   — e.g. fade/rise, CSS-driven, IntersectionObserver or
+   equivalent). Respect reduced motion (no animation). The §37
+   open-state rule stays — the first-viewport blocks (lead + Bleak)
+   may animate in on load; everything below the fold animates on
+   scroll into view.
+2. **Bleak card narrower in computer view** — the agent card's
+   desktop column gets narrower (design's call on the value; keep
+   readable).
+3. **Icons +50% in the blocks below the first screen:** all
+   icon/pixel-icon elements in every block except the first-viewport
+   pair (the banner's flower, the step-card icons, the privacy icons,
+   the use-case icons, the simulation avatars) are made **50% bigger**
+   (the pixel mini-illustrations scale proportionally with them).
+4. **01 / 02 / 03 step cards: dark background like the Bleak card** —
+   match the Bleak agent card's dark surface treatment (inspect its
+   current style and apply the same background to the three step
+   cards).
+5. **"Real people. Real results." block on phone:** stack **icon on
+   top** — currently the phone layout keeps text left / flower icon
+   right; on phone the flower icon (and its status caption) moves
+   above the text block.
+
 All other §31–§33 contracts stay in force (routes, Start → `/income`
 with the 6-digit input, RU/EN parity, reminder box contracts, three
 step blocks, existing suites green).
+
+---
+
+## 42. Profile page redesign `/profile` — ✅ APPROVED (2026-11-22)
+
+Owner request: redesign the profile page `/profile` based on the
+reference `profile-design.png` (also present as
+`docs/refs/profile-design.png`; a second, stylistically different
+reference `profile-design-2.png` exists but the owner named
+`profile-design.png` as the ground truth). Three mobile-app screens:
+My profile, Settings, Edit Profile. Owner decisions (asked 2026-11-22):
+
+1. **Theme fidelity — structure only, keep tokens.** Adopt the
+   reference's layout, structure and component patterns (header with
+   QR icon + gear, centered avatar, username row, stats row, pill
+   tabs, settings list blocks with toggles/chevrons, key-value edit
+   rows, full-width save/delete buttons) on the app's approved tokens
+   (charcoal `#1a1c20`/`#101213`, accent `#fedc5c`). No lime accent,
+   no global theme change.
+
+2. **Content mapping — real entities only.** The API has no posts,
+   followers, streak, or badges endpoints:
+   - stats row → real data: handshakes total / dialogs total /
+     added-you (existing §2.2 stats contract);
+   - the 3 pill tabs → real sections over existing content (e.g.
+     Badge / Interests / Handshakes — final naming per DESIGN rev);
+   - the header QR icon → the existing live badge QR affordance
+     (§6.3 rotation contract stays);
+   - streak counter, badges, social post card: **dropped**.
+   No placeholder/mock elements.
+
+3. **Edit Profile — new route `/profile/edit`.** Persona editing
+   (name/bios, greeting, interests) moves from `/profile/settings` to
+   a dedicated `/profile/edit` screen per the design: key-value rows,
+   Save Changes primary button. This amends the §10.1.4 contract
+   ("profile is read-only, editing lives on settings"): `/profile`
+   stays read-only; `/profile/settings` keeps app-level settings
+   (token rotation, leave room, notifications etc.) restyled to the
+   reference's list-block pattern. The design's "Delete Account"
+   maps to the existing delete/exit-room affordance rules
+   (destructive red, §7.1.6) — placement per DESIGN rev.
+
+4. **Avatar shape — square (text wins).** Sharp-edged square avatar
+   treatment per the owner's task text, consistent with the app's
+   pixel-corner style; the reference's circular avatars are not
+   followed.
+
+Scope: `/profile` + `/profile/settings` + new `/profile/edit`.
+Everything else (routes model, i18n RU/EN parity, polling contracts,
+live-QR §6.3, token rotation §8.1.3, tests green) stays in force.
 
 ---
 

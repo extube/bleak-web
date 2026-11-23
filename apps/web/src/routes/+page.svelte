@@ -36,12 +36,24 @@
    *   pixel-framed card goes liquid glass (`rgba(20, 18, 30, 0.55)` +
    *   blur 12px), the `[ LIVE NETWORK // IRL ]` pixel sub-badge above
    *   the title, and the glowing `AI Agents active nearby` caption with
-   *   a pulsing green pixel dot next to the BLOOM glyph.
-   * - Step cards (§4.26.C): glass (`rgba(15, 14, 22, 0.65)` + blur
-   *   10px), hover purple glow + slight lift (reduced motion: instant
-   *   glow, no lift), a decorative pixel mini-illustration top-right
-   *   per card (§4.3 art in `landing/sectionArt.ts`) and the bottom
-   *   micro-pills (§4.26.L exact strings).
+   *   a pulsing green pixel dot next to the BLOOM glyph. §4.30.F: on
+   *   PHONE the glyph block (icon + caption) stacks ON TOP of the text
+   *   (a left-aligned column); desktop keeps the compact row.
+   * - Step cards (§4.26.C as superseded by §4.30.E): the §38 glass
+   *   rgba(15,14,22,0.65)+blur(10px) is RETIRED — the body fill is the
+   *   BLEAK agent card's SAME opaque surface (`var(--color-surface)`),
+   *   hover purple glow + slight lift (reduced motion: instant glow, no
+   *   lift), a decorative pixel mini-illustration top-right per card
+   *   (§4.3 art in `landing/sectionArt.ts`) and the bottom micro-pills
+   *   (§4.26.L exact strings).
+   * - §4.30 (Concept §42, 2026-11-23) — the scroll-animation batch: the
+   *   below-fold blocks reveal on scroll (the shared utility
+   *   `landing/reveal.ts` + the base.css armed state, one-shot, 60ms
+   *   sibling stagger; the lead + BLEAK pair animates ON LOAD —
+   *   §4.30.B), the agent card is capped at 240px on desktop (§4.30.C)
+   *   and every icon below the first screen grows +50% (§4.30.D:
+   *   flower 66/72, dot 9, step icons 48/72, step art 72, privacy 72,
+   *   use-cases 60, sim avatars 96 — the first-viewport pair UNCHANGED).
    * - Footer (§4.26.D): the dark liquid-glass pill — the pixel-frame
    *   construction is retired from it; content contract verbatim.
    * - The FOUR new sections (§4.26.E–I, after the steps, before the
@@ -70,6 +82,10 @@
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import LandingVideoHero from '#lib/components/landing/LandingVideoHero.svelte';
   import LandingFigure from '#lib/components/landing/LandingFigure.svelte';
+  /* §4.30.A — the shared scroll-reveal system (Concept §42 item 1): one
+   * utility, ONE IntersectionObserver, one-shot per unit, wired ONCE for
+   * the whole page below (no dependency — IO is native). */
+  import { setupReveals } from '#lib/components/landing/reveal';
   /* §4.27.D — the compatibility circle is the /chats summary-sheet
    * indicator pattern REUSED, not re-derived: the ring geometry and the
    * arcade tally come from lib/chats/summary.ts by IMPORT (no local
@@ -186,6 +202,19 @@
   const copyrightBrand = $derived(copyright.split(' · ')[0] ?? '');
   const copyrightYear = $derived(copyright.split(' · ')[1] ?? '');
 
+  /* --- §4.30.A/B THE SCROLL-REVEAL WIRING (Concept §42 item 1) ------------
+   * One mount effect, one utility call for the WHOLE page (the root div
+   * below): the utility arms every `[data-reveal]` scroll unit + the
+   * `[data-reveal-load]` hero pair, watches the units with ONE shared
+   * IntersectionObserver and returns the teardown (the observer's
+   * disconnect + the pending cleanups — no leak across HMR/tests). */
+  let revealRoot = $state<HTMLElement | null>(null);
+
+  $effect(() => {
+    if (!revealRoot) return;
+    return setupReveals(revealRoot);
+  });
+
   /* --- §4.27.D THE COMPATIBILITY CIRCLE (Section 4 center) ----------------
    * The /chats summary-sheet score-ring pattern, reused: the geometry and
    * the tally timing are IMPORTED from #lib/chats/summary (no duplicated
@@ -281,7 +310,7 @@
 <!-- §4.22.F: the full-bleed landing page background — --color-landing-bg
      (scoped to /; every other page keeps --color-bg); §4.24.A: the single
      80%-width content container is centered inside. -->
-<div class="landing-page">
+<div class="landing-page" bind:this={revealRoot}>
   <!-- §4.23.A: the fixed full-viewport video background — the FIRST child
        of .landing-page, before .landing; the page content scrolls over it. -->
   <LandingVideoHero />
@@ -341,7 +370,7 @@
              TRANSPARENT and BORDERLESS (§4.25.B — §37.2): NO pixel frame,
              NO panel, NO border — the copy sits directly over the video
              background; legibility = the token-only text halo. -->
-        <section class="copy area-lead">
+        <section class="copy area-lead" data-reveal-load>
           <div class="copy-body">
             <h1 class="headline">
               <span class="hl-line">{translate($locale, 'landing.headline.1')}</span>
@@ -382,7 +411,7 @@
         <!-- the agent — AGENT CHARACTER CARD (§4.20.G-b, renamed
              BLEAK per §4.22.D) — pixel frame, opaque surface, NO glass,
              floating over the video -->
-        <section class="area-agents" id="agents">
+        <section class="area-agents" id="agents" data-reveal-load>
           <article class="card pixel-corners pixel-frame pixel-frame--strong agent-card">
             <div class="card-body pixel-corners agent-body">
               <div class="agent-portrait">
@@ -406,7 +435,7 @@
            IRL ] pixel sub-badge renders above the title and the glowing
            AI Agents active nearby caption + pulsing green pixel dot
            joins the BLOOM glyph. -->
-      <section class="area-stat">
+      <section class="area-stat" data-reveal>
         <article class="card pixel-corners pixel-frame pixel-frame--strong stat-card">
           <div class="card-body pixel-corners stat-body">
             <div class="stat-copy">
@@ -419,7 +448,7 @@
               <p class="stat-line">{translate($locale, 'landing.stat.line3')}</p>
             </div>
             <div class="stat-glyph">
-              <LandingFigure kind="bloom" size={48} />
+              <LandingFigure kind="bloom" size={72} />
               <span class="stat-status">
                 <span class="status-dot" aria-hidden="true"></span>
                 {translate($locale, 'landing.banner.status')}
@@ -437,7 +466,7 @@
       <section class="tutorial area-tutorial" id="how-it-works">
         <ol class="steps">
           {#each tutorialSteps as step (step.icon)}
-            <li class="step-block pixel-corners pixel-frame pixel-frame--strong">
+            <li class="step-block pixel-corners pixel-frame pixel-frame--strong" data-reveal>
               <div class="step-body pixel-corners">
                 <svg
                   class="step-art"
@@ -461,7 +490,7 @@
                 <span class="step-num" aria-hidden="true">{step.num}</span>
                 <h3 class="step-title">{step.label}</h3>
                 <span class="step-icon">
-                  <PixelIcon name={step.icon} size={32} />
+                  <PixelIcon name={step.icon} size={48} />
                 </span>
                 <p class="step-desc">{step.desc}</p>
                 <span class="step-pill">{step.pill}</span>
@@ -480,13 +509,13 @@
            center — the /chats summary-sheet ring pattern reused (the 96%
            count-up + arc fill) — with the glowing green ICE BROKEN badge
            BELOW it. The §4.26.F 3-message chat window is REMOVED. -->
-      <section class="area-sim" id="sim">
+      <section class="area-sim" id="sim" data-reveal>
         <article class="sim-card">
           <h2 class="section-title">{translate($locale, 'landing.sim.title')}</h2>
           <div class="sim-grid">
             <div class="sim-agent sim-you">
               <span class="sim-portrait sim-portrait--you">
-                <LandingFigure kind="bleak" size={64} idle={false} />
+                <LandingFigure kind="bleak" size={96} idle={false} />
               </span>
               <span class="sim-agent-name">{translate($locale, 'landing.sim.you')}</span>
               <span class="sim-status sim-status--you">
@@ -496,7 +525,7 @@
             </div>
             <div class="sim-agent sim-nearby">
               <span class="sim-portrait sim-portrait--nearby">
-                <LandingFigure kind="scout" size={64} idle={false} />
+                <LandingFigure kind="scout" size={96} idle={false} />
               </span>
               <span class="sim-agent-name">{translate($locale, 'landing.sim.nearby')}</span>
               <span class="sim-status sim-status--nearby">
@@ -537,7 +566,7 @@
            target). One glass container; the three inner cards are
            transparent + hairline (no nested blur) — GHOST MODE / MUTUAL
            OPT-IN / EPHEMERAL GPS with the 16×16 pixel icons. -->
-      <section class="area-privacy" id="privacy">
+      <section class="area-privacy" id="privacy" data-reveal>
         <article class="privacy-card">
           <h2 class="section-title">{translate($locale, 'landing.privacy.title')}</h2>
           <div class="privacy-grid">
@@ -573,7 +602,7 @@
         <h2 class="section-title">{translate($locale, 'landing.usecases.title')}</h2>
         <ul class="usecase-row">
           {#each usecasePills as pill (pill.icon)}
-            <li class="usecase-pill">
+            <li class="usecase-pill" data-reveal>
               <svg
                 class="usecase-icon"
                 viewBox="0 0 {USECASE_ICONS[pill.icon].viewW} {USECASE_ICONS[pill.icon].viewH}"
@@ -603,7 +632,7 @@
            centered glass card with the purple neon outer glow; the waving
            BLEAK-WAVE mascot; the headline; the inline dark glass input +
            the GET EARLY ACCESS mailto stub (a plain <a>, no form/fetch). -->
-      <section class="area-join" id="join">
+      <section class="area-join" id="join" data-reveal>
         <h2 class="section-title">{translate($locale, 'landing.join.title')}</h2>
         <article class="join-card">
           <LandingFigure kind="bleakWave" size={96} idle={false} />
@@ -634,7 +663,7 @@
            liquid-glass pill (§4.26.D): the pixel-frame construction is
            retired from it; the content contract (copyright row + EMAIL +
            GITHUB) is verbatim. -->
-      <footer class="contact area-foot">
+      <footer class="contact area-foot" data-reveal>
         <div class="foot-body">
           <div class="foot-brand">
             <svg
@@ -872,6 +901,16 @@
       grid-column: 3;
     }
     /* column 2: NO element — nothing is placed there (§4.24.D) */
+    /* §4.30.C (Concept §42 item 2): the agent card is NARROWER than its
+     * third — max-width 240px, centered inside the UNCHANGED thirds grid
+     * (the third is ≈ 288px at 1280); the 240px card keeps ≥ 200px of text
+     * column after its 20px body padding (readability). Phone (<720px)
+     * stays 100% of the container width (§4.28.F) — the cap is
+     * desktop-only; nothing paints wider than before (no overflow risk). */
+    .agent-card {
+      max-width: 240px;
+      margin-inline: auto;
+    }
   }
   /* §4.26.A anchor plumbing: the four smooth-scroll targets (the step
    * cards #how-it-works + the new sections) clear the detached floating
@@ -1135,9 +1174,13 @@
     * blur(12px); the pixel cityscape of the video blurs right through). */
   .stat-body {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4);
+    /* §4.30.F (Concept §42 item 5) — phone STACK: the flower icon + the
+     * status caption block sits ON TOP of the text block (the glyph gets
+     * order: -1 below); left-aligned column. Desktop ≥720px restores the
+     * §4.21.F/§4.26.B text-left / glyph-right compact row (media below). */
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
     padding: 12px 14px;
     /* --- the owner's EXACT values, verbatim (§4.26.B) ---------------- */
     background: rgba(20, 18, 30, 0.55);
@@ -1183,13 +1226,16 @@
     line-height: 1.35;
     color: var(--color-text-muted);
   }
-  /* the glyph becomes a small right column: BLOOM on top, below it the
-   * glowing status caption with the pulsing green pixel dot (§4.26.B). */
+  /* the glyph: §4.30.F — phone the icon+caption block is FIRST (order -1)
+   * laid out as a ROW (the flower left, the pulsing dot + caption beside
+   * it, vertically centered); desktop restores the small right column
+   * (BLOOM on top, the glowing status caption below it — §4.26.B). */
   .stat-glyph {
     flex: none;
     line-height: 0;
     display: flex;
-    flex-direction: column;
+    order: -1;
+    flex-direction: row;
     align-items: center;
     gap: 6px;
   }
@@ -1208,11 +1254,11 @@
     text-shadow: 0 0 8px color-mix(in srgb, var(--color-deepa-1) 45%, transparent);
   }
   .status-dot {
-    width: 6px;
-    height: 6px;
+    width: 9px;
+    height: 9px;
     flex: none;
     background: var(--color-deepa-1);
-    box-shadow: 0 0 6px color-mix(in srgb, var(--color-deepa-1) 70%, transparent);
+    box-shadow: 0 0 9px color-mix(in srgb, var(--color-deepa-1) 70%, transparent);
     animation: status-pulse 1.6s steps(2) infinite alternate;
   }
   @keyframes status-pulse {
@@ -1224,27 +1270,45 @@
     }
   }
   .stat-glyph :global(svg) {
-    width: 44px;
-    height: 44px;
+    /* §4.30.D (Concept §42 item 3): the banner flower grows +50% — 66px on
+     * phone / 72px ≥720px (the markup size 72 carries the same value). */
+    width: 66px;
+    height: 66px;
   }
   @media (min-width: 720px) {
+    /* desktop: the §4.21.F/§4.26.B compact row, UNCHANGED (§4.30.F) —
+     * text-left / glyph-right, the glyph back to its small right column */
     .stat-body {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
       padding: 16px 20px;
     }
+    .stat-glyph {
+      order: 0;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
     .stat-glyph :global(svg) {
-      width: 48px;
-      height: 48px;
+      width: 72px;
+      height: 72px;
     }
   }
 
-  /* ---------- the three BIG step blocks (§4.21.E as amended by §4.26.C) ----------
+  /* ---------- the three BIG step blocks (§4.21.E as amended by §4.26.C,
+   * §4.30.E, §4.30.D) ----------
    * FIND → CHAT → SHARE: one step per display block — pixel step number,
-   * pixel-font title, step icon, one-line description. §4.26.C: the body
-   * fill becomes the owner's glass (rgba(15, 14, 22, 0.65) + blur(10px);
-   * the pixel frame stays square/stepped over the glass), the blocks gain
-   * the hover purple glow + slight lift (no click handler, no cursor
-   * change — they still navigate nowhere), each carries its decorative
-   * mini-illustration top-right and the §4.26.L bottom micro-pill. */
+   * pixel-font title, step icon, one-line description. §4.30.E (Concept
+   * §42 item 4, SUPERSEDES §4.26.C's glass): the body fill is the agent
+   * card's SAME opaque surface token — `var(--color-surface)` (the
+   * base.css .card fill) — with the two blur(10px) backdrop-filter
+   * declarations RETIRED (an opaque surface needs no blur; the per-card
+   * GPU filter cost goes with it). The pixel frame stays square/stepped,
+   * the hover purple glow + lift (reduced motion: instant glow, no lift),
+   * the decorative mini-illustration top-right and the §4.26.L bottom
+   * micro-pill all carry; the icons grow +50% (§4.30.D). */
   .steps {
     list-style: none;
     margin: 0;
@@ -1272,9 +1336,9 @@
     }
   }
   .step-body {
-    background: rgba(15, 14, 22, 0.65);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
+    /* §4.30.E: the BLEAK agent card's surface — the SAME token, byte-equal
+     * to the base.css .card fill (no blur, no rgba glass, no radius). */
+    background: var(--color-surface);
     position: relative;
     padding: 16px;
     display: flex;
@@ -1283,13 +1347,14 @@
     gap: var(--space-2);
   }
   /* the §4.26.C decorative mini-illustration: top-right of the card,
-   * token fills, transparent background, no plate. */
+   * token fills, transparent background, no plate. §4.30.D: the art grows
+   * +50% — 72px (integer 3× unit scale of the 24-grid, perfectly crisp). */
   .step-art {
     position: absolute;
     top: 12px;
     right: 12px;
-    width: 48px;
-    height: 48px;
+    width: 72px;
+    height: 72px;
   }
   .step-num {
     font-family: var(--font-pixel);
@@ -1315,8 +1380,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 48px;
-    height: 48px;
+    /* §4.30.D: the wrapper grows with the icon — 48px icon in a 72×72 box */
+    width: 72px;
+    height: 72px;
     color: var(--color-text-muted);
   }
   .step-desc {
@@ -1690,8 +1756,9 @@
     gap: var(--space-2);
   }
   .privacy-icon {
-    width: 48px;
-    height: 48px;
+    /* §4.30.D: +50% — 48px → 72px (crispEdges keeps every unit rect snapped) */
+    width: 72px;
+    height: 72px;
   }
   .privacy-title {
     font-family: var(--font-pixel);
@@ -1738,8 +1805,9 @@
     gap: var(--space-2);
   }
   .usecase-icon {
-    width: 40px;
-    height: 40px;
+    /* §4.30.D: +50% — 40px → 60px (crispEdges keeps every unit rect snapped) */
+    width: 60px;
+    height: 60px;
   }
   .usecase-label {
     font-family: var(--font-pixel);

@@ -27,7 +27,20 @@
  * parity (55 keys, §4.27.G), removed blocks stay removed, deep links.
  * §4.28.1 (Concept §41, 2026-11-22): the lead description reads white
  * (--color-text, not muted) + the owner copy batch — accent line
- * 'BESIDE YOU' / «РЯДОМ», the verbatim RU description, EN unchanged. */
+ * 'BESIDE YOU' / «РЯДОМ», the verbatim RU description, EN unchanged.
+ * §4.30 (Concept §42, 2026-11-23, tz12-13): the scroll-reveal system
+ * (the shared `landing/reveal.ts` utility + the base.css armed state —
+ * below-fold blocks hidden ONLY under [data-reveal='armed'], one-shot
+ * IO threshold 0.15 / rootMargin −48px, 60ms sibling stagger, class +
+ * attribute stripped after the reveal; reduced motion / missing IO ⇒
+ * nothing armed), the §4.30.B hero pair animates ON LOAD; the agent
+ * card capped at 240px on desktop (§4.30.C); icons +50% below the
+ * first screen (§4.30.D — banner flower 66/72, dot 9px, step icons
+ * 48/72, step art 72, privacy 72, use-cases 60, sim avatars 96; the
+ * lead/BLEAK pair + join mascot + footer glyph + step-num + ring
+ * UNCHANGED); the step cards repainted to the agent card's
+ * `var(--color-surface)` with the blur retired (§4.30.E); on phone
+ * the banner stacks icon+caption above the text (§4.30.F). */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -180,6 +193,7 @@ const LANDING_SOURCES = [
   'src/lib/components/landing/LandingFigure.svelte',
   'src/lib/components/landing/figures.ts',
   'src/lib/components/landing/sectionArt.ts',
+  'src/lib/components/landing/reveal.ts',
   'src/lib/components/personage/bleakFigure.ts'
 ];
 
@@ -1046,7 +1060,7 @@ describe('/ — the §4.20 unchanged zones (headline, cards, steps, footer) as r
     );
   });
 
-  it('renders the stat card compact (§4.21.F): minimized padding, 21px title (§4.28.A), 44/48px BLOOM', () => {
+  it('renders the stat card compact (§4.21.F): minimized padding, 21px title (§4.28.A), 66/72px BLOOM (§4.30.D — +50%)', () => {
     const { container } = render(LandingPage, { props: {} });
     const stat = container.querySelector('.stat-card');
     expect(stat?.querySelector('.stat-title')?.textContent).toBe(ru['landing.stat.title']);
@@ -1063,8 +1077,14 @@ describe('/ — the §4.20 unchanged zones (headline, cards, steps, footer) as r
     expect(css).toMatch(/\.stat-line\s*\{[^}]*font-size:\s*17px/);
     expect(css).toMatch(/\.stat-line\s*\{[^}]*line-height:\s*1\.35/);
     expect(css).toMatch(/margin:\s*0 0 2px/);
-    expect(css).toMatch(/\.stat-glyph :global\(svg\)\s*\{[^}]*width:\s*44px/);
-    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stat-glyph :global\(svg\)\s*\{[^}]*width:\s*48px/);
+    // §4.30.D: the flower grew +50% — 66px phone / 72px ≥720px (the
+    // superseded §4.21.F 44/48 values are gone)
+    expect(css).toMatch(/\.stat-glyph :global\(svg\)\s*\{[^}]*width:\s*66px/);
+    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stat-glyph :global\(svg\)\s*\{[^}]*width:\s*72px/);
+    expect(css).not.toMatch(/\.stat-glyph :global\(svg\)\s*\{[^}]*width:\s*44px/);
+    expect(css).not.toMatch(/\.stat-glyph :global\(svg\)\s*\{[^}]*width:\s*48px/);
+    // the markup carries the desktop value too
+    expect(stat?.querySelector('[data-figure="bloom"] svg')?.getAttribute('width')).toBe('72');
   });
 
   it('§4.22.1: the mascot-chat animation strip is retired — no strip DOM, no typewriter keyframes anywhere on the page', () => {
@@ -1447,7 +1467,7 @@ describe('/ — §4.26.B the banner: REAL PEOPLE. REAL RESULTS. becomes liquid g
     expect(inner).toMatch(/text-transform:\s*uppercase/);
   });
 
-  it('the glowing status caption + pulsing green pixel dot render on the right, next to the BLOOM glyph (AC 7): a square 6px deepa-1 dot pulsing steps(2) 1.6s (opacity 1↔0.4, green glow), the caption in Handjet 11px uppercase with the green glow; reduced motion → static (the base.css catch-all); the dot is aria-hidden', () => {
+  it('the glowing status caption + pulsing green pixel dot render on the right, next to the BLOOM glyph (AC 7): a square 9px deepa-1 dot (§4.30.D — 6px +50%) pulsing steps(2) 1.6s (opacity 1↔0.4, green glow scaled to 9px), the caption in Handjet 13px uppercase with the green glow; reduced motion → static (the base.css catch-all); the dot is aria-hidden', () => {
     const { container } = render(LandingPage, { props: {} });
     const glyph = container.querySelector('.stat-glyph');
     expect(glyph?.querySelector('[data-figure="bloom"]')).toBeTruthy();
@@ -1458,7 +1478,12 @@ describe('/ — §4.26.B the banner: REAL PEOPLE. REAL RESULTS. becomes liquid g
     const dot = status?.querySelector('.status-dot');
     expect(dot?.getAttribute('aria-hidden')).toBe('true');
     const css = source('src/routes/+page.svelte');
-    expect(css).toMatch(/\.status-dot\s*\{[^}]*width:\s*6px[^}]*height:\s*6px/);
+    // §4.30.D: 6px → 9px, the glow scales with it (0 0 6px → 0 0 9px)
+    expect(css).toMatch(/\.status-dot\s*\{[^}]*width:\s*9px[^}]*height:\s*9px/);
+    expect(css).toMatch(
+      /\.status-dot\s*\{[^}]*box-shadow:\s*0 0 9px color-mix\(in srgb, var\(--color-deepa-1\) 70%, transparent\)/
+    );
+    expect(css).not.toMatch(/\.status-dot\s*\{[^}]*width:\s*6px/);
     expect(css).toMatch(/\.status-dot\s*\{[^}]*background:\s*var\(--color-deepa-1\)/);
     expect(css).toMatch(
       /\.status-dot\s*\{[^}]*animation:\s*status-pulse 1\.6s steps\(2\) infinite alternate/
@@ -1473,8 +1498,8 @@ describe('/ — §4.26.B the banner: REAL PEOPLE. REAL RESULTS. becomes liquid g
   });
 });
 
-describe('/ — §4.26.C the step cards: glass fill + hover glow/lift + illustrations + micro-pills', () => {
-  it('each step body is glass (AC 8): rgba(15, 14, 22, 0.65) + blur(10px) (both prefixes); .step-body still sets NO border-radius (the pixel frame stays square/stepped over the glass)', () => {
+describe('/ — §4.26.C/§4.30.E the step cards: the Bleak-matching dark surface + hover glow/lift + illustrations + micro-pills', () => {
+  it('each step body carries the AGENT CARD\'S SURFACE (§4.30.E — AC 10, superseding the §4.26.C glass): the .step-body rule declares background: var(--color-surface) — byte-equal to the base.css .card fill — with NO backdrop-filter/-webkit-backdrop-filter and NO rgba(15,14,22,0.65) left; .step-body still sets NO border-radius (the pixel frame stays square/stepped)', () => {
     const { container } = render(LandingPage, { props: {} });
     for (const block of container.querySelectorAll('.step-block')) {
       expect(block.className).toContain('pixel-corners');
@@ -1483,12 +1508,27 @@ describe('/ — §4.26.C the step cards: glass fill + hover glow/lift + illustra
     }
     const css = source('src/routes/+page.svelte');
     const stepBody = css.match(/\.step-body\s*\{[^}]*\}/)?.[0] ?? '';
-    expect(stepBody).toMatch(/background:\s*rgba\(15, 14, 22, 0\.65\)/);
+    expect(stepBody).toMatch(/background:\s*var\(--color-surface\)/);
+    expect(stepBody).not.toMatch(/backdrop-filter/);
+    expect(stepBody).not.toMatch(/rgba\(/);
     expect(stepBody).not.toMatch(/border-radius/);
+    // the superseded §4.26.C blur recipe is retired — blur(10px) appears
+    // NOWHERE in the landing sources (the rgba(15,14,22,0.65) fill itself
+    // survives ONLY on the join input, whose glass §4.30.E keeps verbatim)
     const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    expect(stripped).toMatch(/-webkit-backdrop-filter:\s*blur\(10px\)/);
-    expect(stripped).toMatch(/backdrop-filter:\s*blur\(10px\)/);
-    expect(stripped.match(/backdrop-filter:\s*blur\(10px\)/g)).toHaveLength(2);
+    expect(stripped).not.toMatch(/backdrop-filter:\s*blur\(10px\)/);
+    // the shared-token assertion: .step-body and the agent card surface
+    // are the SAME token (the base.css .card rule) — declaration equality
+    const baseCss = source('src/lib/styles/base.css');
+    const cardFill = baseCss.match(/\.card\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(cardFill).toMatch(/background:\s*var\(--color-surface\)/);
+    const stepDecl = stepBody.match(/background:\s*var\(--color-surface\);/)?.[0];
+    const cardDecl = cardFill.match(/background:\s*var\(--color-surface\);/)?.[0];
+    expect(stepDecl).toBeTruthy();
+    expect(stepDecl).toBe(cardDecl);
+    // position: relative + the 16px phone padding carry (§4.30.E)
+    expect(stepBody).toMatch(/position:\s*relative/);
+    expect(stepBody).toMatch(/padding:\s*16px/);
   });
 
   it('hover = purple outer glow + slight lift (AC 9): translateY(-4px) + the double drop-shadow over a 160ms ease-out transition; reduced motion → the lift is suppressed (transform: none), no press/click state exists', () => {
@@ -1506,7 +1546,7 @@ describe('/ — §4.26.C the step cards: glass fill + hover glow/lift + illustra
     expect(container.querySelectorAll('#how-it-works button, #how-it-works a')).toHaveLength(0);
   });
 
-  it('each card carries a 48×48px decorative pixel-art SVG top-right (AC 10): aria-hidden, crispEdges, 24×24 grid, token fills only — 01 = the radar character, 02 = two avatars + bubble, 03 = fist-bump + sparkles (original rect art, no plates)', () => {
+  it('each card carries a 72×72px decorative pixel-art SVG top-right (AC 10, §4.30.D — 48px +50%): aria-hidden, crispEdges, 24×24 grid, token fills only — 01 = the radar character, 02 = two avatars + bubble, 03 = fist-bump + sparkles (original rect art, no plates)', () => {
     const { container } = render(LandingPage, { props: {} });
     const arts = [...container.querySelectorAll('.step-art')];
     expect(arts).toHaveLength(3);
@@ -1520,8 +1560,10 @@ describe('/ — §4.26.C the step cards: glass fill + hover glow/lift + illustra
     expect(artCss).toMatch(/position:\s*absolute/);
     expect(artCss).toMatch(/top:\s*12px/);
     expect(artCss).toMatch(/right:\s*12px/);
-    expect(artCss).toMatch(/width:\s*48px/);
-    expect(artCss).toMatch(/height:\s*48px/);
+    // §4.30.D: 48px → 72px (integer 3× unit scale of the 24-grid)
+    expect(artCss).toMatch(/width:\s*72px/);
+    expect(artCss).toMatch(/height:\s*72px/);
+    expect(artCss).not.toMatch(/width:\s*48px/);
     // token discipline: every fill in the step-art data is a token
     // reference (the sanctioned color-mix shading excepted)
     const art = source('src/lib/components/landing/sectionArt.ts');
@@ -1577,22 +1619,24 @@ describe('/ — §4.26.E–I the four new sections + the GET EARLY ACCESS stub',
     expect(stripped).toMatch(/backdrop-filter:\s*blur\(16px\)/);
     expect(css).not.toMatch(/\.glass/);
     // the blur backdrops count: the recipe (1 pair) + banner (12px) +
-    // steps (10px) + footer (14px) + header (18px) — per-value pairs stay
-    // unshared
+    // footer (14px) + header (18px) — per-value pairs stay unshared (the
+    // §4.26.C step-card blur(10px) pair is RETIRED, §4.30.E)
     expect(stripped.match(/backdrop-filter:\s*blur\(16px\)/g)).toHaveLength(2);
   });
 
-  it('Section 4 renders (§4.27.C/§4.27.D): the wide glass container #sim with the BLEAK personage (64px, purple glow) + YOUR AGENT + Status: Scanning... (blinking cursor) on the left, the SCOUT figure (cyan glow) + NEARBY AGENT + Distance: 15m on the right, and the CENTER COLUMN .sim-center holding EXACTLY two children — the compatibility ring on top and the glowing green ICE BROKEN badge BELOW it (the §4.26.F 3-message chat window is REMOVED; no nav anchor targets #sim)', () => {
+  it('Section 4 renders (§4.27.C/§4.27.D + §4.30.D): the wide glass container #sim with the BLEAK personage (96px, purple glow — 64px +50%) + YOUR AGENT + Status: Scanning... (blinking cursor) on the left, the SCOUT figure (cyan glow, 96px) + NEARBY AGENT + Distance: 15m on the right, and the CENTER COLUMN .sim-center holding EXACTLY two children — the compatibility ring on top and the glowing green ICE BROKEN badge BELOW it (the §4.26.F 3-message chat window is REMOVED; no nav anchor targets #sim)', () => {
     const { container } = render(LandingPage, { props: {} });
     const sim = container.querySelector('#sim');
     expect(sim).toBeTruthy();
     expect(sim?.querySelector('.sim-card')).toBeTruthy();
     expect(sim?.querySelector('.section-title')?.textContent).toBe(ru['landing.sim.title']);
-    // left: YOUR AGENT — the shared BLEAK personage at 64px, static
+    // left: YOUR AGENT — the shared BLEAK personage at 96px (§4.30.D),
+    // static
     const you = sim?.querySelector('.sim-you');
     const youFigure = you?.querySelector('[data-figure="bleak"] svg');
     expect(youFigure).toBeTruthy();
-    expect(youFigure?.getAttribute('height')).toBe('64');
+    expect(youFigure?.getAttribute('height')).toBe('96');
+    expect(youFigure?.getAttribute('width')).toBe('96');
     expect(you?.querySelector('.sim-agent-name')?.textContent).toBe(ru['landing.sim.you']);
     expect(you?.querySelector('.sim-status')?.textContent?.trim()).toBe(
       ru['landing.sim.you.status']
@@ -1750,7 +1794,7 @@ describe('/ — §4.26.E–I the four new sections + the GET EARLY ACCESS stub',
   });
 
 
-  it('Section 5 renders (AC 17): the glass container #privacy titled BUILT FOR REAL LIFE, NOT STALKERS; a 3-col grid ≥720px / a stack on phone; the three cards carry the 48px ghost / padlock+key / shield+radar icons and the exact titles + descs (RU per §4.26.L)', () => {
+  it('Section 5 renders (AC 17 + §4.30.D): the glass container #privacy titled BUILT FOR REAL LIFE, NOT STALKERS; a 3-col grid ≥720px / a stack on phone; the three cards carry the 72px ghost / padlock+key / shield+radar icons and the exact titles + descs (RU per §4.26.L)', () => {
     const { container } = render(LandingPage, { props: {} });
     const privacy = container.querySelector('#privacy');
     expect(privacy?.querySelector('.privacy-card')).toBeTruthy();
@@ -1776,7 +1820,9 @@ describe('/ — §4.26.E–I the four new sections + the GET EARLY ACCESS stub',
       expect(icon?.getAttribute('shape-rendering')).toBe('crispEdges');
     }
     const css = source('src/routes/+page.svelte');
-    expect(css).toMatch(/\.privacy-icon\s*\{[^}]*width:\s*48px/);
+    // §4.30.D: 48px → 72px (+50%)
+    expect(css).toMatch(/\.privacy-icon\s*\{[^}]*width:\s*72px/);
+    expect(css).not.toMatch(/\.privacy-icon\s*\{[^}]*width:\s*48px/);
     expect(css).toMatch(/\.privacy-grid\s*\{[^}]*grid-template-columns:\s*1fr/);
     expect(css).toMatch(
       /@media \(min-width: 720px\)\s*\{[\s\S]*?\.privacy-grid\s*\{[^}]*grid-template-columns:\s*repeat\(3, 1fr\)/
@@ -1794,7 +1840,7 @@ describe('/ — §4.26.E–I the four new sections + the GET EARLY ACCESS stub',
     expect(en['landing.privacy.gps.desc']).toBe('Your location is processed live and never stored.');
   });
 
-  it('Section 6 renders (AC 18): the plain section #use-cases titled WHERE BLEAK SHINES; a 4-col pill row ≥720px / a stack on phone; the pills carry the 40px badge / neon-glasses / laptop / headphones icons and the exact labels', () => {
+  it('Section 6 renders (AC 18 + §4.30.D): the plain section #use-cases titled WHERE BLEAK SHINES; a 4-col pill row ≥720px / a stack on phone; the pills carry the 60px badge / neon-glasses / laptop / headphones icons and the exact labels', () => {
     const { container } = render(LandingPage, { props: {} });
     const usecases = container.querySelector('#use-cases');
     expect(usecases?.querySelector('.sim-card')).toBeNull();
@@ -1815,7 +1861,9 @@ describe('/ — §4.26.E–I the four new sections + the GET EARLY ACCESS stub',
       expect(icon?.getAttribute('aria-hidden')).toBe('true');
     }
     const css = source('src/routes/+page.svelte');
-    expect(css).toMatch(/\.usecase-icon\s*\{[^}]*width:\s*40px/);
+    // §4.30.D: 40px → 60px (+50%)
+    expect(css).toMatch(/\.usecase-icon\s*\{[^}]*width:\s*60px/);
+    expect(css).not.toMatch(/\.usecase-icon\s*\{[^}]*width:\s*40px/);
     expect(css).toMatch(/\.usecase-pill\s*\{[^}]*min-height:\s*112px/);
     expect(css).toMatch(/\.usecase-row\s*\{[^}]*grid-template-columns:\s*1fr/);
     expect(css).toMatch(
@@ -2028,5 +2076,341 @@ describe('/income/[room]/create — the creation process (the re-homed wizard fl
     mockPage.url = new URL('http://localhost/income/0xroom123/create');
     render(CreatePage, { props: {} });
     await waitFor(() => expect(goto).toHaveBeenCalledWith('/income', { replaceState: true }));
+  });
+});
+
+/* ---- §4.30 (Concept §42, 2026-11-23, tz12-13) ---------------------------
+ * The scroll-animation batch: (1) the shared scroll-reveal system
+ * (`landing/reveal.ts` + the base.css armed state), (2) the agent card
+ * capped at 240px on desktop, (3) icons +50% below the first screen, (4)
+ * the step cards repainted to the agent card's var(--color-surface),
+ * (5) on phone the banner stacks icon+caption above the text. */
+
+/** A controllable IntersectionObserver stand-in: records construction
+ * options, observed/unobserved targets and lets the test fire entries
+ * (happy-dom's own IO never intersects). */
+class RevealObserverStub {
+  static instances: RevealObserverStub[] = [];
+  readonly callback: IntersectionObserverCallback;
+  readonly options: IntersectionObserverInit | undefined;
+  readonly observed: Element[] = [];
+  readonly unobserved: Element[] = [];
+  disconnected = false;
+
+  constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+    this.callback = callback;
+    this.options = options;
+    RevealObserverStub.instances.push(this);
+  }
+  observe(target: Element): void {
+    this.observed.push(target);
+  }
+  unobserve(target: Element): void {
+    this.unobserved.push(target);
+  }
+  disconnect(): void {
+    this.disconnected = true;
+  }
+  /** Simulate the FIRST scroll-into-view of the given elements. */
+  fire(targets: Element[]): void {
+    this.callback(
+      targets.map(
+        (target) => ({ isIntersecting: true, target }) as unknown as IntersectionObserverEntry
+      ),
+      this as unknown as IntersectionObserver
+    );
+  }
+}
+
+/** The reveal-system's observer (threshold 0.15) — the compat ring keeps
+ * its own threshold-0.4 observer, so the stubs are told apart by option. */
+function revealObserver(): RevealObserverStub | undefined {
+  return RevealObserverStub.instances.find((i) => i.options?.threshold === 0.15);
+}
+
+/** The ≥720px media blocks with one nesting level (rules inside) — for
+ * precise inside-a-media-query assertions (a lazy [\s\S]*? span would
+ * cross block boundaries and match rules outside the media). */
+function desktopBlocks(css: string): string[] {
+  return [...css.matchAll(/@media \(min-width: 720px\)\s*\{(?:[^{}]|\{[^{}]*\})*\}/g)].map(
+    (m) => m[0]
+  );
+}
+
+describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state + the utility wiring)', () => {
+  it('AC 1: every below-the-fold unit carries the bare [data-reveal] marker in the markup (12 units: banner + 3 step blocks + sim + privacy + 4 use-case pills + join + footer) and the hero pair carries [data-reveal-load]; the stylesheet hides NOTHING outside [data-reveal=\'armed\'] — a bare [data-reveal] rule with opacity/visibility does not exist (no-JS = fully visible)', () => {
+    const page = source('src/routes/+page.svelte');
+    const units = [
+      'area-stat',
+      'step-block',
+      'area-sim',
+      'area-privacy',
+      'usecase-pill',
+      'area-join',
+      'area-foot'
+    ];
+    for (const unit of units) {
+      expect(
+        page.match(new RegExp(`<[^>]*class="[^"]*\\b${unit}\\b[^"]*"[^>]*data-reveal[ >]`)),
+        `${unit} carries the data-reveal marker`
+      ).toBeTruthy();
+    }
+    // the hero pair: the LOAD marker, not the scroll marker
+    expect(page).toMatch(/<section class="copy area-lead" data-reveal-load>/);
+    expect(page).toMatch(/<section class="area-agents" id="agents" data-reveal-load>/);
+    // the base.css armed-only hidden state
+    const baseCss = source('src/lib/styles/base.css');
+    const armed = baseCss.match(/\[data-reveal='armed'\]\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(armed).toMatch(/opacity:\s*0/);
+    expect(armed).toMatch(/transform:\s*translateY\(16px\)/);
+    expect(armed).toMatch(
+      /transition:\s*\n?\s*opacity 320ms steps\(4, end\),\s*\n?\s*transform 320ms ease-out/
+    );
+    expect(armed).toMatch(/transition-delay:\s*var\(--reveal-delay, 0ms\)/);
+    const revealed = baseCss.match(/\[data-reveal='armed'\]\.is-revealed\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(revealed).toMatch(/opacity:\s*1/);
+    expect(revealed).toMatch(/transform:\s*translateY\(0\)/);
+    // the negative: a BARE [data-reveal] rule (no hiding outside armed)
+    expect(baseCss).not.toMatch(/\[data-reveal\]\s*\{[^}]*opacity/);
+    expect(baseCss).not.toMatch(/\[data-reveal\]\s*\{[^}]*visibility/);
+    // the bare marker in the landing page carries no scoped hiding either
+    const stripped = page.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(stripped).not.toMatch(/\[data-reveal\]\s*\{[^}]*opacity:\s*0/);
+  });
+
+  it('AC 2 + AC 3: the utility arms every unit (the ONLY moment anything hides), ONE shared IntersectionObserver (threshold 0.15, rootMargin \'0px 0px -48px 0px\') watches exactly the 12 scroll units, the FIRST intersection adds .is-revealed and unobserves (one-shot), and the transitionend cleanup strips BOTH the class and the attribute', () => {
+    RevealObserverStub.instances = [];
+    vi.stubGlobal('IntersectionObserver', RevealObserverStub);
+    const { container } = render(LandingPage, { props: {} });
+    const observer = revealObserver();
+    expect(observer).toBeTruthy();
+    expect(observer?.options).toEqual({ threshold: 0.15, rootMargin: '0px 0px -48px 0px' });
+
+    // exactly the 12 below-the-fold units are observed, in DOM order — the
+    // DOM carries 14 [data-reveal] nodes after arming: the 12 scroll units
+    // + the 2 hero-pair sections the utility armed for the LOAD reveal
+    const armed = [...container.querySelectorAll('[data-reveal]')];
+    expect(armed).toHaveLength(14);
+    const units = armed.filter(
+      (el) => !(el.className.includes('area-lead') || el.className.includes('area-agents'))
+    );
+    expect(units).toHaveLength(12);
+    const observed = observer?.observed ?? [];
+    expect(observed).toHaveLength(12);
+    expect(units.every((u, i) => observed[i] === u)).toBe(true);
+    expect(observed.every((el) => el.getAttribute('data-reveal') === 'armed')).toBe(true);
+
+    // the hero pair is NOT a scroll unit
+    const lead = container.querySelector('.area-lead') as HTMLElement;
+    const agents = container.querySelector('.area-agents') as HTMLElement;
+    expect(observed.includes(lead)).toBe(false);
+    expect(observed.includes(agents)).toBe(false);
+
+    // the banner block starts HIDDEN (armed: opacity 0 + translateY(16px))
+    const banner = container.querySelector('.area-stat') as HTMLElement;
+    expect(banner.getAttribute('data-reveal')).toBe('armed');
+    expect(banner.classList.contains('is-revealed')).toBe(false);
+
+    // the FIRST scroll-into-view: is-revealed lands, the unit is unobserved
+    observer?.fire([banner]);
+    expect(banner.classList.contains('is-revealed')).toBe(true);
+    expect(observer?.unobserved[0]).toBe(banner);
+    expect(observer?.unobserved).toHaveLength(1);
+    expect(banner.getAttribute('data-reveal')).toBe('armed'); // until the cleanup
+
+    // one-shot: a duplicate/late entry never replays (still one unobserve)
+    observer?.fire([banner]);
+    expect(observer?.unobserved).toHaveLength(1);
+    expect(banner.classList.contains('is-revealed')).toBe(true);
+
+    // the rest stay armed (hidden) until their own scroll-into-view
+    const step = container.querySelectorAll('.step-block')[1] as HTMLElement;
+    expect(step.classList.contains('is-revealed')).toBe(false);
+    expect(step.getAttribute('data-reveal')).toBe('armed');
+
+    // the cleanup: transitionend strips BOTH the class and the attribute —
+    // the block ends in its natural state (no leftover transform to fight
+    // .step-block:hover's lift)
+    banner.dispatchEvent(new Event('transitionend'));
+    expect(banner.classList.contains('is-revealed')).toBe(false);
+    expect(banner.hasAttribute('data-reveal')).toBe(false);
+    expect(banner.style.getPropertyValue('--reveal-delay')).toBe('');
+  });
+
+  it('AC 3 (stagger): the sibling groups reveal with the per-index --reveal-delay — step blocks 0/60/120ms, use-case pills 0/60/120/180ms (60ms per sibling, capped at 180); single-unit sections get no delay', () => {
+    RevealObserverStub.instances = [];
+    vi.stubGlobal('IntersectionObserver', RevealObserverStub);
+    const { container } = render(LandingPage, { props: {} });
+    const delayOf = (el: Element): string => el.getAttribute('style')?.match(/--reveal-delay:\s*([^;]+)/)?.[1] ?? '';
+    expect([...container.querySelectorAll('.step-block')].map(delayOf)).toEqual([
+      '', '60ms', '120ms'
+    ]);
+    expect([...container.querySelectorAll('.usecase-pill')].map(delayOf)).toEqual([
+      '', '60ms', '120ms', '180ms'
+    ]);
+    // single units: no inline delay
+    expect(delayOf(container.querySelector('.area-stat') as Element)).toBe('');
+    expect(delayOf(container.querySelector('.area-join') as Element)).toBe('');
+  });
+
+  it('AC 4: the hero pair animates ON LOAD — armed at mount, .is-revealed one animation frame later (no observer entry needed), the same cleanup — while NOT being scroll units; the §37 open-state geometry is untouched', async () => {
+    RevealObserverStub.instances = [];
+    vi.stubGlobal('IntersectionObserver', RevealObserverStub);
+    const { container } = render(LandingPage, { props: {} });
+    const lead = container.querySelector('.area-lead') as HTMLElement;
+    const agents = container.querySelector('.area-agents') as HTMLElement;
+    // armed at mount (the only moment anything hides)
+    expect(lead.getAttribute('data-reveal')).toBe('armed');
+    expect(agents.getAttribute('data-reveal')).toBe('armed');
+    // one animation frame later: revealed — without any intersection
+    await waitFor(() => {
+      expect(lead.classList.contains('is-revealed')).toBe(true);
+      expect(agents.classList.contains('is-revealed')).toBe(true);
+    });
+    // the cleanup strips them exactly like a scroll reveal
+    lead.dispatchEvent(new Event('transitionend'));
+    agents.dispatchEvent(new Event('transitionend'));
+    expect(lead.hasAttribute('data-reveal')).toBe(false);
+    expect(agents.hasAttribute('data-reveal')).toBe(false);
+    // the §37 open state still holds: the hero region is .stage with ONLY
+    // the lead + the agent card inside (the centered first viewport)
+    const stage = container.querySelector('.stage') as HTMLElement;
+    expect([...stage.children].map((c) => c.className)).toEqual(
+      expect.arrayContaining([expect.stringContaining('area-lead'), expect.stringContaining('area-agents')])
+    );
+    expect(stage.children).toHaveLength(2);
+  });
+
+  it('AC 5 (reduced motion): prefers-reduced-motion: reduce ⇒ NO arming, NO observer — every block (including the hero pair) is visible immediately', () => {
+    RevealObserverStub.instances = [];
+    vi.stubGlobal('IntersectionObserver', RevealObserverStub);
+    vi.stubGlobal('matchMedia', vi.fn(() => ({
+      matches: true,
+      media: '(prefers-reduced-motion: reduce)',
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false
+    })));
+    const { container } = render(LandingPage, { props: {} });
+    expect(container.querySelectorAll("[data-reveal='armed']")).toHaveLength(0);
+    expect(container.querySelector('.area-stat')?.hasAttribute('data-reveal')).toBe(true); // bare marker only
+    expect(container.querySelector('.area-lead')?.hasAttribute('data-reveal')).toBe(false);
+    expect(revealObserver()).toBeUndefined(); // no reveal observer was created
+  });
+
+  it('AC 5 (missing IO): IntersectionObserver unavailable ⇒ the mount fallback — nothing is armed, every block renders fully visible', () => {
+    RevealObserverStub.instances = [];
+    vi.stubGlobal('IntersectionObserver', undefined);
+    const { container } = render(LandingPage, { props: {} });
+    expect(container.querySelectorAll("[data-reveal='armed']")).toHaveLength(0);
+    expect(container.querySelector('.area-stat')?.hasAttribute('data-reveal')).toBe(true); // bare marker only
+  });
+
+  it('AC 2 (teardown): unmount disconnects the shared observer — no leak across HMR/tests', () => {
+    RevealObserverStub.instances = [];
+    vi.stubGlobal('IntersectionObserver', RevealObserverStub);
+    const { container, unmount } = render(LandingPage, { props: {} });
+    const observer = revealObserver();
+    expect(observer?.disconnected).toBe(false);
+    unmount();
+    expect(observer?.disconnected).toBe(true);
+    expect(container.querySelector('.area-stat')).toBeNull();
+  });
+});
+
+describe('/ — §4.30.C the agent card narrower on desktop + §4.30.D/F the banner geometry', () => {
+  it('AC 6: at ≥720px the agent card computes max-width: 240px, centered (margin-inline: auto) inside the UNCHANGED thirds grid; on phone (<720px) there is NO cap (100% of the container, §4.28.F)', () => {
+    const css = source('src/routes/+page.svelte');
+    const cap = desktopBlocks(css).find((b) => b.includes('.agent-card')) ?? '';
+    expect(cap).toMatch(/\.agent-card\s*\{[^}]*max-width:\s*240px/);
+    expect(cap).toMatch(/\.agent-card\s*\{[^}]*margin-inline:\s*auto/);
+    // the base card rule carries no cap (the phone is 100%)
+    const baseCard = css.match(/\.agent-card,\s*\n?\s*\.stat-card\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(baseCard).not.toMatch(/max-width/);
+    // the thirds grid is UNCHANGED (repeat(3, 1fr), the middle third empty)
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*grid-template-columns:\s*repeat\(3, 1fr\)/
+    );
+    expect(css).not.toMatch(/grid-column:\s*2/);
+    // the §4.20.G contract carries: pixel frame + hover/press + TALK
+    const { container } = render(LandingPage, { props: {} });
+    expect(container.querySelector('.agent-card')?.className).toContain('pixel-frame--strong');
+    expect(container.querySelector('.agent-card .talk')).toBeTruthy();
+  });
+
+  it('AC 11: on phone .stat-body is a left-aligned flex COLUMN with .stat-glyph at order: -1 laid out as a ROW (the flower left, the dot + caption beside it) — visual order = icon+caption block → badge → title → the three stat lines', () => {
+    const css = source('src/routes/+page.svelte');
+    const body = css.match(/\.stat-body\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(body).toMatch(/flex-direction:\s*column/);
+    expect(body).toMatch(/align-items:\s*flex-start/);
+    expect(body).toMatch(/gap:\s*var\(--space-3\)/);
+    const glyph = css.match(/\.stat-glyph\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(glyph).toMatch(/order:\s*-1/);
+    expect(glyph).toMatch(/flex-direction:\s*row/);
+    expect(glyph).toMatch(/align-items:\s*center/);
+    expect(glyph).toMatch(/gap:\s*6px/);
+    // the content contract is unchanged: badge → title → lines in .stat-copy
+    // (class names carry the Svelte scoping class — compare the lead token)
+    const { container } = render(LandingPage, { props: {} });
+    const copy = container.querySelector('.stat-copy');
+    expect(
+      [...(copy?.children ?? [])].map((c) => c.className.split(' ')[0])
+    ).toEqual(['stat-badge', 'stat-title', 'stat-line', 'stat-line', 'stat-line']);
+  });
+
+  it('AC 12: at ≥720px the banner is the UNCHANGED compact row — text left, glyph column right, justify-content: space-between, padding 16px 20px; the glass fill/badge/copy are untouched', () => {
+    const css = source('src/routes/+page.svelte');
+    const media = desktopBlocks(css).find((b) => b.includes('.stat-body')) ?? '';
+    expect(media).toMatch(/\.stat-body\s*\{[^}]*flex-direction:\s*row/);
+    expect(media).toMatch(/\.stat-body\s*\{[^}]*align-items:\s*center/);
+    expect(media).toMatch(/\.stat-body\s*\{[^}]*justify-content:\s*space-between/);
+    expect(media).toMatch(/\.stat-body\s*\{[^}]*padding:\s*16px 20px/);
+    expect(media).toMatch(/\.stat-glyph\s*\{[^}]*order:\s*0/);
+    expect(media).toMatch(/\.stat-glyph\s*\{[^}]*flex-direction:\s*column/);
+    // the glass values stand verbatim (§4.26.B — not a de-glass pass)
+    const body = css.match(/\.stat-body\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(body).toMatch(/background:\s*rgba\(20, 18, 30, 0\.55\)/);
+  });
+});
+
+describe('/ — §4.30.D the icon table (+50% below the first screen) + the unchanged negatives', () => {
+  it('AC 8: the step icons grew +50% — the PixelIcon renders 48px inside a 72×72 .step-icon wrapper', () => {
+    const { container } = render(LandingPage, { props: {} });
+    for (const block of container.querySelectorAll('.step-block')) {
+      const icon = block.querySelector('.step-icon svg');
+      expect(icon?.getAttribute('width')).toBe('48');
+      expect(icon?.getAttribute('height')).toBe('48');
+    }
+    const css = source('src/routes/+page.svelte');
+    const wrapper = css.match(/\.step-icon\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(wrapper).toMatch(/width:\s*72px/);
+    expect(wrapper).toMatch(/height:\s*72px/);
+    expect(css).toMatch(/<PixelIcon name=\{step\.icon\} size=\{48\} \/>/);
+  });
+
+  it('AC 8 + AC 9 (negatives): the first-viewport pair + chrome are UNCHANGED — the lead sparkles 8px, the agent-card portrait 96px, the join BLEAK-WAVE mascot 96px, the footer glyph 16px, .step-num 40px, the compat ring 160×160 with the 40px numeral, .sim-cursor 6×2px — and no other landing size changed', () => {
+    const { container } = render(LandingPage, { props: {} });
+    const css = source('src/routes/+page.svelte');
+    // lead sparkles
+    expect(css).toMatch(/\.sparkle\s*\{[^}]*width:\s*8px[^}]*height:\s*8px/);
+    // the agent-card portrait: 96px (the §4.20.G register — NOT +50%'d)
+    const portrait = container.querySelector('.agent-portrait [data-figure="bleak"] svg');
+    expect(portrait?.getAttribute('height')).toBe('96');
+    // the join mascot: 96px (NOT in the §42.3 enumeration — flag 2)
+    const mascot = container.querySelector('.join-card [data-figure="bleakWave"] svg');
+    expect(mascot?.getAttribute('height')).toBe('96');
+    // the footer glyph: 16px chrome
+    const footerGlyph = container.querySelector('.foot-brand svg');
+    expect(footerGlyph?.getAttribute('width')).toBe('16');
+    // .step-num: 40px decorative text
+    expect(css).toMatch(/\.step-num\s*\{[^}]*font-size:\s*40px/);
+    // the compat ring: geometry-bound, untouched
+    expect(css).toMatch(/\.compat-ring\s*\{[^}]*width:\s*160px[^}]*height:\s*160px/);
+    expect(css).toMatch(/\.compat-ring \.compat-score\s*\{[^}]*font-size:\s*40px/);
+    // .sim-cursor: 6×2px
+    expect(css).toMatch(/\.sim-cursor\s*\{[^}]*width:\s*6px[^}]*height:\s*2px/);
   });
 });

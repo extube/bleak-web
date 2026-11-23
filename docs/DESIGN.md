@@ -76,11 +76,17 @@ image helper (ARCHITECTURE §10.10).
 | `/people` | `routes/people/+page.svelte` | attendee | yes | Full attendee list, search, filters, handshake actions |
 | `/chats` | `routes/chats/+page.svelte` | attendee | yes | List of agent dialogs (mutual handshakes) |
 | `/chats/[address]` | `routes/chats/[address]/+page.svelte` | attendee | no | Dialog transcript (read-only) + kickoff |
-| `/profile` | `routes/profile/+page.svelte` | attendee | yes | Persona badge card (with personal QR), editing, stats, locale, leave room |
+| `/profile` | `routes/profile/+page.svelte` | attendee | yes | "My profile" screen: centered square avatar + username, 3-stat row, pill tabs (About / Interests / QR code) over the live badge QR — read-only (§4.29) |
+| `/profile/settings` | `routes/profile/settings/+page.svelte` | attendee | no | App-level settings sub-page: profile-edit entry row, locale, token rotation, leave room — list-block pattern (§4.29) |
+| `/profile/edit` | `routes/profile/edit/+page.svelte` | attendee | no | "Edit profile" sub-page: name/bios, greeting (+ regenerate), local contact card; full-width Save Changes (§4.29) |
 | `/host` | `routes/host/+page.svelte` | host | yes* | Host console: one-time creation token, room creation, invite management, share kit, live room view |
 
 *The Host tab is always visible in the tab bar (an attendee may also be the
 host); the host page itself never requires an attendee identity.
+
+(The `/profile` row is rewritten and the `/profile/settings` +
+`/profile/edit` rows are ADDED by the §4.29 profile-redesign rev,
+2026-11-22.)
 
 Parameterized routes: only `/chats/[address]` — `address` is a chat address
 (`0xchat123`-style string from `ChatResponse.address`).
@@ -7721,6 +7727,1039 @@ punctuation); the EN description stays as-is (§41.3's EN translation
 proposal is pending owner approval). No key additions/removals — RU/EN
 parity stays 55/55, values only. Task: tz12-12a
 (`feature/42ce1dbc-tz12-12a-lead-copy-color`).
+
+### 4.29 v3.23 feature design (2026-11-22, owner-approved Concept §42): profile redesign — `/profile` + `/profile/settings` + new `/profile/edit`
+
+The owner-approved §42 redesign rebuilds the profile surface on the
+reference `docs/refs/profile-design.png` (three mobile screens: My profile /
+Settings / Edit Profile). ADOPTION RULES (Concept §42.1, binding): the
+reference contributes **layout, structure and component patterns only** —
+header with QR icon + gear, centered avatar, username row, stats row, pill
+tabs, settings list blocks with chevron rows, key-value edit rows, full-width
+save button — rendered entirely on the app's EXISTING tokens (charcoal
+`#1a1c20`/`#101213`, accent `#fedc5c`; `tokens.css` values only, §2.4). NO
+lime accent, no global theme change, no new tokens. The circular avatars of
+the reference are NOT followed (Concept §42.4: the owner's sharp-edged-square
+text wins). `docs/refs/profile-design-2.png` and the stale
+`/workspace/profile-design.png` copy are IGNORED. Content = real bleak-node
+API entities only; streak counter, badges, social post card, followers and
+the reference's toggles/FAQ rows are DROPPED — no placeholder or mock
+elements (Concept §42.2).
+
+This rev amends §3.6 (the /profile page), §4.9.3 (the settings route), and
+§4.11.4 (the editing-location contract); the full supersession list is G.
+Sitemap: the §1.1 `/profile` row is rewritten and `/profile/settings` +
+`/profile/edit` rows are ADDED (marked there). **Where this rev is silent,
+the superseded sections' specs stand** except where G explicitly retires
+them. Grounded in the live code: `routes/profile/+page.svelte`,
+`routes/profile/settings/+page.svelte`,
+`lib/components/profile/{ProfileBadge,QrCodeBadge,PersonaEditor,GreetingEditor,ContactCardEditor}.svelte`,
+`lib/components/{PixelAvatar,StatTile,Chip}.svelte`,
+`lib/components/icons/registry.ts`, `lib/stores/{interests,contactCard,mutualCode,identity}.ts`,
+`lib/styles/tokens.css`, `lib/i18n/{ru,en}.ts`.
+Task: `feature/f6ab8db7-profile-redesign`.
+
+**API endpoints used** (all credentialed calls carry the persona Bearer,
+auto-injected per ARCHITECTURE §10.8; endpoints per
+`/mount/bleak-node/docs/swagger.json`):
+
+| Endpoint (client method) | Screen / use |
+| --- | --- |
+| `GET /api/room/{room}/user/{address}` (`getRoomUser`) — persona Bearer | `/profile`: 4 s badge poll for the derived `mutual_code_live` (§6.3); `/profile/edit`: mount prefill (no poller) |
+| `GET /api/handshake/user/{address}` (`listHandshakesOfUser`) — gated read | `/profile` stats: sent count + added-you (mount + after mutations, §2.2) |
+| `GET /api/user/{address}/chat` (`listChatsOfUser`) — gated read | `/profile` stats: dialogs count |
+| `POST /api/room/{room}/user/{address}/mutual-code` (`registerMutualCode`) — persona Bearer; body = the code's SHA-256 hash, never the raw code | `/profile` live-QR registration (§6.3) |
+| `PUT /api/room/{room}/user/{address}` (`updateRoomUser`) — persona Bearer | `/profile/edit`: save name / public_bio / private_bio (all three fields, omitted-field semantics) |
+| `GET /api/room/{room}/user/{address}/greeting` (`getUserGreeting`) — persona Bearer | `/profile/edit`: canonical greeting prefill |
+| `PUT /api/room/{room}/user/{address}/greeting` (`putUserGreeting`) — persona Bearer | `/profile/edit`: save the greeting |
+| `POST /api/room/{room}/user/{address}/greeting/regenerate` (`regenerateGreeting`) — persona Bearer | `/profile/edit`: regenerate into the editor (not saved until Save) |
+| `POST /api/room/{room}/user/{address}/token` (`rotateUserToken`) — Bearer = current persona token, body = new raw token | `/profile/settings`: token rotation (§8.1.3) |
+| `DELETE /api/room/{room}/user/{address}` (`deleteRoomUser`) | NOT used on these screens — leave-room is purely local (§4.12.1); the endpoint stays for host drill-down |
+
+#### 4.29.A `/profile` — the "My profile" screen (read-only)
+
+**Purpose.** The attendee's own persona card, restyled to the reference's
+first screen: identity header, stats, and three pill tabs over the real
+content. The page stays READ-ONLY (§10.1.4's read-only half, carried through
+Concept §42.3); no edit affordance exists on it (I-rec 3).
+
+**A.1 Header.** One row: the h1 left (32px, as today) =
+`profile.title` — VALUE AMENDED to «Мой профиль» / "My profile" (E.2,
+matching the reference's screen title); the top-right cluster holds two
+icon-only buttons (48px `--touch-target` each, muted glyph, hover/active →
+`--color-text`):
+
+1. **QR affordance** — glyph `scan` (D.3), `aria-label` =
+   `profile.header.qr` (new, E.1).
+2. **Settings gear** — glyph `gear` (D.2), `aria-label` = `profile.settings.title`
+   («Настройки» / "Settings") → navigates to `/profile/settings` (a real link
+   styled as an icon button, §2.6). This carries §4.10.2's top-right corner
+   entry (amended: labeled button → icon button, G.5).
+
+**A.2 Header QR affordance behavior — tab-switch, NOT a second QR.** The
+live badge QR block lives EXACTLY ONCE on the page — inside the QR tab
+panel (A.6). Tapping the header QR icon: if the active tab is not QR →
+activates the QR tab; if it already is → scrolls the QR block into view
+(instant under `prefers-reduced-motion`). A header sheet/modal hosting a
+second `QrCodeBadge` was REJECTED: it would duplicate the QR render and the
+`aria-live` rotation note, and split the §6.3 contract across two mounts
+(I-rec 2).
+
+**A.3 The §6.3 rotation flash note.** The transient «QR обновлён» note
+(existing `qrRefreshed`, auto-hide 2 s, `aria-live="polite"`) renders inside
+the QR panel under the QR, as today. **When the rotation fires while another
+tab is active, the app switches to the QR tab first** — the rotation is
+visible by design (§3.6: the swap teaches the one-time mechanic); the note
+then shows in place. The underlying contract is UNTOUCHED: the 4 s Poller on
+the token-gated `getRoomUser` watches `mutual_code_live`; flag false →
+`decideBadgeAction` → generate a fresh code, register ONLY its hash via
+`registerMutualCode`, update the `mutualCode` store, re-render with the
+rotation micro-animation; a registration failure keeps the last QR and
+retries on the next tick (§3.6 AC 14 verbatim).
+
+**A.4 Identity block.** Centered column under the header:
+`PixelAvatar` 96px (own persona → accent backdrop; SQUARE treatment, D.1) →
+`User.name` centered (Handjet 28px, `overflow-wrap: anywhere`) → the
+read-only language meta (`profile.language.meta`, muted 14px). The
+reference's verified-check mark is DROPPED (no API backing).
+
+**A.5 Stats row.** The existing 3-stat contract (§2.2, §4.9.5) as THREE
+`StatTile`s in one row (grid `repeat(3, 1fr)`, gap `--space-3`), placed
+under the identity block and ABOVE the pill tabs (the reference's stats
+position): **Sent** (`handshakes.length`) / **Added you** (the
+`to_address === me` filter) / **Chatting** (`chats.length`) — computed with
+the persona Bearer on mount + after mutations, exactly as today.
+**Decision: keep the StatTile component** (surface-elevated tiles, Handjet
+numerals, existing `aria-label` pattern) rather than restyling to the
+reference's inline "10.2k · 142" text row — the tiles are the established
+app pattern and Concept §42.2 names the EXISTING stats contract (I-rec 1).
+
+**A.6 Pill tabs — final naming + content mapping.** Three tabs over real
+content (Concept §42.2); every existing `/profile` content block is mapped,
+nothing is invented:
+
+| Tab (key) | RU / EN | Panel content (all existing, re-hosted from the §3.6 badge card) |
+| --- | --- | --- |
+| `profile.tab.about` | «Обо мне» / "About" | The **greeting block** (accent 3px left bar, italic muted, caption `profile.greeting.caption`) + the **public bio** («О себе» / `profile.badge.about`) + the **private bio** (`profile.badge.for_agent` + the muted-red `profile.private_bio.caption` above it, §4.10.3/§4.11.3 carried) — one `--color-surface` card (`.pixel-corners`, radius-lg) |
+| `profile.tab.interests` | «Интересы» / "Interests" | The local mirror chips (`stores/interests.ts` → `displayInterests`; `Chip variant="outline-muted"`, emoji + title) — **DISPLAY-ONLY**: no editor, no add affordance (I-rec 12); empty state `profile.interests.empty` — one surface card |
+| `profile.tab.qr` | «QR-код» / "QR code" | The **live QR block**: `QrCodeBadge` (or the badge skeleton while no code exists) + both caption lines (`profile.qr.caption`, `profile.qr.onetime`) + the rotation note (A.3) — one surface card; the QR keeps the light `--color-qr-frame` frame and issues no network request (§3.6 carried) |
+
+Nothing real is lost: greeting, both bios, interests, the QR block and the
+stats are all mapped; identity lives in the header block (A.4).
+**Handshake rows are NOT listed in a tab**: the already-fetched handshake
+list feeds the stats counts only (A.5) — a handshake-row list would be a NEW
+surface the reference's one-card-per-tab pattern does not require (I-rec 1).
+Streak counter, badges, social post card: dropped per §42.2.
+
+**A.7 Pill-tab component spec (on tokens).** Real `<button>`s reusing the
+Chip vocabulary (§4.2): **active** tab = `fill-accent` (accent background,
+`--color-accent-ink` text), **inactive** = `outline-muted` (1px
+`--color-text-disabled-strong` border, `--color-text-muted` text); min-height
+48px, padding `0 var(--space-4)`, `--radius-pill`, `--font-body` 14px/600;
+NEVER `.pixel-corners` (§4.5: pills stay smooth). Active-state morph: 120 ms
+background/color transition (§4.6). Semantics: a `role="tablist"` wrapping
+`role="tab"` buttons with `aria-selected` + `aria-controls`, panels as
+`role="tabpanel"` labelled by their tab; the tabs are plain tabbable buttons
+in DOM order (no roving-tabindex requirement for AA). Default tab on mount:
+**About** (first).
+
+**A.8 States.** Loading: the existing skeleton adapted to the new shape
+(centered avatar block + name bar + 3 stat-tile skeletons + the tab row).
+Error: `ErrorBanner` + retry (existing `refresh()` carried). Persona 404:
+the existing not-found card verbatim (`profile.not_found` + `profile.exit`
+→ clears identity → `/`). QR: the badge skeleton until a code exists
+(never a broken payload). Mutation-pending: n/a (read-only page).
+
+**A.9 Responsive.** `<720px`: the §4.12.1 phone full-screen treatment
+CARRIED verbatim from the current implementation (container drops side
+padding; cards go radius 0; header keeps its own gutter; tab-bar clearance
+stays). `≥720px`: content column max-width 560px centered.
+
+**A.10 Accessibility.** Carried from §3.6: stat tiles announce
+"«Отправлено»: 7"-style full pairs; the QR `<figure>` has `role="img"` with
+`profile.qr.aria`; focus-visible outline never removed; icon-only header
+buttons labeled (A.1). New: the tab semantics (A.7).
+
+#### 4.29.B `/profile/settings` — the "Settings" screen (list-block pattern)
+
+**Purpose.** App-level settings only, restyled to the reference's second
+screen (grouped list blocks with icon/chevron rows). Persona editing LEAVES
+this page for `/profile/edit` (C); §4.11.4 item 4's "all persona editing
+lives here" is SUPERSEDED (G.3).
+
+**B.1 Chrome (carried + one amendment).** No tab bar (the scoped-style
+pattern, §4.9.3); back control top-left (history back with a `/profile`
+fallback, §1.3). The h1 is **centered** per the reference: grid
+`[48px 1fr 48px]`, title = `profile.settings.title` — VALUE AMENDED to
+«Настройки» / "Settings" (E.2; the old value «Мой профиль» now belongs to
+`/profile`'s title, A.1).
+
+**B.2 List-block pattern.** Grouped `--color-surface` cards (`.pixel-corners`,
+radius-lg, padding `--space-4`/`--space-5`) of full-width rows. Row anatomy:
+min-height 48px; leading 16px `PixelIcon` (muted) when a suitable glyph
+exists; label left (`--font-body` 15px/600, `--color-text`); trailing
+element right — the `arrow-right` chevron (`aria-hidden`) for navigational
+rows, an inline control or a spinner for actionable rows; 1px
+`--color-surface-elevated` divider between rows within a block.
+**No toggle rows and no FAQ/Terms/policy rows**: the app has no
+toggle-backed setting and no such content — the reference's toggles/FAQ are
+NOT invented (I-rec 4/7).
+
+**B.3 Row mapping (the real rows only).**
+
+1. **Block 1 — profile entry row** → `/profile/edit`: mini `PixelAvatar`
+   40px (own, square) + `User.name` (15px/600) + the muted
+   `User.address` line (single-line ellipsis) + chevron. Rendered as a real
+   link; `aria-label` = `profile.edit.title`. This ONE row REPLACES the
+   three persona-edit rows (persona / greeting / contact) that §4.11.4
+   moved here — their content moves to `/profile/edit` (C.3, G.3).
+2. **Block 2 — app settings:**
+   - **Language row**: label `common.locale` + the existing `LocaleControl`
+     (RU|EN segmented control) inline as the trailing control. The
+     reference's "Language ›" sub-page pattern is REJECTED: the control is
+     inline today and a sub-page for a two-option switch adds a route for
+     nothing (I-rec 8).
+   - **Token-rotation row**: `key` glyph + `profile.rotate.row` + trailing
+     chevron → the existing `ConfirmDialog` (title/body/CTA copy unchanged,
+     §3.6/§8.1.3). Pending: the spinner replaces the chevron. The
+     `rotatedFlash` («Ключ обновлён») and `rotateError` lines render under
+     the row (`aria-live="polite"` / `role="alert"`), carried verbatim.
+3. **Leave room** — the reference's bottom full-width button slot: a
+   STANDALONE full-width button BELOW the blocks at the page bottom,
+   **outline red** per §7.1.6/§4.9.3 (carried roles verbatim): 1px border
+   `--color-danger`, font `--color-danger-text`, TRANSPARENT background —
+   never a filled red block; `--radius-pill`; min-height 48px. The existing
+   `ConfirmDialog` carries (copy per §4.12.1's purely-local semantics:
+   confirm → clear identity + mutual code, KEEP `bleak.tokenVault`, → `/`).
+
+**B.4 Removed from settings.** The persona/greeting/contact edit rows
+(their keys retire or move per E.3); the received-contacts list stays
+removed (§4.14.2 carried); the internal `view = rows|persona|greeting|contact`
+state machine collapses to a static page (implementation note — the editor
+components re-host on `/profile/edit`).
+
+**B.5 States.** Mount `getRoomUser` fetch (no poller, §2.2): error →
+`ErrorBanner` + retry (carried); `savedFlash` carried (still fired by
+nothing until /profile/edit's flow replaces it — see C.5: the flash moves
+with the editors). Rotation pending/error/flash per B.3.2.
+
+**B.6 Responsive.** `<720px`: the same phone full-screen list treatment as
+A.9 (container drops side padding; blocks radius 0). `≥720px`: blocks
+max-width 560px centered (carried §4.9.3).
+
+**B.7 Accessibility.** Rows are real buttons/links (§2.6); chevrons and
+icons `aria-hidden` (labeled glyphs) or decorative; the entry row's
+accessible name = `profile.edit.title`; everything else carried from the
+current implementation.
+
+#### 4.29.C `/profile/edit` — the "Edit profile" screen (new route)
+
+**Purpose.** Persona editing (name/public bio/private bio via
+`updateRoomUser`; greeting incl. regenerate via the greeting endpoints; the
+LOCAL contact card), moved here per the reference's third screen:
+key-value rows + one full-width primary Save Changes. NO interests editor —
+I-rec 12 (flagged for owner ratification).
+
+**C.1 Chrome.** Sub-page: no tab bar (B.1 pattern); back control top-left
+(history back with a `/profile` fallback); h1 CENTERED = `profile.edit.title`
+(new, E.1) «Редактировать профиль» / "Edit profile". Record: §4.12.3's
+drop-"Edit" copy sweep applied to editor FORM titles; this is a SCREEN title
+the owner's reference names explicitly — superseded for this one title
+(I-rec 9).
+
+**C.2 Avatar.** Centered `PixelAvatar` 96px, square (D.1), DISPLAY-ONLY.
+**No camera badge**: the bleak-node contract has no avatar-upload endpoint —
+the reference's camera affordance is NOT invented (I-rec 6).
+
+**C.3 Field groups (the editors surface here; the reference's key-value
+rows).** The three existing editors (`PersonaEditor`, `GreetingEditor`,
+`ContactCardEditor`) re-host as sections of ONE form; their individual
+Save/Cancel CTAs are retired here (the route owns the single Save, C.4);
+their fields, labels, validators and helper copy carry verbatim:
+
+| Group | Rows / fields | Saved via |
+| --- | --- | --- |
+| **Persona** | **Name** (`profile.edit.row.name`, new) — single-line input, maxlength 64, required (empty → `join.error.name_required`, reused) · **Public bio** (`profile.edit.row.public_bio`, new) · **Private bio** (`profile.edit.row.private_bio`, new) + the muted-red `profile.private_bio.caption` under its label | `PUT updateRoomUser` — ALL THREE fields sent (omitted-field semantics, §3.6) |
+| **Greeting** | Label-above block: `profile.greeting.label`; textarea max 255 + counter `profile.greeting.counter`; helper rule `profile.greeting.rule`; inline **Regenerate** outline button (`profile.greeting.regenerate`) — fills the textarea WITHOUT saving (carried §3.6) | `PUT putUserGreeting` |
+| **Contact card** | Single-line row: label `profile.contact.edit` (reused — same string/role) + value input ≤255 + helper `profile.contact.note` | LOCAL ONLY — `bleak.contactCard`, no API call on save (§4.13.3) |
+
+**Row anatomy (reference key-value pattern):** single-line fields render as
+label (muted 14px) left + right-aligned borderless input (`--color-text`)
+in a `--color-surface` row; 1px `--color-surface-elevated` dividers between
+rows. **Recorded deviation (I-rec 10):** the multi-line fields (both bios,
+the greeting) use label-ABOVE borderless input blocks — a one-line
+key-value row cannot hold multi-line text; the greeting keeps its textarea,
+counter and validation block.
+
+**C.4 Save model — DECISION: ONE full-width primary Save Changes.** The
+reference shows a single Save Changes button and Concept §42.3 says "Save
+Changes primary button"; per-editor saves are retired on this screen
+(I-rec 3). Spec: full-width button, min-height 48px, `--radius-pill`,
+accent background + `--color-accent-ink` text, `--font-body` 16px/600;
+pending → spinner in the button; double-submit prevented. Submit sequence:
+(1) `updateRoomUser` (name + public_bio + private_bio), (2) `putUserGreeting`,
+(3) the local `contactCard` save. **First failure aborts the sequence** —
+the failing group shows the inline error (server text; network →
+`common.error.network`; greeting 400 → `profile.greeting.no_questions`),
+the already-applied steps stand, and a retry re-saves idempotently (both
+PUTs send full values). The greeting question-mark rule blocks the WHOLE
+save client-side: any `?`/`？` disables Save (`aria-disabled`) with the
+reason inline at the greeting field (existing `GreetingEditor` validation,
+carried).
+
+**C.5 Success.** Transient «Сохранено» flash (`profile.saved`, reused,
+`aria-live="polite"`, 2 s) — the page STAYS on `/profile/edit` (today's
+settings flash pattern); the back control returns to `/profile`, which
+re-fetches on mount so the updated values render immediately.
+
+**C.6 Back / unsaved changes.** The back control and any navigation discard
+unsaved input WITHOUT a confirm dialog — the same semantics as today's
+editors' Cancel (I-rec 11).
+
+**C.7 Mount.** Prefill from one `getRoomUser` fetch; the greeting field
+additionally re-fetches the canonical greeting via `getUserGreeting`
+(carried settings behavior; the `getRoomUser` value is the loading
+fallback). Load error → `ErrorBanner` + retry. **No poller** — the §6.3
+live-QR contract stays bound to `/profile` only (§2.2 cadence table).
+
+**C.8 Responsive.** `<720px`: §4.12.1 phone full-screen form — the form
+fills the viewport, no floating card chrome, tab bar hidden, all content in
+bounds at 320/360/390px; the Save button sits in the normal flow after the
+field groups. `≥720px`: centered column max-width 560px (consistent with
+the other profile screens).
+
+#### 4.29.D Square avatar treatment + icons
+
+**D.1 Square avatars (Concept §42.4 — owner text wins over the reference's
+circular avatars).** `PixelAvatar` already renders a sharp-edged square
+frame. Spec for all three screens: the bare square frame — NO border-radius,
+no ring, no `.pixel-corners` (§4.5 excludes avatars); the own-persona accent
+backdrop stays (§4.3's "you are here" mark); the 1px same-color padding
+(§4.8.2) carries. Sizes: 96px on `/profile` (A.4) and `/profile/edit`
+(C.2); 40px in the settings entry row (B.3.1).
+
+**D.2 Gear glyph (the one new glyph).** The §4.4 registry has NO gear; the
+reference's settings gear is load-bearing (A.1). Spec: ONE new glyph `gear`
+added to the existing `icons/registry.ts` as a trivially inline 16×16
+single-color (`currentColor`) 2px-weight pixel-art SVG — consistent with
+§4.4, no new file type, no dependency. Fallback if the owner rejects a new
+glyph: reuse `edit` (pencil) for the settings entry (closest existing
+semantic). Flagged (I-rec 13).
+
+**D.3 Header QR glyph:** reuse the existing `scan` (viewfinder brackets) —
+the scanner-set glyph reads as "show my QR". No new glyph.
+
+**D.4 Other glyphs:** chevron = existing `arrow-right`; token-rotation =
+existing `key`; no other new glyphs anywhere in this rev.
+
+#### 4.29.E i18n delta (both dictionaries; RU/EN parity CI-enforced)
+
+**New keys (9).** RU strings are design inventions for tone ratification
+(standing precedent — flagged in I-rec 14):
+
+| Key | RU (proposed) | EN |
+| --- | --- | --- |
+| `profile.header.qr` | «Показать QR-код» | "Show QR code" |
+| `profile.tab.about` | «Обо мне» | "About" |
+| `profile.tab.interests` | «Интересы» | "Interests" |
+| `profile.tab.qr` | «QR-код» | "QR code" |
+| `profile.edit.title` | «Редактировать профиль» | "Edit profile" |
+| `profile.edit.row.name` | «Имя» | "Name" |
+| `profile.edit.row.public_bio` | «О себе» | "About you" |
+| `profile.edit.row.private_bio` | «Для агента» | "For your agent" |
+| `profile.edit.save` | «Сохранить изменения» | "Save changes" |
+
+**Value edits (2):** `profile.title` «Профиль» → **«Мой профиль»** /
+"Profile" → **"My profile"**; `profile.settings.title` «Мой профиль» →
+**«Настройки»** / "My profile" → **"Settings"**.
+
+**Retired (3 — usages leave with this rev):** `profile.settings.persona`
+(the settings persona-block title; the block becomes the entry row),
+`profile.persona.edit` and `profile.greeting.edit` (the editors' h2s are
+replaced by the field labels of C.3). Reused unchanged: `profile.contact.edit`
+as the contact row's label, `profile.saved`, `profile.greeting.*`,
+`profile.badge.*`, `profile.private_bio.caption`, `profile.interests.*`,
+`profile.qr.*`, `profile.stats.*`, `profile.language.meta`,
+`profile.rotate.*`, `profile.leave*`, `profile.not_found`, `profile.exit`,
+`common.locale`, `common.back`.
+
+Net per dictionary: +9 − 3, 2 value edits; parity maintained (the
+`i18n.test.ts` per-dictionary count assertions update to the new count).
+
+#### 4.29.F Motion, accessibility, responsive, polling
+
+**F.1 Motion (§2.5/§4.6 — minimal, performance-first).** Tab active-state
+morph 120 ms (background/color); **tab panel switch = instant content swap**
+(no animation — recorded; nothing scrolls or slides); the QR rotation
+micro-animation and the flash notes are UNCHANGED (§3.6). No new
+transform/opacity animations; `prefers-reduced-motion: reduce` → the tab
+morph and the QR swap become instant (the notes still show).
+
+**F.2 Accessibility (§2.6 AA).** Carried: touch targets ≥ 48px, visible
+focus, semantic landmarks, `aria-live` success/error lines, stat-tile and
+QR accessible names, contrast on tokens. New: the A.7 tab semantics;
+icon-only buttons carry `aria-label`s (A.1); Save's validation-disabled
+state is `aria-disabled` with the reason inline (C.4).
+
+**F.3 Responsive (720px breakpoint, §4.12.1).** All three screens: phone
+(<720px) full-screen treatments per A.9/B.6/C.8; ≥720px centered 560px
+columns; no horizontal scroll at 320/390/760/1280.
+
+**F.4 Polling (§2.2 — cadences unchanged).** `/profile`: the 4 s
+token-gated `getRoomUser` badge poll (liveness flag) + stats on mount and
+after mutations. `/profile/settings` and `/profile/edit`: mount fetches
+only, no pollers. The §6.3 rotation contract (Poller 4 s, `decideBadgeAction`,
+register-fresh-on-scan, hash-only registration) stays intact on `/profile`.
+
+#### 4.29.G Supersessions (explicit record)
+
+1. **§3.6 layout (blocks 1–4) SUPERSEDED** by the three-screen structure:
+   the single badge card is decomposed — identity + stats become the
+   header/identity block (A.4/A.5), greeting + bios + interests
+   redistribute into the pill tabs (A.6), the QR block moves into the QR
+   tab, the settings block lives restyled on its own route. §3.6's API
+   table, live-QR mechanics, rotation micro-animation, not-found and error
+   states CARRY where not restated.
+2. **§3.6 block 3 (inline editors on `/profile`) SUPERSEDED**: `/profile`
+   is READ-ONLY (§10.1.4's read-only half carried through Concept §42.3);
+   editing moves to `/profile/edit` (C).
+3. **§4.11.4 item 4 ("no profile edit button; all persona editing lives in
+   `/profile/settings`") SUPERSEDED**: persona editing lives in
+   `/profile/edit`; it is entered from the `/profile/settings` entry row —
+   `/profile` itself stays edit-button-free (the reference's first screen
+   has none either). §4.11.4's other items carry.
+4. **§4.9.3 item 3 AMENDED**: the leave-room outline-red rule CARRIES
+   verbatim (border `--color-danger` / font `--color-danger-text`,
+   B.3.3), but the settings page composition (plain column of pill
+   buttons) is SUPERSEDED by the list-block pattern (B.2–B.3).
+5. **§4.10.2 (settings corner entry) AMENDED**: position top-right
+   unchanged; the labeled compact button becomes the gear ICON button
+   (A.1).
+6. **§4.12.1 item 5 CARRIED and extended**: the phone full-screen treatment
+   now explicitly covers `/profile`, `/profile/settings` and
+   `/profile/edit`.
+7. **§3.6 acceptance criteria redistributed**: AC 1 (badge contents) →
+   A.4–A.6; AC 2–4 (persona/greeting editors) → C (restated in H);
+   AC 5 (interests editor) SUPERSEDED — no interests editor exists anywhere
+   (§23.2 5.6; the tab is display-only); AC 6 (locale) → B.3.2; AC 7
+   (leave) → B.3.3; AC 8–15 carry where not restated (404 state, stat
+   arias, tokens, live QR, scannability, code-split, live rotation, token
+   rotation).
+8. **§4.12.3's drop-"Edit" sweep AMENDED for one title**: the
+   `/profile/edit` screen title keeps "Edit" (C.1, the owner's reference
+   names the screen).
+9. **§1.1 sitemap AMENDED** (the table rows marked there).
+
+#### 4.29.H Acceptance criteria (checkable)
+
+`/profile`:
+
+1. The header shows «Мой профиль»/"My profile" with two icon-only buttons
+   top-right: QR (`aria-label` «Показать QR-код»/"Show QR code") and gear
+   (`aria-label` «Настройки»/"Settings"); the gear navigates to
+   `/profile/settings`.
+2. Tapping the header QR button activates the QR tab (or scrolls the QR
+   block into view when it is already active); EXACTLY ONE `QrCodeBadge`
+   instance exists on the page.
+3. The identity block is centered: a 96px sharp-edged SQUARE `PixelAvatar`
+   (no border-radius, accent backdrop), the centered name (Handjet), and
+   the muted read-only «Язык агента: {language}» line.
+4. The stats row renders three `StatTile`s — Sent (`handshakes.length`),
+   Added you (`to_address` filter), Chatting (`chats.length`) — every fetch
+   carrying the persona Bearer, on mount + after mutations.
+5. Three pill tabs with the final naming (About / Interests / QR code);
+   active = fill-accent, inactive = outline-muted; `tablist`/`tab`/
+   `tabpanel` semantics with `aria-selected`; the default tab on mount is
+   About; the active-state morph is a 120 ms color transition and the
+   panel switch is instant.
+6. The About tab shows the greeting block (accent bar), the public bio and
+   the private bio with its muted-red caption — and the PAGE has no edit
+   affordance anywhere (read-only).
+7. The Interests tab renders the mirror chips display-only (no editor, no
+   add control; empty state «Интересы не выбраны»/"No interests yet"); no
+   network request is issued for interests.
+8. The QR tab shows the live QR block: the badge skeleton until a code
+   exists; the payload `{INVITE_URL_BASE}?u={userAddress}&m={mutualCode}`;
+   both caption lines; the QR is not interactive and issues no network
+   request; the `uqr` encoder stays code-split into the `/profile` chunk
+   only.
+9. Live rotation: the 4 s token-gated `getRoomUser` poll; flag false → a
+   fresh code is generated, ONLY its hash registered via
+   `registerMutualCode`, the store updated, and the QR re-rendered with the
+   rotation micro-animation plus the transient «QR обновлён» note
+   (`aria-live`); a registration failure keeps the last QR and retries next
+   tick; if another tab is active when the rotation fires, the app switches
+   to the QR tab first.
+10. Persona 404 → the not-found card with the working exit path; network/API
+    errors → `ErrorBanner` with retry.
+11. No hardcoded colors anywhere on the three screens; every surface, text
+    and border derives from `tokens.css`.
+
+`/profile/settings`:
+
+12. Sub-page chrome: no tab bar; back control (history back with a
+    `/profile` fallback); CENTERED h1 «Настройки»/"Settings".
+13. The entry row (40px own avatar + name + muted address + chevron)
+    navigates to `/profile/edit`; the three old persona-edit rows are gone.
+14. The Language row keeps the RU|EN `LocaleControl` inline; switching
+    persists and re-renders the app without a reload.
+15. The token-rotation row opens the ConfirmDialog with the other-device
+    lockout copy; confirming calls `rotateUserToken` (current Bearer, new
+    raw token in the body) and updates `identity.token` + the matching
+    `bleak.tokenVault` entry only after a 2xx; 401 → the §2.8 global gate;
+    403 → inline server text with the identity kept.
+16. Leave room renders as the full-width BOTTOM outline-red button — border
+    `--color-danger`, font `--color-danger-text`, transparent background
+    (never filled); its ConfirmDialog copy matches §4.12.1 (purely local:
+    clears identity + mutual code, keeps the vault, navigates `/`).
+17. Settings contains NO persona-edit rows and NO toggle rows.
+
+`/profile/edit`:
+
+18. Sub-page chrome: no tab bar; back control; centered h1
+    «Редактировать профиль»/"Edit profile"; centered 96px square avatar,
+    display-only (no camera badge).
+19. All field groups render: name (required, maxlength 64), public bio,
+    private bio (muted-red caption), greeting (textarea ≤255 + counter +
+    rule helper + Regenerate that fills WITHOUT saving), contact card
+    (≤255, local only).
+20. Save Changes is ONE full-width accent button: a question mark in the
+    greeting disables it (`aria-disabled` + the inline reason); the submit
+    sequence is `updateRoomUser` → `putUserGreeting` → the local contact
+    save; the first failure aborts with the inline error at the failing
+    group and already-applied steps stand; a retry re-saves idempotently;
+    double-submit is prevented; success shows the «Сохранено» flash
+    (`aria-live`) and stays on the page.
+21. Mount prefill comes from `getRoomUser` (+ the canonical `getUserGreeting`
+    for the greeting); a load error shows `ErrorBanner` + retry; NO poller
+    runs on this page.
+22. Back discards unsaved input without a confirm; on phone (<720px) the
+    form is full-screen with no floating card chrome and no horizontal
+    scroll at 320/360/390px; at ≥720px it is a centered 560px column.
+
+Cross-cutting:
+
+23. i18n: exactly the E-table delta — 9 new keys, 2 value edits, 3 retired
+    keys — present in BOTH dictionaries with parity green; the RU/EN switch
+    re-renders every string without a reload.
+24. Tests asserting the superseded §3.6/§4.9.3 layouts are updated to this
+    rev; `make lint && make test && make build` stays green.
+
+#### 4.29.I Decision records (numbered) + flagged items
+
+1. **Tab naming + content mapping final** (A.6): About («Обо мне») /
+   Interests («Интересы») / QR code («QR-код»); stats live above the tabs;
+   identity in the header block. Handshake rows are NOT listed in a tab —
+   the fetched list feeds the stats counts only (no invented surface).
+2. **Header QR affordance = tab-switch** (A.2), not a second QR instance
+   or a sheet: one live-QR mount, one `aria-live` region, the §6.3
+   contract undivided.
+3. **Save model on `/profile/edit` = ONE full-width Save Changes** over the
+   three groups, sequential with abort-on-first-failure (C.4); per-editor
+   Save/Cancel CTAs are retired on that screen (their validators and copy
+   carry into the sections).
+4. **Settings grouping** (B.3): two blocks (profile entry; app settings)
+   + the bottom leave-room button; Language stays an INLINE control (no
+   sub-page); no toggle rows and no FAQ/Terms rows (nothing invented).
+5. **Leave-room placement** (B.3.3): it STAYS on `/profile/settings` as the
+   bottom full-width outline-red button (§7.1.6 roles verbatim); the
+   reference edit-screen's "Delete Account" is NOT reproduced on
+   `/profile/edit` — one destructive surface (Concept §42.3 defers
+   placement to this rev).
+6. **No avatar upload / camera badge** (C.2): the API has no avatar field.
+7. **No toggle rows** (B.2): no real toggle-backed setting exists.
+8. **Language inline** (B.3.2): no `/profile/settings/language` route.
+9. **The screen title "Edit profile"** keeps "Edit" despite §4.12.3's
+   sweep (the owner's reference names the screen; G.8).
+10. **Multi-line fields use label-above blocks** (C.3); the key-value
+    one-line row is reserved for single-line fields (name, contact card).
+11. **Unsaved-changes back = discard without confirm** (C.6), matching
+    today's editors' Cancel semantics.
+12. **FLAGGED for owner ratification (process decision, not
+    owner-approved): NO interests editor on `/profile/edit`.** Concept
+    §23.2 5.6 removed the interests editor ("set at creation only") and
+    the picker component no longer exists; §42.3's parenthetical listing
+    of "interests" is inherited §10.1.4 phrasing, not an explicit
+    overturn. The interests TAB on `/profile` is display-only over the
+    local mirror chips (`stores/interests.ts`). If the owner overturns,
+    the editor returns as a fourth group on `/profile/edit` — a contained
+    addition.
+13. **The new `gear` glyph** (D.2, trivial inline SVG per §4.4) is flagged
+    alongside item 12; the fallback is the existing `edit` glyph.
+14. **RU copy in the E table is a design invention for tone ratification**
+    (standing precedent): «Показать QR-код», «Обо мне», «QR-код»,
+    «Редактировать профиль», «Имя», «О себе», «Для агента», «Сохранить
+    изменения», and the two amended values («Мой профиль», «Настройки»).
+
+### 4.30 v3.24 feature design (2026-11-23, owner-approved Concept §42): §42 scroll-triggered animations + card/width/icon tweaks
+
+The owner issued the five-item §42 batch (2026-11-23): (1) scroll-triggered
+reveal animations for the landing blocks, (2) a narrower Bleak agent card in
+the computer view, (3) icons +50% in every block below the first screen, (4)
+the 01/02/03 step cards repainted to the Bleak card's dark background, (5) on
+phone the banner's flower icon + status caption stack ABOVE the text block.
+This section amends §4.28 (→ §4.27 → §4.26 → … → §4.20) item by item;
+**where §4.30 is silent, the earlier specs stand** except where §4.30.G
+explicitly supersedes them. The parallel §4.29 profile redesign (Concept §42
+profile section, task 131) is scope-disjoint — it owns `routes/profile*`;
+this rev touches ONLY the landing (`/`) — and the earlier-dated §4.29 text is
+not amended here. Grounded in the live code (read-only audit, 2026-11-23):
+`apps/web/src/routes/+page.svelte` (the glass header, the fixed video layer,
+the thirds grid, banner, step cards, sim, privacy, use-cases, join, footer),
+`lib/components/landing/{LandingVideoHero,LandingFigure}.svelte`,
+`landing/{sectionArt,figures}.ts`, `lib/components/icons/PixelIcon.svelte`,
+`lib/styles/{tokens,base}.css`, `tests/landing-page.test.ts`. Hard
+constraints unchanged: **no new dependencies** (IntersectionObserver is
+native — the §4.27.D compat-circle observer is the in-repo precedent), **no
+copy changes** (i18n ZERO delta, §4.30.H), **palette tokens unchanged** (the
+step-card repaint reuses the existing `--color-surface` token; no new color
+values anywhere), **no canvas, no animation library**, **routes untouched**,
+**/income untouched**, **the §37 open-state geometry holds** (no layout rule
+of §4.25.A/§4.28 is touched), **the video layer and its attribute set are
+untouched** (§4.23.A/§4.27.1 verbatim). **API endpoints used: none** — the
+landing stays fetch-free (§4.20 preamble); the round is presentational. Task:
+tz12-13 (`feature/9626632b-tz12-13-scroll-reveal-tweaks`).
+
+#### 4.30.A The shared scroll-reveal system (item 1)
+
+Blocks below the fold reveal as they enter the viewport. The treatment is
+the pixel-aesthetic-consistent **fade + rise**: `opacity 0 → 1` with a
+**stepped** fade and `translateY(16px) → 0` with an eased settle —
+transform/opacity only (the §4.6 rule).
+
+- **The hidden-state application pattern — never permanently hidden.** The
+  stylesheet hides NOTHING by default: a bare `[data-reveal]` marker
+  attribute (present in the markup of every reveal unit, zero visual
+  effect) carries no styles. The hidden state exists ONLY under
+  `[data-reveal='armed']` — a state the JS utility applies at mount, so it
+  exists only when (a) JS ran and (b) the utility decided animation is
+  possible. No-JS, a utility crash, or a missing IntersectionObserver ⇒ no
+  arming ⇒ every block fully visible. CSS:
+  ```css
+  /* base: [data-reveal] carries NO styles — the no-JS default is visible */
+  [data-reveal='armed'] {
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 320ms steps(4, end),   /* the stepped pixel fade */
+      transform 320ms ease-out;      /* the eased settle */
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+  [data-reveal='armed'].is-revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  ```
+  (The transition lives on the armed state so it runs when `.is-revealed`
+  lands; both values are `var(--reveal-delay)`-delayed.)
+- **The utility — one module, one observer, one-shot:** new
+  `apps/web/src/lib/components/landing/reveal.ts` exporting
+  `setupReveals(root: ParentNode): () => void` (returns the teardown). On
+  mount (a `$effect` in `+page.svelte`) it:
+  1. returns immediately (arming nothing) when
+     `matchMedia('(prefers-reduced-motion: reduce)').matches` — the
+     established `reducedMotion()` check, §4.27.D precedent — reduced
+     motion = NO animation, every block visible immediately;
+  2. returns immediately when `typeof IntersectionObserver !== 'function'`
+     (old browsers/test DOM) — the §4.27.D mount-fallback reading;
+  3. otherwise queries `root.querySelectorAll('[data-reveal]')`, creates
+     ONE shared `IntersectionObserver` (`threshold: 0.15`,
+     `rootMargin: '0px 0px -48px 0px'` — a block fires once ≈ 48px of it
+     is inside the viewport; the values are this design's call, §42.1
+     delegates the treatment), and for each unit: sets
+     `data-reveal='armed'` (the ONLY moment anything hides), observes it;
+  4. on the FIRST intersection of a unit: adds `.is-revealed`, calls
+     `observer.unobserve(unit)` — one-shot, scrolling away and back does
+     NOT replay (the compat-circle precedent, §4.27.D) — and schedules the
+     **cleanup**: after the reveal completes (`transitionend` on the unit,
+     with a 720 ms fallback timer for transition-less DOMs) BOTH the
+     `is-revealed` class and the `data-reveal` attribute are REMOVED. The
+     block ends in its natural state, so the hover CSS
+     (`.step-block:hover`'s `translateY(-4px)`) can never fight a leftover
+     attribute-selector transform (specificity tie otherwise);
+  5. the teardown disconnects the shared observer (the `$effect` cleanup —
+     no leak across HMR/tests).
+- **Stagger:** within a sibling GROUP the units reveal with a per-index
+  `--reveal-delay` (inline style): the three `.step-block`s at
+  0/60/120 ms, the four `.usecase-pill`s at 0/60/120/180 ms (60 ms per
+  sibling, capped at 180). Single-unit sections get no delay.
+- **The §4.27.D compat ring is INDEPENDENT:** the sim section reveals as a
+  block via this system; the ring's own one-shot count-up observer
+  (threshold 0.4, §4.27.D) is UNTOUCHED — two one-shot observers on
+  adjacent subtrees, no shared state. Both being one-shot, the count-up
+  never replays either.
+- **§4.6 record:** the closing line "No scroll-triggered or
+  layout-triggered animation anywhere" is SUPERSEDED **for the landing
+  page only** (the owner's §42.1 mandate); it stands verbatim for every
+  other page. The reveal's 320 ms/16 px values are a landing-scoped
+  §42.1 design call; the §4.6 transform/opacity-only and reduced-motion
+  rules carry.
+
+#### 4.30.B Which blocks reveal + the first-viewport decision (item 1, enumeration)
+
+**Scroll-reveal units (everything below the fold), in DOM order:**
+`.area-stat` (the banner) → `.step-block` ×3 (staggered) → `.area-sim` →
+`.area-privacy` → `.usecase-pill` ×4 (staggered) → `.area-join` →
+`.area-foot` (the footer pill). The banner, sim, privacy and join sections
+reveal as ONE unit each (their glass containers are single surfaces; inner
+cards need no separate reveal). The step blocks and use-case pills reveal
+individually (they are separate glass surfaces in a row) with the 60 ms
+stagger.
+
+**The §37 open-state pair — DECIDED: animate on LOAD, not on scroll.** The
+lead (`.copy`/`.area-lead`) and the BLEAK card (`.area-agents`) are in the
+first viewport at open (§4.25.A); a scroll observer would fire immediately
+anyway, so they are NOT `[data-reveal]` units. Instead the utility performs
+one **load reveal**: it arms both hero sections with the same
+`data-reveal='armed'` hidden state, then one animation frame later
+(`requestAnimationFrame` — the initial styles must commit first) adds
+`.is-revealed`, then cleans up exactly like a scroll reveal. Net: one
+fade+rise on page open, then the §37 centered open state stands
+permanently. The 16 px rise is transient (transform-only, no layout shift)
+and settles into the exact §4.25.A geometry. Under reduced motion or
+without JS/IO the hero pair is simply visible from the first paint (no
+load animation). **Negative:** the hero pair's ICONS are untouched by item
+3 (§4.30.D) — only the §4.28 headline/sub/CTA sizes stand there.
+
+#### 4.30.C The Bleak card narrower on desktop (item 2)
+
+The §4.24.D thirds grid STAYS (col 1 lead / col 2 empty / col 3 agent;
+`repeat(3, 1fr)`, `--space-6` gap, `align-content/align-items: center` —
+§4.25.A hero construction verbatim). The card gets a **max-width cap inside
+its own column** (NOT a grid change): at 1280 the third is ≈ 288px wide
+(§4.24.C math); the owner wants the card narrower.
+
+```css
+@media (min-width: 720px) {
+  .agent-card {
+    max-width: 240px;          /* down from the 288px full-third width */
+    margin-inline: auto;       /* centered inside the third */
+  }
+}
+```
+
+- **The value — 240px, decided (the caller's 232–240 band):** the card
+  interior after its 20px body padding is 200px — the 96px portrait,
+  the 28px BLEAK name, the 13px badge/traits and the 17px quote all fit
+  (the quote wraps to ~3 lines at 17px in 200px — normal-flow growth,
+  `align-items: center` keeps the card balanced in the 100dvh hero row).
+  240px keeps ≥ 200px of text column (readability) and is an even pixel
+  value (crisp-frame alignment).
+- **Phone (<720px): UNCHANGED** — the card is 100% of the container width
+  (§4.28.F); the cap is desktop-only. The `#agents` id, the §4.20.G
+  hover/press/focus contract and TALK → `/income` are untouched.
+- **No horizontal-scroll risk:** the cap shrinks the card inside its
+  column; nothing paints wider than before.
+
+#### 4.30.D Icons +50% in all blocks below the first screen (item 3)
+
+One rule everywhere below the fold: every icon/pixel-icon element grows
+**+50%**, the pixel mini-illustrations scale proportionally with them.
+Even pixel values (crispEdges alignment); the exact table, current → new:
+
+| # | Element | Selector / prop | Current | New (+50%) |
+| --- | --- | --- | --- | --- |
+| 1 | Banner flower (BLOOM) | `.stat-glyph :global(svg)` | 44px phone / 48px ≥720px | **66px phone / 72px ≥720px** (the markup `size={48}` updated to 72 for consistency; the CSS override rules) |
+| 2 | Banner status dot | `.status-dot` | 6×6px | **9×9px** — exact +50% (a DOM `<span>`, no crispEdges constraint; even-rounding applies to SVG art only). Its glow scales too: `box-shadow: 0 0 9px …` |
+| 3 | Step-card icons | `PixelIcon size={32}` inside `.step-icon` | icon 32px, wrapper 48×48 | icon **48px**, wrapper **72×72** |
+| 4 | Step mini-illustrations | `.step-art` (24×24 grid) | 48px | **72px** (integer 3× unit scale — perfectly crisp) |
+| 5 | Privacy icons | `.privacy-icon` (16×16 grid) | 48px | **72px** |
+| 6 | Use-case icons | `.usecase-icon` (16×16 grid) | 40px | **60px** |
+| 7 | Simulation avatars | `LandingFigure size={64}` (`.sim-you` BLEAK + `.sim-nearby` SCOUT) | 64px | **96px** (the §4.26.F 64 → the §4.20.G portrait register) |
+
+- **crispEdges note (record):** the 16-grid icons at 72px (4.5×) and 60px
+  (3.75×) scale by a non-integer unit factor; with
+  `shape-rendering="crispEdges"` every unit rect still snaps to whole
+  device pixels (no blur); a possible 1px wobble on shared rect edges is
+  accepted. Integer-scale alternatives (80px / 5× and 64px / 4×) would
+  break the exact +50% — the owner's number wins (§4.30.K flag 1).
+- **Layout-fit re-check:** sim avatars 96px — phone the 2-col avatar row
+  gives ≈ 128px columns at a 320px viewport (96px portrait + the 16px
+  name fit), desktop the 1fr side columns hold ≈ 360px; the use-case
+  pills' content grows past the 112px `min-height` to ≈ 124px (content
+  growth, `min-height` UNCHANGED); privacy items and step bodies grow
+  naturally (normal flow). No overflow at 320/760/1280 (§4.20.K holds).
+- **Explicit negatives — UNCHANGED (the first-viewport pair + chrome):**
+  the lead sparkles (8px) and everything in `.copy`; the BLEAK agent-card
+  portrait (`size={96}`, §4.20.G); the join card's BLEAK-WAVE mascot
+  (`size={96}` — NOT in the owner's §42.3 enumeration, §4.30.K flag 2);
+  the footer's 16px brand glyph (chrome); `.step-num` (40px decorative
+  text, §4.28.E.5); the `.compat-ring` (geometry-bound, §4.28.E.6);
+  `.sim-cursor` (6×2px). No other landing size changed.
+
+#### 4.30.E Step cards → the Bleak-matching dark background (item 4)
+
+Inspected in the live code: the BLEAK agent card's surface is the
+§4.20.G pixel-frame OPAQUE construction — the outer
+`pixel-corners pixel-frame pixel-frame--strong` ring + the inner
+`pixel-corners` body whose fill comes from the base.css card rule
+(`.card { background: var(--color-surface) }`, `#101213`) — while the
+step cards carry the §4.26.C glass (`rgba(15, 14, 22, 0.65)` +
+`backdrop-filter: blur(10px)`). Decision: the three step cards get the
+SAME material as the agent card:
+
+```css
+.step-body {
+  background: var(--color-surface);   /* WAS rgba(15, 14, 22, 0.65) */
+  /* the two backdrop-filter / -webkit-backdrop-filter: blur(10px)
+     declarations are REMOVED — an opaque surface needs no blur, and the
+     per-card GPU filter cost goes with it */
+  position: relative;   /* unchanged */
+  padding: 16px;        /* unchanged (20px ≥720px via the existing rule) */
+  /* the flex column / gap / align-items declarations unchanged */
+}
+```
+
+- **What remains on the step cards (everything else of §4.26.C/§4.28):**
+  the pixel-frame construction (outer strong ring + stepped body — the
+  cards stay square/stepped, §4.26.K.7), the hover purple glow + 4px lift
+  (§4.26.C, reduced-motion guarded), the 48px mini-illustrations (now
+  72px, §4.30.D), the micro-pills (§4.26.L, 12/13px §4.28.D), the 01/02/03
+  numerals, titles and descriptions (§4.21.E/§4.28.A–B), and the
+  `min-height: 300px` desktop rule.
+- **The shared-token assertion (the testable form of "matching"):** the
+  step bodies and the agent card surface are the SAME TOKEN —
+  `.step-body`'s `background` declaration is literally
+  `var(--color-surface)`, byte-equal to the agent card's
+  (`.card`) fill; the suite asserts the declaration equality + the ABSENCE
+  of `backdrop-filter` in the `.step-body` rule. No new token, no new
+  color value (palette unchanged).
+- **Scope — ONLY the step cards:** the banner, sim/privacy/use-case/join
+  sections, footer, header and join input keep their §4.26 glass values
+  verbatim (this is not a de-glass pass).
+
+#### 4.30.F "Real people. Real results." on phone — icon stacked on top (item 5)
+
+The banner (`.stat-body`, currently a text-left / glyph-right ROW at every
+width) stacks on phone: the flower icon + its status caption move ABOVE
+the text block.
+
+```css
+/* phone (<720px) — base rule CHANGED: */
+.stat-body {
+  display: flex;
+  flex-direction: column;     /* WAS the row */
+  align-items: flex-start;    /* the stack is left-aligned */
+  gap: var(--space-3);
+  padding: 12px 14px;         /* unchanged */
+  background: rgba(20, 18, 30, 0.55);          /* §4.26.B verbatim */
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+}
+.stat-glyph {
+  order: -1;                  /* the icon+caption block FIRST */
+  flex-direction: row;        /* flower left, caption beside it */
+  align-items: center;
+  gap: 6px;
+}
+@media (min-width: 720px) {
+  /* desktop: the §4.21.F/§4.26.B compact row, UNCHANGED */
+  .stat-body {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: 16px 20px;
+  }
+  .stat-glyph { order: 0; flex-direction: column; align-items: center; gap: 6px; }
+}
+```
+
+- **The exact phone order:** (1) the icon+caption row — the 66px BLOOM
+  flower left, the pulsing 9px green dot + the `AI Agents active nearby`
+  caption to its right, vertically centered against the flower; (2) the
+  `[ LIVE NETWORK // IRL ]` pixel sub-badge (stays the first child of
+  `.stat-copy`, glued above the title in BOTH layouts — the owner's item
+  5 names only the flower+caption move); (3) the title
+  `REAL PEOPLE. REAL RESULTS.` (21px, §4.28.A); (4) the three stat lines
+  (17px, §4.28.B).
+- **Desktop ≥720px: UNCHANGED** — the text-left / glyph-right compact row
+  (the §4.26.B contract verbatim, with the §4.30.D 72px flower).
+
+#### 4.30.G Supersessions (explicit record)
+
+1. **§4.26.C step-card glass fill SUPERSEDED (item 4):** `.step-body`'s
+   `rgba(15, 14, 22, 0.65)` + `backdrop-filter`/`-webkit-backdrop-filter:
+   blur(10px)` retire for the step cards; the fill is the agent card's
+   opaque `var(--color-surface)` (§4.30.E). The glass recipe survives on
+   the banner, the four sections, the footer and the join input
+   (unchanged). §4.28.G.5's "glass fill … untouched" clause is amended
+   accordingly (hover, art, min-height 300px carry).
+2. **§4.6 "No scroll-triggered or layout-triggered animation anywhere"
+   SUPERSEDED for the landing page only** (§4.30.A record): §42.1
+   mandates the scroll reveals; the rule stands for every other page,
+   and the §4.6 transform/opacity-only + reduced-motion rules carry.
+3. **§4.24.D/§4.25.A agent-card width AMENDED (item 2):** the desktop
+   card fills its third no longer — `max-width: 240px` +
+   `margin-inline: auto` inside the unchanged thirds grid (§4.30.C);
+   phone stays 100%.
+4. **§4.26.B/§4.28 banner phone layout AMENDED (item 5):** the
+   text-left/glyph-right row is the ≥720px rule; the phone base becomes
+   the stacked column with the glyph block first (§4.30.F). The banner's
+   glass fill, badge, padding and typography contracts stand.
+5. **§4.21.F/§4.26.B/§4.26.F/§4.26.G/§4.26.H icon sizes AMENDED (item 3):**
+   the §4.30.D table's current values are superseded (+50%); every other
+   size value (fonts, the ring, `.step-num`, the join mascot, the footer
+   glyph) is byte-unchanged.
+6. **Superseded-but-carried (unchanged into §4.30):** the §4.23.A/§4.27.1
+   fixed video layer + native-loop playback + attribute set, the
+   §4.22.A keep-list, the §4.25.A/B open state + transparent lead (the
+   hero pair's LOAD reveal is an addition, not a geometry change),
+   §4.26.A header, §4.27.C/D compatibility circle (its own observer
+   untouched), §4.28.A–F type ladder + phone widths, §4.28.1 lead copy/
+   color, the §4.20.L behavior + deep-link forwarding, the
+   §4.23.G/§4.26.M/§4.27.H/§4.28.I reduced-motion + error fallbacks.
+
+#### 4.30.H i18n: ZERO delta
+
+No key is added, removed or edited — both dictionaries stay **byte-identical
+at 55 `landing.*` keys per dictionary** (the §4.27.G count, restated green
+in §4.28.H/§4.28.J-12). Every rendered string — REAL PEOPLE. REAL RESULTS.,
+the status caption, the pills, the badges — is byte-unchanged in RU and EN;
+§42 changes geometry, color and motion only. `i18n.test.ts` and the
+`LANDING_KEYS`/parity/dead-key assertions are UNTOUCHED and stay green
+(55/55); the RU/EN switch re-renders every string without a reload.
+
+#### 4.30.I Reduced motion + media states
+
+- **Reveal (all units + the hero load pair):** reduced motion → the
+  utility arms NOTHING — every block, including the lead + BLEAK pair, is
+  fully visible from the first paint; no observer is created, no class is
+  ever applied. Belt-and-braces: the base.css catch-all collapses any
+  transition to 0.01 ms. The one-shot rule means no replay on re-scroll
+  for motion-full users either.
+- **Everything already guarded stands verbatim:** the banner status dot,
+  sim badge pulse, cursor blink, sparkle, dot twinkle, hover lifts/glows,
+  smooth-scroll (§4.26.M/§4.27.H); the video fallback (paused frame 0 +
+  tint + vignette + dots, §4.23.G); the ping-pong file plays via native
+  `loop` (§4.27.1). The reveal transitions are transform/opacity-only
+  (§4.6).
+- **Media states:** the landing still fetches nothing — no
+  loading/empty/error data states (§4.20.L); the reveal adds no data
+  states and no layout shift (transform-only; the +50% icon growth is
+  below-the-fold normal-flow growth; the narrower agent card shrinks
+  inside its column). Video error → the §4.23.G near-black treatment with
+  every block visible (the reveal fires over the static backdrop the same
+  way).
+
+#### 4.30.J Acceptance criteria (checkable)
+
+**Scroll reveal (item 1):**
+1. Every below-the-fold unit — `.area-stat`, the three `.step-block`s,
+   `.area-sim`, `.area-privacy`, the four `.usecase-pill`s, `.area-join`,
+   `.area-foot` — carries the `[data-reveal]` marker in the markup, and
+   the stylesheet declares NO hiding outside `[data-reveal='armed']`
+   (negative: no `opacity: 0`/`visibility: hidden` on a bare
+   `[data-reveal]` or any landing block class) — with JS off, every block
+   renders fully visible.
+2. The shared utility `landing/reveal.ts` exists and is wired once in
+   `+page.svelte`: ONE IntersectionObserver instance, `threshold: 0.15`,
+   `rootMargin: '0px 0px -48px 0px'`, per-unit `unobserve` after the
+   first intersection, observer disconnected on unmount; scrolling a
+   revealed block away and back does NOT replay (one-shot).
+3. The armed → revealed sequence: `data-reveal='armed'` (hidden:
+   `opacity: 0`, `translateY(16px)`) → `.is-revealed` (visible) with
+   `transition: opacity 320ms steps(4, end), transform 320ms ease-out`
+   and the group stagger (`--reveal-delay`: step blocks 0/60/120 ms,
+   use-case pills 0/60/120/180 ms); after completion BOTH the class and
+   the attribute are removed (the cleanup — no leftover transform to
+   fight `.step-block:hover`'s lift).
+4. The hero pair (`.area-lead`, `.area-agents`) animates ON LOAD — armed
+   at mount, `.is-revealed` one frame later, same treatment — and is NOT
+   a scroll unit; the §37 open-state geometry holds (the first viewport
+   at the scroll origin contains ONLY lead + BLEAK, vertically centered,
+   at 1280×800 and 390×844 — the §4.25/§4.28 assertions stay green).
+5. Reduced motion: `prefers-reduced-motion: reduce` → NO arming, NO
+   observer — every block including the hero pair is visible immediately;
+   with IntersectionObserver unavailable everything reveals immediately
+   (the mount fallback); no block can ever remain permanently hidden.
+
+**Bleak card narrower (item 2):**
+6. At ≥720px the agent card computes `max-width: 240px` centered in its
+   third (≈ 288px column at 1280 — the card is narrower than the column);
+   the thirds grid (`repeat(3, 1fr)`, col 2 EMPTY) is UNCHANGED; on phone
+   (<720px) the card is 100% of the container width (no cap).
+7. The §4.20.G contract holds: pixel frame, hover lift + glow, press
+   scale, focus rings, TALK → `/income`; no horizontal scroll at
+   320/760/1280.
+
+**Icons +50% (item 3):**
+8. The table holds (computed/source assertions): `.stat-glyph :global(svg)`
+   66px (72px ≥720px); `.status-dot` 9×9px with its glow at 9px; the step
+   `PixelIcon` renders 48px inside a 72×72 `.step-icon`; `.step-art`
+   72px; `.privacy-icon` 72px; `.usecase-icon` 60px; both sim figures
+   render at 96px (BLEAK + SCOUT via `size={96}`).
+9. Negatives: the lead + BLEAK pair's art is unchanged (sparkles 8px, the
+   agent portrait 96px); the join BLEAK-WAVE mascot stays 96px; the
+   footer glyph stays 16px; `.step-num` stays 40px; the compat ring stays
+   160×160/40px numeral; no other landing size changed (grep-audit).
+
+**Step-card background (item 4):**
+10. `.step-body` computes/declares `background: var(--color-surface)` —
+    byte-equal to the agent card's surface token — with NO
+    `backdrop-filter`/`-webkit-backdrop-filter` in the rule (the
+    rgba(15,14,22,0.65)+blur(10px) assertions are REPLACED); `.step-body`
+    still sets NO `border-radius` (the pixel frame stays square/stepped);
+    hover glow + lift, mini-illustrations, micro-pills, numerals/titles/
+    descs and `min-height: 300px` (≥720px) are unchanged. The banner,
+    sim/privacy/use-case/join, footer, header and join input keep their
+    glass values verbatim (negative: those rules untouched).
+
+**Phone banner stacking (item 5):**
+11. At <720px `.stat-body` is a left-aligned flex COLUMN with
+    `.stat-glyph` at `order: -1` laid out as a ROW (66px flower left, the
+    dot + caption beside it): visual order = icon+caption block →
+    `[ LIVE NETWORK // IRL ]` badge → title → the three stat lines.
+12. At ≥720px the banner is the UNCHANGED compact row — text left, glyph
+    column right (bloom above the caption), `justify-content:
+    space-between`, padding 16px 20px; nothing else about the banner
+    changed (glass fill, badge, copy).
+
+**i18n + suites (carry):**
+13. i18n: exactly **55** `landing.*` keys in BOTH dictionaries,
+    byte-unchanged (ZERO delta); the RU/EN switch re-renders without a
+    reload; `i18n.test.ts` passes UNAMENDED.
+14. Suites amended and green: `landing-page.test.ts` — the superseded
+    §4.26.C step-glass assertions (rgba(15,14,22,0.65) + blur(10px))
+    rewritten to AC 10, the `.stat-glyph` 44/48 assertions rewritten to
+    66/72, the 55-key `LANDING_KEYS` list stays; new assertions per
+    ACs 1–12 (the reveal utility, marker/armed/revealed classes, reduced-
+    motion no-arm, the icon table, `.agent-card` max-width 240px desktop
+    only, the banner stacking rules); `sweep.test.ts` green (no new color
+    values — the step repaint is the existing `--color-surface` token);
+    `videoPingPong`/`mascot`/`summary-sheet`/`join-flow`/
+    `creation-wizard` suites untouched green; `make lint && make test &&
+    make build` green.
+15. Constraints: no new dependencies (native IntersectionObserver); no
+    copy changes (55/55 byte-identical); palette tokens unchanged (no new
+    values anywhere); routes untouched; `/income` untouched; the §37
+    open-state geometry holds; the video layer + attribute set untouched;
+    API endpoints used: none.
+
+#### 4.30.K Flags for the owner / concept (concept report)
+
+1. **Record — the 16-grid icon scale is non-integer at the exact +50%:**
+   privacy 72px (4.5×16) and use-case 60px (3.75×16) scale unit rects by a
+   fractional factor; `crispEdges` keeps every edge snapped (no blur, a
+   possible 1px wobble accepted). Integer-scale alternatives (80px/64px)
+   would deviate from +50% — the owner's number wins; a one-value swap
+   each if the smoke dislikes it.
+2. **Record — the join card's BLEAK-WAVE mascot is NOT in the +50% sweep:**
+   the owner's §42.3 enumeration (banner flower, step icons,
+   privacy/use-case icons, sim avatars) omits it and it already renders at
+   the 96px register; if the owner wants it at 144px it is a one-prop
+   change.
+3. **Record — the hero pair animates on LOAD** (§4.30.B decision): the
+   owner's §42.1 offered load-animation for the first-viewport pair; the
+   transient 16px rise settles into the exact §37 centered open state.
+   Zero-animation on load (skip the hero reveal entirely) is a one-line
+   utility change if the owner prefers.
+4. **Record — the reveal timing values are this design's call** (§42.1
+   delegates the treatment): threshold 0.15 / rootMargin −48px / 320ms /
+   16px / 60ms stagger / stepped(4) fade + eased rise. All five are
+   single-value tweaks.
+5. **ADVICE NEEDED — none blocking:** no RU copy was invented (zero-delta
+   round), no palette value added, no route touched; the five items are
+   fully specified above.
 
 ## 5. Design-decision rationale (short)
 
