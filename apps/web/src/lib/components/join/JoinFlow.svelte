@@ -379,6 +379,49 @@
     scannerOpen = false;
     codeEntry?.focusCode();
   }
+
+  // --- §44.4.2 (owner amendment, 2026-11-23, DESIGN §4.31.1): the mobile
+  // keyboard viewport fix — CREATION-SCOPED ----------------------------------
+  // The persona step IS the creation wizard (the seeded create route
+  // /income/[income_code]/create opens the flow directly in it), so the
+  // dynamic viewport behavior below runs ONLY while the creation chat is
+  // mounted: a window.visualViewport RESIZE listener tracks the on-screen
+  // keyboard — every visualViewport.height change (keyboard opens/closes)
+  // writes the remaining visible px into the --app-height custom property
+  // on the document root, which the wrapper/shell height gates in the
+  // stylesheet consume as `height: var(--app-height, 100dvh)` (the
+  // fallback-then-dvh pair stays). The DOCUMENT scroll is locked
+  // (body overflow hidden) while the creation flow runs, so the browser
+  // can never push the page upward off-screen when the keyboard opens —
+  // the container shrinks to the remaining visible viewport instead,
+  // keeping BOTH the top area (messages) and the bottom area (input)
+  // visible (the §24–§29 two-fixed-areas contract, now bound to the
+  // dynamic visualViewport height). SSR-safe: no window/document access at
+  // module init — everything is wired inside this effect; the listener,
+  // the lock and the variable are fully restored on teardown (no leaks).
+  // /chats never mounts JoinFlow (and no other surface runs the persona
+  // step) — behavior-neutral shared components (negative-tested).
+  $effect(() => {
+    if (flow.step !== 'persona') return;
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    const viewport = window.visualViewport;
+    const root = document.documentElement;
+    const body = document.body;
+    const prevOverflow = body.style.overflow;
+    const prevAppHeight = root.style.getPropertyValue('--app-height');
+    const applyAppHeight = (): void => {
+      if (viewport) root.style.setProperty('--app-height', `${viewport.height}px`);
+    };
+    applyAppHeight();
+    viewport?.addEventListener('resize', applyAppHeight);
+    body.style.overflow = 'hidden';
+    return () => {
+      viewport?.removeEventListener('resize', applyAppHeight);
+      if (prevAppHeight === '') root.style.removeProperty('--app-height');
+      else root.style.setProperty('--app-height', prevAppHeight);
+      body.style.overflow = prevOverflow;
+    };
+  });
 </script>
 
 <!-- Concept §30 (DESIGN §4.19): the non-chat join forms (code/room/vault)
@@ -576,6 +619,10 @@
      * own). */
     height: 100vh;
     height: 100dvh;
+    /* §44.4.2 (DESIGN §4.31.1): the visualViewport-driven --app-height —
+     * the keyboard-shrunk px the creation-scoped listener writes on the
+     * document root; unset elsewhere → the dvh fallback stands. */
+    height: var(--app-height, 100dvh);
     overflow-x: hidden;
     overflow-y: hidden;
   }
@@ -593,6 +640,9 @@
   :global(.app-shell:has(> .join > .persona-step)) {
     height: 100vh;
     height: 100dvh;
+    /* §44.4.2 (DESIGN §4.31.1): the visualViewport-driven --app-height —
+     * see the main-block gate above. */
+    height: var(--app-height, 100dvh);
   }
   /* Concept §30 (DESIGN §4.19): the §29 viewport rule generalized to the
    * non-chat join forms — the SAME wrapper gate geometry as the persona
@@ -611,12 +661,20 @@
     padding: 0;
     height: 100vh;
     height: 100dvh;
+    /* §44.4.2 (DESIGN §4.31.1): the visualViewport-driven --app-height —
+     * the §30 forms on the creation path share the dynamic height (the
+     * var is only ever SET by the creation-scoped listener, so non-join
+     * surfaces are untouched). */
+    height: var(--app-height, 100dvh);
     overflow-x: hidden;
     overflow-y: hidden;
   }
   :global(.app-shell:has(> .join > .form-step)) {
     height: 100vh;
     height: 100dvh;
+    /* §44.4.2 (DESIGN §4.31.1): the visualViewport-driven --app-height —
+     * see the form-step gate above. */
+    height: var(--app-height, 100dvh);
   }
   /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the card content
    * mounts fresh on every join-step swap (code ⇄ preview ⇄ wizard ⇄

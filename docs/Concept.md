@@ -1931,6 +1931,29 @@ Follow-up adjustments (owner, 2026-11-23):
    **`income/<income_code>/create`** (the parameter is named
    `income_code`, aligning with the backend's income-code
    terminology; resolution behavior unchanged).
+4. **Mobile keyboard viewport fix (creation flow, esp. Safari):** in
+   `income/<income_code>/create`, fix the mobile layout so that when
+   the on-screen keyboard opens, the page is **not pushed upward
+   off-screen**; instead the container's height **dynamically shrinks
+   to fit the remaining visible viewport**, keeping both the top area
+   (messages) and the bottom area (input field) visible at the same
+   time. The form block is inside the page block, which is currently
+   fixed to the screen height — it must dynamically shrink to fit the
+   remaining visible viewport.
+   - 4.1. Replace fixed heights on the wrapper with **dynamic
+     viewport units** (`100dvh` with a `100vh` fallback) and tie the
+     layout to them;
+   - 4.2. Add a **`window.visualViewport` resize listener** — whenever
+     `visualViewport.height` changes (virtual keyboard opens/closes),
+     update a CSS variable for the container's height (e.g.
+     **`--app-height`**) and **prevent the browser from scrolling the
+     document** (overflow hidden).
+   Scope guard: creation flow only — the main-room chat (`/chats`)
+   behavior must not change (behavior-neutral shared components per
+   the standing rule); the §24–§29 layout contracts (two fixed areas,
+   main block never scrolls, messenger-only scroll) hold — the
+   "visible viewport" they bind to just becomes the dynamic
+   visualViewport height.
 
 All other §31–§33 contracts stay in force (routes, Start → `/income`
 with the 6-digit input, RU/EN parity, reminder box contracts, three

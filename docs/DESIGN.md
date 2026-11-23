@@ -9189,6 +9189,35 @@ The RU/EN switch re-renders without a reload; `i18n.test.ts` and the
    no palette value added, resolution behavior unchanged; the three items
    are fully specified above.
 
+### 4.31.1 owner amendment (2026-11-23, Concept §44.4 record): mobile keyboard viewport fix
+
+**Mobile keyboard viewport (creation flow, esp. Safari/iOS):** on
+`/income/[income_code]/create` the page is NOT pushed upward off-screen
+when the on-screen keyboard opens — the creation wrapper's height binds
+to the remaining VISIBLE viewport, keeping BOTH fixed areas (the top
+messages area and the bottom input block) visible at the same time
+(the §24–§30 contracts' "visible viewport" binding becomes the dynamic
+visualViewport height; the two-fixed-areas, main-block-never-scrolls and
+messenger-only-scroll rules all hold unchanged). The mechanism is
+CREATION-SCOPED — the persona step IS the creation wizard, so the
+behavior runs only while the creation chat is mounted; /chats never
+mounts JoinFlow and is behavior-neutral (negative-tested). (1) §44.4.1 —
+the wrapper/shell height gates in JoinFlow keep the fallback-then-dvh
+pair (`height: 100vh; height: 100dvh;`) and consume the dynamic height
+as a THIRD, later-supported declaration:
+`height: var(--app-height, 100dvh)` — the geometry is otherwise
+unchanged (unset variable → the dvh fallback stands). (2) §44.4.2 — a
+`window.visualViewport` RESIZE listener, wired inside the creation
+wrapper's mount effect (SSR-safe: no window access at module init),
+writes every `visualViewport.height` change (keyboard opens/closes)
+into the `--app-height` custom property on the document root, and the
+DOCUMENT scroll is locked (body overflow hidden) while the creation
+flow runs so the browser can never scroll the page upward; the
+listener, the lock and the variable are fully restored on teardown (no
+leaks). The §30 forms on the creation path (enter/room-intro/intro)
+share the same dynamic height — their §30 contracts stay green. RU/EN:
+zero delta (no copy changes).
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)
