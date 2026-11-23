@@ -1,5 +1,55 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.32 ROUND NOTE (Concept §50 owner bug batch — /profile scan button →
+> scanner, scanner corner orientation, /profile/edit phone overflow —
+> appended by the process 2026-11-23, post-round three-gate run GREEN:
+> lint clean · 1099 tests total (52 api-client + 8 helper + 1039 web,
+> 54 files) · svelte-check 0 errors (10 pre-existing
+> `state_referenced_locally` warnings in untouched files), dev `f7746ec`):**
+> **All three §50 items delivered** (task 141, worker `5e393579`, process
+> `6fa06a90`; branch `feature/5e393579-owner-bug-batch-scan-corners-edit-overflow`
+> — one worker commit `773e13e` squashed to ONE landing commit dev
+> `f7746ec`, pathspec-scoped to the 12 touched files; the uncommitted
+> owner edit to `docs/Concept.md` §50 and session/log records left
+> unstaged; concept's §50 brief carried pre-approved landing — lean
+> protocol per §22.2):
+> (1) **Header scan button opens the QR scanner** (DESIGN §4.36): the
+> `/profile` corner scan icon now mounts/opens the shared §3.8 `QrScanner`
+> overlay (`context="persona"`, same camera lifecycle/focus return as
+> /room); the room member list is fetched ONCE per scanner open via gated
+> `api.listRoomUsers` (empty on failure — §3.8 unknown-membership
+> semantics, no polling); the QR **display** stays reachable via the
+> existing badge-tab panel affordance (§43 A.2 kept); superseded
+> `openQrTab` + the card scroll-ref retired. Aria-label retargeted to
+> scanner intent — `profile.header.qr` «Сканировать QR»/"Scan QR code"
+> (reuses `scan.title` verbatim; the copy change from «Показать
+> QR-код»/"Show QR code" is **flagged for owner ratification** — function
+> changed, RU/EN parity kept).
+> (2) **Viewfinder corners face their own angles** (DESIGN §4.36): the
+> four `.bracket` pseudo-elements are now placed per corner — tl opens
+> right/down (top+left bars), tr left/down (top+right), bl right/up
+> (bottom+left), br left/up (bottom+right) — classic viewfinder framing;
+> shared 8px-bar anatomy, accent tokens and the opacity flash untouched.
+> (3) **/profile/edit phone overflow fixed + rows aligned** (DESIGN
+> §4.36): the phone-block `.save` dropped `width: 100%` (kept in the base
+> rule) under `margin: 0 var(--space-5)` — flex-stretch now bounds the
+> button to the container minus the insets, no horizontal overflow at
+> 375/390/320px; the key-value rows (name, contact-card) share ONE label
+> width — a single `--kv-label-width: 148px` defined on the form and
+> consumed by both editors (`flex: 0 0 var(--kv-label-width, 148px)`,
+> nowrap+ellipsis) so value inputs align on one common single-line layout.
+> **Tests:** superseded tab-switch assertions replaced with scanner-target
+> assertions (dialog opens, QR tab stays hidden, display still reachable
+> via the panel); new per-corner bracket placement assertions (four rules
+> exist, pairwise different); phone save bounds + single-definition
+> shared `--kv-label-width` assertions; i18n verbatim copy updated for the
+> retargeted label. Untouched: §4.29.A–C beyond the §4.36 amendments, all
+> §3.8 scanner state-machine/camera contracts, §43/§49 profile contracts.
+> Housekeeping (DISCLOSED): `git branch -d` refused on the squash-landed
+> branch and `git branch -D` is outside process permissions (mechanically
+> denied) — `feature/5e393579-owner-bug-batch-scan-corners-edit-overflow`
+> joins the devops `-D` cleanup list (10 branches total).
+
 > **v3.31 ROUND NOTE (Concept §49 auto-handshake opt-out — `active` flag on
 > the profile surface — appended by the process 2026-11-23, post-round
 > three-gate run GREEN: lint clean · 1093 tests total (52 api-client + 8
