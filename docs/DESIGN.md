@@ -9695,6 +9695,704 @@ switch re-renders without a reload; `i18n.test.ts` and the
    round), no palette value added, no route or /income change, no
    dependency; the three items are fully specified above.
 
+### 4.33 v3.27 feature design (2026-11-23, owner-approved Concept §46): §46 Bleak block per-breakpoint structure + 960 step-stack + staggered text reveal
+
+The owner issued the five-item §46 follow-up batch (2026-11-23):
+(1) **screen >960px — the Bleak block as narrow as possible with its
+height EQUAL to "The right connections beside you"** (the two hero
+blocks end on the same bottom line; no taller, no wider than needed);
+(2) **screen 720–960px — the Bleak block adopts the SAME STRUCTURE as
+the "Real people. Real results." banner** (the wide banner-style glass
+card — text side, mascot/icon side with the status treatment) and stays
+BELOW THE FOLD (per §45.1); (3) **screen <720px — no change**;
+(4) **the 01/02/03 step cards stack vertically at <960px** (the 960
+boundary, not 720); (5) **the §42/§4.30 reveal system extends to the
+TITLE and DESCRIPTION elements themselves** — staggered title →
+description within each block, reduced-motion = visible immediately.
+This section amends §4.32 (→ §4.31 → §4.30 → §4.28 → §4.27 → §4.26 →
+… → §4.20) item by item; **where §4.33 is silent, the earlier specs
+stand** except where §4.33.F explicitly supersedes them. All other
+§31–§33 contracts stay in force (routes, Start → `/income` with the
+6-digit input, RU/EN parity, three step blocks, existing suites green).
+Grounded in the live code (read-only audit, 2026-11-23):
+`apps/web/src/routes/+page.svelte` (the hero `.stage` — base flex stack
+with the `@media (max-width: 959.98px)` `.area-lead { min-height: 100dvh }
+… justify-content: center` lead-alone region and the `@media
+(min-width: 960px)` `grid-template-columns: 1.2fr 1fr; min-height:
+100dvh; align-content: center; align-items: center` grid; `.agent-card`
+filling its track via the shared `width: 100%` rule (the §4.30.C 240px
+cap deleted, §4.32.B); the banner `.stat-body` (glass
+rgba(20, 18, 30, 0.55) + blur(12px), the §4.30.F phone icon-top stacking
+— `order: -1` glyph row, desktop row ≥720); the step cards `.step-body`
+(`background: var(--color-surface)`, `height: 100%`, §4.30.E/§4.31.C)
+with `.steps` a base flex-column stack and the `repeat(3, 1fr)` grid
+inside the `@media (min-width: 720px)` block; the reveal wiring —
+`data-reveal-load` on `.area-lead` only, bare `data-reveal` on
+`.area-agents` + banner + 3 step blocks + sim + privacy + 4 use-case
+pills + join + footer),
+`src/lib/components/landing/reveal.ts` (the armed-only hidden state —
+`[data-reveal='armed']` in base.css — ONE shared IntersectionObserver
+threshold 0.15 / rootMargin −48px, one-shot per unit with the
+transitionend + 720ms-fallback cleanup, the 60ms sibling stagger
+`--reveal-delay` inline on `.steps`/`.usecase-row` members capped at
+180, the `data-reveal-load` rAF load reveal),
+`src/lib/components/landing/sectionArt.ts` (untouched),
+`src/lib/styles/tokens.css` (untouched — `--space-*`, `--color-surface`,
+the glass literals are the sanctioned raw-literal family),
+`src/lib/styles/base.css` (the armed-state rules — untouched, the
+markers extend onto them), `tests/landing-page.test.ts` (the §4.30/
+§4.31/§4.32 hero, steps, banner and reveal assertions — amended per
+§4.33.I). Hard constraints unchanged: **no new dependencies**, **no copy
+changes** (i18n ZERO delta, §4.33.G), **palette tokens unchanged** (the
+720–960 glass reuses the banner's EXISTING rgba(20, 18, 30, 0.55) +
+blur(12px) literals — no new color values anywhere), **routes
+untouched**, **/income untouched INCLUDING the §44.4
+keyboard-viewport mechanism**, **the §37 open-state and the reveal
+mechanics EXTEND, not replaced** (the armed-only hidden state, the
+one-shot observer, the thresholds, the cleanup and the load reveal all
+carry verbatim; only the marker set and the utility's unit/part split
+grow, §4.33.E). **API endpoints used: none** — the landing stays
+fetch-free (§4.20 preamble). Task: tz12-16
+(`feature/eda902cb-tz12-16-bleak-breakpoints`).
+
+#### 4.33.A >960px — the Bleak card as narrow as possible with EQUAL heights (item 1)
+
+**Live-code finding:** at ≥960 the card fills its `1fr` track
+(≈ 288px at 960, ≈ 407px at 1280, ≈ 640px at 1920 — §4.32.B) and the
+hero grid centers both blocks (`align-items: center`), so the two
+blocks' BOTTOM edges align only when their content heights happen to
+coincide (§4.32.C: lead ≈ 326/371/392px vs card ≈ 344–370px at
+960/1280/1920 — at 1280 the card is ≈ 7–27px SHORTER than the lead and
+floats centered, its bottom line ABOVE the lead's). The owner now wants
+the card **as narrow as possible such that its height equals the
+lead's** — the two hero blocks ending on the same bottom line.
+
+**The heights-equal rule (decided — tests assert THIS construction):**
+
+> The two hero blocks STRETCH to the same rendered height: the ≥960
+> grid switches `align-items: center` → **`align-items: stretch`**, the
+> lead and the card both fill the row track (`height: 100%` chains),
+> and the row height = the TALLER natural content height (the lead's at
+> 1280/1920, the card's content floor at 960). The card is capped at
+> **`max-width: 240px`** — the narrowest width whose content stack
+> stays within the lead's natural height — and is **RIGHT-ALIGNED in
+> its track** (`margin-left: auto`), keeping the §45.2 symmetric-edge
+> rule (the card's right edge at the container's content-box right
+> edge). TALK pins to the card's bottom line via `margin-top: auto`.
+
+The exact construction (all inside the existing `@media
+(min-width: 960px)` block):
+
+```css
+@media (min-width: 960px) {
+  .stage {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;   /* byte-unchanged (§4.31.A) */
+    column-gap: var(--space-6);
+    min-height: 100dvh;
+    align-content: center;              /* byte-unchanged — §37 centering */
+    align-items: stretch;               /* WAS center — the equal-height rule */
+  }
+  .copy          { height: 100%; }      /* the stretched section's child fills it */
+  .copy-body     { height: 100%; justify-content: center; } /* the lead's
+                     content stays VISUALLY centered (§37) inside the
+                     stretched box — the centering is preserved by
+                     construction, not by measurement */
+  .agent-card    { max-width: 240px;    /* the heights-equal narrow width */
+                   margin-left: auto;   /* right-aligned in its track —
+                                           NOT margin-inline: auto */
+                   height: 100%; }      /* fills the stretched section */
+  .agent-body    { height: 100%; }      /* the §4.31.C step-body construction:
+                     the body FILLS the stretched card */
+  .talk          { margin-top: auto; }  /* TALK pins to the card's bottom
+                                           line (the §4.26.C step-pill
+                                           margin-top:auto precedent) */
+}
+```
+
+- **The width value — 240px, decided (the caller's 200–220px options
+  evaluated and REJECTED on the wrap math):** the card's interior after
+  its 20px body padding is ≈ 200px at 240px. The quote is the only
+  wrapping element; the RU string «Я начинаю разговор. Вы сохраняете
+  контакт.» (44 chars, ≈ 9px/char Inter ≈ 396px) wraps to **2 lines**
+  at a 200px interior (396/200 = 1.98) — the binding case over the EN
+  string ("I break the ice. You keep the contact.", 41 chars ≈ 336px,
+  2 lines at ≈ 168px interior). The stack height at a 2-line quote:
+  body padding 40 + portrait 96 + 5 gaps × 12 (60) + name ≈ 34 + badge
+  24 + traits ≈ 16 + quote 2 × 23 (46) + TALK 48 ≈ **364px** — at
+  1280 that is ≤ the lead's natural ≈ 371px (the LEAD dictates the row
+  — the card is "no taller than the lead" ✓) and at 1920 ≤ ≈ 392px ✓.
+  At **220px** (interior ≈ 180px) the RU quote wraps to **3 lines** →
+  stack ≈ 387px > the lead's 371px at 1280 — the card would dictate the
+  row and read taller-than-the-lead: rejected. At **200px** it is worse
+  (3 lines, ≈ 387px+, and the EN quote risks 3 lines too). Container-
+  query / aspect-ratio tricks (option c) are REJECTED as overkill — a
+  fixed max-width + the stretch construction is the simplest robust
+  rule, needs no new at-rule support and degrades to plain CSS.
+  **Estimate at 1280 (the number the caller asked for): the
+  name + badge + quote + TALK stack (with the portrait) reaches the
+  lead's ≈ 371px height at a card width of ≈ 240px; the rendered slack
+  (≈ 7px) sits between the quote and TALK.**
+- **The fit check at the three widths (stretch + cap, both locales):**
+  - **960** — lead natural ≈ 326px; card content floor ≈ 364px (the
+    RU 2-line quote is the card's irreducible minimum: narrower wraps
+    it to 3 lines and grows the card TALLER, worse on both counts) →
+    the row ≈ 364px is card-dictated; the lead's content (326px)
+    centers inside its stretched 364px box via `justify-content:
+    center`; both boxes are 364px → **the bottom lines align
+    structurally**; the pair stays vertically centered in the 100dvh
+    stage (`align-content: center`). Recorded as the band's physical
+    floor (§4.33.J flag 1).
+  - **1280** — lead ≈ 371px ≥ card 364px → row = 371px (lead-dictated);
+    card stretched, ≈ 7px slack above TALK; bottom lines align.
+  - **1920** — lead ≈ 392px ≥ 364px → row = 392px; ≈ 28px slack above
+    TALK; the content cluster hugs the card's top, TALK anchors the
+    bottom line; bottom lines align.
+- **The bottom line is the two BLOCKS' container edges** (the lead's
+  stretched `.copy` box and the card's frame bottom edge) — not the CTA
+  baselines (the lead's Start button floats centered in its box; TALK
+  sits 20px above the card's bottom padding edge). The owner's "the two
+  hero blocks end on the same bottom line" is satisfied by the stretch
+  construction at EVERY ≥960 width and every viewport height — by
+  construction, not by per-width measurement.
+- **The §45.2 margin symmetry CARRIES:** the card is right-aligned in
+  its track (`margin-left: auto; margin-right: 0` — the §4.30.C-era
+  `margin-inline: auto` centering is NOT reinstated), so the card's
+  right edge stays at the container's content-box right edge and both
+  margins still measure `calc(10% + 48px)` (§4.32.B's asserted rule —
+  the right-edge equality — is untouched; what changes is the card's
+  LEFT edge, which moves inward to the 240px width).
+- **The grid is byte-unchanged:** `1.2fr 1fr` stands (the lead keeps
+  its asserted ≈ 489px track at 1280, §4.31.A); the narrowing happens
+  INSIDE the card's track via the max-width (a `1fr auto` re-cut was
+  evaluated and rejected — it would change the lead's asserted width
+  and re-open §4.31.A's assertions for no benefit).
+- **Resulting rendered widths:** the card is **240px at every ≥960px
+  width** (the track floor at 960 is ≈ 288px > 240 — the cap binds
+  everywhere in the band); the §4.32.G AC 8's ≈ 288/407/640px track
+  widths remain the TRACK sizes, not the card's.
+- **Unchanged:** the card's content contract (§4.20.G-b: portrait 96,
+  name, badge, traits, quote, TALK → `/income`), the hover/press
+  treatments, the `#agents` id + scroll-margin, the pixel-frame--strong
+  frame, the opaque `--color-surface` surface at ≥960, and the
+  centered-content reading of the card (`align-items: center;
+  text-align: center` on `.agent-body` carry).
+
+#### 4.33.B 720–959.98px — the Bleak card becomes a banner-structure block (item 2)
+
+**Live-code finding:** at 720–959.98px the card currently renders as
+the §4.25-A-era flat centered column (portrait / name / badge / traits
+/ quote / TALK stacked, opaque `--color-surface` body, 100% of the
+container width) sitting below the fold (§4.32.A). The owner wants it
+to adopt the **same structure as the "Real people. Real results."
+banner** (§4.26.B as amended by §4.30.F): a WIDE GLASS card — text side
++ icon/mascot side with a status treatment — still below the fold.
+
+**The banner-structure mapping (decided):**
+
+| Banner element | Bleak-card counterpart | Placement |
+| --- | --- | --- |
+| `.stat-copy` (the text side) | name + traits + quote + TALK | the RIGHT column (`1fr`) |
+| `.stat-glyph` (the icon side) | the BLEAK personage (`.agent-portrait`, 96px) | the LEFT column (`auto`) |
+| the status treatment (`.stat-status` dot + caption) | **the class badge** (`.agent-badge`) acts as the status chip | UNDER the portrait, on the icon side |
+
+- **The status-chip decision:** the class badge IS the status
+  treatment — it moves (visually, via grid placement) under the
+  portrait, anchoring the icon side's bottom row (mirroring TALK's
+  row on the text side). Duplicating the banner's pulsing dot +
+  caption pair was evaluated and REJECTED: a caption needs a new
+  string (copy invention — the zero-delta constraint) and a second
+  `.status-dot` animated element; the badge chip + the portrait's
+  existing purple glow carry the "live agent" read without either.
+- **The glass recipe — the banner's EXACT values (decided per
+  consistency):** `rgba(20, 18, 30, 0.55)` + `backdrop-filter:
+  blur(12px)` (+ `-webkit-`), byte-equal to `.stat-body`'s — the block
+  IS the banner-structured sibling; the §4.26.E section recipe
+  (rgba(18, 15, 28, 0.45) + blur(16px)) stays with the four NEW
+  sections only. No new color value (the literal already exists —
+  `sweep.test.ts` stays green). The construction parity is already in
+  the class list: the card carries `pixel-corners pixel-frame
+  pixel-frame--strong` — the banner card's EXACT frame (§4.31.C kept
+  it strong on the agent + banner cards).
+- **The construction (a NEW band media — the DOM does NOT move; the
+  existing children are re-placed with named grid areas):**
+
+```css
+@media (min-width: 720px) and (max-width: 959.98px) {
+  .agent-body {
+    /* the banner's glass fill + padding, byte-equal to .stat-body ≥720 */
+    background: rgba(20, 18, 30, 0.55);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    padding: 16px 20px;
+    /* the banner's text-side / icon-side split, CSS-only */
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'portrait name'
+      'portrait traits'
+      'portrait quote'
+      'status   talk';
+    column-gap: var(--space-4);
+    row-gap: var(--space-2);
+    text-align: left;                  /* banner text-side parity */
+  }
+  .agent-portrait { grid-area: portrait; }  /* spans rows 1–3, LEFT */
+  .agent-badge    { grid-area: status;      /* the status chip — row 4,
+                                              under the portrait, mirroring
+                                              TALK's row */
+                    justify-self: start; }
+  .agent-name     { grid-area: name; }
+  .agent-traits   { grid-area: traits; }
+  .agent-quote    { grid-area: quote; align-self: start; }
+  .talk           { grid-area: talk; justify-self: start; }
+}
+```
+
+- **The internal split:** the icon side is the `auto` column (the
+  96px portrait, grown to the badge chip's width where the chip is
+  wider — ≈ 110–130px); the text side takes the remainder
+  (`minmax(0, 1fr)`) — at an 800px viewport (container ≈ 640px, content
+  ≈ 600px after the 16/20px padding) the split lands ≈ **78% text /
+  22% icon**; at 720 ≈ 75/25. The quote row is `minmax(0, 1fr)` — the
+  card grows with its content, no fixed height in the band.
+- **The personage size:** the portrait stays **96px** (`size={96}`,
+  the §4.20.G register — markup byte-unchanged). It ALREADY sits above
+  the banner flower's 72px register (the §4.30.D +50% family); no size
+  change is needed or made.
+- **The below-fold position:** UNCHANGED mechanism — the §4.32.A
+  construction carries byte-verbatim (the base `.stage` flex stack +
+  the 959.98px `.area-lead` 100dvh lead-alone region): the
+  banner-structured card is **the first block after the hero region**
+  (its top edge ≥ `100dvh + var(--space-6)` at the scroll origin),
+  followed by the real banner. The §45.1 lead-alone open state is
+  UNTOUCHED.
+- **The reveal:** the card stays a SINGLE scroll unit (bare
+  `data-reveal`, the 13th-units enumeration's first member) — it is NOT
+  in §46.5's title/description enumeration (§4.33.E), so no part
+  markers are added inside it; the whole banner-structured card fades
+  + rises as one unit, exactly as today.
+- **Band boundaries:** the band media's guards keep <720px and ≥960px
+  byte-untouched (§4.33.C/§4.33.A); the ≥960 media's narrow-card rules
+  and the band's banner rules never co-apply ( disjoint ranges,
+  959.98px boundary shared with the hero media).
+
+#### 4.33.C <720px — carried verbatim (item 3)
+
+**No change.** The current behavior stands, restated for the record
+(carried from §4.25.A → §4.28.F → §4.30.F → §4.32.A): the phone hero is
+the §4.32.A lead-ALONE 100dvh region (the whole <960 band is ONE
+construction — no separate <719.98px hero rule), the lead centered
+vertically with the §4.28 40px/48px headline ladder, the lead
+transparent + halo (§4.25.B); the BLEAK card is the next block in the
+scroll flow (below the fold), rendering as TODAY: the flat centered
+`.agent-body` flex column (portrait 96 / name 28 / badge / traits /
+quote 17 / TALK), the opaque `--color-surface` surface, the
+`pixel-frame--strong` frame, 100% of the container width, the bare
+`data-reveal` scroll unit, TALK → `/income`. The banner's §4.30.F
+phone stacking (glyph row first) stands; the steps are the base
+flex-column stack (now formally the <960 rule, §4.33.D). The
+720–959.98px band media's `min-width: 720px` guard guarantees nothing
+of §4.33.B applies here; the ≥960 media's `min-width: 960px` guard
+keeps §4.33.A out. Every <720px assertion in the suite carries
+UNAMENDED.
+
+#### 4.33.D The step cards stack at <960px — the 960 boundary (item 4)
+
+**Live-code finding:** the `.steps` row collapses at 720px today (the
+`repeat(3, 1fr)` grid lives inside the `@media (min-width: 720px)`
+block, lines ~1460 of `+page.svelte`); the owner moves the boundary to
+960 for THESE cards. The re-cut is ONE media move:
+
+```css
+/* BASE = <960px: the vertical top-to-bottom stack (unchanged values) */
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+@media (min-width: 720px) {
+  /* the card SIZING stays ≥720 (orthogonal to the row/stack question) */
+  .step-block .step-body { min-height: 300px; padding: 20px; }
+}
+@media (min-width: 960px) {
+  /* MOVED here from the ≥720 media — the row exists ≥960 ONLY */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-6);
+  }
+}
+```
+
+- **At 800px (the checkable case):** the three cards are a
+  full-width vertical stack (flex column, `--space-5` gaps), each with
+  the ≥720 card sizing (20px padding, 300px min-height) and the
+  §4.31.C unified frame; **at ≥960:** the equal-thirds row. The
+  720–959.98px band therefore shows DESKTOP-SIZED cards STACKED — the
+  owner's item 4 changes only the stack boundary, not the card sizing.
+- **ALL other 720px rules STAND** (explicit enumeration): the
+  container `max(80%, 280px)` + inline padding, the header nav reveal +
+  56px row, the banner's desktop row + 72px flower, the `.sub` 18px,
+  the copy-body 28px padding + left alignment (≥960), the
+  sim/privacy/use-case/join section grids (`1fr auto 1fr`,
+  `repeat(3, 1fr)`, `repeat(4, 1fr)`, the join row), the footer links
+  row, the join-headline 28px, the step-pill 13px + `margin-top: auto`,
+  the `.steps` gap var(--space-6) (it moves WITH the grid into the ≥960
+  media — the base stack keeps var(--space-5)), and the ≥480px headline
+  48px. **Only the steps row/stack boundary moves.**
+
+#### 4.33.E The reveal extension — titles + descriptions animate (item 5)
+
+**Live-code finding:** the §4.30.A system reveals each below-fold block
+as ONE unit; the text inside appears with the block's single fade. The
+owner extends the animation to the title and description ELEMENTS
+themselves — title first, description following, per-block one-shot.
+
+**The marker changes (the SAME armed-only mechanics — no new
+hidden-state rule):** the title and description elements inside the
+below-fold units get the SAME bare `data-reveal` marker in the markup
+(a bare marker still carries NO styles — the no-JS default stays fully
+visible; the hidden state still exists ONLY under
+`[data-reveal='armed']`, applied by the utility — base.css is
+byte-unchanged). The utility splits the marker set:
+
+- **A UNIT** is a `[data-reveal]` element with NO `[data-reveal]`
+  ancestor — observed by the shared IO exactly as today (one-shot,
+  threshold 0.15, rootMargin −48px, cleanup).
+- **A PART** is a `[data-reveal]` element INSIDE a unit — armed with
+  the same `data-reveal='armed'` + an inline `--reveal-delay`, but
+  NEVER observed: its reveal is slaved to its unit's IO entry (the
+  unit's `.is-revealed` tick adds `.is-revealed` to its armed parts in
+  the same frame) — **per-block one-shot** by construction. Cleanup
+  strips each part independently (its own transitionend + the 720ms
+  fallback; the deepest chain — the privacy block's last part at
+  +360ms + the 320ms transition = 680ms — stays under the 720ms
+  fallback).
+
+**The stagger table (exact ms; the unit delay + 60ms × the part's
+index within the unit, DOM order — the title is always the first part
+in DOM, so "title first, description follows" falls out of the DOM
+order; parts have NO cap — the deepest cascade tops at +360ms, the
+180ms cap stays on the SIBLING groups only):**
+
+| Unit (block) | Unit delay | Parts (DOM order → delay) |
+| --- | --- | --- |
+| `.area-stat` (banner) | 0 | `.stat-title` → 0; `.stat-line` ×3 → 60 / 120 / 180 |
+| `.step-block` 01 | 0 | `.step-title` → 0; `.step-desc` → 60 |
+| `.step-block` 02 | 60 | `.step-title` → 60; `.step-desc` → 120 |
+| `.step-block` 03 | 120 | `.step-title` → 120; `.step-desc` → 180 |
+| `.area-sim` | 0 | `.section-title` → 0 (no description paragraph — negative, recorded) |
+| `.area-privacy` | 0 | `.section-title` → 0; `.privacy-title`/`.privacy-desc` ×3 → 60 / 120 / 180 / 240 / 300 / 360 |
+| `.section-title` (use-cases) | 0 | — it becomes a UNIT (below) |
+| `.usecase-pill` ×4 | 0 / 60 / 120 / 180 (unchanged) | — no title/desc children (negative, recorded) |
+| `.area-join` | 0 | `.section-title` → 0; `.join-headline` → 60 |
+| `.area-foot` (footer) | 0 | — no title/desc elements (negative, recorded) |
+| `.area-lead` (LOAD) | rAF | **NO parts — decision below** |
+| `.area-agents` (the BLEAK card) | its IO entry | **NO parts — not in §46.5's enumeration (negative, recorded)** |
+
+- **The use-cases section title** ("WHERE BLEAK SHINES") sits OUTSIDE
+  the pills and its section carries no marker today — it gets its OWN
+  bare `data-reveal` marker and becomes the **14th scroll unit**,
+  revealing on its own IO entry (it enters the viewport before the
+  pills); the pills keep their independent units + 0/60/120/180
+  stagger (making the SECTION a unit was evaluated and rejected — on
+  phone the tall section would hide the below-fold pills until 15% of
+  the whole section was visible, killing their individual reveal
+  moments).
+- **The lead keeps its single load-reveal — DECIDED, no parts:** the
+  §4.30.B load reveal is ONE opening beat (§4.30.K flag 3); splitting
+  the headline/sub into a load cascade would read as lag on the first
+  paint, and the §37 geometry + the one-beat contract stand. The lead
+  carries NO part markers (negative).
+- **The compound rise (record):** a part rises its own 16px INSIDE the
+  block's 16px rise → titles/descs travel ≈ 32px total, transform-only
+  (§4.6), no layout shift; the block's other content (badges, icons,
+  pills) travels 16px as today.
+- **The armed count at mount changes:** **15 units** (14 scroll units
+  — the agents card FIRST, then banner + 3 steps + sim + privacy + the
+  use-cases title + 4 pills + join + footer — plus the lead load unit)
+  **+ 20 parts** (banner 4 + steps 6 + sim 1 + privacy 7 + join 2) =
+  **35 `[data-reveal='armed']` nodes** (the §4.32.G AC 6 count of 14
+  is superseded). The utility's `reducedMotion()` / missing-IO
+  early-returns, the ONE observer, the one-shot ledger and the teardown
+  carry verbatim; the only logic additions are the unit/part
+  classification and the part arming/reveal/cleanup.
+- **No new CSS:** the parts reuse the base.css `[data-reveal='armed']`
+  rules and the `--reveal-delay` mechanism verbatim — the stylesheet
+  gains nothing; the stylesheet-level negative ("no hiding outside
+  `[data-reveal='armed']`", §4.30.J AC 1) carries UNCHANGED.
+
+#### 4.33.F Supersessions (explicit record)
+
+1. **§4.32.B (>960 the card fills its 1fr track) SUPERSEDED (item 1):**
+   the card is capped at `max-width: 240px`, right-aligned in its track
+   (`margin-left: auto`) — the ≈ 288/407/640px rendered card widths are
+   retired (they remain the TRACK sizes); the §45.2 symmetric
+   RIGHT-edge rule + the `calc(10% + 48px)` margins CARRY; the
+   `align-items: center` hero centering becomes `align-items: stretch`
+   (the §37 vertical centering is preserved via `align-content: center`
+   + the lead's `justify-content: center` — the rendered open state is
+   unchanged).
+2. **§4.30.C's 240px cap — the VALUE returns under a DIFFERENT rule
+   (record, no confusion):** §4.32.B deleted the §4.30.C
+   `max-width: 240px; margin-inline: auto` centered cap; §4.33.A
+   reinstates a 240px max-width as the heights-equal narrow width with
+   `margin-left: auto` right alignment. The centered cap stays deleted;
+   no `margin-inline: auto` exists on `.agent-card` anywhere.
+3. **§4.31.B's <960 two-block stack — superseded twice over (record):**
+   §4.32.A already superseded it (lead-alone first viewport); §4.33.B
+   additionally supersedes the 720–959.98px card PRESENTATION (the flat
+   centered column → the banner-structure glass card). The <960
+   below-fold position mechanism (§4.32.A) is untouched.
+4. **§4.28/§4.31's 720px step stacking SUPERSEDED to 960 (item 4):**
+   the `.steps` `repeat(3, 1fr)` grid moves from the ≥720 media to a
+   new ≥960 media; the base flex-column stack formally covers <960.
+   ALL other 720px rules stand (§4.33.D enumeration).
+5. **§4.30.B's reveal enumeration EXTENDED (item 5):** the units gain
+   the use-cases section title (14 scroll units); title/description
+   elements become parts (20 of them) with the §4.33.E stagger table;
+   the armed count 14 → 35. The §4.32.G AC 6 count and the §4.30.J AC
+   1–4 enumerations are amended accordingly.
+6. **Superseded-but-carried (unchanged into §4.33):** the §4.32.A
+   <960 lead-alone construction + the agents-card scroll-unit class,
+   §4.31.A's 1.2fr/1fr grid + the lead's ≈489px track, §4.32.C's
+   headline clamp, §4.31.C's unified step borders + `.step-body`
+   height:100%, §4.30.D icon sizes, §4.30.E step surface, §4.30.F
+   banner stacking, §4.26.A header, §4.23.A/§4.27.1 video layer,
+   §4.25.B transparent lead, §4.20.L behavior + deep-link forwarding,
+   §4.31.D's `[income_code]` rename as delivered, §4.30.A's armed-only
+   mechanics/one-shot/stagger-cap, and all §31–§33 route/entry
+   contracts.
+
+#### 4.33.G i18n: ZERO delta
+
+No key is added, removed or edited — both dictionaries stay
+**byte-identical at 55 `landing.*` keys per dictionary**
+(§4.27.G/§4.30.H/§4.31.F/§4.32.E carry); the batch touches geometry,
+one band's card structure, one media boundary and the reveal marker
+set — no user-visible string changes. The RU/EN switch re-renders
+without a reload; `i18n.test.ts` and the `LANDING_KEYS`/parity/dead-key
+assertions are UNTOUCHED and stay green (RU/EN 55/55).
+
+#### 4.33.H Reduced motion + media states
+
+- **Reduced motion: UNCHANGED and static-safe for every new element.**
+  Under `prefers-reduced-motion: reduce` the utility arms NOTHING —
+  the units AND the new parts are never armed, every block (including
+  every title/description) is fully visible from the first paint; no
+  observer is created. The base.css catch-all collapses any stray
+  transition. §4.33 adds no new animation, no new keyframe, no new
+  transition (the band card's glass is static; the 960 stack boundary
+  is geometry; the parts ride the EXISTING armed transition).
+- **No-JS / missing-IO fallbacks: UNCHANGED** — nothing armed ⇒
+  everything visible; the bare part markers carry no styles exactly
+  like the bare unit markers.
+- **Media states:** the landing still fetches nothing — no loading/
+  empty/error deltas. No horizontal scroll at 320/800/960/1280/1920
+  (the 240px card sits inside its fr track; the band grid's
+  `minmax(0, 1fr)` text column cannot overflow; the stacked steps are
+  full-width blocks). Video error → the §4.23.G static treatment, the
+  reveal firing over it the same way.
+
+#### 4.33.I Acceptance criteria (checkable)
+
+**>960px — the heights-equal narrow card (item 1):**
+1. The ≥960 media declares `.stage { … align-items: stretch }` (the
+   negative: `align-items: center` is GONE from the ≥960 `.stage`
+   rule; `align-content: center` + `min-height: 100dvh` +
+   `grid-template-columns: 1.2fr 1fr` carry byte-unchanged) — the two
+   hero blocks render at EQUAL heights at every ≥960 width (where
+   layout is available: `lead.getBoundingClientRect().height ===
+   card.getBoundingClientRect().height` at 960/1280/1920; in the
+   string-level suite the stretch + height-chain construction is the
+   assertion).
+2. The ≥960 media declares `.copy { height: 100% }`,
+   `.copy-body { height: 100%; justify-content: center }`,
+   `.agent-card { max-width: 240px; margin-left: auto; height: 100% }`,
+   `.agent-body { height: 100% }` and `.talk { margin-top: auto }` —
+   the lead's content stays VISUALLY centered (§37 open state
+   preserved), TALK pins to the card's bottom line, and the card is
+   narrower than its track (the negative: NO `margin-inline: auto` on
+   `.agent-card` anywhere; the §4.32.G AC 8's card-width values
+   ≈ 288/407/640px are retired — the card renders 240px at 960/1280/
+   1920).
+3. The width value is 240px with the recorded wrap math: at 220px the
+   RU quote wraps to 3 lines (stack ≈ 387px > the lead's ≈ 371px at
+   1280) — the suite asserts the 240px literal and the §4.33.A
+   construction; at 1280 the card's content stack (≈ 364px, 2-line
+   RU quote) stays ≤ the lead's natural height (≈ 371px) — the LEAD
+   dictates the row at 1280/1920 ("no taller than the lead"); at 960
+   the row is card-dictated (≈ 364px vs the lead's ≈ 326px natural —
+   the recorded floor, §4.33.J flag 1), with the bottom lines still
+   aligned by the stretch.
+4. The §45.2 symmetry carries: the card's right edge at the container's
+   content-box right edge; both margins `calc(10% + 48px)` (the
+   §4.32.B right-edge assertion stands UNAMENDED; only the left edge
+   moved).
+
+**720–959.98px — the banner-structure card (item 2):**
+5. A `@media (min-width: 720px) and (max-width: 959.98px)` block
+   declares `.agent-body` with the banner's EXACT glass values
+   (`rgba(20, 18, 30, 0.55)` + `backdrop-filter: blur(12px)` +
+   `-webkit-`, byte-equal to `.stat-body`) + `padding: 16px 20px` +
+   the grid construction (`grid-template-columns: auto minmax(0, 1fr)`;
+   the four-row `grid-template-areas` with 'portrait' spanning rows
+   1–3 LEFT and 'status' in row 4; `text-align: left`) and the five
+   grid-area assignments (`.agent-portrait` → portrait,
+   `.agent-badge` → status, `.agent-name` → name, `.agent-traits` →
+   traits, `.agent-quote` → quote, `.talk` → talk). The card article's
+   class list is UNCHANGED (`pixel-corners pixel-frame
+   pixel-frame--strong` — the banner's frame, structural parity) and
+   the DOM is byte-unchanged (no wrappers added).
+6. In the band the card sits BELOW THE FOLD: the §4.32.A construction
+   carries (the base `.stage` + the 959.98px `.area-lead` 100dvh
+   region byte-unchanged); where layout is available, the card's
+   `getBoundingClientRect().top > window.innerHeight` at
+   `scrollY = 0` at an 800×800 viewport — the banner-structured card
+   is the first block after the hero region, followed by the real
+   banner.
+7. The mapping holds: the text side = name + traits + quote + TALK
+   (left-aligned), the icon side = the 96px BLEAK personage + the
+   class badge as the status chip under it; the portrait markup stays
+   `size={96}` byte-unchanged; NO new dot/caption element exists in
+   the agent card (negative — no copy invention).
+
+**<720px — unchanged (item 3):**
+8. The <720px band is byte-untouched: the base `.agent-body` flex
+   column (centered), the opaque `--color-surface` surface, the card
+   at 100% container width, the §4.30.F banner stacking, the §4.32.A
+   lead-alone hero — every pre-existing <720 assertion passes
+   UNAMENDED; the band media's `min-width: 720px` guard and the ≥960
+   media's `min-width: 960px` guard keep both neighbors out
+   (negatives: no `.agent-body` grid/glass declaration outside the
+   band media; no `.agent-card` max-width below 960).
+
+**Step cards stack at 960 (item 4):**
+9. The `.steps` base rule is the flex-column stack (`flex-direction:
+   column; gap: var(--space-5)`); the `repeat(3, 1fr)` grid +
+   `gap: var(--space-6)` live in a `@media (min-width: 960px)` block
+   (the negative: NO `.steps` grid declaration inside any
+   `min-width: 720px` block); at an 800px viewport the three cards
+   render stacked full-width (each with the ≥720 sizing: 20px padding,
+   300px min-height, the §4.31.C unified frame); at ≥960 the
+   equal-thirds row. ALL other 720px rules stand (the §4.33.D
+   enumeration — grep-audited).
+
+**The staggered title/description reveal (item 5):**
+10. The bare `data-reveal` marker extends onto exactly the §4.33.E
+    set: banner `.stat-title` + 3 `.stat-line`; per step block
+    `.step-title` + `.step-desc`; sim `.section-title`; privacy
+    `.section-title` + 3× (`.privacy-title` + `.privacy-desc`); the
+    use-cases `.section-title` (an independent UNIT); join
+    `.section-title` + `.join-headline` — and onto NOTHING else (the
+    negatives: the lead, the BLEAK card, the footer, the badges/pills/
+    icons carry no new markers).
+11. The utility classifies `[data-reveal]` elements: no
+    `[data-reveal]` ancestor ⇒ an observed UNIT (the shared IO,
+    one-shot, unchanged); otherwise a PART of its nearest unit
+    ancestor — armed with `data-reveal='armed'` + an inline
+    `--reveal-delay` = the unit's delay + 60ms × the part's DOM-order
+    index (no cap), never observed itself, revealed in the same tick
+    as its unit, cleaned up independently (transitionend + the 720ms
+    fallback). Per-block one-shot: re-scrolling never replays either
+    the unit or its parts.
+12. The stagger table holds (source + behavior assertions): banner
+    0/60/120/180; steps (0,60)/(60,120)/(120,180); sim 0; privacy
+    0/60/120/180/240/300/360; join 0/60; the pills 0/60/120/180
+    unchanged; the title is always the first part (delay = the
+    block's own delay) and the description follows (+60ms after it).
+13. Reduced motion: `prefers-reduced-motion: reduce` → NO arming at
+    all (units AND parts) — every title/description visible
+    immediately; with IO unavailable everything reveals immediately;
+    no element can remain permanently hidden (the armed-only
+    mechanics carry — the stylesheet gains NO new hidden-state rule;
+    base.css byte-unchanged).
+14. The armed count at mount is **35**: 15 units (14 scroll units in
+    DOM order — the agents card, banner, 3 steps, sim, privacy, the
+    use-cases title, 4 pills, join, footer — + the lead load unit) +
+    20 parts; the lead alone carries `data-reveal-load` (negative on
+    the agents card).
+
+**i18n + suites (carry):**
+15. i18n: exactly **55** `landing.*` keys in BOTH dictionaries,
+    byte-unchanged (RU/EN parity 55/55); `i18n.test.ts` passes
+    UNAMENDED.
+16. Suites amended and green: `landing-page.test.ts` — the steps-layout
+    test's ≥720 grid assertion rewritten to ≥960 (AC 9); the ≥960
+    hero-grid test's `align-items: center` assertion rewritten to
+    `stretch` + the §4.33.A declarations (ACs 1–2); the §4.32.G AC
+    7–8 card-width assertions rewritten to the 240px right-aligned cap
+    (AC 2/AC 4); the §4.30/§4.32 reveal enumerations (13 units / 14
+    armed) rewritten to 14 units / 35 armed with the part assertions
+    (ACs 10–14); the <720 and §4.32.A assertions carry UNAMENDED;
+    `sweep.test.ts` green (the band glass reuses the banner's existing
+    literal — no new color values); all other suites untouched green;
+    `make lint && make test && make build` green.
+17. Constraints: no new dependencies; no copy changes (55/55
+    byte-identical); palette tokens unchanged (no new color values —
+    the band glass is the banner's existing literal family); routes
+    untouched; /income untouched INCLUDING the §44.4
+    keyboard-viewport mechanism; the §37 open-state geometry preserved
+    (the lead's content stays centered; the stretch changes the BOX
+    heights only); the reveal mechanics extend, not replaced (one
+    observer, armed-only, one-shot, the 60ms stagger — the marker set
+    and the unit/part split grow); the profile files (task 131)
+    untouched; API endpoints used: none.
+
+#### 4.33.J Flags for the owner / concept (concept report)
+
+1. **Record — the 960-boundary floor (item 1):** at exactly ≥960–1279
+   the lead's natural height (≈ 326px at 960) is BELOW the card's
+   content floor (≈ 364px: the RU quote's 2-line wrap is irreducible —
+   narrower wraps it to 3 lines and grows the card TALLER), so the ROW
+   is card-dictated there and the lead's content centers inside its
+   stretched box. The bottom lines align at EVERY ≥960 width by the
+   stretch construction; "no taller than the lead" holds strictly at
+   1280/1920 and is physically impossible below ≈ 1150px without
+   shrinking the card's content (a copy or portrait change — out of
+   scope). If the owner wants the lead to dictate everywhere, the
+   one-value lever is the headline clamp's 960 floor (§4.32.C) — a
+   design decision, not taken here.
+2. **Record — the 240px value is design's call per §46.1 ("as narrow
+   as that allows"):** the caller's 200–220px suggestion was computed
+   and rejected (the RU 3-line quote makes the card taller than the
+   lead at 1280); 240px is the narrowest width whose 2-line RU quote
+   keeps the stack ≤ the lead's natural height at 1280/1920. A
+   one-literal tweak (230–260px) re-balances if the smoke disagrees;
+   the construction (stretch + right-align + TALK pin) is independent
+   of the literal.
+3. **Record — the status-chip mapping (item 2):** the class badge
+   moves (visually, via grid areas) under the portrait as the icon
+   side's status chip; the banner's pulsing dot + caption pair was
+   rejected (a caption string would be copy invention). If the owner
+   wants the literal dot+caption on the Bleak card, it needs one new
+   key per dictionary (a §4.7-format i18n round, NOT this zero-delta
+   batch).
+4. **Record — the lead gets NO title/description parts (item 5):**
+   the load reveal stays one beat (§4.30.B/§4.30.K flag 3); splitting
+   it would read as first-paint lag. The BLEAK card also carries no
+   parts (not in §46.5's enumeration) — its banner-structured band
+   variant reveals as one unit.
+5. **Record — the use-cases section title becomes a scroll unit
+   (item 5):** it was never hidden before (no marker, visible
+   immediately); it now reveals on its own IO entry before the pills.
+   Making the whole `.area-usecases` section a unit was rejected (it
+   would delay the below-fold pills' individual reveals on phone).
+6. **Record — the parts' compound rise:** a part travels ≈ 32px total
+   (its 16px inside the block's 16px), transform-only; the privacy
+   cascade's last part starts at +360ms and finishes ≈ 680ms after the
+   block's reveal — inside the 720ms cleanup fallback. A flatter
+   cascade (cap parts at 180ms) is a one-constant change if the smoke
+   finds the tail long.
+7. **ADVICE NEEDED — none blocking:** no copy invented (zero-delta
+   round), no palette value added, no route or /income change, no
+   dependency; the five items are fully specified above (§4.33.A–E).
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)

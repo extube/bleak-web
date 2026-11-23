@@ -457,10 +457,10 @@
               <span class="stat-badge pixel-corners">
                 <span class="pixel-corners">{translate($locale, 'landing.banner.badge')}</span>
               </span>
-              <h2 class="stat-title">{translate($locale, 'landing.stat.title')}</h2>
-              <p class="stat-line">{translate($locale, 'landing.stat.line1')}</p>
-              <p class="stat-line">{translate($locale, 'landing.stat.line2')}</p>
-              <p class="stat-line">{translate($locale, 'landing.stat.line3')}</p>
+              <h2 class="stat-title" data-reveal>{translate($locale, 'landing.stat.title')}</h2>
+              <p class="stat-line" data-reveal>{translate($locale, 'landing.stat.line1')}</p>
+              <p class="stat-line" data-reveal>{translate($locale, 'landing.stat.line2')}</p>
+              <p class="stat-line" data-reveal>{translate($locale, 'landing.stat.line3')}</p>
             </div>
             <div class="stat-glyph">
               <LandingFigure kind="bloom" size={72} />
@@ -509,11 +509,11 @@
                   {/each}
                 </svg>
                 <span class="step-num" aria-hidden="true">{step.num}</span>
-                <h3 class="step-title">{step.label}</h3>
+                <h3 class="step-title" data-reveal>{step.label}</h3>
                 <span class="step-icon">
                   <PixelIcon name={step.icon} size={48} />
                 </span>
-                <p class="step-desc">{step.desc}</p>
+                <p class="step-desc" data-reveal>{step.desc}</p>
                 <span class="step-pill">{step.pill}</span>
               </div>
             </li>
@@ -532,7 +532,7 @@
            BELOW it. The §4.26.F 3-message chat window is REMOVED. -->
       <section class="area-sim" id="sim" data-reveal>
         <article class="sim-card">
-          <h2 class="section-title">{translate($locale, 'landing.sim.title')}</h2>
+          <h2 class="section-title" data-reveal>{translate($locale, 'landing.sim.title')}</h2>
           <div class="sim-grid">
             <div class="sim-agent sim-you">
               <span class="sim-portrait sim-portrait--you">
@@ -589,7 +589,7 @@
            OPT-IN / EPHEMERAL GPS with the 16×16 pixel icons. -->
       <section class="area-privacy" id="privacy" data-reveal>
         <article class="privacy-card">
-          <h2 class="section-title">{translate($locale, 'landing.privacy.title')}</h2>
+          <h2 class="section-title" data-reveal>{translate($locale, 'landing.privacy.title')}</h2>
           <div class="privacy-grid">
             {#each privacyCards as card (card.icon)}
               <div class="privacy-item">
@@ -607,8 +607,8 @@
                     </g>
                   {/each}
                 </svg>
-                <h3 class="privacy-title">{card.title}</h3>
-                <p class="privacy-desc">{card.desc}</p>
+                <h3 class="privacy-title" data-reveal>{card.title}</h3>
+                <p class="privacy-desc" data-reveal>{card.desc}</p>
               </div>
             {/each}
           </div>
@@ -620,7 +620,10 @@
            CONFERENCES / PARTIES & BARS / COWORKINGS / FESTIVALS with the
            16×16 pixel icons. -->
       <section class="area-usecases" id="use-cases">
-        <h2 class="section-title">{translate($locale, 'landing.usecases.title')}</h2>
+        <!-- §4.33.E: the section title is the reveal system's 14th scroll
+             unit (its own IO entry — it enters the viewport before the
+             pills; the pills keep their independent units + stagger). -->
+        <h2 class="section-title" data-reveal>{translate($locale, 'landing.usecases.title')}</h2>
         <ul class="usecase-row">
           {#each usecasePills as pill (pill.icon)}
             <li class="usecase-pill" data-reveal>
@@ -654,10 +657,10 @@
            BLEAK-WAVE mascot; the headline; the inline dark glass input +
            the GET EARLY ACCESS mailto stub (a plain <a>, no form/fetch). -->
       <section class="area-join" id="join" data-reveal>
-        <h2 class="section-title">{translate($locale, 'landing.join.title')}</h2>
+        <h2 class="section-title" data-reveal>{translate($locale, 'landing.join.title')}</h2>
         <article class="join-card">
           <LandingFigure kind="bleakWave" size={96} idle={false} />
-          <h3 class="join-headline">{translate($locale, 'landing.join.headline')}</h3>
+          <h3 class="join-headline" data-reveal>{translate($locale, 'landing.join.headline')}</h3>
           <div class="join-row">
             <input
               class="join-input"
@@ -916,13 +919,19 @@
   @media (min-width: 960px) {
     .stage {
       display: grid;
-      grid-template-columns: 1.2fr 1fr; /* WAS repeat(3, 1fr) + empty col 2 */
+      grid-template-columns: 1.2fr 1fr; /* byte-unchanged (§4.31.A) */
       column-gap: var(--space-6); /* unchanged 32px */
       /* the hero row = the whole first viewport — MOVED here from the
        * base rule (§4.32.A); grow allowed (min-height, never height) */
       min-height: 100dvh;
       align-content: center;
-      align-items: center;
+      /* §4.33.A (Concept §46 item 1): the two hero blocks STRETCH to the
+       * same rendered height — the row height is the TALLER natural
+       * content height, the bottom lines align by construction (the
+       * §4.32.C `align-items: center` float-centering is superseded;
+       * the §37 vertical centering is preserved by `align-content:
+       * center` + the lead's `justify-content: center` below). */
+      align-items: stretch;
     }
     .area-lead {
       grid-column: 1; /* unchanged */
@@ -930,12 +939,42 @@
     .area-agents {
       grid-column: 2; /* WAS 3 — the empty middle third retires (§4.31.A) */
     }
-    /* §4.32.B (Concept §45 item 2): the §4.30.C 240px cap is DELETED —
-     * the card fills its 1fr track via the shared `width: 100%` rule,
-     * edge-to-edge, so its right margin from the viewport equals the
-     * lead's left margin — both `calc(10% + 48px)` (the container's
-     * centered 10% gutter PLUS its 48px inline padding, included
-     * symmetrically on both sides; the padding is NOT pierced). */
+    /* §4.33.A the heights-equal chain: the lead and the card both fill
+     * the stretched row; the lead's content stays VISUALLY centered
+     * (§37 open state preserved by construction); the card is capped at
+     * the 240px narrow width (the wrap math: at 220px the RU quote
+     * wraps to 3 lines and the stack ≈ 387px > the lead's ≈ 371px at
+     * 1280 — the lead would no longer dictate the row) and is
+     * RIGHT-ALIGNED in its track (margin-left: auto — the §45.2
+     * symmetric RIGHT edge stands, the card's left edge moves inward);
+     * TALK pins to the card's bottom line (the §4.26.C step-pill
+     * margin-top: auto precedent). */
+    .copy {
+      height: 100%;
+    }
+    .copy-body {
+      height: 100%;
+      justify-content: center;
+    }
+    .agent-card {
+      max-width: 240px;
+      margin-left: auto;
+      height: 100%;
+    }
+    .agent-body {
+      height: 100%;
+    }
+    .talk {
+      margin-top: auto;
+    }
+    /* §4.32.B (Concept §45 item 2) — SUPERSEDED by §4.33.A/F: the card
+     * no longer fills its 1fr track edge-to-edge; the ≈ 288/407/640px
+     * rendered widths retire (they remain the TRACK sizes). The
+     * §45.2 margin symmetry CARRIES: margin-right stays 0 at the
+     * container edge, so the card's right margin from the viewport
+     * still equals the lead's left margin — both calc(10% + 48px)
+     * (the padding is NOT pierced); only the LEFT edge moved inward
+     * to the 240px width. */
   }
   /* §4.26.A anchor plumbing: the four smooth-scroll targets (the step
    * cards #how-it-works + the new sections) clear the detached floating
@@ -1198,6 +1237,66 @@
     color: var(--color-text);
   }
 
+  /* ---------- §4.33.B (Concept §46 item 2, tz12-16): 720–959.98px the
+   * BLEAK card becomes a BANNER-STRUCTURE block ----------
+   * The same structure as the 'Real people. Real results.' banner
+   * (§4.26.B as amended by §4.30.F): a wide glass card — text side +
+   * icon side with a status treatment. Mapping: name + traits + quote +
+   * TALK = the text side (the 1fr column, left-aligned); the 96px BLEAK
+   * portrait = the icon side (the auto column); the class badge IS the
+   * status chip — placed under the portrait (grid row 4), mirroring
+   * TALK's row on the text side (the banner's pulsing dot + caption
+   * pair was REJECTED — a caption string would be copy invention, the
+   * zero-delta constraint). The glass recipe is the banner's EXACT
+   * values (byte-equal to .stat-body ≥720: rgba(20, 18, 30, 0.55) +
+   * blur(12px) + padding 16px 20px — no new color value anywhere). The
+   * DOM does NOT move: the existing children are re-placed with named
+   * grid areas; below the fold the §4.32.A construction carries
+   * byte-verbatim (the band guards keep <720px and ≥960px untouched). */
+  @media (min-width: 720px) and (max-width: 959.98px) {
+    .agent-body {
+      /* the banner's glass fill + padding, byte-equal to .stat-body ≥720 */
+      background: rgba(20, 18, 30, 0.55);
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      padding: 16px 20px;
+      /* the banner's text-side / icon-side split, CSS-only */
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      grid-template-areas:
+        'portrait name'
+        'portrait traits'
+        'portrait quote'
+        'status   talk';
+      column-gap: var(--space-4);
+      row-gap: var(--space-2);
+      text-align: left; /* banner text-side parity */
+    }
+    .agent-portrait {
+      grid-area: portrait; /* spans rows 1–3, LEFT (the icon side) */
+    }
+    .agent-badge {
+      grid-area: status; /* the status chip — under the portrait,
+                          * mirroring TALK's row */
+      justify-self: start;
+    }
+    .agent-name {
+      grid-area: name;
+    }
+    .agent-traits {
+      grid-area: traits;
+    }
+    .agent-quote {
+      grid-area: quote;
+      align-self: start;
+    }
+    .talk {
+      grid-area: talk;
+      justify-self: start;
+    }
+  }
+
   /* Stat card, compact (§4.21.F): padding 20px → 12px 14px mobile /
    * 16px 20px desktop; title 18→17px; BLOOM 56px → 44px mobile / 48px
    * desktop; the desktop layout stays title-left / glyph-right in one
@@ -1458,15 +1557,24 @@
     }
   }
   @media (min-width: 720px) {
-    /* desktop: the three blocks ordered left to right, equal thirds */
+    /* §4.33.D: the card SIZING stays ≥720 (orthogonal to the row/stack
+     * question — the ≥720px card padding + min-height stand); the row
+     * itself MOVED to the ≥960 media (item 4 — the stack boundary is
+     * 960 now, not 720). */
+    .step-block .step-body {
+      min-height: 300px;
+      padding: 20px;
+    }
+  }
+  @media (min-width: 960px) {
+    /* §4.33.D (Concept §46 item 4) — MOVED here from the ≥720 media:
+     * the equal-thirds ROW exists ≥960 ONLY; below 960px the base
+     * flex-column stack rules (the three cards stack vertically at
+     * every <960 width — at 800px desktop-sized cards, stacked). */
     .steps {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: var(--space-6);
-    }
-    .step-block .step-body {
-      min-height: 300px;
-      padding: 20px;
     }
   }
 

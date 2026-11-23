@@ -47,7 +47,21 @@
  * desktop cap is DELETED (the card fills its 1fr track — symmetric
  * `calc(10% + 48px)` edges) and the desktop headline grows to
  * clamp(32px, 4.5vw, 64px); the agents card becomes the reveal system's
- * 13th scroll unit (armed count stays 14). */
+ * 13th scroll unit (armed count stays 14).
+ * §4.33 (Concept §46, 2026-11-23, tz12-16): >960px the two hero blocks
+ * STRETCH to EQUAL heights (align-items: stretch + the height chain +
+ * TALK pinned via margin-top: auto) and the card is capped at 240px,
+ * RIGHT-ALIGNED in its track (the §45.2 right-edge symmetry carries);
+ * 720–959.98px the BLEAK card becomes a BANNER-STRUCTURE block (the
+ * named-areas grid: text side = name/traits/quote/TALK, icon side = the
+ * 96px portrait + the class badge as the status chip; the glass is the
+ * banner's EXACT recipe, byte-equal to .stat-body); <720px unchanged;
+ * the step cards' 3-across ROW moves to ≥960px (STACKED at <960 — e.g.
+ * an 800px viewport stacks them); the §4.30.A reveal EXTENDS to titles/
+ * descriptions — 20 title/description PARTS slaved to their unit's
+ * one-shot reveal (never observed), staggered +60ms each after the unit
+ * delay; the use-cases section title becomes the 14th scroll unit;
+ * armed count 14 → 35 (15 units + 20 parts). */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -694,9 +708,18 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     // the base rule) — grow allowed (min-height, never a fixed height)
     expect(css).toMatch(/@media \(min-width: 960px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*min-height:\s*100dvh/);
     expect(css).not.toMatch(/\.stage\s*\{[^}]*[^-]height:\s*100dvh/);
-    // everything centered in the first viewport
+    // everything centered in the first viewport — §4.33.A: align-content
+    // center CARRIES; align-items becomes STRETCH (the heights-equal
+    // rule — the §4.32.C center is superseded)
     expect(css).toMatch(/@media \(min-width: 960px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*align-content:\s*center/);
-    expect(css).toMatch(/@media \(min-width: 960px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*align-items:\s*center/);
+    expect(css).toMatch(/@media \(min-width: 960px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*align-items:\s*stretch/);
+    // the §4.32.C center is GONE from the ≥960 .stage rule (negative)
+    const stageRule =
+      (css.match(/@media \(min-width: 960px\)\s*\{[^@]*?\.stage\s*\{[^}]*\}/)?.[0] ?? '').replace(
+        /\/\*[\s\S]*?\*\//g,
+        ''
+      ) || css;
+    expect(stageRule).not.toMatch(/align-items:\s*center/);
     // the lead = column 1, the BLEAK card = column 2 (the agent moves up)
     expect(css).toMatch(/\.area-lead\s*\{[^}]*grid-column:\s*1/);
     expect(css).toMatch(/\.area-agents\s*\{[^}]*grid-column:\s*2/);
@@ -820,8 +843,11 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     expect(css).toMatch(
       /@media \(min-width: 960px\)\s*\{[\s\S]*?\.copy-body\s*\{[^}]*align-items:\s*flex-start[^}]*text-align:\s*left/
     );
-    // the base .copy-body is the CENTERED stack (below 960px)
-    const baseCopyBody = css.match(/\.copy-body\s*\{[\s\S]*?\n\s*\}/)?.[0] ?? '';
+    // the base .copy-body is the CENTERED stack (below 960px) — scoped by
+    // content (the §4.33.A height rules live in the ≥960 media, later in
+    // the file than the base rule's neighborhood)
+    const baseCopyBody =
+      css.match(/\.copy-body\s*\{[^}]*align-items:\s*center[^}]*text-align:\s*center[^}]*\}/)?.[0] ?? '';
     expect(baseCopyBody).toMatch(/align-items:\s*center/);
     expect(baseCopyBody).toMatch(/text-align:\s*center/);
     // the 28px padding half stays at ≥720px (§4.28 values byte-unchanged)
@@ -872,8 +898,11 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     const css = source('src/routes/+page.svelte');
     expect(css).not.toMatch(/\.glass/);
     // .copy-body is transparent: NO background fill, NO border, NO
-    // backdrop-filter, NO translucent fill, NO radius, NO shadow
-    const copyBody = css.match(/\.copy-body\s*\{[^}]*\}/)?.[0] ?? '';
+    // backdrop-filter, NO translucent fill, NO radius, NO shadow (the
+    // rule scoped by its transparent fill — the §4.33.A height rules
+    // live in the ≥960 media)
+    const copyBody =
+      css.match(/\.copy-body\s*\{[^}]*background:\s*transparent[^}]*\}/)?.[0] ?? '';
     expect(copyBody).toMatch(/background:\s*transparent/);
     expect(copyBody).not.toMatch(/var\(--color-surface\)/);
     expect(copyBody).not.toMatch(/backdrop-filter|color-mix|border|border-radius|box-shadow/);
@@ -1208,12 +1237,20 @@ describe('/ — the §4.20 unchanged zones (headline, cards, steps, footer) as r
     expect(container.querySelectorAll('#how-it-works .chevron')).toHaveLength(0);
   });
 
-  it('steps layout: phone stacked (--space-5 gaps) / desktop equal thirds (~300px min-height) — §4.21.E intact', () => {
+  it('steps layout: STACKED below 960px (§4.33.D — the base flex column, --space-5 gaps; an 800px viewport renders the three cards full-width one under another) / ROW at ≥960px only (the repeat(3, 1fr) grid + --space-6 gap MOVED into a min-width: 960px media — NO .steps grid inside any min-width: 720px block) — §4.21.E intact', () => {
     const css = source('src/routes/+page.svelte');
     expect(css).toMatch(/\.steps\s*\{[^}]*flex-direction:\s*column/);
     expect(css).toMatch(/\.steps\s*\{[^}]*gap:\s*var\(--space-5\)/);
-    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.steps\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(3, 1fr\)/);
+    // the row lives ONLY ≥960px (§4.33.D — the 720px boundary superseded)
+    expect(css).toMatch(/@media \(min-width: 960px\)\s*\{[\s\S]*?\.steps\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(3, 1fr\)/);
+    // negative: NO .steps grid declaration inside ANY min-width: 720px block
+    for (const block of desktopBlocks(css)) {
+      expect(block).not.toMatch(/\.steps\s*\{[^}]*display:\s*grid/);
+    }
+    // ALL other 720px rules stand: the ≥720 card sizing (20px padding,
+    // 300px min-height) stays in the 720px media
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.step-block \.step-body\s*\{[^}]*min-height:\s*300px/);
+    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.step-block \.step-body\s*\{[^}]*padding:\s*20px/);
   });
 
   it('§4.28.B the description ladder: ONE consistent value — .step-desc, .privacy-desc, .stat-line and .agent-quote ALL compute font-size: 17px (§4.27.B\'s 15px superseded), with family/color/line-height otherwise unchanged; the lead .sub joins the description tier at 16px (18px ≥720px) and the join input stays 14px (§4.28.E.3)', () => {
@@ -2244,7 +2281,7 @@ function desktopBlocks(css: string): string[] {
 }
 
 describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state + the utility wiring)', () => {
-  it('AC 1 (as amended by §4.32.A/AC 6): every below-the-fold unit carries the bare [data-reveal] marker in the markup (13 units: the BLEAK agents card FIRST + banner + 3 step blocks + sim + privacy + 4 use-case pills + join + footer) and the lead ALONE carries [data-reveal-load]; the stylesheet hides NOTHING outside [data-reveal=\'armed\'] — a bare [data-reveal] rule with opacity/visibility does not exist (no-JS = fully visible)', () => {
+  it('AC 1 (as amended by §4.32.A/AC 6 + §4.33.E/AC 10): every below-the-fold unit carries the bare [data-reveal] marker in the markup (14 scroll units: the BLEAK agents card FIRST + banner + 3 step blocks + sim + privacy + the USE-CASES SECTION TITLE + 4 use-case pills + join + footer) and the lead ALONE carries [data-reveal-load]; the §4.33.E PART markers extend onto EXACTLY the 20 title/description elements (banner .stat-title + 3 .stat-line; per step .step-title + .step-desc; sim .section-title; privacy .section-title + 3× (.privacy-title + .privacy-desc); join .section-title + .join-headline) and onto NOTHING ELSE (the lead, the BLEAK card, the footer, the badges/pills/icons carry no markers); the stylesheet hides NOTHING outside [data-reveal=\'armed\'] — a bare [data-reveal] rule with opacity/visibility does not exist (no-JS = fully visible)', () => {
     const page = source('src/routes/+page.svelte');
     const units = [
       'area-agents',
@@ -2262,12 +2299,49 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
         `${unit} carries the data-reveal marker`
       ).toBeTruthy();
     }
+    // §4.33.E: the use-cases section title is the 14th scroll unit — its
+    // OWN bare marker (the section carries none; the pills stay
+    // independent units)
+    expect(page).toMatch(/<h2 class="section-title" data-reveal>/);
+    const usecasesSection = page.match(
+      /<section class="area-usecases" id="use-cases">[\s\S]*?<\/section>/
+    )?.[0];
+    expect(usecasesSection).toBeTruthy();
+    expect(
+      (usecasesSection?.match(/data-reveal/g) ?? []).length,
+      'the section title + the {#each} pill template carry the marker (4 pill units at runtime)'
+    ).toBe(2);
     // the hero pair is now the lead ALONE: the LOAD marker on the lead,
     // the BARE scroll marker on the agents card (§4.32.A — negative on
     // data-reveal-load there)
     expect(page).toMatch(/<section class="copy area-lead" data-reveal-load>/);
     expect(page).toMatch(/<section class="area-agents" id="agents" data-reveal>/);
     expect(page).not.toMatch(/<section class="area-agents" id="agents" data-reveal-load>/);
+    // §4.33.E the 20 PART markers, enumerated exactly (AC 10) — source
+    // counts (the step + privacy elements are templated {#each}: ONE
+    // source line each, N runtime units)
+    const partCounts: Array<[string, number]> = [
+      ['class="stat-title" data-reveal', 1],
+      ['class="stat-line" data-reveal', 3],
+      ['class="step-title" data-reveal', 1], // ×3 at runtime
+      ['class="step-desc" data-reveal', 1], // ×3 at runtime
+      ['class="section-title" data-reveal', 4], // sim + privacy + usecases(UNIT) + join
+      ['class="privacy-title" data-reveal', 1], // ×3 at runtime
+      ['class="privacy-desc" data-reveal', 1], // ×3 at runtime
+      ['class="join-headline" data-reveal', 1]
+    ];
+    for (const [marker, count] of partCounts) {
+      expect(
+        (page.match(new RegExp(marker, 'g')) ?? []).length,
+        `${marker} × ${count}`
+      ).toBe(count);
+    }
+    // 20 parts + the usecases title unit = the section-title total
+    // negatives: the lead, the BLEAK card, the footer, the badges/icons
+    // carry NO markers (§4.33.E/§4.33.J flags 4)
+    expect(page).not.toMatch(/class="copy[^"]*"[^>]*data-reveal[ >]/);
+    expect(page).not.toMatch(/agent-(?:name|badge|traits|quote)" data-reveal/);
+    expect(page).not.toMatch(/area-foot[^>]*data-reveal-load/);
     // the base.css armed-only hidden state
     const baseCss = source('src/lib/styles/base.css');
     const armed = baseCss.match(/\[data-reveal='armed'\]\s*\{[^}]*\}/)?.[0] ?? '';
@@ -2288,7 +2362,7 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
     expect(stripped).not.toMatch(/\[data-reveal\]\s*\{[^}]*opacity:\s*0/);
   });
 
-  it('AC 2 + AC 3 (as amended by §4.32.A/AC 6): the utility arms every unit (the ONLY moment anything hides), ONE shared IntersectionObserver (threshold 0.15, rootMargin \'0px 0px -48px 0px\') watches exactly the 13 scroll units (the agents card is their FIRST member in DOM order), the FIRST intersection adds .is-revealed and unobserves (one-shot), and the transitionend cleanup strips BOTH the class and the attribute', () => {
+  it('AC 2 + AC 3 (as amended by §4.32.A/AC 6 + §4.33.E/AC 11/AC 14): the utility classifies the markers — 14 observed UNITS (no [data-reveal] ancestor) + 20 parts — arms EVERY marker (the ONLY moment anything hides; 35 armed nodes at mount), ONE shared IntersectionObserver (threshold 0.15, rootMargin \'0px 0px -48px 0px\') watches EXACTLY the 14 scroll units (the agents card is their FIRST member in DOM order; the parts are NEVER observed), the FIRST intersection adds .is-revealed to the unit AND slaves its armed parts in the same tick (one-shot), and the transitionend cleanup strips BOTH the class and the attribute (each element independently)', () => {
     RevealObserverStub.instances = [];
     vi.stubGlobal('IntersectionObserver', RevealObserverStub);
     const { container } = render(LandingPage, { props: {} });
@@ -2296,47 +2370,73 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
     expect(observer).toBeTruthy();
     expect(observer?.options).toEqual({ threshold: 0.15, rootMargin: '0px 0px -48px 0px' });
 
-    // exactly the 13 below-the-fold units are observed, in DOM order — the
-    // DOM carries 14 [data-reveal] nodes after arming: the 13 scroll units
-    // + the lead section the utility armed for the LOAD reveal (§4.32.A:
-    // the agents card is a SCROLL unit now)
+    // 35 [data-reveal] nodes after arming: 15 units (14 scroll + the lead
+    // load unit) + 20 parts (§4.33.E/AC 14 — the §4.32.G count of 14 is
+    // superseded)
     const armed = [...container.querySelectorAll('[data-reveal]')];
-    expect(armed).toHaveLength(14);
+    expect(armed).toHaveLength(35);
+    const isPart = (el: Element): boolean =>
+      el.parentElement?.closest('[data-reveal]') != null;
     const lead = container.querySelector('.area-lead') as HTMLElement;
     const agents = container.querySelector('.area-agents') as HTMLElement;
-    const units = armed.filter((el) => el !== lead);
-    expect(units).toHaveLength(13);
+    const scrollUnits = armed.filter((el) => el !== lead && !isPart(el));
+    const parts = armed.filter(isPart);
+    expect(scrollUnits).toHaveLength(14);
+    expect(parts).toHaveLength(20);
     const observed = observer?.observed ?? [];
-    expect(observed).toHaveLength(13);
-    expect(units.every((u, i) => observed[i] === u)).toBe(true);
+    expect(observed).toHaveLength(14);
+    expect(scrollUnits.every((u, i) => observed[i] === u)).toBe(true);
     expect(observed.every((el) => el.getAttribute('data-reveal') === 'armed')).toBe(true);
+    // the parts are NEVER observed — each is slaved to its unit's entry
+    for (const part of parts) {
+      expect(observed, `the part .${part.className.split(' ')[0]} is never observed`).not.toContain(part);
+      expect(part.getAttribute('data-reveal')).toBe('armed');
+    }
 
     // the lead is NOT a scroll unit (the only load unit); the agents card
-    // IS — its first member in DOM order
+    // IS — its first member in DOM order; the use-cases section title is
+    // the 14th scroll unit (§4.33.E — it enters the viewport before the
+    // pills; the pills keep their own units after it)
     expect(observed.includes(lead)).toBe(false);
     expect(observed[0]).toBe(agents);
+    const usecasesTitle = container.querySelector(
+      '#use-cases > .section-title'
+    ) as HTMLElement;
+    expect(observed).toContain(usecasesTitle);
+    expect(observed.indexOf(usecasesTitle)).toBe(7);
+    expect(observed[8]?.className).toContain('usecase-pill');
 
-    // the banner block starts HIDDEN (armed: opacity 0 + translateY(16px))
+    // the banner block starts HIDDEN (armed: opacity 0 + translateY(16px)),
+    // its four text parts hidden WITH it
     const banner = container.querySelector('.area-stat') as HTMLElement;
     expect(banner.getAttribute('data-reveal')).toBe('armed');
     expect(banner.classList.contains('is-revealed')).toBe(false);
+    const bannerTitle = banner.querySelector('.stat-title') as HTMLElement;
+    expect(bannerTitle.getAttribute('data-reveal')).toBe('armed');
+    expect(bannerTitle.classList.contains('is-revealed')).toBe(false);
 
-    // the FIRST scroll-into-view: is-revealed lands, the unit is unobserved
+    // the FIRST scroll-into-view: is-revealed lands on the unit AND its
+    // armed parts in the SAME tick, the unit is unobserved
     observer?.fire([banner]);
     expect(banner.classList.contains('is-revealed')).toBe(true);
+    expect(bannerTitle.classList.contains('is-revealed')).toBe(true);
     expect(observer?.unobserved[0]).toBe(banner);
     expect(observer?.unobserved).toHaveLength(1);
     expect(banner.getAttribute('data-reveal')).toBe('armed'); // until the cleanup
+    expect(bannerTitle.getAttribute('data-reveal')).toBe('armed'); // until its own cleanup
 
     // one-shot: a duplicate/late entry never replays (still one unobserve)
     observer?.fire([banner]);
     expect(observer?.unobserved).toHaveLength(1);
     expect(banner.classList.contains('is-revealed')).toBe(true);
+    expect(bannerTitle.classList.contains('is-revealed')).toBe(true);
 
     // the agents card is armed but NOT auto-revealed — it reveals on its
     // own first intersection (§4.32.A: at <960 only after the user
-    // scrolls it into view; at ≥960 the IO fires at the scroll origin)
+    // scrolls it into view; at ≥960 the IO fires at the scroll origin);
+    // it carries NO parts (§4.33.E/§4.33.J flag 4)
     expect(agents.classList.contains('is-revealed')).toBe(false);
+    expect([...agents.querySelectorAll('[data-reveal]')]).toHaveLength(0);
     observer?.fire([agents]);
     expect(agents.classList.contains('is-revealed')).toBe(true);
 
@@ -2344,17 +2444,22 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
     const step = container.querySelectorAll('.step-block')[1] as HTMLElement;
     expect(step.classList.contains('is-revealed')).toBe(false);
     expect(step.getAttribute('data-reveal')).toBe('armed');
+    expect(step.querySelector('.step-title')?.getAttribute('data-reveal')).toBe('armed');
 
     // the cleanup: transitionend strips BOTH the class and the attribute —
     // the block ends in its natural state (no leftover transform to fight
-    // .step-block:hover's lift)
+    // .step-block:hover's lift); each part is cleaned up independently
     banner.dispatchEvent(new Event('transitionend'));
     expect(banner.classList.contains('is-revealed')).toBe(false);
     expect(banner.hasAttribute('data-reveal')).toBe(false);
     expect(banner.style.getPropertyValue('--reveal-delay')).toBe('');
+    bannerTitle.dispatchEvent(new Event('transitionend'));
+    expect(bannerTitle.classList.contains('is-revealed')).toBe(false);
+    expect(bannerTitle.hasAttribute('data-reveal')).toBe(false);
+    expect(bannerTitle.style.getPropertyValue('--reveal-delay')).toBe('');
   });
 
-  it('AC 3 (stagger): the sibling groups reveal with the per-index --reveal-delay — step blocks 0/60/120ms, use-case pills 0/60/120/180ms (60ms per sibling, capped at 180); single-unit sections get no delay', () => {
+  it('AC 3 (stagger, §4.33.E-extended): the sibling groups reveal with the per-index --reveal-delay — step blocks 0/60/120ms, use-case pills 0/60/120/180ms (60ms per sibling, capped at 180); single units get no delay; the §4.33.E title/description parts ride the unit delay + 60ms × the part index (banner 0/60/120/180, steps (0,60)/(60,120)/(120,180), sim 0, privacy 0…360, join 0/60 — title first in DOM order)', () => {
     RevealObserverStub.instances = [];
     vi.stubGlobal('IntersectionObserver', RevealObserverStub);
     const { container } = render(LandingPage, { props: {} });
@@ -2368,6 +2473,45 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
     // single units: no inline delay
     expect(delayOf(container.querySelector('.area-stat') as Element)).toBe('');
     expect(delayOf(container.querySelector('.area-join') as Element)).toBe('');
+    expect(
+      delayOf(container.querySelector('#use-cases > .section-title') as Element)
+    ).toBe('');
+    // §4.33.E the PART stagger — the unit delay + 60ms × the part's
+    // DOM-order index within the unit (no cap); the title is always the
+    // first part, so "title first, description follows" falls out of the
+    // DOM order (AC 12):
+    // banner (unit delay 0): .stat-title 0 → .stat-line 60/120/180
+    expect([
+      ...container.querySelectorAll('.area-stat .stat-title, .area-stat .stat-line')
+    ].map(delayOf)).toEqual(['0ms', '60ms', '120ms', '180ms']);
+    // steps: (0,60) / (60,120) / (120,180) — title first, desc +60ms
+    expect(
+      [...container.querySelectorAll('.step-block')].map((block) => [
+        delayOf(block.querySelector('.step-title') as Element),
+        delayOf(block.querySelector('.step-desc') as Element)
+      ])
+    ).toEqual([
+      ['0ms', '60ms'],
+      ['60ms', '120ms'],
+      ['120ms', '180ms']
+    ]);
+    // sim: the section title alone at 0 (no description — negative)
+    expect(delayOf(container.querySelector('#sim .section-title') as Element)).toBe('0ms');
+    // privacy (unit delay 0): .section-title 0 → 3× (.privacy-title +
+    // .privacy-desc) 60/120/180/240/300/360 — the deepest cascade
+    expect([
+      ...container.querySelectorAll(
+        '#privacy .section-title, #privacy .privacy-title, #privacy .privacy-desc'
+      )
+    ].map(delayOf)).toEqual(['0ms', '60ms', '120ms', '180ms', '240ms', '300ms', '360ms']);
+    // join (unit delay 0): .section-title 0 → .join-headline 60
+    expect([
+      delayOf(container.querySelector('#join .section-title') as Element),
+      delayOf(container.querySelector('#join .join-headline') as Element)
+    ]).toEqual(['0ms', '60ms']);
+    // the pills and the BLEAK card carry NO parts (negatives)
+    expect([...container.querySelectorAll('.usecase-pill [data-reveal]')]).toHaveLength(0);
+    expect([...container.querySelectorAll('.area-agents [data-reveal]')]).toHaveLength(0);
   });
 
   it('AC 4 (as amended by §4.32.A/AC 6): the lead ALONE animates ON LOAD — armed at mount, .is-revealed one animation frame later (no observer entry needed), the same cleanup — while NOT being a scroll unit; the agents card is the FIRST scroll unit (armed at mount, revealed only on its first intersection, never auto-revealed); the §37 open-state geometry is untouched', async () => {
@@ -2407,7 +2551,7 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
     expect(stage.children).toHaveLength(2);
   });
 
-  it('AC 5 (reduced motion): prefers-reduced-motion: reduce ⇒ NO arming, NO observer — every block (the lead AND every scroll unit, incl. the below-fold BLEAK card) is visible immediately', () => {
+  it('AC 5 (reduced motion, §4.33.H-extended): prefers-reduced-motion: reduce ⇒ NO arming, NO observer — every block AND every title/description part (units AND parts) is visible immediately', () => {
     RevealObserverStub.instances = [];
     vi.stubGlobal('IntersectionObserver', RevealObserverStub);
     vi.stubGlobal('matchMedia', vi.fn(() => ({
@@ -2423,6 +2567,9 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
     const { container } = render(LandingPage, { props: {} });
     expect(container.querySelectorAll("[data-reveal='armed']")).toHaveLength(0);
     expect(container.querySelector('.area-stat')?.hasAttribute('data-reveal')).toBe(true); // bare marker only
+    // §4.33.E: the parts are NOT armed either — every title/description
+    // is fully visible immediately (bare markers only)
+    expect(container.querySelector('.stat-title')?.getAttribute('data-reveal')).toBe('');
     expect(container.querySelector('.area-lead')?.hasAttribute('data-reveal')).toBe(false);
     expect(revealObserver()).toBeUndefined(); // no reveal observer was created
   });
@@ -2433,6 +2580,7 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
     const { container } = render(LandingPage, { props: {} });
     expect(container.querySelectorAll("[data-reveal='armed']")).toHaveLength(0);
     expect(container.querySelector('.area-stat')?.hasAttribute('data-reveal')).toBe(true); // bare marker only
+    expect(container.querySelector('.step-title')?.getAttribute('data-reveal')).toBe(''); // a part, bare
   });
 
   it('AC 2 (teardown): unmount disconnects the shared observer — no leak across HMR/tests', () => {
@@ -2447,30 +2595,33 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
   });
 });
 
-describe('/ — §4.32.B the agent card wide on desktop (the 240px cap DELETED) + §4.30.D/F the banner geometry', () => {
-  it('§4.32.B AC 7–8 (superseding §4.30.C/§4.31.A): at ≥960px there is NO .agent-card max-width and NO .agent-card margin-inline: auto (the 240px cap is GONE from the hero — negative) — the card fills its 1fr track via the existing shared width: 100% rule; the symmetry construction: .landing keeps width max(80%, 280px) + margin-inline auto + the 48px inline padding byte-unchanged, .copy and .agent-card BOTH fill their tracks — so the card\'s right margin from the viewport equals the lead\'s left margin, each calc(10% + 48px) at every ≥960 width (the padding NOT pierced)', () => {
+describe('/ — §4.33.A the agent card NARROW + right-aligned on desktop (the heights-equal rule) + §4.30.D/F the banner geometry', () => {
+  it('§4.33.A AC 2/AC 4 (superseding §4.32.B AC 7–8): at ≥960px the card is capped at max-width: 240px (the §4.33.A wrap-math narrow width) and RIGHT-ALIGNED in its track (margin-left: auto — NOT margin-inline: auto, negative) with height: 100%; the §45.2 margin symmetry CARRIES — .landing keeps width max(80%, 280px) + margin-inline auto + the 48px inline padding byte-unchanged, .copy keeps width: 100% and the card keeps margin-right at the container edge — so the card\'s RIGHT margin from the viewport still equals the lead\'s left margin, each calc(10% + 48px) at every ≥960 width (the padding NOT pierced; only the LEFT edge moved inward to the 240px width)', () => {
     const css = source('src/routes/+page.svelte');
-    // §4.32.G AC 7 (negative): the cap is deleted from the ≥960px media
+    // §4.33.A: the cap lives in the ≥960px media, right-aligned
     const wideBlocks = [...css.matchAll(/@media \(min-width: 960px\)\s*\{(?:[^{}]|\{[^{}]*\})*\}/g)].map(
       (m) => m[0]
     );
-    for (const block of wideBlocks) {
-      expect(block).not.toMatch(/\.agent-card\s*\{[^}]*max-width/);
+    const capBlocks = wideBlocks.filter((b) => b.includes('.agent-card'));
+    expect(capBlocks.length).toBeGreaterThanOrEqual(1);
+    for (const block of capBlocks) {
+      expect(block).toMatch(/\.agent-card\s*\{[^}]*max-width:\s*240px/);
+      expect(block).toMatch(/\.agent-card\s*\{[^}]*margin-left:\s*auto/);
+      expect(block).toMatch(/\.agent-card\s*\{[^}]*height:\s*100%/);
+      // negative: the centered cap stays deleted (no margin-inline: auto)
       expect(block).not.toMatch(/\.agent-card\s*\{[^}]*margin-inline:\s*auto/);
+      expect(block).not.toMatch(/\.agent-card\s*\{[^}]*margin-right/);
     }
-    // the 240px value survives NOWHERE in the page (comment-stripped)
-    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    expect(stripped).not.toMatch(/240px/);
-    // the base card rule carries no cap either (below 960px 100%, ≥960 the
-    // card fills its track via the SAME shared rule)
+    // the base card rule carries no cap either (below 960px 100%; ≥960
+    // the shared width: 100% rule + the ≥960 max-width cap)
     const baseCard = css.match(/\.agent-card,\s*\n?\s*\.stat-card\s*\{[^}]*\}/)?.[0] ?? '';
     expect(baseCard).not.toMatch(/max-width/);
     expect(baseCard).toMatch(/width:\s*100%/);
-    // §4.32.G AC 8 (the symmetry construction): .landing keeps the
-    // centered 80% container + the 48px inline padding byte-unchanged,
-    // .copy { width: 100% } and .agent-card { width: 100% } both fill
-    // their tracks → both margins measure calc(10% + 48px) by
-    // construction at every ≥960 width
+    // §45.2 (the symmetry construction): .landing keeps the centered 80%
+    // container + the 48px inline padding byte-unchanged, .copy fills its
+    // track (width: 100%) and the card is right-aligned → the card's
+    // right margin measures calc(10% + 48px) by construction at every
+    // ≥960 width
     expect(css).toMatch(
       /@media \(min-width: 720px\)\s*\{[\s\S]*?\.landing\s*\{[^}]*width:\s*max\(80%, 280px\)/
     );
@@ -2480,7 +2631,8 @@ describe('/ — §4.32.B the agent card wide on desktop (the 240px cap DELETED) 
     expect(css).toMatch(/\.copy\s*\{[^}]*width:\s*100%/);
     expect(baseCard).toMatch(/width:\s*100%/);
     // the hero grid is the TWO-COLUMN 1.2fr/1fr construction (§4.31.A —
-    // the agent track is column 2)
+    // the agent track is column 2; the grid is byte-unchanged — the
+    // narrowing happens INSIDE the track via the max-width)
     expect(css).toMatch(
       /@media \(min-width: 960px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*grid-template-columns:\s*1\.2fr\s+1fr/
     );
@@ -2489,6 +2641,35 @@ describe('/ — §4.32.B the agent card wide on desktop (the 240px cap DELETED) 
     const { container } = render(LandingPage, { props: {} });
     expect(container.querySelector('.agent-card')?.className).toContain('pixel-frame--strong');
     expect(container.querySelector('.agent-card .talk')).toBeTruthy();
+  });
+
+  it('§4.33.A AC 1–3 the heights-equal construction (string-level, where layout is unavailable): the ≥960 media declares .copy { height: 100% }, .copy-body { height: 100%; justify-content: center } (the lead\'s content stays VISUALLY centered — the §37 open state preserved by construction), .agent-body { height: 100% } (the body FILLS the stretched card) and .talk { margin-top: auto } (TALK pins to the card\'s bottom line — the bottom lines align at EVERY ≥960 width by the stretch); the card renders 240px at 960/1280/1920 (the §4.32.G AC 8 track values ≈ 288/407/640px are retired as card widths — they remain the TRACK sizes); the §4.33.J flag-2 wrap math: at 220px the RU quote wraps to 3 lines (stack ≈ 387px > the lead\'s ≈ 371px at 1280) — 240px is the narrowest 2-line-quote width whose stack stays ≤ the lead\'s natural height', () => {
+    const css = source('src/routes/+page.svelte');
+    // the whole construction lives in the ONE ≥960 media
+    const heroMedia =
+      css.match(/@media \(min-width: 960px\)\s*\{(?:[^{}]|\{[^{}]*\})*\}/g)?.filter(
+        (b) => b.includes('.stage')
+      )[0] ?? '';
+    expect(heroMedia).toBeTruthy();
+    expect(heroMedia).toMatch(/\.stage\s*\{[^}]*align-items:\s*stretch/);
+    expect(heroMedia).toMatch(/\.copy\s*\{[^}]*height:\s*100%/);
+    expect(heroMedia).toMatch(
+      /\.copy-body\s*\{[^}]*height:\s*100%[^}]*justify-content:\s*center/
+    );
+    expect(heroMedia).toMatch(/\.agent-body\s*\{[^}]*height:\s*100%/);
+    expect(heroMedia).toMatch(/\.talk\s*\{[^}]*margin-top:\s*auto/);
+    // negative: no .talk margin-top: auto BELOW 960 (it is a ≥960 pin)
+    for (const block of desktopBlocks(css)) {
+      expect(block).not.toMatch(/\.talk\s*\{[^}]*margin-top:\s*auto/);
+    }
+    // the 240px literal + the recorded wrap math (the 220px rejection)
+    const lead1280 = 371; // the lead's natural height at 1280 (§4.32.C audit)
+    const quoteRULinesAt240 = 2; // 396px quote / 200px interior → 2 lines
+    const stack240 = 40 + 96 + 60 + 34 + 24 + 16 + quoteRULinesAt240 * 23 + 48;
+    expect(stack240).toBeLessThanOrEqual(lead1280);
+    const quoteRULinesAt220 = 3; // 396px / 180px interior → 3 lines
+    const stack220 = 40 + 96 + 60 + 34 + 24 + 16 + quoteRULinesAt220 * 23 + 48;
+    expect(stack220).toBeGreaterThan(lead1280); // the card would dictate the row
   });
 
   it('AC 11: on phone .stat-body is a left-aligned flex COLUMN with .stat-glyph at order: -1 laid out as a ROW (the flower left, the dot + caption beside it) — visual order = icon+caption block → badge → title → the three stat lines', () => {
@@ -2523,6 +2704,154 @@ describe('/ — §4.32.B the agent card wide on desktop (the 240px cap DELETED) 
     // the glass values stand verbatim (§4.26.B — not a de-glass pass)
     const body = css.match(/\.stat-body\s*\{[^}]*\}/)?.[0] ?? '';
     expect(body).toMatch(/background:\s*rgba\(20, 18, 30, 0\.55\)/);
+  });
+});
+
+describe('/ — §4.33.B the 720–959.98px banner-structure card + §4.33.C the <720px unchanged band', () => {
+  /** The §4.33.B band media block (the ONLY min-width: 720px AND
+   * max-width: 959.98px media in the landing page). */
+  function bandBlock(css: string): string {
+    return (
+      css.match(
+        /@media \(min-width: 720px\) and \(max-width: 959\.98px\)\s*\{(?:[^{}]|\{[^{}]*\})*\}/g
+      )?.join('\n') ?? ''
+    );
+  }
+
+  it('AC 5 (item 2): a @media (min-width: 720px) and (max-width: 959.98px) block re-places the EXISTING children into the banner structure (the DOM is byte-unchanged — no wrappers): .agent-body carries the banner\'s EXACT glass values — rgba(20, 18, 30, 0.55) + backdrop-filter: blur(12px) (+ -webkit-, byte-equal to .stat-body) + padding: 16px 20px — and the grid construction: grid-template-columns: auto minmax(0, 1fr), the four-row grid-template-areas (portrait spans rows 1–3 LEFT; status in row 4), text-align: left; the five grid-area assignments land (.agent-portrait → portrait, .agent-badge → status, .agent-name → name, .agent-traits → traits, .agent-quote → quote + align-self: start, .talk → talk + justify-self: start)', () => {
+    const css = source('src/routes/+page.svelte');
+    const band = bandBlock(css);
+    expect(band).toBeTruthy();
+    // the banner's EXACT glass recipe, byte-equal to .stat-body ≥720
+    expect(band).toMatch(
+      /\.agent-body\s*\{[\s\S]*?background:\s*rgba\(20, 18, 30, 0\.55\);\s*\n\s*-webkit-backdrop-filter:\s*blur\(12px\);\s*\n\s*backdrop-filter:\s*blur\(12px\);\s*\n\s*padding:\s*16px 20px;/
+    );
+    const statBody = css.match(/\.stat-body\s*\{[^}]*\}/)?.[0] ?? '';
+    for (const declaration of [
+      'background: rgba(20, 18, 30, 0.55);',
+      '-webkit-backdrop-filter: blur(12px);',
+      'backdrop-filter: blur(12px);'
+    ]) {
+      expect(band).toContain(declaration);
+      expect(statBody).toContain(declaration);
+    }
+    // the grid construction (the banner's text-side / icon-side split)
+    expect(band).toMatch(
+      /\.agent-body\s*\{[\s\S]*?display:\s*grid;\s*\n\s*grid-template-columns:\s*auto minmax\(0, 1fr\);/
+    );
+    expect(band).toMatch(
+      /grid-template-areas:\s*\n\s*'portrait name'\s*\n\s*'portrait traits'\s*\n\s*'portrait quote'\s*\n\s*'status\s+talk';/
+    );
+    expect(band).toMatch(/column-gap:\s*var\(--space-4\)/);
+    expect(band).toMatch(/row-gap:\s*var\(--space-2\)/);
+    expect(band).toMatch(/text-align:\s*left/);
+    // the five grid-area assignments (the badge = the status chip under
+    // the portrait, mirroring TALK's row)
+    expect(band).toMatch(/\.agent-portrait\s*\{[^}]*grid-area:\s*portrait/);
+    expect(band).toMatch(/\.agent-badge\s*\{[^}]*grid-area:\s*status[^}]*justify-self:\s*start/);
+    expect(band).toMatch(/\.agent-name\s*\{[^}]*grid-area:\s*name/);
+    expect(band).toMatch(/\.agent-traits\s*\{[^}]*grid-area:\s*traits/);
+    expect(band).toMatch(/\.agent-quote\s*\{[^}]*grid-area:\s*quote[^}]*align-self:\s*start/);
+    expect(band).toMatch(/\.talk\s*\{[^}]*grid-area:\s*talk[^}]*justify-self:\s*start/);
+    // AC 7 negatives: no new dot/caption element in the agent card (the
+    // badge IS the status treatment; no copy invention) and the DOM is
+    // byte-unchanged (the card article's class list stands)
+    const { container } = render(LandingPage, { props: {} });
+    const agents = container.querySelector('#agents') as HTMLElement;
+    expect(agents.querySelectorAll('.status-dot')).toHaveLength(0);
+    expect(agents.querySelectorAll('.stat-status')).toHaveLength(0);
+    // the card article's class list is UNCHANGED (the banner's frame,
+    // structural parity — the Svelte scoping class aside)
+    const cardClass = agents.querySelector('.agent-card')?.className ?? '';
+    for (const cls of ['card', 'pixel-corners', 'pixel-frame', 'pixel-frame--strong', 'agent-card']) {
+      expect(cardClass).toContain(cls);
+    }
+    // the portrait markup stays size={96} byte-unchanged
+    expect(agents.querySelector('.agent-portrait [data-figure="bleak"] svg')?.getAttribute('height')).toBe('96');
+    // the class list of the card-body div is unchanged (pixel-corners)
+    expect(agents.querySelector('.agent-body')?.className).toContain('pixel-corners');
+  });
+
+  it('AC 5 the band mapping: the text side = name + traits + quote + TALK (left-aligned, the 1fr column), the icon side = the 96px BLEAK personage + the class badge as the status chip; the banner\'s pulsing dot + caption pair was rejected (the §4.33.J flag 3 record — a caption would be a new string)', () => {
+    const { container } = render(LandingPage, { props: {} });
+    const body = container.querySelector('.agent-body') as HTMLElement;
+    // the DOM children are byte-unchanged: portrait → name → badge →
+    // traits → quote → talk (the grid areas re-PLACE them, CSS-only)
+    const order = [...body.children].map((el) => el.className.split(' ')[0]);
+    expect(order).toEqual([
+      'agent-portrait',
+      'agent-name',
+      'agent-badge',
+      'agent-traits',
+      'agent-quote',
+      'talk'
+    ]);
+    // the icon side: the portrait (96px) + the badge chip (the status
+    // treatment) share the LEFT column rows 1–4
+    const css = source('src/routes/+page.svelte');
+    const band = bandBlock(css);
+    expect(band).toMatch(/'portrait name'\s*\n\s*'portrait traits'\s*\n\s*'portrait quote'/);
+    expect(band).toMatch(/'status\s+talk'/);
+  });
+
+  it('AC 6 the below-fold position carries (§4.32.A untouched): the base .stage + the 959.98px .area-lead 100dvh region are byte-unchanged — the banner-structured card is the FIRST block after the hero region, its top edge at the scroll origin ≥ 100dvh + var(--space-6) (the offset guarantee — the construction form asserted below); the §45.1 lead-alone open state is UNTOUCHED', () => {
+    const css = source('src/routes/+page.svelte');
+    // the §4.32.A construction carries byte-verbatim
+    expect(css).toMatch(
+      /@media \(max-width: 959\.98px\)\s*\{[\s\S]*?\.area-lead\s*\{[^}]*min-height:\s*100dvh/
+    );
+    const baseStage = css.match(/\.stage\s*\{[\s\S]*?\n\s*\}/)?.[0] ?? '';
+    expect(baseStage).toMatch(/display:\s*flex/);
+    expect(baseStage).toMatch(/flex-direction:\s*column/);
+    expect(baseStage).toMatch(/gap:\s*var\(--space-6\)/);
+    // DOM order: the agents card is the FIRST block after the hero
+    // region, followed by the real banner
+    const order = ['area-lead', 'area-agents', 'area-stat'];
+    const positions = order.map((name) => css.indexOf(name, css.indexOf('<main')));
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    // the card is NOT inside the lead region (below the fold by
+    // construction, at every <960 width incl. the 720–959.98 band)
+    const { container } = render(LandingPage, { props: {} });
+    const lead = container.querySelector('.area-lead') as HTMLElement;
+    expect(lead.querySelector('.agent-card')).toBeNull();
+  });
+
+  it('AC 7 (<720px unchanged, §4.33.C) — negatives: the base .agent-body is STILL the flat centered flex column with the opaque --color-surface surface and NO grid/glass outside the band media; no .agent-card max-width below 960; the band media\'s min-width: 720px guard and the ≥960 media\'s min-width: 960px guard keep both neighbors out', () => {
+    const css = source('src/routes/+page.svelte');
+    // the base .agent-body: centered flex column, no background override
+    // (scoped by content — the §4.33.A height rule lives in the ≥960
+    // media, earlier in the file than the base rule's neighborhood)
+    const baseAgentBody =
+      css.match(/\.agent-body\s*\{[^}]*flex-direction:\s*column[^}]*\}/)?.[0] ?? '';
+    expect(baseAgentBody).toMatch(/display:\s*flex/);
+    expect(baseAgentBody).toMatch(/flex-direction:\s*column/);
+    expect(baseAgentBody).toMatch(/align-items:\s*center/);
+    expect(baseAgentBody).toMatch(/text-align:\s*center/);
+    expect(baseAgentBody).not.toMatch(/rgba\(|backdrop-filter|grid/);
+    // the opaque surface + the strong frame stand (the card article)
+    const { container } = render(LandingPage, { props: {} });
+    const card = container.querySelector('.agent-card') as HTMLElement;
+    expect(card.className).toContain('pixel-frame--strong');
+    expect(card.className).not.toContain('agent-body');
+    const agentBodyEl = container.querySelector('.agent-body') as HTMLElement;
+    expect(agentBodyEl.className).toContain('pixel-corners');
+    // no .agent-card max-width below 960: the base + band media carry none
+    const band = bandBlock(css);
+    expect(band).not.toMatch(/\.agent-card/);
+    const baseCard = css.match(/\.agent-card,\s*\n?\s*\.stat-card\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(baseCard).not.toMatch(/max-width/);
+    // the band media NEVER co-applies ≥960: disjoint ranges (the guards)
+    expect(css).toMatch(
+      /@media \(min-width: 720px\) and \(max-width: 959\.98px\)/
+    );
+    // the .agent-body grid/glass declarations exist ONLY inside the band
+    for (const block of desktopBlocks(css)) {
+      expect(block).not.toMatch(/\.agent-body\s*\{[^}]*display:\s*grid/);
+      expect(block).not.toMatch(/\.agent-body\s*\{[^}]*rgba\(/);
+    }
+    // the <720px assertions carry UNAMENDED (the §4.30.F banner phone
+    // stacking + the §4.32.A lead-alone hero are re-asserted elsewhere)
+    expect(css).toMatch(/\.stat-glyph\s*\{[^}]*order:\s*-1/);
   });
 });
 

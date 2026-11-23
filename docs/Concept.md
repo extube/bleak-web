@@ -1973,6 +1973,32 @@ Follow-up adjustments (owner, 2026-11-23):
    view** (desktop size raised; design's value, keep the open-state
    fit).
 
+---
+
+## 46. Owner batch: Bleak heights/structures per breakpoint + staggered text reveal — ✅ APPROVED (2026-11-23)
+
+Follow-up adjustments (owner, 2026-11-23):
+
+1. **Screen >960px:** make the Bleak block **as narrow as possible**
+   such that its **height equals the height of "The right connections
+   beside you"** (the two hero blocks end on the same bottom line;
+   the card is as narrow as that allows — no taller, no wider than
+   needed).
+2. **Screen between 720px and 960px:** the Bleak block adopts the
+   **same structure as the "Real people. Real results." block** (the
+   wide banner-style glass card — text side, mascot/icon side with
+   the status treatment) and **stays located below the main screen**
+   (below the fold, per §45.1).
+3. **Screen <720px:** keep the same as now (no change).
+4. **01 / 02 / 03 step cards: vertical order when the screen is
+   <960px** (the three-block row collapses to a top-to-bottom stack
+   at the 960 boundary, not 720).
+5. **Scroll animation for titles and descriptions:** the reveal
+   system (§42) extends to the **title and description elements
+   themselves** — they animate in on scroll (staggered title →
+   description within each block; reduced-motion = visible
+   immediately, per the standing fallback).
+
 All other §31–§33 contracts stay in force (routes, Start → `/income`
 with the 6-digit input, RU/EN parity, reminder box contracts, three
 step blocks, existing suites green).
