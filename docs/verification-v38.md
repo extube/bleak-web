@@ -1,5 +1,51 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.29 ROUND NOTE (§47 resume-form removal — /income always shows the
+> 6-digit form, Concept §47 — appended by the process 2026-11-23,
+> post-round three-gate run GREEN: lint clean · 1052 tests total (49
+> api-client + 8 helper + 995 web, 54 files) · build 0 errors (7
+> pre-existing `state_referenced_locally` warnings, untouched), dev
+> `2595c33`):**
+> **The stored-session resume variant is REMOVED from the entry surface**
+> (task 138, worker `f9add692`, process `c32a0997`; branch
+> `feature/f9add692-remove-resume-form`, commit `95d2206` squashed to dev
+> `2595c33`; concept relayed the owner's §47 order with pre-approved
+> landing — lean protocol per §22.2): `/income` renders `JoinFlow`
+> **unconditionally** — the identity-conditional "Continue to
+> {room}"/«Продолжить в «{room}»» card is deleted (markup,
+> `resumeRoomName` fetch effect, `continueToRoom`/`joinAnother`, the
+> `.resume`/`.resume-title`/`.secondary`/`.footer` styles incl. the
+> <720px full-screen block); the orphaned i18n keys
+> `join.resume.title` + `join.resume.another` are deleted from BOTH
+> dicts (grep-audited to zero references; `join.enter`/`join.title`
+> stay — CodeEntry consumes them); tests reworked (the join-flow
+> resume-card treatment case → a §47 removal-proof contract;
+> landing-page literal-RU negative assertions + a NEW
+> identity-exists → 6-digit-form test; i18n retired-key audit);
+> `docs/DESIGN.md` §1.3 identity-resume bullet + the item-15
+> test-expectation copy marked SUPERSEDED (Concept §47). **Untouched
+> (verified green):** the §30 form-shell 6-digit form + scan-QR +
+> return link → VaultList return-to-event picker (§10.1.1/§6.2), the
+> §3.8 DeepLinkHandshake persona panel (still gated on an existing
+> identity), §2.8 NoticeCard, the identity store module.
+> Manual checks for the owner: with a stored identity on a real device,
+> `/income` shows ONLY the 6-digit form (no Continue-to-room card, both
+> locales); a persona-QR deep link with an existing identity still opens
+> the §3.8 handshake; the join flow end-to-end unchanged.
+> Housekeeping (DISCLOSED deviation): the sanctioned bare `git add -A`
+> landing form swept the working tree into the squash commit `2595c33`
+> — the root owner media refs (`background-img.jpg`,
+> `background-video.mp4`, `background-video-loop.mp4`,
+> `landing-design-example.png`, `profile-design.png`,
+> `profile-design-2.png`, `real-design.png`, ≈8.7 MB binaries, tracked
+> for the first time), the `docs/Concept.md` §47 order text (+11), both
+> session records, and the legacy `docs/logs/1640ba9e.log` mod landed
+> INSIDE the landing commit (prior rounds pathspec-scoped; the owner
+> should decide keep-vs-untrack — dev is unpushed);
+> `git branch -d` refused (squash-landing artifact) and `-D` is outside
+> process permissions — `feature/f9add692-remove-resume-form` joins the
+> devops `-D` cleanup list (8 branches total).
+
 > **v3.28 ROUND NOTE (task 131 PROFILE REDESIGN LANDED — Concept §43,
 > owner-approved merge — executed by devops 2026-11-23, three-gate run
 > GREEN: lint clean · tests all passed (api-client + helper + 993 web,
