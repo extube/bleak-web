@@ -40,7 +40,14 @@
  * lead/BLEAK pair + join mascot + footer glyph + step-num + ring
  * UNCHANGED); the step cards repainted to the agent card's
  * `var(--color-surface)` with the blur retired (§4.30.E); on phone
- * the banner stacks icon+caption above the text (§4.30.F). */
+ * the banner stacks icon+caption above the text (§4.30.F).
+ * §4.32 (Concept §45, 2026-11-23, tz12-15): <960px the lead ALONE owns
+ * the first viewport (the `.area-lead` 100dvh region; the BLEAK card
+ * BELOW THE FOLD — superseding §4.31.B's centered stack), the 240px
+ * desktop cap is DELETED (the card fills its 1fr track — symmetric
+ * `calc(10% + 48px)` edges) and the desktop headline grows to
+ * clamp(32px, 4.5vw, 64px); the agents card becomes the reveal system's
+ * 13th scroll unit (armed count stays 14). */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
@@ -633,7 +640,7 @@ describe('/ — §4.27.1 the native-loop swap (the §39.4 owner decision, Option
 });
 
 describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds row', () => {
-  it('§37.1 the DEFAULT OPEN STATE — at the scroll origin the first viewport contains ONLY the lead block and the BLEAK agent card (plus the fixed header chrome): the hero region (.stage) is the FIRST block of main.canvas, the stat card / step blocks / contact footer flow AFTER it — below the fold initially, revealed on scroll', () => {
+  it('§37.1 the DEFAULT OPEN STATE — first viewport = lead + BLEAK at ≥960px ONLY (§4.32.A re-scoping): the hero region (.stage) is the FIRST block of main.canvas and its ONLY children are the lead and the agent card (the DOM does NOT move — the card stays inside .stage; the <960px first-viewport isolation is produced by CSS), the stat card / step blocks / contact footer flow AFTER it — below the fold initially, revealed on scroll', () => {
     const { container } = render(LandingPage, { props: {} });
     const canvas = container.querySelector('main.canvas');
     // the hero region is the FIRST block; its ONLY children are the lead
@@ -675,7 +682,7 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
-  it('desktop ≥960px: .stage is the 100dvh HERO REGION — the TWO-COLUMN grid (§4.31.A, superseding the §4.24.D thirds) — grid-template-columns: 1.2fr 1fr with column-gap: var(--space-6), align-content: center + align-items: center; lead column 1 (≈ 489px at 1280 — WIDER than the retired ≈ 288px third), the BLEAK agent card column 2; the EMPTY middle third retires; the minmax(0,1fr) 360px row and the 360px cap stay retired (§4.24.F.5)', () => {
+  it('desktop ≥960px: .stage is the 100dvh HERO REGION — the TWO-COLUMN grid (§4.31.A, superseding the §4.24.D thirds) — grid-template-columns: 1.2fr 1fr with column-gap: var(--space-6), min-height: 100dvh (§4.32.A — MOVED inside the ≥960 media from the base rule; grow allowed, never a fixed height), align-content: center + align-items: center; lead column 1 (≈ 489px at 1280 — WIDER than the retired ≈ 288px third), the BLEAK agent card column 2; the EMPTY middle third retires; the minmax(0,1fr) 360px row and the 360px cap stay retired (§4.24.F.5)', () => {
     const css = source('src/routes/+page.svelte');
     // the two-column hero grid inside the ≥960px media: the 1.2fr lead
     // track + the 1fr agent track, the §4.23.D gap rhythm
@@ -683,6 +690,10 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
       /@media \(min-width: 960px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*grid-template-columns:\s*1\.2fr\s+1fr/
     );
     expect(css).toMatch(/@media \(min-width: 960px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*column-gap:\s*var\(--space-6\)/);
+    // §4.32.A: min-height: 100dvh lives INSIDE the ≥960 media (moved from
+    // the base rule) — grow allowed (min-height, never a fixed height)
+    expect(css).toMatch(/@media \(min-width: 960px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*min-height:\s*100dvh/);
+    expect(css).not.toMatch(/\.stage\s*\{[^}]*[^-]height:\s*100dvh/);
     // everything centered in the first viewport
     expect(css).toMatch(/@media \(min-width: 960px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*align-content:\s*center/);
     expect(css).toMatch(/@media \(min-width: 960px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*align-items:\s*center/);
@@ -714,31 +725,36 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     expect(css).not.toMatch(/\.area-chat/);
   });
 
-  it('the <960px hero is ONE CENTERED COLUMN (§4.31.B, superseding BOTH the §4.24.D thirds for the 720–959 band AND the §4.25.A <719.98px .area-lead 100dvh phone hero): .stage itself is the centered flex-column stack with min-height: 100dvh — the lead centered, BLEAK BELOW it (the DOM order IS the stack); the retired .area-lead 100dvh rule does not exist; no horizontal scroll at 320px; the 280px container floor keeps the phone chip usable', () => {
+  it('§4.32.A (Concept §45 item 1, superseding §4.31.B): <960px the lead ALONE owns the first viewport — the BASE .stage rule declares NO min-height and NO justify-content (the 100dvh stack construction is gone); a @media (max-width: 959.98px) makes .area-lead the 100dvh hero region (min-height + flex-column + justify-content: center) so the lead centers ALONE; the BLEAK card follows after the stage\'s 32px gap in the normal scroll flow — strictly BELOW THE FOLD; the DOM does NOT move (.stage > .area-lead + .area-agents byte-unchanged) and the WHOLE <960 band is ONE construction (no separate <719.98px hero rule); the 280px container floor keeps the phone chip usable', () => {
     const css = source('src/routes/+page.svelte');
-    // the base .stage IS the <960px hero construction: one centered column
     expect(css).toMatch(/\.canvas\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/);
-    expect(css).toMatch(
-      /\.stage\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column[^}]*justify-content:\s*center/
-    );
+    // the BASE .stage: flex column + centered items, NO first-viewport
+    // sizing of its own (the §4.31.B construction is gone — negatives)
     const baseStage = css.match(/\.stage\s*\{[\s\S]*?\n\s*\}/)?.[0] ?? '';
+    expect(baseStage).toMatch(/display:\s*flex/);
+    expect(baseStage).toMatch(/flex-direction:\s*column/);
     expect(baseStage).toMatch(/align-items:\s*center/);
     expect(baseStage).toMatch(/gap:\s*var\(--space-6\)/);
-    expect(baseStage).toMatch(/min-height:\s*100dvh/);
+    expect(baseStage).not.toMatch(/min-height:\s*100dvh/);
+    expect(baseStage).not.toMatch(/justify-content:\s*center/);
     expect(baseStage).not.toMatch(/grid|position/);
-    // the retired <719.98px .area-lead 100dvh hero rule is DELETED —
-    // the 100dvh + centering live on .stage at EVERY width now (negative)
+    // §45.1: the lead's own region owns the 100dvh — centered ALONE — in
+    // the ONE <960px media (the whole band, max-width: 959.98px)
+    expect(css).toMatch(
+      /@media \(max-width: 959\.98px\)\s*\{\s*\n\s*\/\*[\s\S]*?\*\/\s*\n\s*\.area-lead\s*\{[^}]*min-height:\s*100dvh/
+    );
+    const leadMedia = css.match(/@media \(max-width: 959\.98px\)\s*\{(?:[^{}]|\{[^{}]*\})*\}/)?.[0] ?? '';
+    expect(leadMedia).toMatch(/\.area-lead\s*\{[^}]*min-height:\s*100dvh[^}]*display:\s*flex[^}]*flex-direction:\s*column[^}]*justify-content:\s*center/);
+    // NO .area-lead 100dvh rule OUTSIDE the 959.98px media (AC 4 — the
+    // whole <960 band is ONE construction; no separate <719.98px rule)
     expect(css).not.toMatch(
       /@media \(max-width: 719\.98px\)\s*\{[\s\S]*?\.area-lead\s*\{[^}]*min-height:\s*100dvh/
     );
-    expect(css).not.toMatch(/\.area-lead\s*\{[^}]*min-height:\s*100dvh/);
-    // the retired ≥720px hero thirds grid does not come back (the hero
-    // breakpoint moved to 960 — the 720–959 band is the centered stack;
-    // checked INSIDE every 720px media block — no cross-boundary matching)
-    for (const block of [...css.matchAll(/@media \(min-width: 720px\)\s*\{(?:[^{}]|\{[^{}]*\})*\}/g)]) {
-      expect(block[0]).not.toMatch(/\.stage\s*\{[^}]*grid-template-columns/);
-    }
-    // the DOM order IS the stack — BLEAK renders BELOW the lead
+    const leadRulesOutside = [...css.matchAll(/\.area-lead\s*\{[^}]*\}/g)]
+      .map((m) => m[0])
+      .filter((r) => r.includes('min-height'));
+    expect(leadRulesOutside).toHaveLength(1); // only inside the 959.98px media
+    // the DOM order IS the scroll flow — BLEAK renders BELOW the lead
     const order = [
       'area-lead', 'area-agents', 'area-stat', 'area-tutorial',
       'area-sim', 'area-privacy', 'area-usecases', 'area-join', 'area-foot'
@@ -746,12 +762,12 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     const positions = order.map((name) => css.indexOf(name, css.indexOf('<main')));
     expect(positions.every((p) => p > 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
-    // the §37.1 open-state holds at <960px: at 800×800 the centered pair
-    // (lead ≈ 300px + BLEAK ≈ 380px + the 32px gap ≈ 712px < 800) fits the
-    // initial viewport; the 100dvh + centering mechanism is the SAME
-    // vertically-centered hero construction (verified via the base rule above)
-    const leadHeight = 300 + 380 + 32;
-    expect(leadHeight).toBeLessThan(800);
+    // the offset guarantee (AC 3, the construction form): the lead region
+    // owns 100dvh as .stage's FIRST child and the card follows the
+    // stage's 32px gap → the card's top edge at the scroll origin is
+    // ≥ 100dvh + var(--space-6) > any viewport height — strictly below
+    // the fold at EVERY <960 width and height
+    expect(baseStage).toMatch(/gap:\s*var\(--space-6\)/);
     // §4.28.F the container: max(90%, 280px) on phone — the SHARED floor
     // with the header (the 1000px cap retires as a width rule)
     expect(css).toMatch(/\.landing\s*\{[^}]*width:\s*max\(90%, 280px\)/);
@@ -785,7 +801,7 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     );
   });
 
-  it('the lead is WIDER (§4.31.A, superseding the §4.24.C thirds measure): it fills its 1.2fr track — ≈ 489px at 1280 (the fit-content/560px sizing stays retired); the headline clamp moves WITH the composition — clamp(28px, 4vw, 48px) applies at ≥960 ONLY (38.4px at 960, capped 48px from 1200px up; the 720–959 band keeps the ≥480px 48px value), and .copy-body is left-aligned at ≥960 / centered below', () => {
+  it('the lead is WIDER (§4.31.A, superseding the §4.24.C thirds measure): it fills its 1.2fr track — ≈ 489px at 1280 (the fit-content/560px sizing stays retired); the headline clamp moves WITH the composition and §4.32.C raises the desktop size — clamp(32px, 4.5vw, 64px) applies at ≥960 ONLY (43.2px at 960, 57.6px at 1280, capped 64px from ≈1422px up; the 720–959 band keeps the ≥480px 48px value; the <960 ladder is byte-unchanged), and .copy-body is left-aligned at ≥960 / centered below', () => {
     const css = source('src/routes/+page.svelte');
     // the lead fills its 1.2fr grid track (100%), below 960px full-width
     expect(css).toMatch(/\.copy\s*\{[^}]*width:\s*100%/);
@@ -811,15 +827,21 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     // the 28px padding half stays at ≥720px (§4.28 values byte-unchanged)
     expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.copy-body\s*\{[^}]*padding:\s*28px/);
     // §4.28.A the headline ladder: 40px base (48px ≥480px) + the clamp at
-    // ≥960px — and NOT between 720–959 (the 720px clamp media is moved)
+    // ≥960px — §4.32.C's raised value — and NOT between 720–959 (the 720px
+    // clamp media is moved)
     expect(css).toMatch(/\.headline\s*\{[^}]*font-size:\s*40px/);
     expect(css).toMatch(/@media \(min-width: 480px\)\s*\{[\s\S]*?\.headline\s*\{[^}]*font-size:\s*48px/);
     expect(css).toMatch(
-      /@media \(min-width: 960px\)\s*\{[\s\S]*?\.headline\s*\{[^}]*font-size:\s*clamp\(28px, 4vw, 48px\)/
+      /@media \(min-width: 960px\)\s*\{[\s\S]*?\.headline\s*\{[^}]*font-size:\s*clamp\(32px, 4\.5vw, 64px\)/
     );
-    // no clamp media at 720px remains for the headline (checked INSIDE
-    // every 720px media block — no cross-boundary matching)
-    for (const block of [...css.matchAll(/@media \(min-width: 720px\)\s*\{(?:[^{}]|\{[^{}]*\})*\}/g)]) {
+    // the old clamp is GONE from the stylesheet (§4.32.G AC 9 — negative)
+    const strippedOldClamp = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(strippedOldClamp).not.toMatch(/clamp\(28px, 4vw, 48px\)/);
+    // no headline clamp exists OUTSIDE the ≥960 media (checked INSIDE
+    // every non-960 media block — no cross-boundary matching)
+    for (const block of [
+      ...css.matchAll(/@media \((?!min-width: 960px)[^)]+\)\s*\{(?:[^{}]|\{[^{}]*\})*\}/g)
+    ]) {
       expect(block[0]).not.toMatch(/\.headline\s*\{[^}]*font-size:\s*clamp/);
     }
     // the superseded §4.27.B/§4.26 values are gone everywhere (comment-
@@ -1438,9 +1460,10 @@ describe('/ — the §4.28.1 owner amendment (Concept §41): lead text color + c
     // the treatment around it is unchanged: the halo + the size ladder stay
     expect(subRule).toMatch(/font-size:\s*16px/);
     expect(subRule).toMatch(/text-shadow:/);
-    // the headline treatment is unchanged (clamp + glow + accent word)
+    // the headline treatment is unchanged (clamp + glow + accent word;
+    // the clamp reference is the §4.32.C value at ≥960)
     expect(css).toMatch(
-      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.headline\s*\{[^}]*font-size:\s*clamp\(28px, 4vw, 48px\)/
+      /@media \(min-width: 960px\)\s*\{[\s\S]*?\.headline\s*\{[^}]*font-size:\s*clamp\(32px, 4\.5vw, 64px\)/
     );
     // other muted consumers keep the token untouched (only the .sub rule moved)
     expect(css).toMatch(/\.top-nav a\s*\{[^}]*color:\s*var\(--color-text-muted\)/);
@@ -2164,7 +2187,10 @@ describe('/income/[income_code]/create — the creation process (the re-homed wi
  * (`landing/reveal.ts` + the base.css armed state), (2) the agent card
  * capped at 240px on desktop, (3) icons +50% below the first screen, (4)
  * the step cards repainted to the agent card's var(--color-surface),
- * (5) on phone the banner stacks icon+caption above the text. */
+ * (5) on phone the banner stacks icon+caption above the text.
+ * §4.32 amendment (Concept §45, tz12-15): the agents card is the
+ * reveal system's 13th scroll unit (bare [data-reveal]) and the lead
+ * ALONE animates ON LOAD; the 240px cap is superseded (deleted). */
 
 /** A controllable IntersectionObserver stand-in: records construction
  * options, observed/unobserved targets and lets the test fire entries
@@ -2218,9 +2244,10 @@ function desktopBlocks(css: string): string[] {
 }
 
 describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state + the utility wiring)', () => {
-  it('AC 1: every below-the-fold unit carries the bare [data-reveal] marker in the markup (12 units: banner + 3 step blocks + sim + privacy + 4 use-case pills + join + footer) and the hero pair carries [data-reveal-load]; the stylesheet hides NOTHING outside [data-reveal=\'armed\'] — a bare [data-reveal] rule with opacity/visibility does not exist (no-JS = fully visible)', () => {
+  it('AC 1 (as amended by §4.32.A/AC 6): every below-the-fold unit carries the bare [data-reveal] marker in the markup (13 units: the BLEAK agents card FIRST + banner + 3 step blocks + sim + privacy + 4 use-case pills + join + footer) and the lead ALONE carries [data-reveal-load]; the stylesheet hides NOTHING outside [data-reveal=\'armed\'] — a bare [data-reveal] rule with opacity/visibility does not exist (no-JS = fully visible)', () => {
     const page = source('src/routes/+page.svelte');
     const units = [
+      'area-agents',
       'area-stat',
       'step-block',
       'area-sim',
@@ -2235,9 +2262,12 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
         `${unit} carries the data-reveal marker`
       ).toBeTruthy();
     }
-    // the hero pair: the LOAD marker, not the scroll marker
+    // the hero pair is now the lead ALONE: the LOAD marker on the lead,
+    // the BARE scroll marker on the agents card (§4.32.A — negative on
+    // data-reveal-load there)
     expect(page).toMatch(/<section class="copy area-lead" data-reveal-load>/);
-    expect(page).toMatch(/<section class="area-agents" id="agents" data-reveal-load>/);
+    expect(page).toMatch(/<section class="area-agents" id="agents" data-reveal>/);
+    expect(page).not.toMatch(/<section class="area-agents" id="agents" data-reveal-load>/);
     // the base.css armed-only hidden state
     const baseCss = source('src/lib/styles/base.css');
     const armed = baseCss.match(/\[data-reveal='armed'\]\s*\{[^}]*\}/)?.[0] ?? '';
@@ -2258,7 +2288,7 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
     expect(stripped).not.toMatch(/\[data-reveal\]\s*\{[^}]*opacity:\s*0/);
   });
 
-  it('AC 2 + AC 3: the utility arms every unit (the ONLY moment anything hides), ONE shared IntersectionObserver (threshold 0.15, rootMargin \'0px 0px -48px 0px\') watches exactly the 12 scroll units, the FIRST intersection adds .is-revealed and unobserves (one-shot), and the transitionend cleanup strips BOTH the class and the attribute', () => {
+  it('AC 2 + AC 3 (as amended by §4.32.A/AC 6): the utility arms every unit (the ONLY moment anything hides), ONE shared IntersectionObserver (threshold 0.15, rootMargin \'0px 0px -48px 0px\') watches exactly the 13 scroll units (the agents card is their FIRST member in DOM order), the FIRST intersection adds .is-revealed and unobserves (one-shot), and the transitionend cleanup strips BOTH the class and the attribute', () => {
     RevealObserverStub.instances = [];
     vi.stubGlobal('IntersectionObserver', RevealObserverStub);
     const { container } = render(LandingPage, { props: {} });
@@ -2266,25 +2296,25 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
     expect(observer).toBeTruthy();
     expect(observer?.options).toEqual({ threshold: 0.15, rootMargin: '0px 0px -48px 0px' });
 
-    // exactly the 12 below-the-fold units are observed, in DOM order — the
-    // DOM carries 14 [data-reveal] nodes after arming: the 12 scroll units
-    // + the 2 hero-pair sections the utility armed for the LOAD reveal
+    // exactly the 13 below-the-fold units are observed, in DOM order — the
+    // DOM carries 14 [data-reveal] nodes after arming: the 13 scroll units
+    // + the lead section the utility armed for the LOAD reveal (§4.32.A:
+    // the agents card is a SCROLL unit now)
     const armed = [...container.querySelectorAll('[data-reveal]')];
     expect(armed).toHaveLength(14);
-    const units = armed.filter(
-      (el) => !(el.className.includes('area-lead') || el.className.includes('area-agents'))
-    );
-    expect(units).toHaveLength(12);
+    const lead = container.querySelector('.area-lead') as HTMLElement;
+    const agents = container.querySelector('.area-agents') as HTMLElement;
+    const units = armed.filter((el) => el !== lead);
+    expect(units).toHaveLength(13);
     const observed = observer?.observed ?? [];
-    expect(observed).toHaveLength(12);
+    expect(observed).toHaveLength(13);
     expect(units.every((u, i) => observed[i] === u)).toBe(true);
     expect(observed.every((el) => el.getAttribute('data-reveal') === 'armed')).toBe(true);
 
-    // the hero pair is NOT a scroll unit
-    const lead = container.querySelector('.area-lead') as HTMLElement;
-    const agents = container.querySelector('.area-agents') as HTMLElement;
+    // the lead is NOT a scroll unit (the only load unit); the agents card
+    // IS — its first member in DOM order
     expect(observed.includes(lead)).toBe(false);
-    expect(observed.includes(agents)).toBe(false);
+    expect(observed[0]).toBe(agents);
 
     // the banner block starts HIDDEN (armed: opacity 0 + translateY(16px))
     const banner = container.querySelector('.area-stat') as HTMLElement;
@@ -2302,6 +2332,13 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
     observer?.fire([banner]);
     expect(observer?.unobserved).toHaveLength(1);
     expect(banner.classList.contains('is-revealed')).toBe(true);
+
+    // the agents card is armed but NOT auto-revealed — it reveals on its
+    // own first intersection (§4.32.A: at <960 only after the user
+    // scrolls it into view; at ≥960 the IO fires at the scroll origin)
+    expect(agents.classList.contains('is-revealed')).toBe(false);
+    observer?.fire([agents]);
+    expect(agents.classList.contains('is-revealed')).toBe(true);
 
     // the rest stay armed (hidden) until their own scroll-into-view
     const step = container.querySelectorAll('.step-block')[1] as HTMLElement;
@@ -2333,7 +2370,7 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
     expect(delayOf(container.querySelector('.area-join') as Element)).toBe('');
   });
 
-  it('AC 4: the hero pair animates ON LOAD — armed at mount, .is-revealed one animation frame later (no observer entry needed), the same cleanup — while NOT being scroll units; the §37 open-state geometry is untouched', async () => {
+  it('AC 4 (as amended by §4.32.A/AC 6): the lead ALONE animates ON LOAD — armed at mount, .is-revealed one animation frame later (no observer entry needed), the same cleanup — while NOT being a scroll unit; the agents card is the FIRST scroll unit (armed at mount, revealed only on its first intersection, never auto-revealed); the §37 open-state geometry is untouched', async () => {
     RevealObserverStub.instances = [];
     vi.stubGlobal('IntersectionObserver', RevealObserverStub);
     const { container } = render(LandingPage, { props: {} });
@@ -2342,18 +2379,27 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
     // armed at mount (the only moment anything hides)
     expect(lead.getAttribute('data-reveal')).toBe('armed');
     expect(agents.getAttribute('data-reveal')).toBe('armed');
-    // one animation frame later: revealed — without any intersection
+    // one animation frame later: the LEAD is revealed — without any
+    // intersection; the agents card is NOT (it waits for its scroll
+    // intersection, §4.32.A)
     await waitFor(() => {
       expect(lead.classList.contains('is-revealed')).toBe(true);
-      expect(agents.classList.contains('is-revealed')).toBe(true);
     });
-    // the cleanup strips them exactly like a scroll reveal
+    expect(agents.classList.contains('is-revealed')).toBe(false);
+    // the lead's cleanup strips it exactly like a scroll reveal
     lead.dispatchEvent(new Event('transitionend'));
-    agents.dispatchEvent(new Event('transitionend'));
     expect(lead.hasAttribute('data-reveal')).toBe(false);
+    // the agents card reveals ONLY on its observer entry (then the same
+    // cleanup); at ≥960 the entry fires at the scroll origin — net the
+    // same on-open fade+rise
+    const observer = revealObserver();
+    expect(observer?.observed).toContain(agents);
+    observer?.fire([agents]);
+    expect(agents.classList.contains('is-revealed')).toBe(true);
+    agents.dispatchEvent(new Event('transitionend'));
     expect(agents.hasAttribute('data-reveal')).toBe(false);
     // the §37 open state still holds: the hero region is .stage with ONLY
-    // the lead + the agent card inside (the centered first viewport)
+    // the lead + the agent card inside (the DOM does not move — §4.32.A)
     const stage = container.querySelector('.stage') as HTMLElement;
     expect([...stage.children].map((c) => c.className)).toEqual(
       expect.arrayContaining([expect.stringContaining('area-lead'), expect.stringContaining('area-agents')])
@@ -2361,7 +2407,7 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
     expect(stage.children).toHaveLength(2);
   });
 
-  it('AC 5 (reduced motion): prefers-reduced-motion: reduce ⇒ NO arming, NO observer — every block (including the hero pair) is visible immediately', () => {
+  it('AC 5 (reduced motion): prefers-reduced-motion: reduce ⇒ NO arming, NO observer — every block (the lead AND every scroll unit, incl. the below-fold BLEAK card) is visible immediately', () => {
     RevealObserverStub.instances = [];
     vi.stubGlobal('IntersectionObserver', RevealObserverStub);
     vi.stubGlobal('matchMedia', vi.fn(() => ({
@@ -2401,21 +2447,39 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
   });
 });
 
-describe('/ — §4.30.C the agent card narrower on desktop + §4.30.D/F the banner geometry', () => {
-  it('AC 6 (as amended by §4.31.A): at ≥960px the agent card computes max-width: 240px, centered (margin-inline: auto) inside its 1fr track of the TWO-COLUMN hero grid; below 960px there is NO cap (100% of the container, §4.28.F)', () => {
+describe('/ — §4.32.B the agent card wide on desktop (the 240px cap DELETED) + §4.30.D/F the banner geometry', () => {
+  it('§4.32.B AC 7–8 (superseding §4.30.C/§4.31.A): at ≥960px there is NO .agent-card max-width and NO .agent-card margin-inline: auto (the 240px cap is GONE from the hero — negative) — the card fills its 1fr track via the existing shared width: 100% rule; the symmetry construction: .landing keeps width max(80%, 280px) + margin-inline auto + the 48px inline padding byte-unchanged, .copy and .agent-card BOTH fill their tracks — so the card\'s right margin from the viewport equals the lead\'s left margin, each calc(10% + 48px) at every ≥960 width (the padding NOT pierced)', () => {
     const css = source('src/routes/+page.svelte');
-    // the cap moved WITH the hero grid into the ≥960px media (§4.31.A)
+    // §4.32.G AC 7 (negative): the cap is deleted from the ≥960px media
     const wideBlocks = [...css.matchAll(/@media \(min-width: 960px\)\s*\{(?:[^{}]|\{[^{}]*\})*\}/g)].map(
       (m) => m[0]
     );
-    const cap = wideBlocks.find((b) => b.includes('.agent-card')) ?? '';
-    expect(cap).toMatch(/\.agent-card\s*\{[^}]*max-width:\s*240px/);
-    expect(cap).toMatch(/\.agent-card\s*\{[^}]*margin-inline:\s*auto/);
-    // the base card rule carries no cap (below 960px the card is 100%)
+    for (const block of wideBlocks) {
+      expect(block).not.toMatch(/\.agent-card\s*\{[^}]*max-width/);
+      expect(block).not.toMatch(/\.agent-card\s*\{[^}]*margin-inline:\s*auto/);
+    }
+    // the 240px value survives NOWHERE in the page (comment-stripped)
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(stripped).not.toMatch(/240px/);
+    // the base card rule carries no cap either (below 960px 100%, ≥960 the
+    // card fills its track via the SAME shared rule)
     const baseCard = css.match(/\.agent-card,\s*\n?\s*\.stat-card\s*\{[^}]*\}/)?.[0] ?? '';
     expect(baseCard).not.toMatch(/max-width/);
+    expect(baseCard).toMatch(/width:\s*100%/);
+    // §4.32.G AC 8 (the symmetry construction): .landing keeps the
+    // centered 80% container + the 48px inline padding byte-unchanged,
+    // .copy { width: 100% } and .agent-card { width: 100% } both fill
+    // their tracks → both margins measure calc(10% + 48px) by
+    // construction at every ≥960 width
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.landing\s*\{[^}]*width:\s*max\(80%, 280px\)/
+    );
+    expect(css).toMatch(
+      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.landing\s*\{[^}]*padding:\s*0 var\(--space-7\) var\(--space-7\)/
+    );
+    expect(css).toMatch(/\.copy\s*\{[^}]*width:\s*100%/);
+    expect(baseCard).toMatch(/width:\s*100%/);
     // the hero grid is the TWO-COLUMN 1.2fr/1fr construction (§4.31.A —
-    // the §4.30.C "inside the UNCHANGED thirds grid" form is superseded;
     // the agent track is column 2)
     expect(css).toMatch(
       /@media \(min-width: 960px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*grid-template-columns:\s*1\.2fr\s+1fr/

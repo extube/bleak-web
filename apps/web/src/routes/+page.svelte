@@ -27,10 +27,13 @@
    *   renamed), PRIVACY → #privacy, USE CASES → #use-cases, JOIN →
    *   #join (`#agents` stays as an id with no nav link); CSS smooth
    *   scroll under `prefers-reduced-motion: no-preference`.
-   * - Open state (§4.25.A — §37.1 CARRIES, §4.26.J): on open, ONLY the
-   *   lead (Start block) and the BLEAK agent card are visible,
-   *   VERTICALLY CENTERED in the first viewport; everything else flows
-   *   AFTER the hero region — below the fold, revealed on scroll.
+   * - Open state (§4.25.A — §37.1 CARRIES, §4.26.J; re-scoped by
+   *   §4.32.A/Concept §45): at ≥960px ONLY the lead (Start block) and the
+   *   BLEAK agent card are visible, VERTICALLY CENTERED in the first
+   *   viewport; below 960px the lead ALONE owns the first viewport
+   *   (centered) and the BLEAK card sits BELOW THE FOLD, reached by
+   *   scrolling; everything else flows AFTER the hero region — below the
+   *   fold, revealed on scroll.
    * - Lead section (§4.25.B): TRANSPARENT and borderless — unchanged.
    * - Banner (§4.26.B — the stat card amended in place): the
    *   pixel-framed card goes liquid glass (`rgba(20, 18, 30, 0.55)` +
@@ -54,6 +57,12 @@
    *   and every icon below the first screen grows +50% (§4.30.D:
    *   flower 66/72, dot 9, step icons 48/72, step art 72, privacy 72,
    *   use-cases 60, sim avatars 96 — the first-viewport pair UNCHANGED).
+   * - §4.32 (Concept §45, 2026-11-23) — the hero breakpoint/width/
+   *   headline batch: <960px the lead ALONE owns the first viewport (the
+   *   `.area-lead` 100dvh region; the BLEAK card below the fold —
+   *   §4.32.A), the 240px desktop cap is DELETED and the card fills its
+   *   1fr track (symmetric `calc(10% + 48px)` edges — §4.32.B), and the
+   *   desktop headline grows to clamp(32px, 4.5vw, 64px) (§4.32.C).
    * - Footer (§4.26.D): the dark liquid-glass pill — the pixel-frame
    *   construction is retired from it; content contract verbatim.
    * - The FOUR new sections (§4.26.E–I, after the steps, before the
@@ -412,8 +421,12 @@
 
         <!-- the agent — AGENT CHARACTER CARD (§4.20.G-b, renamed
              BLEAK per §4.22.D) — pixel frame, opaque surface, NO glass,
-             floating over the video -->
-        <section class="area-agents" id="agents" data-reveal-load>
+             floating over the video. §4.32.A: the BARE data-reveal
+             scroll marker — the card is the reveal system's 13th scroll
+             unit (§4.30.A): at <960 it reveals when the user scrolls it
+             into view (below the fold); at ≥960 its IO fires at the
+             scroll origin — net the same on-open fade+rise. -->
+        <section class="area-agents" id="agents" data-reveal>
           <article class="card pixel-corners pixel-frame pixel-frame--strong agent-card">
             <div class="card-body pixel-corners agent-body">
               <div class="agent-portrait">
@@ -860,42 +873,54 @@
    * contact footer (everything overlays the fixed video background; the
    * §4.24.E `calc(200dvh / 3)` spacer is DELETED — the open state is
    * produced entirely by the hero's 100dvh construction, §4.25.D.1).
-   * §4.31.A/B (Concept §44 item 1): the hero is ONE construction at every
-   * width — .stage carries the 100dvh + centering (the <719.98px .area-lead
-   * 100dvh phone hero and the ≥720px thirds grid both retire). At ≥960px
-   * the hero row is TWO asymmetric columns — the lead (1.2fr) in column 1,
-   * the agent card (1fr) in column 2 (the empty middle third retires);
-   * the lead track is ≈ 489px at 1280. Below 960px the hero is ONE
-   * CENTERED COLUMN — the lead centered, BLEAK below it (the §37.1
-   * open-state holds: the first viewport contains ONLY lead + BLEAK,
-   * vertically centered). The stat card, step blocks and footer flow
-   * AFTER the hero region (below the fold initially, revealed on scroll). */
+   * §4.32.A (Concept §45 item 1, superseding §4.31.B's <960 stack): the
+   * base .stage is NO LONGER the 100dvh first-viewport region — at <960px
+   * the LEAD ALONE owns the first viewport (the `.area-lead` 100dvh
+   * centered region in the 959.98px media below); the BLEAK card follows
+   * after the stage's 32px gap in the normal scroll flow — strictly BELOW
+   * THE FOLD at every <960 width/height ("behind the screen", reached by
+   * scrolling). At ≥960px the hero row is the TWO-COLUMN grid (lead
+   * 1.2fr, BLEAK 1fr, side by side) with `min-height: 100dvh` — the §37
+   * open-state (first viewport = lead + BLEAK, vertically centered)
+   * applies ≥960px ONLY. The stat card, step blocks and footer flow
+   * AFTER the hero region (below the fold initially, revealed on
+   * scroll). */
   .canvas {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
     min-width: 0;
   }
-  /* <960px (and the fallback at every width the 960px media does not
-   * cover): the centered hero stack — the pair centers vertically as a
-   * group inside the first viewport; when the combined height does not
-   * fit, the stage grows and BLEAK scrolls into view (no clipping). */
+  /* BASE = <960px: the lead's own region owns the 100dvh — centered
+   * ALONE; the BLEAK card follows in the normal scroll flow (below the
+   * fold). The base .stage declares NO min-height and NO
+   * justify-content (the §4.31.B stack construction is gone). */
   .stage {
     display: flex;
     flex-direction: column;
-    justify-content: center;
     align-items: center;
     gap: var(--space-6);
-    min-height: 100dvh;
     min-width: 0;
+  }
+  @media (max-width: 959.98px) {
+    /* §45.1: the lead centered ALONE in the first viewport — its region
+     * is the 100dvh hero (the card is out of this region, in the scroll
+     * flow after it); grow allowed (min-height, never locked). */
+    .area-lead {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
   }
   @media (min-width: 960px) {
     .stage {
       display: grid;
       grid-template-columns: 1.2fr 1fr; /* WAS repeat(3, 1fr) + empty col 2 */
       column-gap: var(--space-6); /* unchanged 32px */
-      /* the hero row = the whole first viewport, everything centered
-       * (min-height: 100dvh carries from the base rule above) */
+      /* the hero row = the whole first viewport — MOVED here from the
+       * base rule (§4.32.A); grow allowed (min-height, never height) */
+      min-height: 100dvh;
       align-content: center;
       align-items: center;
     }
@@ -905,15 +930,12 @@
     .area-agents {
       grid-column: 2; /* WAS 3 — the empty middle third retires (§4.31.A) */
     }
-    /* §4.30.C carries verbatim, moved into the 960px media: the agent
-     * card is NARROWER than its track — max-width 240px, centered inside
-     * the 1fr track (≈ 407px at 1280); the 240px card keeps ≥ 200px of
-     * text column after its 20px body padding (readability). <960px stays
-     * 100% of the container width (§4.28.F) — the cap is desktop-only. */
-    .agent-card {
-      max-width: 240px;
-      margin-inline: auto;
-    }
+    /* §4.32.B (Concept §45 item 2): the §4.30.C 240px cap is DELETED —
+     * the card fills its 1fr track via the shared `width: 100%` rule,
+     * edge-to-edge, so its right margin from the viewport equals the
+     * lead's left margin — both `calc(10% + 48px)` (the container's
+     * centered 10% gutter PLUS its 48px inline padding, included
+     * symmetrically on both sides; the padding is NOT pierced). */
   }
   /* §4.26.A anchor plumbing: the four smooth-scroll targets (the step
    * cards #how-it-works + the new sections) clear the detached floating
@@ -980,10 +1002,11 @@
   .headline {
     font-family: var(--font-pixel);
     font-weight: 600;
-    /* §4.28.A: 36px → 40px on phone (≥480: 48px; ≥960: clamp(28px, 4vw,
-     * 48px) — the bump forces the clamp re-check so the lead stays the
-     * dominant title over the grown 28px .agent-name at every ≥960px
-     * width: 38.4px at 960px, capped at 48px from 1200px up) */
+    /* §4.28.A: 36px → 40px on phone (≥480: 48px; ≥960: clamp(32px,
+     * 4.5vw, 64px) per §4.32.C — the bump forces the clamp re-check so
+     * the lead stays the dominant title over the grown 28px .agent-name
+     * at every ≥960px width: 43.2px at 960px, capped at 64px from
+     * ≈1422px up) */
     font-size: 40px;
     line-height: 1.05;
     text-transform: uppercase;
@@ -1003,12 +1026,14 @@
     }
   }
   @media (min-width: 960px) {
-    /* §4.28.A + §4.31.A: the clamp moves WITH the side-by-side
+    /* §4.28.A + §4.31.A + §4.32.C: the clamp moves WITH the side-by-side
      * composition (720 → 960px, the 720–959 band keeps the ≥480px 48px
-     * value); the cap matches the ≥480px phone rule (one consistent 48px
-     * maximum); overflow-wrap: anywhere carries the mid-word breaks */
+     * value); §4.32.C raises the desktop size — clamp(32px, 4.5vw, 64px):
+     * 43.2px at 960 → 57.6px at 1280, capped 64px from ≈1422px up (the
+     * 32px floor is inert on ≥960 — a defensive minimum); overflow-wrap:
+     * anywhere carries the mid-word breaks */
     .headline {
-      font-size: clamp(28px, 4vw, 48px);
+      font-size: clamp(32px, 4.5vw, 64px);
     }
   }
   .accent-line {

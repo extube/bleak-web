@@ -1955,6 +1955,24 @@ Follow-up adjustments (owner, 2026-11-23):
    "visible viewport" they bind to just becomes the dynamic
    visualViewport height.
 
+---
+
+## 45. Owner batch: hero breakpoint/width/headline + Bleak margins — ✅ APPROVED (2026-11-23)
+
+Follow-up adjustments (owner, 2026-11-23):
+
+1. **Below 960px:** the landing shows **only "The right connections
+   beside you" block, centered on the screen**; the **Bleak block is
+   located behind the screen** — i.e. below the fold, reached by
+   scrolling (supersedes the §44.1 <960px stack that showed both).
+2. **Bleak block wider on computer:** its **margin from the right
+   side of the screen equals the left margin of the lead block**
+   (symmetric edges — the Bleak card stretches toward the content
+   container's right edge instead of a small centered card).
+3. **"The right connections beside you" headline bigger for computer
+   view** (desktop size raised; design's value, keep the open-state
+   fit).
+
 All other §31–§33 contracts stay in force (routes, Start → `/income`
 with the 6-digit input, RU/EN parity, reminder box contracts, three
 step blocks, existing suites green).

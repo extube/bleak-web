@@ -9218,6 +9218,453 @@ leaks). The §30 forms on the creation path (enter/room-intro/intro)
 share the same dynamic height — their §30 contracts stay green. RU/EN:
 zero delta (no copy changes).
 
+### 4.32 v3.26 feature design (2026-11-23, owner-approved Concept §45): §45 hero breakpoint/width/headline + Bleak margins
+
+The owner issued the three-item §45 follow-up batch (2026-11-23):
+(1) **below 960px the landing shows ONLY "The right connections beside
+you" centered on the screen — the Bleak block sits BELOW THE FOLD**,
+reached by scrolling (supersedes the §44.1/§4.31.B <960px stack that
+showed both in the first viewport); (2) **the Bleak block is wider on
+computer** — its margin from the right side of the screen EQUALS the left
+margin of the lead block (symmetric edges — the card stretches toward the
+content container's right edge instead of a small centered card,
+superseding the §4.30.C 240px cap as carried into §4.31.A); (3) **the
+headline is bigger for computer view** (design's value; keep the
+open-state fit). All other §31–§33 contracts stay in force (routes,
+Start → `/income` with the 6-digit input, RU/EN parity, reminder-box
+retirement, three step blocks, existing suites green). This section
+amends §4.31 (→ §4.30 → §4.28 → §4.27 → §4.26 → … → §4.20) item by item;
+**where §4.32 is silent, the earlier specs stand** except where §4.32.D
+explicitly supersedes them. Grounded in the live code (read-only audit,
+2026-11-23): `apps/web/src/routes/+page.svelte` (the §4.31 hero — base
+`.stage` flex stack with `min-height: 100dvh` + `justify-content:
+center`, the ≥960 `1.2fr 1fr` grid, `.agent-card { max-width: 240px;
+margin-inline: auto }` inside the ≥960 media, `.headline` clamp(28px,
+4vw, 48px) inside the ≥960 media, the `max(80%, 280px)` container with
+`padding: 0 var(--space-7)` at ≥720, and the reveal wiring —
+`data-reveal-load` on BOTH `.area-lead` and `.area-agents`),
+`src/lib/styles/tokens.css` (the spacing/palette tokens — untouched),
+`tests/landing-page.test.ts` (the §4.31 hero/stack/clamp/reveal
+assertions — amended per §4.32.G). Hard constraints unchanged: **no new
+dependencies**, **no copy changes** (i18n ZERO delta, §4.32.E),
+**palette tokens unchanged** (geometry/typography only — no new color
+values anywhere), **routes untouched** (no route dir, param or resolution
+change — §4.31.D's rename stands as delivered), **/income untouched
+INCLUDING the §44.4 keyboard-viewport mechanism** (JoinFlow's
+`--app-height` / `visualViewport` wiring and the document-scroll lock are
+not modified — this round touches the landing page's hero CSS + reveal
+markers only), **the scroll-reveal system itself is unchanged**
+(`landing/reveal.ts`, the base.css armed state, the one-shot observer,
+thresholds, stagger and reduced-motion guards all carry verbatim — only
+ONE element's unit class changes, §4.32.A). **API endpoints used: none**
+— the landing stays fetch-free (§4.20 preamble). Task: tz12-15
+(`feature/1c622991-tz12-15-hero-breakpoint-bleak`).
+
+#### 4.32.A The <960px open state — the lead ALONE owns the first viewport (item 1)
+
+**Live-code finding:** §4.31.B made the <960px hero ONE centered stack —
+the base `.stage` rule (`display: flex; flex-direction: column;
+justify-content: center; align-items: center; gap: var(--space-6);
+min-height: 100dvh`) puts the lead AND the BLEAK card in the first
+viewport together whenever they fit (e.g. both visible at 800×800). The
+owner now corrects this: **below 960px the first screen shows ONLY the
+lead block, centered; the BLEAK card sits below the fold** — next in the
+scroll flow. The §37 open-state RULE ("first viewport = lead + Bleak,
+vertically centered") now applies **at ≥960px ONLY**.
+
+**Construction — the lead's own region owns the 100dvh; the DOM does NOT
+move (decision, recorded).** The agent card stays INSIDE `.stage` in the
+markup (`.stage > .area-lead + .area-agents`, byte-unchanged markup) —
+moving it out of `.stage` would make it unreachable by the ≥960px
+two-column hero grid (§4.31.A) and break the ≥960 open-state. Instead the
+<960px geometry is re-cut in CSS only: `.stage` stops being the 100dvh
+centered region, and `.area-lead` becomes the 100dvh hero region holding
+the lead ALONE — the card flows AFTER that region in the normal scroll
+flow (inside `.stage`, before the banner — the visual scroll order at
+<960 is: lead-100dvh region → BLEAK card → banner), exactly the owner's
+"behind the screen — below the fold, reached by scrolling":
+
+```css
+/* BASE = <960px: the lead is the 100dvh hero region — centered ALONE;
+ * the BLEAK card follows in the normal scroll flow (below the fold). */
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);   /* the 32px between the lead region and the card */
+  min-width: 0;
+  /* min-height + justify-content REMOVED from the base rule —
+     the stage is no longer the first-viewport region at <960 */
+}
+@media (max-width: 959.98px) {
+  /* §4.25.A's phone-hero geometry RESTORED and extended to the whole
+   * <960 band — but now as a deliberate §45.1 rule: the lead centered
+   * ALONE (the card is out of this region, in the scroll flow after it) */
+  .area-lead {
+    min-height: 100dvh;        /* the lead region = the first viewport */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;   /* the lead centers vertically, alone */
+  }
+}
+@media (min-width: 960px) {
+  .stage {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;   /* §4.31.A carries verbatim */
+    column-gap: var(--space-6);
+    min-height: 100dvh;        /* MOVED here from the base rule */
+    align-content: center;
+    align-items: center;
+  }
+  /* .area-lead grid-column 1 / .area-agents grid-column 2 — unchanged */
+}
+```
+
+- **Why the offset is guaranteed:** at <960 the lead region is
+  `min-height: 100dvh` and it is `.stage`'s FIRST child; the card follows
+  after the stage's `var(--space-6)` gap → the `.agent-card`'s top edge at
+  the scroll origin is ≥ `100dvh + 32px` > any viewport height → **the
+  card is strictly below the fold at EVERY <960 width and every viewport
+  height** (when the viewport is shorter than the lead's content the
+  region grows — min-height — and the card is further down still; no
+  clipping either way, the flex container grows with its content).
+- **The negative (supersedes §4.31.B in the first viewport):** at <960
+  the first viewport contains ONLY the lead (plus the fixed glass header
+  chrome, §4.26.A) — the BLEAK card, the banner, the steps and everything
+  else are below the fold. The §4.31.B "both visible at 800×800" reading
+  is retired; §4.31.H's ACs 4–6 are superseded by §4.32.G's ACs 1–3.
+- **The §37 open-state rule re-scoped:** "the first viewport contains
+  ONLY lead + BLEAK, vertically centered" holds at **≥960px only**
+  (side-by-side, §4.31.A construction byte-unchanged); at <960 the rule's
+  first-viewport set is the lead ALONE. The ≥960 construction (the
+  `1.2fr 1fr` grid, the 100dvh min-height — now declared inside the ≥960
+  media — and both centerings) carries verbatim from §4.31.A.
+- **The scroll-reveal interaction (the card becomes a scroll unit):**
+  `.area-agents` drops `data-reveal-load` → carries the bare
+  `[data-reveal]` marker (the 13th scroll unit; the lead alone keeps
+  `data-reveal-load`). The §4.30.A utility arms it at mount like every
+  scroll unit and reveals it on its FIRST viewport intersection
+  (threshold 0.15, rootMargin −48px, one-shot, cleanup — all verbatim).
+  At **<960** that intersection happens only when the user scrolls the
+  card into view — the owner's "reached by scrolling" is animated by the
+  established fade+rise. At **≥960** the card sits in the first viewport,
+  so its observer fires on the first observation callback at the scroll
+  origin — the net on-open appearance is the same fade+rise one tick
+  after load as the retired load-reveal produced (record; the utility
+  needs NO change — the geometry decides when the reveal fires).
+- **Unchanged:** the card's content contract (§4.20.G-b), the `#agents`
+  id (no nav link) + its `scroll-margin-top: 100px`, TALK → `/income`,
+  the hover/press treatments, and the load-reveal + cleanup of the lead.
+
+#### 4.32.B The Bleak card wide on desktop — the symmetric edges rule (item 2)
+
+**Live-code finding:** at ≥960 the card is capped at `max-width: 240px;
+margin-inline: auto` (§4.30.C as carried into §4.31.A's ≥960 media) — a
+small centered card inside a ≈ 407px track at 1280, its right edge
+≈ 550px from the viewport's right edge, while the lead's left edge sits
+only `10% + 48px` from the viewport's left. The owner wants the card to
+stretch toward the content container's right edge so **the card's right
+margin from the screen edge EQUALS the lead's left margin**.
+
+**The exact measurement rule (decided — tests assert THIS):** the content
+container `.landing` at ≥720px is `width: max(80%, 280px);
+margin-inline: auto; padding: 0 var(--space-7) var(--space-7)` — at ≥960
+always the 80% (280px floor inert), centered → its box spans
+[10%, 90%] of the viewport, and its 48px inline padding sits INSIDE the
+80% symmetrically on both sides. The lead fills grid column 1 from the
+container's CONTENT-box left edge; the card, filling column 2, ends at
+the container's CONTENT-box right edge. Therefore:
+
+> **Both margins measure `calc(10% + 48px)` at every ≥960px width** —
+> the container's centered 10% gutter PLUS the container's own 48px
+> inline padding, which is included in BOTH margins (the padding is
+> symmetric, so including it on both sides PRESERVES the symmetry).
+
+The card stretches to the container's content-box right edge — the
+padding is NOT pierced (extending the card into the padding would make
+the card's right margin bare 10% while the lead's left margin stays
+10% + 48px, BREAKING the symmetry). The asserted rule: **`viewport right
+edge − card right edge == lead left edge − viewport left edge`**, each
+equal to `10% of the viewport + 48px` at ≥960. The construction that
+produces it (and what the string-level suite asserts):
+
+- the ≥960 media declares NO `.agent-card` max-width and NO
+  `margin-inline: auto` (the §4.30.C cap is DELETED — negative);
+- `.agent-card { width: 100% }` (the existing shared
+  `.agent-card, .stat-card` rule) fills its `1fr` track edge-to-edge,
+  exactly as `.copy { width: 100% }` fills the `1.2fr` track;
+- `.landing` keeps `width: max(80%, 280px); margin-inline: auto;
+  padding: 0 var(--space-7) var(--space-7)` byte-unchanged (the symmetric
+  gutter + padding is what makes the two margins equal by construction).
+
+**Resulting px:** at **1280** the card is ≈ **407px** wide
+(content 928 − 32 gap = 896; × 1/2.2), its right edge 128px
+(10% of 1280 = 128... precisely `calc(10% + 48px)` = 176px) from the
+viewport's right edge — mirroring the lead's 176px left margin (was:
+240px card centered → ≈ 550px right margin). At **960** the card is
+≈ **288px**; at **1920** ≈ **640px** (content 1440 − 32 = 1408; × 1/2.2).
+The wide card is the owner's explicit symmetric request; readability
+holds at every width because `.agent-body` centers its content
+(`align-items: center; text-align: center`) — the 17px quote wraps LESS
+as the card widens (1 line from ≈ 1100px up), and nothing paints outside
+its track (no horizontal-scroll risk; the cap's removal only WIDENS
+inside the grid).
+
+#### 4.32.C The desktop headline bigger — clamp(32px, 4.5vw, 64px) (item 3)
+
+The ≥960px `.headline` clamp is raised from §4.28.A's
+`clamp(28px, 4vw, 48px)` (as moved to ≥960 by §4.31.A) to
+**`clamp(32px, 4.5vw, 64px)`** — declared in the SAME ≥960 media,
+replacing the old declaration (the <960 ladder is UNTOUCHED: 40px base,
+48px at ≥480px):
+
+```css
+@media (min-width: 960px) {
+  .headline {
+    font-size: clamp(32px, 4.5vw, 64px); /* WAS clamp(28px, 4vw, 48px) */
+  }
+}
+```
+
+- **Resulting px:** 43.2px at 960 → 57.6px at 1280 → capped **64px from
+  ≈1422px up** (64 / 0.045). The 32px floor is inert on ≥960 (4.5vw ≥
+  43.2px there) — a defensive minimum, same pattern as §4.28.A.
+- **The §4.28 ladder hierarchy holds:** the lead stays the dominant
+  title at every ≥960 width — 43.2px at 960 vs the 28px `.agent-name`
+  (was 38.4 vs 28); the accent word + agent-name stay subordinate with a
+  WIDER margin than before. The rest of the §4.28.A–D table is
+  byte-unchanged.
+- **Line-fit math (no mid-word breaks; the Handjet measure ≈ 0.45em/char
+  per the §4.28 audit, checked to 0.55em for safety):** the lead's text
+  column is track − 2×28px `.copy-body` padding. At **960**: column
+  ≈ 292px; longest line EN "CONNECTIONS" (11ch) ≈ 214–262px ✓. At
+  **1280**: column ≈ 433px; "CONNECTIONS" ≈ 285–349px ✓ (RU
+  "ЗНАКОМСТВА", 10ch, narrower). At **1920**: column ≈ 711px; at the
+  64px cap "CONNECTIONS" ≈ 317–387px ✓. `overflow-wrap: anywhere` stays
+  as the emergency valve, not the norm.
+- **Open-state fit re-verification (lead + Bleak BOTH in the first
+  viewport at ≥960, vertically centered) — the math at the three
+  widths:** lead `.copy-body` height = padding 2×28 (56) + headline
+  3 × 1.05 × fs + gaps 2×16 (32) + `.sub` 18px budget 2 lines (54) + CTA
+  min-height 48. Card `.agent-body` height = padding 40 + portrait 96 +
+  5 gaps × 12 (60) + name ≈ 34 + badge 24 + traits ≈ 16 + quote
+  17px × 1–2 lines (26–52) + TALK 48.
+  - **960** (fs 43.2): lead ≈ 326px; card (interior ≈ 248px, quote
+    2 lines) ≈ 370px → row max ≈ **370px** — fits any realistic desktop
+    viewport height (≥ 480px); typical 960-wide windows are 600px+.
+  - **1280** (fs 57.6): lead ≈ 371px; card (interior ≈ 367px, quote
+    1–2 lines) ≈ 344–370px → row max ≈ **371px** ✓.
+  - **1920** (fs 64 cap): lead ≈ 392px; card (interior ≈ 600px, quote
+    1 line) ≈ 344px → row max ≈ **392px** ✓.
+  - vs the OLD sizes (48px cap): the lead grows ≈ +30px at 1280 — the
+    first-viewport fit is unchanged in kind, with large vertical air.
+- **DECISION — the hero row keeps `min-height: 100dvh` (grow allowed),
+  it does NOT lock exactly:** a fixed `height: 100dvh` would CLIP the
+  centered pair on short viewports (the §4.31.B clipping concern
+  carries); `min-height` lets the stage grow and scroll when the combined
+  height exceeds the viewport — the established §4.25/§4.31 mechanism,
+  now declared inside the ≥960 media (§4.32.A construction). At <960 the
+  lead-alone region uses the same min-height semantics (grow allowed).
+
+#### 4.32.D Supersessions (explicit record)
+
+1. **§4.31.B (<960 centered stack) SUPERSEDED (item 1):** the <960 hero
+   is no longer a two-block centered stack in the first viewport — the
+   lead ALONE owns it (the `.area-lead` 100dvh region, §4.32.A); the BLEAK
+   card is below the fold in the scroll flow. The base `.stage` rule
+   loses `min-height: 100dvh` + `justify-content: center`.
+2. **§4.31.E.2's open-state scoping AMENDED (item 1):** the §37 open-state
+   RULE ("first viewport = lead + BLEAK") applies **≥960px only**; the
+   §4.25.A phone-hero geometry (the lead's own 100dvh region) is
+   RESTORED for <960 — but as §45.1's lead-ALONE rule (the §44.1 stack it
+   was superseded by is itself superseded).
+3. **§4.30.C (as carried into §4.31.A's ≥960 media) SUPERSEDED (item 2):**
+   the `max-width: 240px; margin-inline: auto` agent-card cap is DELETED
+   at ≥960 — the card fills its `1fr` track (symmetric
+   `calc(10% + 48px)` edges, §4.32.B). The 240px value survives nowhere
+   in the hero.
+4. **§4.28.A's desktop headline clamp SUPERSEDED (item 3):**
+   `clamp(28px, 4vw, 48px)` → `clamp(32px, 4.5vw, 64px)` at ≥960 (the
+   §4.31.A media move 720 → 960 stands; the <960 ladder values stand).
+5. **§4.30.B's hero-pair enumeration PARTIALLY SUPERSEDED (item 1):** the
+   load-reveal pair becomes the lead ALONE; `.area-agents` joins the
+   scroll-reveal units as their FIRST member in DOM order (before
+   `.area-stat`) — the reveal system's mechanics are untouched.
+6. **Superseded-but-carried (unchanged into §4.32):** the §4.31.A ≥960
+   grid construction, §4.30.A's utility/base.css armed-state mechanics,
+   §4.30.D icon sizes, §4.30.F banner stacking, §4.31.C unified
+   step-card borders, §4.26.A header, §4.23.A/§4.27.1 video layer,
+   §4.25.B transparent lead, §4.20.L behavior + deep-link forwarding,
+   §4.31.D's `[income_code]` rename as delivered, and all §31–§33
+   route/entry contracts.
+
+#### 4.32.E i18n: ZERO delta
+
+No key is added, removed or edited — both dictionaries stay
+**byte-identical at 55 `landing.*` keys per dictionary**
+(§4.27.G/§4.30.H/§4.31.F carry); the batch touches geometry, one clamp
+value and two reveal markers — no user-visible string changes. The RU/EN
+switch re-renders without a reload; `i18n.test.ts` and the
+`LANDING_KEYS`/parity/dead-key assertions are UNTOUCHED and stay green
+(RU/EN 55/55).
+
+#### 4.32.F Reduced motion + the reveal-system delta
+
+- **Reduced motion: UNCHANGED.** Under
+  `prefers-reduced-motion: reduce` the §4.30.A utility arms NOTHING —
+  every block (the lead AND the below-fold BLEAK card) is fully visible
+  from the first paint; the card below the fold simply sits there visible
+  until scrolled (no reveal animation). The base.css catch-all, the
+  `reducedMotion()` checks and §4.26.M/§4.27.H/§4.28.I/§4.30.I/§4.31.G
+  carry verbatim. The batch adds no new animation, no transition, no new
+  motion-sensitive element.
+- **No-JS / missing-IO fallbacks: UNCHANGED** — nothing armed ⇒
+  everything visible, including the below-fold card (the bare
+  `[data-reveal]` marker still carries no styles).
+- **The one delta is the card's unit class** (`data-reveal-load` → bare
+  `data-reveal`, §4.32.A): the armed count at mount stays **14** (13
+  scroll units + 1 load unit); the stagger groups (steps 0/60/120, pills
+  0/60/120/180) are untouched; the card is a single unit — no
+  `--reveal-delay`.
+- **Media states:** the landing still fetches nothing — no loading/
+  empty/error deltas. No horizontal scroll at 320/800/960/1280/1920 (the
+  tracks are fr-proportional; the card is width-bound inside its track).
+
+#### 4.32.G Acceptance criteria (checkable)
+
+**<960px open state — lead ALONE (item 1):**
+1. The base `.stage` rule declares `display: flex; flex-direction:
+   column; align-items: center; gap: var(--space-6); min-width: 0` and
+   does NOT declare `min-height: 100dvh` nor `justify-content: center`
+   (negative on both — the §4.31.B stack construction is gone from the
+   base rule).
+2. A `@media (max-width: 959.98px)` block declares `.area-lead {
+   min-height: 100dvh; display: flex; flex-direction: column;
+   justify-content: center }` — at an 800px-wide viewport the lead is
+   centered ALONE in the first viewport (the negative: the first viewport
+   does NOT contain the BLEAK card at <960 — superseding §4.31.H AC 5's
+   "both fit at 800×800").
+3. The BLEAK card is BELOW THE FOLD at <960: the markup keeps `.stage >
+   .area-lead + .area-agents` (DOM byte-unchanged; the card is the
+   stage's second child, the banner follows `.stage`), and the
+   construction guarantees the offset — the card's top edge at the
+   scroll origin is ≥ `100dvh + var(--space-6)`. Where layout is
+   available (browser/visual pass), assert
+   `card.getBoundingClientRect().top > window.innerHeight` at
+   `scrollY = 0` at an 800×800 viewport; in the string-level suite the
+   equivalent assertions are AC 1 + AC 2 + the DOM order (the lead region
+   owns the 100dvh, the card follows the stage gap).
+4. The `<719.98px` band keeps NO separate hero rule of its own beyond
+   AC 2's media (the whole <960 band is ONE construction; no
+   `.area-lead { min-height: 100dvh }` outside the 959.98px media —
+   negative).
+
+**≥960px open state — lead + Bleak BOTH (carry, re-asserted):**
+5. The ≥960 media declares `.stage { display: grid;
+   grid-template-columns: 1.2fr 1fr; column-gap: var(--space-6);
+   min-height: 100dvh; align-content: center; align-items: center }` —
+   `min-height: 100dvh` is declared INSIDE the ≥960 media (it moved from
+   the base rule; negative: the base `.stage` rule has no min-height) —
+   with `.area-lead` grid-column 1 and `.area-agents` grid-column 2.
+   At 960/1280/1920 the first viewport contains ONLY the lead + the
+   BLEAK card (plus the fixed header), vertically centered; the hero row
+   GROWS on short viewports (min-height, never `height: 100dvh` —
+   negative on a fixed height).
+6. The reveal markers: `<section class="copy area-lead"
+   data-reveal-load>` (the lead alone animates ON LOAD) and
+   `<section class="area-agents" id="agents" data-reveal>` (the bare
+   scroll marker — negative on `data-reveal-load` for the agents card);
+   the armed count at mount is 14 (13 scroll units: `.area-agents` first,
+   then banner + 3 steps + sim + privacy + 4 pills + join + footer; 1
+   load unit: the lead). The card's reveal fires on its first viewport
+   intersection — at <960 only after the user scrolls it into view (the
+   one-shot + cleanup mechanics unchanged).
+
+**The Bleak card wide on desktop — symmetric edges (item 2):**
+7. The ≥960 media contains NO `.agent-card` max-width declaration and NO
+   `.agent-card` `margin-inline: auto` (negative — the §4.30.C cap
+   `max-width: 240px` is GONE from the hero; grep: no `240px` agent-card
+   rule remains anywhere in `+page.svelte`); `.agent-card` fills its
+   track via the existing `width: 100%` shared rule.
+8. The symmetry construction: `.landing` keeps `width: max(80%, 280px);
+   margin-inline: auto; padding: 0 var(--space-7) var(--space-7)` at
+   ≥720 byte-unchanged, `.copy { width: 100% }` and
+   `.agent-card { width: 100% }` both fill their tracks — therefore the
+   card's right margin from the viewport equals the lead's left margin,
+   each `calc(10% + 48px)` at every ≥960 width (asserted as this
+   construction; where layout is available: the two margins measure
+   equal at 960/1280/1920, and the card's right edge aligns with the
+   container's content-box right edge — the 48px padding NOT pierced).
+   Resulting widths: ≈ 288px at 960, ≈ 407px at 1280, ≈ 640px at 1920.
+
+**The desktop headline bigger (item 3):**
+9. The ≥960 media declares `.headline { font-size: clamp(32px, 4.5vw,
+   64px) }` (43.2px at 960, 57.6px at 1280, capped 64px from ≈1422px up);
+   the old `clamp(28px, 4vw, 48px)` is GONE from the stylesheet
+   (negative — including every stale test reference); the <960 ladder is
+   byte-unchanged (40px base / 48px at ≥480px) and NO headline clamp
+   exists outside the ≥960 media.
+10. The ladder hierarchy holds at every ≥960 width: the headline
+    (≥ 43.2px) stays dominant over the 28px `.agent-name` and the
+    accent word's treatment is unchanged (violet + its glow, the
+    sparkles); the open-state fit math holds — the row max stays ≤
+    ≈ 392px across 960/1280/1920 (§4.32.C), inside any realistic desktop
+    viewport height.
+
+**i18n + suites (carry):**
+11. i18n: exactly **55** `landing.*` keys in BOTH dictionaries,
+    byte-unchanged (RU/EN parity 55/55); `i18n.test.ts` passes UNAMENDED.
+12. Suites amended and green: `landing-page.test.ts` — the §4.31 <960
+    stack assertions (ACs 4–6 there: the centered stack, the 800×800
+    both-fit reading, the §37-at-every-width scoping) rewritten to
+    §4.32.G ACs 1–4; the §4.30.C 240px-cap assertions rewritten to ACs
+    7–8 (the cap negative inverted); the headline clamp assertions
+    (including the stale 720px-media clamp reference) updated to the new
+    value per AC 9; the reveal enumerations updated per AC 6 (the AC-4
+    hero-pair test becomes the lead-only load reveal + the agents scroll
+    unit; the 12-units comment becomes 13; the armed count stays 14); ALL
+    other suites untouched green; `make lint && make test && make build`
+    green.
+13. Constraints: no new dependencies; no copy changes (55/55
+    byte-identical); palette tokens unchanged (no new color values —
+    geometry/typography only); routes untouched (the §4.31.D rename
+    stands as delivered; no route dir/param/resolution change); /income
+    untouched INCLUDING the §44.4 keyboard-viewport mechanism (JoinFlow's
+    `--app-height`/visualViewport wiring byte-untouched); the
+    scroll-reveal + reduced-motion mechanics unchanged (only the agents
+    card's unit class changes); the profile files (task 131) untouched;
+    API endpoints used: none.
+
+#### 4.32.H Flags for the owner / concept (concept report)
+
+1. **Record — the DOM does NOT move (item 1):** the card stays inside
+   `.stage` in the markup; the <960 first-viewport isolation is produced
+   by CSS (the `.area-lead` 100dvh region, §4.32.A) because a literal DOM
+   move out of `.stage` would make the card unreachable by the ≥960
+   two-column hero grid and break the ≥960 open-state. The visual scroll
+   order at <960 is exactly the owner's: lead (first viewport) → BLEAK
+   card → banner.
+2. **Record — the symmetry includes the container's 48px padding
+   (item 2):** both margins measure `calc(10% + 48px)` at ≥960, not bare
+   10% — the padding sits INSIDE the 80% symmetrically and is included
+   on both sides, preserving the equality the owner asked for; piercing
+   the padding on the card side only would have BROKEN the symmetry
+   (§4.32.B).
+3. **Record — the ≥960 card reveal fires at the scroll origin (item 1):**
+   with the card a scroll unit at ≥960, its IntersectionObserver fires
+   on the first observation callback (the card is in view) — net: the
+   same on-open fade+rise as the retired load-reveal, one IO tick instead
+   of one rAF. No utility change needed.
+4. **Record — the clamp value is design's call per §45.3:**
+   `clamp(32px, 4.5vw, 64px)` (43.2px at 960 → 64px from ≈1422px) —
+   picked to keep the §4.28 ladder margin WIDER than before while the
+   line-fit and open-state fit math stay comfortable (§4.32.C). A
+   single-value tweak (cap 56–72px) is a one-literal revert if the smoke
+   dislikes the 1920 scale.
+5. **ADVICE NEEDED — none blocking:** no copy invented (zero-delta
+   round), no palette value added, no route or /income change, no
+   dependency; the three items are fully specified above.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)
