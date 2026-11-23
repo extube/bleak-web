@@ -8761,6 +8761,434 @@ the status caption, the pills, the badges — is byte-unchanged in RU and EN;
    round), no palette value added, no route touched; the five items are
    fully specified above.
 
+### 4.31 v3.25 feature design (2026-11-23, owner-approved Concept §44): §44 wider lead + unified card borders + route param rename
+
+The owner issued the three-item §44 batch (2026-11-23): (1) the lead block
+("The right connections beside you") **wider on desktop**, and **below 960px
+the hero becomes a single centered column** — the lead centered with the
+BLEAK agent card stacked below it; (2) the **01/02/03 step-card borders
+unified** — remove the thick white bottom border / bottom white block /
+shadow from cards 01 and 03 and apply the exact same border width, radius
+and subtle light border color across all three; (3) the **route param
+rename** `income/<address>/create` → `income/<income_code>/create`
+(aligning with the backend's income-code terminology; resolution behavior
+unchanged). This section amends §4.30 (→ §4.28 → §4.27 → §4.26 → … → §4.20)
+item by item; **where §4.31 is silent, the earlier specs stand** except
+where §4.31.E explicitly supersedes them. The parallel §4.29 profile
+redesign (task 131) is scope-disjoint — this rev touches ONLY the landing
+(`/`) and the `/income/[income_code]/create` route; it does not touch or
+reference the profile files. Grounded in the live code (read-only audit,
+2026-11-23): `apps/web/src/routes/+page.svelte` (the hero `.stage`
+constructions, the lead/agent grid, the three step cards — rendered by ONE
+`{#each tutorialSteps}` loop with byte-identical class strings),
+`src/routes/income/[room]/create/+page.svelte` (the param access),
+`src/lib/components/join/JoinFlow.svelte` (the seeded-entry prop + the
+create-route `resolve` call), `src/routes/{income,+layout}.svelte`
+(comment references), `lib/styles/{tokens,base}.css` (the pixel-frame
+ladder, the spacing scale),
+`tests/{landing-page,join-flow,sweep}.test.ts` (the hero/thirds-grid,
+step-card and route-resolution assertions). Hard constraints unchanged:
+**no new dependencies**, **no copy changes** (i18n ZERO delta, §4.31.F),
+**palette tokens unchanged** (the border unification reuses the existing
+`--color-surface-elevated` token; no new color values), **resolution
+behavior unchanged** (the rename is the route dir + references only — the
+deep-link semantics are byte-identical), **/income surfaces untouched**
+(the `/income` entry page's logic is not modified; only its stale comment
+line is corrected), **the §37 open-state holds** (the first viewport
+contains ONLY lead + BLEAK at every width — vertically centered, §4.31.A/B).
+**API endpoints used: none** — the landing stays fetch-free (§4.20
+preamble) and the create route's API behavior (invite resolution,
+`POST /h/rooms` seeding via JoinFlow) is untouched by the rename; the round
+is presentational + a route-dir rename. Task: tz12-14
+(`feature/bbf8e50d-tz12-14-wider-lead-borders-param`).
+
+#### 4.31.A The widened lead — the ≥960px two-column hero (item 1, desktop)
+
+**Live-code finding (what "wider" widens):** today at ≥720px `.stage` is the
+§4.24.D THIRDS grid — `grid-template-columns: repeat(3, 1fr)`,
+`column-gap: var(--space-6)`, col 1 = the lead, col 2 = EMPTY, col 3 = the
+agent card (§4.30.C `max-width: 240px` centered). The container at 1280 is
+`.landing` = `max(80%, 280px)` = 1024px with `padding: 0 var(--space-7)
+var(--space-7)` (48px sides) → **content 928px**; thirds with the 32px gap →
+the lead column is ≈ **288px** at 1280 (the §4.24.C number). With the
+§4.28.A headline capped at 48px, the lead's text column (288px − 2×28px
+`.copy-body` padding = 232px) is cramped: the 40ch `.sub` (~355px at 18px)
+wraps hard and the 48px Handjet headline lines are tight.
+
+**Decision — the hero row becomes TWO asymmetric columns at ≥960px:** the
+middle-empty third is retired; the lead takes the `1.2fr` share, the agent
+track the `1fr` share:
+
+```css
+@media (min-width: 960px) {
+  .stage {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;   /* WAS repeat(3, 1fr) + empty col 2 */
+    column-gap: var(--space-6);          /* unchanged 32px */
+    align-content: center;               /* unchanged (§4.25.A) */
+    align-items: center;                 /* unchanged */
+    /* min-height: 100dvh carries from the new base rule (§4.31.B) */
+  }
+  .area-lead   { grid-column: 1; }       /* WAS grid-column: 1 (unchanged) */
+  .area-agents { grid-column: 2; }       /* WAS grid-column: 3 */
+  /* §4.30.C carries verbatim, moved into the 960px media: */
+  .agent-card  { max-width: 240px; margin-inline: auto; }
+}
+```
+
+- **Resulting px:** at **1280** the lead track is
+  (928 − 32) × 1.2/2.2 ≈ **489px** (the agent track ≈ 407px, the 240px card
+  centered inside it — more symmetric air around the card, nothing paints
+  wider than its track). At **960** (the breakpoint edge) the lead is
+  (672 − 32) × 1.2/2.2 ≈ **348px**. The lead is wider than the retired
+  288px third at EVERY ≥960 width (the `1.2fr` share grows faster than a
+  third), never narrower.
+- **Readability rationale (per the §4.28 font ladder):** the 489px track
+  minus the 2×28px `.copy-body` padding leaves a ≈ 433px text column — the
+  40ch/18px `.sub` (~355px) fits on its natural measure and the 48px
+  headline lines get full-word room (`overflow-wrap: anywhere` stays as the
+  emergency valve, not the norm). The agent card is width-capped at 240px,
+  so giving the leftover width to the lead is the only reading of
+  "wider" that adds readable measure rather than dead air.
+- **Type ladder moves WITH the composition (hero-scoped):** the desktop
+  headline clamp and the lead's left alignment belong to the side-by-side
+  composition, so their media queries move 720 → 960:
+  `.headline { font-size: clamp(28px, 4vw, 48px) }` now applies at ≥960
+  (38.4px at 960 → capped 48px from 1200px up); below 960 the lead keeps
+  the ≥480px ladder value 48px (40px base). `.copy-body`'s
+  `align-items: flex-start; text-align: left` (and its 28px padding rule's
+  ALIGNMENT half) applies at ≥960; below 960 the lead is centered
+  (§4.31.B). The §4.28.B/C/D sizes are untouched.
+
+#### 4.31.B The <960px centered hero stack (item 1, the new intermediate breakpoint)
+
+Below 960px the hero is ONE CENTERED COLUMN — the lead centered, the BLEAK
+card below it — superseding BOTH earlier hero constructions (the ≥720px
+thirds grid for the 720–959 band, and the <719.98px `.area-lead` 100dvh
+phone hero):
+
+```css
+/* base rule — <960px (and the fallback at every width the media does not
+   cover): the centered hero stack */
+.stage {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;   /* the pair centers vertically as a group */
+  align-items: center;
+  gap: var(--space-6);
+  min-height: 100dvh;        /* the hero row = the first viewport */
+  min-width: 0;
+}
+```
+
+- **The <719.98px `.area-lead { min-height: 100dvh; … }` rule is DELETED** —
+  the lead no longer owns a full viewport on phone; the `.stage` owns the
+  100dvh at every width. The phone DOM order (lead → agents → stat → …)
+  is unchanged — it IS the stack.
+- **The §37 open-state holds at every width:** at the scroll origin the
+  first viewport contains ONLY the lead + the BLEAK card (plus the fixed
+  header chrome), vertically centered — at ≥960 side-by-side, at <960
+  stacked. **"Both still in the initial viewport if they fit":** at <960
+  the pair is centered as a group inside the `min-height: 100dvh` stage;
+  when the combined height fits the viewport (e.g. 800×800: the lead ≈
+  300px + the BLEAK card ≈ 380px + the 32px gap ≈ 712px < 800) BOTH are
+  visible in the initial viewport; when it does not (short viewports) the
+  stage grows and BLEAK scrolls into view — no clipping, no overflow.
+- **Re-verified at 800px:** the vertically-centered behavior is the SAME
+  mechanism as before (the 100dvh hero row min-height + centering), now on
+  `.stage` at <960 instead of on `.area-lead` at <720 — at 800×800 the
+  centered pair sits in the first screen with the banner below the fold.
+- **Other blocks' 720px rules STAND:** the banner stacking (§4.30.F), the
+  steps grid (≥720 thirds), the sim grid, privacy/use-case grids, the join
+  row, the header nav (`.top-nav` ≥720) and the §4.28.F container widths
+  (`.landing`/`.top` max(90%, 280px) phone / max(80%, 280px) ≥720) keep
+  their 720px breakpoints UNCHANGED — only the HERO's breakpoint moves to
+  960.
+
+#### 4.31.C The three step cards' borders unified (item 2)
+
+**Live-code finding (the divergence, and where it really lives):** the three
+step cards are rendered by one `{#each tutorialSteps}` loop — their class
+strings are byte-identical (`step-block pixel-corners pixel-frame
+pixel-frame--strong` + `step-body pixel-corners`) and NO per-card CSS
+exists (no `:nth-child`, no `border-bottom`, no per-card shadow anywhere in
+`+page.svelte`/`base.css`). The owner's "thick white bottom border /
+bottom white block / shadow on cards 01 and 03" is produced by a LAYOUT
+leak, not a class difference: on desktop `.steps` is the
+`repeat(3, 1fr)` grid whose items stretch to the tallest sibling's height,
+but `.step-body` (`min-height: 300px` + content, `height: auto`) does NOT
+stretch — on the shorter cards the outer `.pixel-frame--strong` layer's
+background (`--color-text`, #f0f0f0 — near-WHITE) is exposed as a solid
+white block BELOW the dark body (and reads as a thick white bottom edge).
+Card 02 (CHAT) is the tallest card in the RU render, so only 01 and 03
+show the block — exactly the owner's observation.
+
+**Fix — two declarations, all three cards:**
+
+1. **The body fills its card:** `.step-body` gains `height: 100%` — the
+   dark body consumes the stretched `li`'s full content box, so the frame
+   ring is a uniform 2px on all four sides on EVERY card and no frame fill
+   can ever show below the body. (On phone the `.steps` are an
+   auto-height flex column: a percentage height against an auto-height
+   parent resolves to auto — the declaration is inert there, no regression.)
+2. **The frame color drops to the SUBTLE light border:** all three step
+   `li`s drop `pixel-frame--strong` → plain `pixel-frame` — the frame
+   background is `var(--color-surface-elevated)` (#292c2d, the §4.5
+   default frame color — the "subtle light border color") instead of the
+   bright `--color-text` white ring. The bright-white reading (including
+   the thicker-looking ring at the stepped corners) disappears entirely.
+
+**The unified border values (stated from the live construction):**
+border **width = 2px** (the `.pixel-frame` padding ring — the pixel-frame
+construction has no CSS `border` property; unchanged), border **radius =
+none** — square/stepped, the shared 8px `.pixel-corners` ladder; NO
+`border-radius` (the "stays square" test assertion carries), border
+**color = `var(--color-surface-elevated)`**. All three cards carry these
+byte-identically ("completely consistent outlines").
+
+- **Scope — the step cards ONLY:** the BLEAK agent card and the banner
+  card KEEP `pixel-frame--strong` (their §4.20.G/§4.30.C/§4.30.E contracts
+  stand; §4.30.E's shared-token claim was about the body FILL
+  `var(--color-surface)`, which is unchanged here). The glass surfaces
+  (header/banner/footer/four sections) are untouched.
+- Everything else on the step cards carries verbatim: the hover glow +
+  4px lift (reduced-motion guarded), the 72px art, the micro-pills, the
+  numerals/titles/descs, `min-height: 300px` (≥720px), the
+  `var(--color-surface)` body fill.
+
+#### 4.31.D The route param rename `[room]` → `[income_code]` (item 3)
+
+The creation route directory
+`apps/web/src/routes/income/[room]/create/` is renamed to
+`apps/web/src/routes/income/[income_code]/create/` and every reference to
+the param on THAT route follows. **Resolution behavior is byte-identical:**
+seeded = a non-empty `income_code` param + a valid `?code=` query → the
+wizard opens seeded; anything else → `goto(resolve('/income'),
+{ replaceState: true })`. The rename touches names only.
+
+**The complete rename surface (grep-audited, 2026-11-23):**
+
+1. `src/routes/income/[room]/create/+page.svelte` → the dir becomes
+   `[income_code]/`; `const roomParam = $derived(page.params.room ?? null)`
+   → `page.params.income_code` (the local + the JoinFlow prop rename
+   together — see 2); the header comment's route paths.
+2. `src/lib/components/join/JoinFlow.svelte`:
+   - the navigation —
+     `goto(\`${resolve('/income/[room]/create', { room: room.address })}?code=${flow.code}\`)`
+     → `resolve('/income/[income_code]/create', { income_code:
+     room.address })` (the VALUE carried is still the room address — only
+     the param NAME changes);
+   - the seeded-entry prop `roomParam` → `incomeCodeParam` (the Props
+     type, the `$props()` destructure, the `seeded` derivation and the
+     `address: roomParam ?? ''` seed all follow; the JSDoc blocks at
+     lines ~6/41/43/86/99/225 update to the new route path + prop name).
+3. Comment-only corrections (prose, no behavior):
+   `src/routes/income/+page.svelte` line ~21 ("The creation wizard itself
+   lives under /income/[room]/create") and `src/routes/+layout.svelte`
+   line ~44 (the layout's isJoin route comment).
+4. Tests:
+   - `tests/landing-page.test.ts` — the `$app/paths` `resolve` mock
+     (`params?: { room?: string }` / `route.replace('[room]',
+     params.room)` → `income_code`), the `CreatePage` import path, and the
+     `/income/[room]/create` describe block (both tests:
+     `mockPage.params = { room: '0xroom123' }` → `{ income_code:
+     '0xroom123' }`, the mock URLs, the describe title; the two assertions
+     — seeded wizard opens / no code → `/income` replaceState — are
+     semantically unchanged).
+   - `tests/join-flow.test.ts` — its resolve mock (same shape as the
+     landing mock) and the goto-string assertion
+     `'/income/[room]/create?code=…'` → the `income_code` spelling; the
+     comment-only `[room]` mentions follow.
+   - `tests/sweep.test.ts` — the route path string
+     `'src/routes/income/[room]/create/+page.svelte'` in the poller sweep
+     → the new path.
+- **SvelteKit typed helpers:** none exist in-repo (no `.d.ts`/hand-written
+  route types reference the param; `.svelte-kit` types are generated) —
+  the rename is the dir + the references above.
+- **Out of scope (verified untouched):** the `/room` radar route and
+  `lib/room/*` (a different "room" concept), the `/income` entry page's
+  LOGIC (its `goto(resolve('/room'))` and the `join.resume.title`
+  i18n interpolation `{ room: … }` are the room NAME/address domain, not
+  this route param), `chats/[address]`, the API payloads' `room:` keys
+  (`host-console`, `api-contexts`, `lib/api/*` — request-body fields, not
+  route params), and all other suites.
+
+#### 4.31.E Supersessions (explicit record)
+
+1. **§4.24.D/§4.25.A/§4.30.C hero grid SUPERSEDED where changed (item 1):**
+   the thirds grid (`repeat(3, 1fr)`, col 2 EMPTY, agent col 3) retires for
+   the hero at ≥960 → the 2-col `1.2fr 1fr` grid (lead col 1, agent col 2);
+   the ≥720px hero media becomes ≥960px; the §4.30.C 240px agent cap
+   carries verbatim inside the new media; the lead is ≈ 489px at 1280 (the
+   §4.24.C "fills its thirds column, ≈ 288px at 1280" superseded — the
+   `.copy { width: 100% }` rule stands, now filling the 1.2fr track).
+2. **The <719.98px `.area-lead` 100dvh phone hero SUPERSEDED (item 1):**
+   the <960px hero is the centered `.stage` stack (lead + BLEAK, both in
+   the first viewport when they fit); §4.25.A's "PHONE: .area-lead is the
+   100dvh hero region" is retired. The §4.25.A/§37 open-state RULE (only
+   lead + BLEAK in the first viewport, vertically centered) CARRIES at
+   every width.
+3. **§4.28.A hero-scoped media moves (item 1):** the `.headline` clamp and
+   the `.copy-body` left-alignment media move 720 → 960; every other
+   §4.28 value (including the ≥480px 48px step, the descriptions,
+   captions, pills and the §4.28.F container widths) is byte-unchanged.
+4. **§4.26.C/§4.30.E step-card frame SUPERSEDED (item 2):** the "KEEP the
+   pixel frame … `pixel-frame--strong`" clause (§4.26.C) and §4.30.E's
+   "outer strong ring" retire FOR THE STEP CARDS ONLY — the three li's
+   carry plain `pixel-frame` (subtle `--color-surface-elevated` ring) +
+   `.step-body { height: 100% }`; the §4.30.E shared-token body fill
+   (`var(--color-surface)`) and everything else carry. The "cards 01/03 vs
+   02 differ" premise is recorded as a layout leak (§4.31.C), not a class
+   divergence.
+5. **Superseded-but-carried (unchanged into §4.31):** the §4.30.A/B
+   reveal system (the hero pair's LOAD reveal works identically over the
+   new stack/grid — the `[data-reveal-load]` markers and the utility are
+   untouched), §4.30.D icon sizes, §4.30.F banner stacking, §4.26.A
+   header, §4.23.A/§4.27.1 video layer, §4.25.B transparent lead, the
+   §4.20.L behavior + deep-link forwarding, §4.22.A keep-list, the
+   §4.23.G/§4.28.I reduced-motion + fallbacks, and the §31–§33 route/entry
+   contracts (Start/TALK → `/income`, the 6-digit input — §44's
+   "All other §31–§33 contracts stay in force").
+
+#### 4.31.F i18n: ZERO delta
+
+No key is added, removed or edited — both dictionaries stay **byte-identical
+at 55 `landing.*` keys per dictionary** (§4.27.G/§4.30.H carry); the route
+rename touches no user-visible string (route params are never rendered).
+The RU/EN switch re-renders without a reload; `i18n.test.ts` and the
+`LANDING_KEYS`/parity/dead-key assertions are UNTOUCHED and stay green
+(55/55).
+
+#### 4.31.G Reduced motion + media states
+
+- **Nothing new:** the batch adds no animation, no transition and no new
+  motion-sensitive element — the widened lead, the 960px stack and the
+  border unification are static geometry/color; the existing guards
+  (§4.26.M/§4.27.H/§4.28.I/§4.30.I) stand verbatim. The base.css catch-all
+  needs no change.
+- **Media states:** the landing still fetches nothing and the create route's
+  states are unchanged (the rename is not behavioral) — no loading/empty/
+  error deltas. No layout shift beyond the intended breakpoint changes; no
+  horizontal scroll at 320/800/960/1280 (the `1.2fr` tracks are
+  fr-proportional; the centered stack is width: 100%-based).
+
+#### 4.31.H Acceptance criteria (checkable)
+
+**Lead width + the 960px hero (item 1):**
+1. At ≥960px `.stage` declares `grid-template-columns: 1.2fr 1fr` with
+   `column-gap: var(--space-6)`, `min-height: 100dvh`,
+   `align-content: center`, `align-items: center`; `.area-lead` is
+   grid-column 1 and `.area-agents` grid-column 2; NO empty middle column
+   exists (the old `grid-column: 3` rule and the `repeat(3, 1fr)` hero
+   grid are gone from the hero rules; the §4.30.C `max-width: 240px` +
+   `margin-inline: auto` agent cap applies at ≥960).
+2. At 1280 the lead track computes ≈ 489px (container 1024 − 2×48 padding
+   = 928; (928 − 32) × 1.2/2.2) — wider than the retired ≈ 288px third;
+   at 960 it computes ≈ 348px; the lead is never narrower than a retired
+   third at any ≥960 width.
+3. `.headline`'s `clamp(28px, 4vw, 48px)` applies at ≥960 (38.4px at 960,
+   48px from 1200px up) and NOT between 720–959 (those widths keep the
+   ≥480px 48px value); `.copy-body` is centered below 960 and
+   left-aligned at ≥960.
+
+**The <960px centered stack (item 1):**
+4. Below 960px the hero is ONE centered column: `.stage` is a flex column
+   with `justify-content: center`, `align-items: center`,
+   `gap: var(--space-6)`, `min-height: 100dvh`; the BLEAK card renders
+   BELOW the lead in DOM order; the old `@media (max-width: 719.98px)`
+   `.area-lead { min-height: 100dvh … }` rule does not exist (negative).
+5. At an 800×800 viewport the initial viewport shows the centered lead
+   with BLEAK below it (both fit); at 800×600 (short) BLEAK may scroll —
+   no clipping, no horizontal scroll; at exactly 960 and above the
+   side-by-side grid applies (the `min-width: 960` boundary is exact).
+6. The §37 open-state holds at 800/960/1280: the first viewport contains
+   ONLY the lead + BLEAK (plus the fixed header) — the banner, steps, sim,
+   privacy, use-cases, join and footer flow after the hero region; the
+   vertically-centered mechanism (the 100dvh hero row min-height +
+   centering) is verified at 800px.
+
+**Step-card borders unified (item 2):**
+7. All three `.step-block` `li` class lists are byte-identical and contain
+   `pixel-corners pixel-frame` WITHOUT `pixel-frame--strong` (negative on
+   `--strong` for every step card); `.step-body` declares
+   `height: 100%` (the stretch leak is fixed — no frame fill can show
+   below any body) and still sets NO `border-radius`.
+8. The unified border values across all three cards: width = the 2px
+   `.pixel-frame` padding ring, radius = none (the stepped
+   `.pixel-corners` ladder), color = `var(--color-surface-elevated)` —
+   asserted as the `.pixel-frame` rule's background in `base.css`
+   (unchanged file) with the `--strong` upgrade absent from the step
+   markup; the BLEAK agent card and the banner card STILL carry
+   `pixel-frame--strong` (negative: those two cards' class lists
+   unchanged); the `.step-body` fill stays `var(--color-surface)` and the
+   hover/lift/art/pill contracts are unchanged.
+
+**Route param rename (item 3):**
+9. The route directory is `src/routes/income/[income_code]/create/` (the
+   `[room]` dir is gone); the create page reads `page.params.income_code`;
+   JoinFlow navigates via
+   `resolve('/income/[income_code]/create', { income_code: … })`; the
+   prop feeding JoinFlow is renamed (`incomeCodeParam`) with the seed
+   logic unchanged.
+10. Resolution behavior is unchanged: with
+    `mockPage.params = { income_code: '0xroom123' }` + a valid `?code=`
+    the route renders the seeded wizard (the intro → name step flow);
+    without a valid code it redirects to `/income` with
+    `{ replaceState: true }` — the two existing route-resolution tests
+    pass with the renamed param.
+11. Grep-audit: no stale `[room]`-param reference remains on the rename
+    surface (`routes/income/[room]/**` gone; `JoinFlow.svelte`,
+    `income/+page.svelte` + `+layout.svelte` comment lines,
+    `landing-page.test.ts`, `join-flow.test.ts`, `sweep.test.ts` all
+    updated); the out-of-scope `room` usages (`/room` route,
+    `lib/room/*`, API `room:` payload keys, the resume-title i18n
+    interpolation) are byte-untouched (negative).
+
+**i18n + suites (carry):**
+12. i18n: exactly **55** `landing.*` keys in BOTH dictionaries,
+    byte-unchanged (RU/EN parity 55/55); `i18n.test.ts` passes UNAMENDED.
+13. Suites amended and green: `landing-page.test.ts` — the thirds-grid /
+    phone-hero / lead-narrower assertions (§4.24.C/§4.25.A/§4.30.C form)
+    rewritten to ACs 1–6 (including the retired
+    `expect(css).not.toMatch(/grid-column:\s*2/)` negative — the agent is
+    now legitimately grid-column 2), the step-card `pixel-frame--strong`
+    assertions rewritten to ACs 7–8, the route tests per ACs 9–10;
+    `join-flow.test.ts` + `sweep.test.ts` route strings per AC 11; ALL
+    other suites untouched green; `make lint && make test && make build`
+    green.
+14. Constraints: no new dependencies; no copy changes (55/55
+    byte-identical); palette tokens unchanged (no new values anywhere —
+    the unified frame color is the existing `--color-surface-elevated`);
+    `/income` surfaces untouched (comment correction only); the §37
+    open-state holds; the video layer + attribute set untouched; the
+    profile redesign files (task 131) untouched; API endpoints used:
+    none.
+
+#### 4.31.I Flags for the owner / concept (concept report)
+
+1. **Record — the border-color decision:** §44 names card 02 as the
+   reference, but the live code has all three step cards byte-identical —
+   the visible 01/03 divergence is the grid-stretch leak (§4.31.C), and
+   card 02's live frame color is the bright `--color-text` white. §44's
+   target wording "subtle light border color" was honored by unifying all
+   three on `--color-surface-elevated` (the §4.5 default frame color) —
+   which also retires the bright-white ring from card 02. If the owner's
+   intent was width/radius-only (keep the white ring, just kill the
+   bottom block), the revert is one class: `pixel-frame--strong` back on
+   the three step `li`s (`height: 100%` stays).
+2. **Record — the headline clamp breakpoint moved 720 → 960** (hero-
+   scoped, §4.31.A): at the 960 boundary the headline steps 48px → 38.4px,
+   mirroring the retired 720px step (48 → 28.8px). A single-value tweak
+   (e.g. clamping from a higher floor) if the smoke dislikes the step.
+3. **Record — the phone hero behavior changes by design (§44.1 applies
+   below 960 wholesale):** the lead no longer owns a full 100dvh screen on
+   phone; BLEAK shares the first viewport whenever it fits. §4.25.A's
+   phone geometry is superseded for the hero (§4.31.E.2); the open-state
+   RULE carries.
+4. **ADVICE NEEDED — none blocking:** no copy invented (zero-delta round),
+   no palette value added, resolution behavior unchanged; the three items
+   are fully specified above.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)

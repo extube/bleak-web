@@ -362,9 +362,11 @@
     </header>
 
     <main class="canvas">
-      <!-- §4.25.A: the hero region — desktop ≥720px .stage IS the 100dvh
-           hero (the thirds grid, everything centered); phone stacks in DOM
-           order with .area-lead as the 100dvh hero. -->
+      <!-- §4.25.A as amended by §4.31.A/B: the hero region — .stage IS the
+           100dvh hero at EVERY width (the 100dvh + centering live on
+           .stage): ≥960px it is the two-column grid (lead 1.2fr, BLEAK
+           1fr, side by side); <960px it is ONE CENTERED COLUMN — the lead
+           centered with the BLEAK card stacked below it. -->
       <div class="stage">
         <!-- the lead — HEADLINE BLOCK + START CTA (§4.20.C verbatim),
              TRANSPARENT and BORDERLESS (§4.25.B — §37.2): NO pixel frame,
@@ -458,15 +460,21 @@
         </article>
       </section>
 
-      <!-- the three BIG step blocks (§4.21.E as amended by §4.26.C):
-           FIND → CHAT → SHARE — glass fill, hover glow/lift, a decorative
-           pixel mini-illustration top-right and the bottom micro-pill;
-           the section id RENAMED tutorial → how-it-works (§4.26.K.3, the
-           HOW IT WORKS anchor target). -->
+      <!-- the three BIG step blocks (§4.21.E as amended by §4.26.C and
+           §4.31.C): FIND → CHAT → SHARE — the agent card's dark surface,
+           hover glow/lift, a decorative pixel mini-illustration top-right
+           and the bottom micro-pill; the section id RENAMED tutorial →
+           how-it-works (§4.26.K.3, the HOW IT WORKS anchor target).
+           §4.31.C: all three cards carry the UNIFIED frame — plain
+           `pixel-frame` (the subtle --color-surface-elevated ring; the
+           bright `--strong` ring retires for these cards only — the
+           agent + banner cards keep it) and the body FILLS the card
+           (height: 100%) so the stretched grid can never expose the
+           frame fill as a white bottom block. -->
       <section class="tutorial area-tutorial" id="how-it-works">
         <ol class="steps">
           {#each tutorialSteps as step (step.icon)}
-            <li class="step-block pixel-corners pixel-frame pixel-frame--strong" data-reveal>
+            <li class="step-block pixel-corners pixel-frame" data-reveal>
               <div class="step-body pixel-corners">
                 <svg
                   class="step-art"
@@ -847,66 +855,61 @@
   }
 
   /* ---------- the content column over the video (§4.25.A) ----------
-   * PHONE: the DOM order below IS the mobile stack — fixed glass header →
-   * lead (transparent, the 100dvh hero region — the Start block centered
-   * in screen 1) → agent card (NEXT in flow) → stat card → the three step
-   * blocks → contact footer (everything overlays the fixed video
-   * background; the §4.24.E `calc(200dvh / 3)` spacer is DELETED — the
-   * open state is produced entirely by the 100dvh constructions,
-   * §4.25.D.1).
-   * Desktop (≥720px): the §4.24.D THIRDS grid as the HERO REGION —
-   * `min-height: 100dvh` + `align-content: center` + `align-items: center`
-   * (superseding §4.24.D's `align-items: start`, §4.25.D.6): the lead in
-   * column 1, the agent card in column 3, the middle third EMPTY (the
-   * video + vignette + dots show through; nothing is placed in column 2);
-   * lead + BLEAK float vertically centered in the first viewport,
-   * side-by-side. The stat card, step blocks and footer flow AFTER the
-   * hero region (below the fold initially, revealed on scroll). */
+   * The DOM order below IS the stack: fixed glass header → lead
+   * (transparent) → agent card → stat card → the three step blocks →
+   * contact footer (everything overlays the fixed video background; the
+   * §4.24.E `calc(200dvh / 3)` spacer is DELETED — the open state is
+   * produced entirely by the hero's 100dvh construction, §4.25.D.1).
+   * §4.31.A/B (Concept §44 item 1): the hero is ONE construction at every
+   * width — .stage carries the 100dvh + centering (the <719.98px .area-lead
+   * 100dvh phone hero and the ≥720px thirds grid both retire). At ≥960px
+   * the hero row is TWO asymmetric columns — the lead (1.2fr) in column 1,
+   * the agent card (1fr) in column 2 (the empty middle third retires);
+   * the lead track is ≈ 489px at 1280. Below 960px the hero is ONE
+   * CENTERED COLUMN — the lead centered, BLEAK below it (the §37.1
+   * open-state holds: the first viewport contains ONLY lead + BLEAK,
+   * vertically centered). The stat card, step blocks and footer flow
+   * AFTER the hero region (below the fold initially, revealed on scroll). */
   .canvas {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
     min-width: 0;
   }
+  /* <960px (and the fallback at every width the 960px media does not
+   * cover): the centered hero stack — the pair centers vertically as a
+   * group inside the first viewport; when the combined height does not
+   * fit, the stage grows and BLEAK scrolls into view (no clipping). */
   .stage {
     display: flex;
     flex-direction: column;
+    justify-content: center;
+    align-items: center;
     gap: var(--space-6);
+    min-height: 100dvh;
     min-width: 0;
   }
-  @media (max-width: 719.98px) {
-    /* the phone hero region: the Start block centers in the first screen;
-     * BLEAK is the immediately following block in flow */
-    .area-lead {
-      min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-  }
-  @media (min-width: 720px) {
+  @media (min-width: 960px) {
     .stage {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      column-gap: var(--space-6);
-      /* the hero row = the whole first viewport, everything centered */
-      min-height: 100dvh;
+      grid-template-columns: 1.2fr 1fr; /* WAS repeat(3, 1fr) + empty col 2 */
+      column-gap: var(--space-6); /* unchanged 32px */
+      /* the hero row = the whole first viewport, everything centered
+       * (min-height: 100dvh carries from the base rule above) */
       align-content: center;
       align-items: center;
     }
     .area-lead {
-      grid-column: 1;
+      grid-column: 1; /* unchanged */
     }
     .area-agents {
-      grid-column: 3;
+      grid-column: 2; /* WAS 3 — the empty middle third retires (§4.31.A) */
     }
-    /* column 2: NO element — nothing is placed there (§4.24.D) */
-    /* §4.30.C (Concept §42 item 2): the agent card is NARROWER than its
-     * third — max-width 240px, centered inside the UNCHANGED thirds grid
-     * (the third is ≈ 288px at 1280); the 240px card keeps ≥ 200px of text
-     * column after its 20px body padding (readability). Phone (<720px)
-     * stays 100% of the container width (§4.28.F) — the cap is
-     * desktop-only; nothing paints wider than before (no overflow risk). */
+    /* §4.30.C carries verbatim, moved into the 960px media: the agent
+     * card is NARROWER than its track — max-width 240px, centered inside
+     * the 1fr track (≈ 407px at 1280); the 240px card keeps ≥ 200px of
+     * text column after its 20px body padding (readability). <960px stays
+     * 100% of the container width (§4.28.F) — the cap is desktop-only. */
     .agent-card {
       max-width: 240px;
       margin-inline: auto;
@@ -942,11 +945,11 @@
    * text treatment ONLY — a token-only dark halo on `.headline`/`.sub`
    * (the accent word keeps its own violet glow declaration, which
    * overrides the inherited halo). The old body padding stays as inert
-   * spacing that keeps the copy clear of the thirds edge — it is not a
+   * spacing that keeps the copy clear of the track edge — it is not a
    * panel. The Start button is unchanged (an opaque violet pill — it
-   * never relied on the panel). Narrower (§4.24.C): the lead fills its
-   * thirds column — ≈ 288px at 1280 (100% of the container content width
-   * on phone). */
+   * never relied on the panel). Narrower (§4.31.A): the lead fills its
+   * 1.2fr track — ≈ 489px at 1280 (100% of the container content width
+   * below 960px). */
   .copy {
     min-width: 0;
     width: 100%;
@@ -963,18 +966,24 @@
   }
   @media (min-width: 720px) {
     .copy-body {
+      padding: 28px;
+    }
+  }
+  @media (min-width: 960px) {
+    /* the left alignment belongs to the SIDE-BY-SIDE composition
+     * (§4.31.A); below 960px the centered stack keeps the centered lead */
+    .copy-body {
       align-items: flex-start;
       text-align: left;
-      padding: 28px;
     }
   }
   .headline {
     font-family: var(--font-pixel);
     font-weight: 600;
-    /* §4.28.A: 36px → 40px on phone (≥480: 48px; ≥720: clamp(28px, 4vw,
+    /* §4.28.A: 36px → 40px on phone (≥480: 48px; ≥960: clamp(28px, 4vw,
      * 48px) — the bump forces the clamp re-check so the lead stays the
-     * dominant title over the grown 28px .agent-name at every ≥720px
-     * width: 28.8px at 720px, capped at 48px from 1200px up) */
+     * dominant title over the grown 28px .agent-name at every ≥960px
+     * width: 38.4px at 960px, capped at 48px from 1200px up) */
     font-size: 40px;
     line-height: 1.05;
     text-transform: uppercase;
@@ -993,10 +1002,11 @@
       font-size: 48px;
     }
   }
-  @media (min-width: 720px) {
-    /* §4.28.A: clamp(22px, 3.5vw, 44px) → clamp(28px, 4vw, 48px) — the
-     * cap matches the ≥480px phone rule (one consistent 48px maximum);
-     * overflow-wrap: anywhere carries the mid-word breaks */
+  @media (min-width: 960px) {
+    /* §4.28.A + §4.31.A: the clamp moves WITH the side-by-side
+     * composition (720 → 960px, the 720–959 band keeps the ≥480px 48px
+     * value); the cap matches the ≥480px phone rule (one consistent 48px
+     * maximum); overflow-wrap: anywhere carries the mid-word breaks */
     .headline {
       font-size: clamp(28px, 4vw, 48px);
     }
@@ -1337,9 +1347,17 @@
   }
   .step-body {
     /* §4.30.E: the BLEAK agent card's surface — the SAME token, byte-equal
-     * to the base.css .card fill (no blur, no rgba glass, no radius). */
+     * to the base.css .card fill (no blur, no rgba glass, no radius).
+     * §4.31.C: height: 100% — the body FILLS the stretched grid item, so
+     * the frame ring is a uniform 2px on all four sides on EVERY card and
+     * no frame fill can ever show below the body (the white-bottom-block
+     * leak is structurally impossible). On phone the .steps are an
+     * auto-height flex column — a percentage height against an
+     * auto-height parent resolves to auto (the declaration is inert
+     * there, no regression). */
     background: var(--color-surface);
     position: relative;
+    height: 100%;
     padding: 16px;
     display: flex;
     flex-direction: column;

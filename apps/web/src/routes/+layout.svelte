@@ -41,7 +41,7 @@
   });
 
   // Pre-room screens (tz12-02 re-homing): the landing `/`, the join
-  // entry `/income` and the creation route `/income/[room]/create` —
+  // entry `/income` and the creation route `/income/[income_code]/create` —
   // no tab bar there.
   const isJoin = $derived(
     page.url.pathname === '/' || page.url.pathname.startsWith('/income')

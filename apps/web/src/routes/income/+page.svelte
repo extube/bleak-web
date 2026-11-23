@@ -18,7 +18,7 @@
    *   links land on the landing page first, tz12-02.)
    * - Resume card: "join another event" clears the identity AND the
    *   one-time mutual code (clearIdentity, §10.4) but keeps the vault.
-   * - The creation wizard itself lives under /income/[room]/create
+   * - The creation wizard itself lives under /income/[income_code]/create
    *   (JoinFlow navigates there when "Create profile" is chosen).
    */
   import { goto } from '$app/navigation';

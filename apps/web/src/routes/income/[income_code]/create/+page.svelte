@@ -1,16 +1,20 @@
 <script lang="ts">
   /**
-   * `/income/[room]/create` — the creation process (tz12-02 route
-   * re-homing, Concept §31): the creation wizard flow under its own
-   * route. The room context rides the ROUTE PARAM, the 6-digit invite
+   * `/income/[income_code]/create` — the creation process (tz12-02 route
+   * re-homing, Concept §31; the param RENAMED `[room]` → `[income_code]`
+   * per Concept §44.3/§4.31.D — the param carries the room ADDRESS, only
+   * the name changes, resolution behavior byte-identical): the creation
+   * wizard flow under its own route. The room context rides the ROUTE
+   * PARAM, the 6-digit invite
    * code rides the `?code=` query; the same JoinFlow is seeded directly
    * into its persona (wizard) step — the forms themselves are unchanged
    * (lib/join.ts untouched).
    *
    * - Reached from the room intro (the /income page): "Create profile"
    *   navigates here with the resolved room address + the entered code.
-   * - Direct open without a valid code (or a missing room param) → the
-   *   entry page `/income` (replaceState — the URL matches the surface).
+   * - Direct open without a valid code (or a missing income_code param) →
+   *   the entry page `/income` (replaceState — the URL matches the
+   *   surface).
    * - Back from the wizard → `/income?code=…` (JoinFlow): the entry page
    *   re-resolves the code and lands on the room intro again.
    */
@@ -20,10 +24,13 @@
   import { isValidInviteCode } from '#lib/join';
   import JoinFlow from '#lib/components/join/JoinFlow.svelte';
 
-  const roomParam = $derived(page.params.room ?? null);
+  const incomeCodeParam = $derived(page.params.income_code ?? null);
   const codeParam = $derived(page.url.searchParams.get('code'));
   const seeded = $derived(
-    roomParam !== null && roomParam !== '' && codeParam !== null && isValidInviteCode(codeParam)
+    incomeCodeParam !== null &&
+      incomeCodeParam !== '' &&
+      codeParam !== null &&
+      isValidInviteCode(codeParam)
   );
 
   // Not seedable (direct open without the code/room context) → the entry
@@ -37,7 +44,7 @@
 
 {#if seeded}
   <div class="join">
-    <JoinFlow roomParam={roomParam} deepLinkCode={codeParam} />
+    <JoinFlow incomeCodeParam={incomeCodeParam} deepLinkCode={codeParam} />
   </div>
 {/if}
 

@@ -3,8 +3,8 @@
    * JoinFlow (TZ-03 + TZ2-06 Part B) — the Step 1 → 3a/3b state machine
    * for the join flow (DESIGN §3.1 rev. 3; tz12-02 re-homing, Concept
    * §31: the entry steps run on `/income`, the persona (wizard) step on
-   * `/income/[room]/create` — seeded via `roomParam`). The route page
-   * passes deep-link values; this
+   * `/income/[income_code]/create` — seeded via `incomeCodeParam`). The
+   * route page passes deep-link values; this
    * component owns the steps, the mount-time API calls (NO Poller,
    * §2.2), the scanner mount point (context *a*, QrScanner public API
    * only) and every §3.1 interaction state.
@@ -38,9 +38,12 @@
    * intro included) and fades out into /room after the creation 2xx.
    *
    * tz12-02 route re-homing (Concept §31): the creation process lives
-   * under its own route — `/income/[room]/create`. The entry flow (this
+   * under its own route — `/income/[income_code]/create` (the param
+   * `[room]` → `[income_code]`, Concept §44.3/§4.31.D — the name only,
+   * the value carried is still the room address). The entry flow (this
    * component on `/income`) navigates there when "Create profile" is
-   * chosen; the route page mounts this same component with `roomParam`
+   * chosen; the route page mounts this same component with
+   * `incomeCodeParam`
    * (the room context via the route param) + the `?code=` query, seeding
    * the flow directly into the persona (wizard) step. The forms and the
    * machine (lib/join.ts) are unchanged — only the routing wiring moved.
@@ -83,26 +86,27 @@
     /** ?code=NNNNNN deep link (invite QR / link): prefill + auto-submit.
      * On the create route it is ALSO the seeded invite code. */
     deepLinkCode?: string | null;
-    /** /income/[room]/create route param (tz12-02): seed the flow
-     * directly into the persona (wizard) step — the room context rides
-     * the URL; the invite code comes from deepLinkCode (?code=). */
-    roomParam?: string | null;
+    /** /income/[income_code]/create route param (tz12-02, param renamed
+     * per Concept §44.3/§4.31.D): seed the flow directly into the
+     * persona (wizard) step — the room context rides the URL; the invite
+     * code comes from deepLinkCode (?code=). */
+    incomeCodeParam?: string | null;
   }
 
-  let { deepLinkCode = null, roomParam = null }: Props = $props();
+  let { deepLinkCode = null, incomeCodeParam = null }: Props = $props();
 
   // Deep-link prefill (?code=NNNNNN): captured once — the auto-submit runs
   // exactly once (the effect below guards it).
   const initialCode: string =
     deepLinkCode !== null && isValidInviteCode(deepLinkCode) ? deepLinkCode : '';
 
-  // Seeded entry (tz12-02): mounted at /income/[room]/create — the flow
-  // starts AT the creation wizard step. The room stub carries only the
+  // Seeded entry (tz12-02): mounted at /income/[income_code]/create — the
+  // flow starts AT the creation wizard step. The room stub carries only the
   // address the persona submit needs (the full preview lives on /income);
   // seeded mode never resolves the code and never shows the entry steps.
-  const seeded: boolean = typeof roomParam === 'string' && roomParam !== '';
+  const seeded: boolean = typeof incomeCodeParam === 'string' && incomeCodeParam !== '';
   const seededRoom: Room = {
-    address: roomParam ?? '',
+    address: incomeCodeParam ?? '',
     name: '',
     description: '',
     language: '',
@@ -221,11 +225,11 @@
     const room = flow.room;
     if (!room) return;
     personaError = null;
-    // tz12-02 re-homing (Concept §31): the creation process lives under
-    // /income/[room]/create — the room address rides the route param, the
-    // entered code the ?code= query (the create route's seed).
+    // /income/[income_code]/create — the room address rides the route
+    // param (renamed `[room]` → `[income_code]`, Concept §44.3/§4.31.D),
+    // the entered code the ?code= query (the create route's seed).
     // eslint-disable-next-line svelte/no-navigation-without-resolve
-    void goto(`${resolve('/income/[room]/create', { room: room.address })}?code=${flow.code}`);
+    void goto(`${resolve('/income/[income_code]/create', { income_code: room.address })}?code=${flow.code}`);
   }
 
   /** Wizard back: on the create route the room intro is re-reached via

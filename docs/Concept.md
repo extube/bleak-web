@@ -1910,13 +1910,40 @@ Follow-up adjustments (owner, 2026-11-23):
    right; on phone the flower icon (and its status caption) moves
    above the text block.
 
+---
+
+## 44. Owner batch: wider lead + card borders + route param — ✅ APPROVED (2026-11-23)
+
+Follow-up adjustments (owner, 2026-11-23):
+
+1. **Lead block ("The right connections beside you") wider** on the
+   desktop; and when the screen is **less than 960px** — **center the
+   lead block** and **move the Bleak agent card below it** (stacked,
+   centered). Desktop ≥960px keeps the side-by-side composition with
+   the widened lead.
+2. **01 / 02 / 03 card borders unified:** fix the first ("01") and
+   third ("03") cards so their borders match the center card ("02") —
+   **remove the thick white bottom border / bottom white block /
+   shadow** on cards 01 and 03; apply the **exact same border width,
+   border radius, and subtle light border color** across all three
+   cards (completely consistent outlines).
+3. **Route param rename:** `income/<address>/create` →
+   **`income/<income_code>/create`** (the parameter is named
+   `income_code`, aligning with the backend's income-code
+   terminology; resolution behavior unchanged).
+
 All other §31–§33 contracts stay in force (routes, Start → `/income`
 with the 6-digit input, RU/EN parity, reminder box contracts, three
 step blocks, existing suites green).
 
 ---
 
-## 42. Profile page redesign `/profile` — ✅ APPROVED (2026-11-22)
+## 43. Profile page redesign `/profile` — ✅ APPROVED (2026-11-22)
+
+*(Renumbered from §42 → §43 on 2026-11-23: the §42 number was
+double-assigned when two rounds ran in parallel; the scroll-animation
+batch kept §42, this profile round takes §43. Task 131's card cites
+the old number — same section.)*
 
 Owner request: redesign the profile page `/profile` based on the
 reference `profile-design.png` (also present as

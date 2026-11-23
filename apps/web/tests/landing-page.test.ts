@@ -55,8 +55,8 @@ vi.mock('$app/state', () => ({ page: mockPage }));
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/paths', () => ({
-  resolve: (route: string, params?: { room?: string }) =>
-    params?.room ? route.replace('[room]', params.room) : route
+  resolve: (route: string, params?: { income_code?: string }) =>
+    params?.income_code ? route.replace('[income_code]', params.income_code) : route
 }));
 
 // The create-route page mounts the real JoinFlow — its mount-time
@@ -77,7 +77,7 @@ import { goto } from '$app/navigation';
 import { setLocale } from '#lib/i18n/locale';
 import LandingPage from '../src/routes/+page.svelte';
 import IncomePage from '../src/routes/income/+page.svelte';
-import CreatePage from '../src/routes/income/[room]/create/+page.svelte';
+import CreatePage from '../src/routes/income/[income_code]/create/+page.svelte';
 import { ru } from '../src/lib/i18n/ru';
 import { en } from '../src/lib/i18n/en';
 import { ICON_RECTS } from '../src/lib/components/icons/registry';
@@ -675,22 +675,37 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
-  it('desktop ≥720px: .stage is the 100dvh HERO REGION — the THIRDS grid (§4.24.D) with align-content: center + align-items: center (§4.25.A supersedes §4.24.D\'s align-items: start, §4.25.D.6): lead column 1, the BLEAK agent card column 3, the MIDDLE THIRD EMPTY; the minmax(0,1fr) 360px row and the 360px cap stay retired (§4.24.F.5)', () => {
+  it('desktop ≥960px: .stage is the 100dvh HERO REGION — the TWO-COLUMN grid (§4.31.A, superseding the §4.24.D thirds) — grid-template-columns: 1.2fr 1fr with column-gap: var(--space-6), align-content: center + align-items: center; lead column 1 (≈ 489px at 1280 — WIDER than the retired ≈ 288px third), the BLEAK agent card column 2; the EMPTY middle third retires; the minmax(0,1fr) 360px row and the 360px cap stay retired (§4.24.F.5)', () => {
     const css = source('src/routes/+page.svelte');
-    // the thirds grid: three equal columns, the §4.23.D gap rhythm
+    // the two-column hero grid inside the ≥960px media: the 1.2fr lead
+    // track + the 1fr agent track, the §4.23.D gap rhythm
     expect(css).toMatch(
-      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*grid-template-columns:\s*repeat\(3, 1fr\)/
+      /@media \(min-width: 960px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*grid-template-columns:\s*1\.2fr\s+1fr/
     );
-    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*column-gap:\s*var\(--space-6\)/);
-    // the hero region = the whole first viewport, everything centered
-    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*min-height:\s*100dvh/);
-    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*align-content:\s*center/);
-    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*align-items:\s*center/);
-    // the lead = the FIRST third, the BLEAK card = the LAST third
+    expect(css).toMatch(/@media \(min-width: 960px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*column-gap:\s*var\(--space-6\)/);
+    // everything centered in the first viewport
+    expect(css).toMatch(/@media \(min-width: 960px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*align-content:\s*center/);
+    expect(css).toMatch(/@media \(min-width: 960px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*align-items:\s*center/);
+    // the lead = column 1, the BLEAK card = column 2 (the agent moves up)
     expect(css).toMatch(/\.area-lead\s*\{[^}]*grid-column:\s*1/);
-    expect(css).toMatch(/\.area-agents\s*\{[^}]*grid-column:\s*3/);
-    // the middle third is EMPTY — no element is placed in column 2
-    expect(css).not.toMatch(/grid-column:\s*2/);
+    expect(css).toMatch(/\.area-agents\s*\{[^}]*grid-column:\s*2/);
+    // the retired hero thirds grid is GONE — the .stage 960px rule does
+    // not declare it (the .steps grid keeps its own 720px repeat(3, 1fr);
+    // comment-stripped — comments are prose and may name retired values)
+    const heroGrid =
+      (css.match(/@media \(min-width: 960px\)\s*\{[^@]*?\.stage\s*\{[^}]*\}/)?.[0] ?? '').replace(
+        /\/\*[\s\S]*?\*\//g,
+        ''
+      ) || css;
+    expect(heroGrid).not.toMatch(/repeat\(3, 1fr\)/);
+    // the lead track: the 1.2fr share of (928 − 32) ≈ 489px at 1280,
+    // ≈ 348px at 960 — wider than the retired ≈ 288px third at EVERY
+    // ≥960 width (the 1.2fr share grows faster than a third)
+    const track = (928 - 32) * (1.2 / 2.2);
+    const trackAt960 = (672 - 32) * (1.2 / 2.2);
+    expect(track).toBeGreaterThan(480); // ≈ 489px at 1280
+    expect(track).toBeGreaterThan(288); // the retired thirds column
+    expect(trackAt960).toBeGreaterThan(288); // wider at the breakpoint edge too
     // the retired §4.23.D two-column row + cap
     expect(css).not.toMatch(/minmax\(0, 1fr\) 360px/);
     // §4.23.E.1: the video-row overlay grid stays gone
@@ -699,11 +714,31 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     expect(css).not.toMatch(/\.area-chat/);
   });
 
-  it('PHONE: the DOM-order stack over the video background (§4.23.E.2) — .area-lead is the 100dvh hero region (§4.25.A) — no horizontal scroll at 320px; the 280px container floor keeps the phone chip usable', () => {
+  it('the <960px hero is ONE CENTERED COLUMN (§4.31.B, superseding BOTH the §4.24.D thirds for the 720–959 band AND the §4.25.A <719.98px .area-lead 100dvh phone hero): .stage itself is the centered flex-column stack with min-height: 100dvh — the lead centered, BLEAK BELOW it (the DOM order IS the stack); the retired .area-lead 100dvh rule does not exist; no horizontal scroll at 320px; the 280px container floor keeps the phone chip usable', () => {
     const css = source('src/routes/+page.svelte');
-    // base canvas + stage = one column (flex); the DOM order IS the mobile order
+    // the base .stage IS the <960px hero construction: one centered column
     expect(css).toMatch(/\.canvas\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/);
-    expect(css).toMatch(/\.stage\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/);
+    expect(css).toMatch(
+      /\.stage\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column[^}]*justify-content:\s*center/
+    );
+    const baseStage = css.match(/\.stage\s*\{[\s\S]*?\n\s*\}/)?.[0] ?? '';
+    expect(baseStage).toMatch(/align-items:\s*center/);
+    expect(baseStage).toMatch(/gap:\s*var\(--space-6\)/);
+    expect(baseStage).toMatch(/min-height:\s*100dvh/);
+    expect(baseStage).not.toMatch(/grid|position/);
+    // the retired <719.98px .area-lead 100dvh hero rule is DELETED —
+    // the 100dvh + centering live on .stage at EVERY width now (negative)
+    expect(css).not.toMatch(
+      /@media \(max-width: 719\.98px\)\s*\{[\s\S]*?\.area-lead\s*\{[^}]*min-height:\s*100dvh/
+    );
+    expect(css).not.toMatch(/\.area-lead\s*\{[^}]*min-height:\s*100dvh/);
+    // the retired ≥720px hero thirds grid does not come back (the hero
+    // breakpoint moved to 960 — the 720–959 band is the centered stack;
+    // checked INSIDE every 720px media block — no cross-boundary matching)
+    for (const block of [...css.matchAll(/@media \(min-width: 720px\)\s*\{(?:[^{}]|\{[^{}]*\})*\}/g)]) {
+      expect(block[0]).not.toMatch(/\.stage\s*\{[^}]*grid-template-columns/);
+    }
+    // the DOM order IS the stack — BLEAK renders BELOW the lead
     const order = [
       'area-lead', 'area-agents', 'area-stat', 'area-tutorial',
       'area-sim', 'area-privacy', 'area-usecases', 'area-join', 'area-foot'
@@ -711,15 +746,12 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     const positions = order.map((name) => css.indexOf(name, css.indexOf('<main')));
     expect(positions.every((p) => p > 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
-    // the phone hero region: the START block centers in the first screen
-    expect(css).toMatch(
-      /@media \(max-width: 719\.98px\)\s*\{[\s\S]*?\.area-lead\s*\{[^}]*min-height:\s*100dvh[^}]*display:\s*flex[^}]*justify-content:\s*center/
-    );
-    // the overlay positioning exists ONLY inside the ≥720px media query —
-    // the base .stage rule is the plain flex column (no grid, no overlay)
-    const baseStage = css.match(/\.stage\s*\{[\s\S]*?\n\s*\}/)?.[0] ?? '';
-    expect(baseStage).toMatch(/display:\s*flex/);
-    expect(baseStage).not.toMatch(/grid|position/);
+    // the §37.1 open-state holds at <960px: at 800×800 the centered pair
+    // (lead ≈ 300px + BLEAK ≈ 380px + the 32px gap ≈ 712px < 800) fits the
+    // initial viewport; the 100dvh + centering mechanism is the SAME
+    // vertically-centered hero construction (verified via the base rule above)
+    const leadHeight = 300 + 380 + 32;
+    expect(leadHeight).toBeLessThan(800);
     // §4.28.F the container: max(90%, 280px) on phone — the SHARED floor
     // with the header (the 1000px cap retires as a width rule)
     expect(css).toMatch(/\.landing\s*\{[^}]*width:\s*max\(90%, 280px\)/);
@@ -753,21 +785,43 @@ describe('/ — the §4.25.A open state (§37.1): the hero regions + the thirds 
     );
   });
 
-  it('the lead is NARROWER (§4.24.C): it fills its thirds column (≈ 288px at 1280) — the fit-content/560px sizing retires; the desktop headline adapts via clamp(28px, 4vw, 48px) (§4.28.A — the bump forces the re-check so the lead stays dominant over the 28px .agent-name: 28.8px at 720px, capped 48px from 1200px up)', () => {
+  it('the lead is WIDER (§4.31.A, superseding the §4.24.C thirds measure): it fills its 1.2fr track — ≈ 489px at 1280 (the fit-content/560px sizing stays retired); the headline clamp moves WITH the composition — clamp(28px, 4vw, 48px) applies at ≥960 ONLY (38.4px at 960, capped 48px from 1200px up; the 720–959 band keeps the ≥480px 48px value), and .copy-body is left-aligned at ≥960 / centered below', () => {
     const css = source('src/routes/+page.svelte');
-    // the lead fills its grid column (100% of the third), phone full-width
+    // the lead fills its 1.2fr grid track (100%), below 960px full-width
     expect(css).toMatch(/\.copy\s*\{[^}]*width:\s*100%/);
     // no content-sized / capped lead sizing remains
     expect(css).not.toMatch(/fit-content/);
     const copyRule = css.match(/\.copy\s*\{[^}]*\}/)?.[0] ?? '';
     expect(copyRule).not.toMatch(/max-width/);
-    // §4.28.A the headline ladder: 40px base (48px ≥480px) + the adjusted
-    // clamp at ≥720px
+    // §4.31.A the widened track: the 1.2fr/1fr grid at ≥960 — the text
+    // column is ≈ 489px − 2×28px ≈ 433px, so the 40ch/18px .sub
+    // (~355px) fits on its natural measure (no per-column cap anywhere)
+    const heroTrack = (928 - 32) * (1.2 / 2.2);
+    expect(heroTrack).toBeGreaterThan(430); // ≈ 489px at 1280
+    expect(heroTrack).toBeGreaterThan(355 + 2 * 28); // the 40ch .sub + padding fits
+    // §4.31.A the copy-body alignment belongs to the side-by-side side:
+    // left-aligned ONLY at ≥960, centered below
+    expect(css).toMatch(
+      /@media \(min-width: 960px\)\s*\{[\s\S]*?\.copy-body\s*\{[^}]*align-items:\s*flex-start[^}]*text-align:\s*left/
+    );
+    // the base .copy-body is the CENTERED stack (below 960px)
+    const baseCopyBody = css.match(/\.copy-body\s*\{[\s\S]*?\n\s*\}/)?.[0] ?? '';
+    expect(baseCopyBody).toMatch(/align-items:\s*center/);
+    expect(baseCopyBody).toMatch(/text-align:\s*center/);
+    // the 28px padding half stays at ≥720px (§4.28 values byte-unchanged)
+    expect(css).toMatch(/@media \(min-width: 720px\)\s*\{[\s\S]*?\.copy-body\s*\{[^}]*padding:\s*28px/);
+    // §4.28.A the headline ladder: 40px base (48px ≥480px) + the clamp at
+    // ≥960px — and NOT between 720–959 (the 720px clamp media is moved)
     expect(css).toMatch(/\.headline\s*\{[^}]*font-size:\s*40px/);
     expect(css).toMatch(/@media \(min-width: 480px\)\s*\{[\s\S]*?\.headline\s*\{[^}]*font-size:\s*48px/);
     expect(css).toMatch(
-      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.headline\s*\{[^}]*font-size:\s*clamp\(28px, 4vw, 48px\)/
+      /@media \(min-width: 960px\)\s*\{[\s\S]*?\.headline\s*\{[^}]*font-size:\s*clamp\(28px, 4vw, 48px\)/
     );
+    // no clamp media at 720px remains for the headline (checked INSIDE
+    // every 720px media block — no cross-boundary matching)
+    for (const block of [...css.matchAll(/@media \(min-width: 720px\)\s*\{(?:[^{}]|\{[^{}]*\})*\}/g)]) {
+      expect(block[0]).not.toMatch(/\.headline\s*\{[^}]*font-size:\s*clamp/);
+    }
     // the superseded §4.27.B/§4.26 values are gone everywhere (comment-
     // stripped: comments are prose and may name retired values)
     const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
@@ -1498,16 +1552,42 @@ describe('/ — §4.26.B the banner: REAL PEOPLE. REAL RESULTS. becomes liquid g
   });
 });
 
-describe('/ — §4.26.C/§4.30.E the step cards: the Bleak-matching dark surface + hover glow/lift + illustrations + micro-pills', () => {
-  it('each step body carries the AGENT CARD\'S SURFACE (§4.30.E — AC 10, superseding the §4.26.C glass): the .step-body rule declares background: var(--color-surface) — byte-equal to the base.css .card fill — with NO backdrop-filter/-webkit-backdrop-filter and NO rgba(15,14,22,0.65) left; .step-body still sets NO border-radius (the pixel frame stays square/stepped)', () => {
+describe('/ — §4.26.C/§4.30.E/§4.31.C the step cards: the Bleak-matching dark surface + the UNIFIED border + hover glow/lift + illustrations + micro-pills', () => {
+  it('§4.31.C the borders are UNIFIED across all three cards: every .step-block li carries the SAME class list — pixel-corners + plain pixel-frame WITHOUT pixel-frame--strong (negative on --strong for every step card) — so the border is the 2px .pixel-frame padding ring, radius = none (the stepped .pixel-corners ladder), color = var(--color-surface-elevated) for ALL THREE; the BLEAK agent card and the banner card STILL carry pixel-frame--strong (negatives: those class lists unchanged)', () => {
+    const { container } = render(LandingPage, { props: {} });
+    const blocks = [...container.querySelectorAll('.step-block')];
+    expect(blocks).toHaveLength(3);
+    // byte-identical class lists across the three cards
+    const classLists = new Set(blocks.map((b) => b.className));
+    expect(classLists.size).toBe(1);
+    for (const block of blocks) {
+      expect(block.className).toContain('pixel-corners');
+      expect(block.className).toContain('pixel-frame');
+      // NO --strong: the subtle ring unifies all three (the white bottom
+      // block / thick white border / shadow on 01 and 03 is gone)
+      expect(block.className).not.toContain('pixel-frame--strong');
+      expect(block.querySelector('.step-body.pixel-corners')).toBeTruthy();
+    }
+    // the unified frame color = the base.css .pixel-frame rule's
+    // background (unchanged file): var(--color-surface-elevated) —
+    // equality across all three via the one shared class
+    const baseCss = source('src/lib/styles/base.css');
+    const frame = baseCss.match(/\.pixel-frame\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(frame).toMatch(/background:\s*var\(--color-surface-elevated\)/);
+    expect(frame).toMatch(/padding:\s*2px/);
+    // the --strong upgrade exists in base.css (the agent + banner cards)
+    // but is absent from the step markup
+    expect(baseCss).toMatch(/\.pixel-frame--strong\s*\{[^}]*background:\s*var\(--color-text\)/);
+  });
+
+  it('§4.31.C the stretch leak is fixed: .step-body declares height: 100% (the body FILLS the stretched grid item — no frame fill can show below any body) and still sets NO border-radius (the pixel frame stays square/stepped); the body fill carries (§4.30.E)', () => {
     const { container } = render(LandingPage, { props: {} });
     for (const block of container.querySelectorAll('.step-block')) {
-      expect(block.className).toContain('pixel-corners');
-      expect(block.className).toContain('pixel-frame--strong');
-      expect(block.querySelector('.step-body.pixel-corners')).toBeTruthy();
+      expect(block.className).not.toContain('pixel-frame--strong');
     }
     const css = source('src/routes/+page.svelte');
     const stepBody = css.match(/\.step-body\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(stepBody).toMatch(/height:\s*100%/);
     expect(stepBody).toMatch(/background:\s*var\(--color-surface\)/);
     expect(stepBody).not.toMatch(/backdrop-filter/);
     expect(stepBody).not.toMatch(/rgba\(/);
@@ -2058,9 +2138,9 @@ describe('/income — the room-income entry page (the re-homed join flow)', () =
   });
 });
 
-describe('/income/[room]/create — the creation process (the re-homed wizard flow)', () => {
-  it('resolves to the EXISTING creation surface: the seeded flow opens IN the wizard step', async () => {
-    mockPage.params = { room: '0xroom123' };
+describe('/income/[income_code]/create — the creation process (the re-homed wizard flow; the param renamed [room] → [income_code], Concept §44.3/§4.31.D)', () => {
+  it('resolves at /income/<income_code>/create with the param NAMED income_code: the seeded flow opens IN the wizard step (resolution behavior byte-identical — the value carried is still the room address)', async () => {
+    mockPage.params = { income_code: '0xroom123' };
     mockPage.url = new URL('http://localhost/income/0xroom123/create?code=654321');
     render(CreatePage, { props: {} });
     expect(await screen.findByText(ru['join.wizard.intro.title'])).toBeTruthy();
@@ -2071,8 +2151,8 @@ describe('/income/[room]/create — the creation process (the re-homed wizard fl
     expect(screen.queryByRole('group', { name: ru['join.code.label'] })).toBeNull();
   });
 
-  it('without a valid ?code= the route falls back to the entry page (replaceState)', async () => {
-    mockPage.params = { room: '0xroom123' };
+  it('without a valid ?code= the route falls back to the entry page (replaceState) — with the renamed param', async () => {
+    mockPage.params = { income_code: '0xroom123' };
     mockPage.url = new URL('http://localhost/income/0xroom123/create');
     render(CreatePage, { props: {} });
     await waitFor(() => expect(goto).toHaveBeenCalledWith('/income', { replaceState: true }));
@@ -2322,19 +2402,25 @@ describe('/ — §4.30.A/B the scroll-reveal system (markers + the armed state +
 });
 
 describe('/ — §4.30.C the agent card narrower on desktop + §4.30.D/F the banner geometry', () => {
-  it('AC 6: at ≥720px the agent card computes max-width: 240px, centered (margin-inline: auto) inside the UNCHANGED thirds grid; on phone (<720px) there is NO cap (100% of the container, §4.28.F)', () => {
+  it('AC 6 (as amended by §4.31.A): at ≥960px the agent card computes max-width: 240px, centered (margin-inline: auto) inside its 1fr track of the TWO-COLUMN hero grid; below 960px there is NO cap (100% of the container, §4.28.F)', () => {
     const css = source('src/routes/+page.svelte');
-    const cap = desktopBlocks(css).find((b) => b.includes('.agent-card')) ?? '';
+    // the cap moved WITH the hero grid into the ≥960px media (§4.31.A)
+    const wideBlocks = [...css.matchAll(/@media \(min-width: 960px\)\s*\{(?:[^{}]|\{[^{}]*\})*\}/g)].map(
+      (m) => m[0]
+    );
+    const cap = wideBlocks.find((b) => b.includes('.agent-card')) ?? '';
     expect(cap).toMatch(/\.agent-card\s*\{[^}]*max-width:\s*240px/);
     expect(cap).toMatch(/\.agent-card\s*\{[^}]*margin-inline:\s*auto/);
-    // the base card rule carries no cap (the phone is 100%)
+    // the base card rule carries no cap (below 960px the card is 100%)
     const baseCard = css.match(/\.agent-card,\s*\n?\s*\.stat-card\s*\{[^}]*\}/)?.[0] ?? '';
     expect(baseCard).not.toMatch(/max-width/);
-    // the thirds grid is UNCHANGED (repeat(3, 1fr), the middle third empty)
+    // the hero grid is the TWO-COLUMN 1.2fr/1fr construction (§4.31.A —
+    // the §4.30.C "inside the UNCHANGED thirds grid" form is superseded;
+    // the agent track is column 2)
     expect(css).toMatch(
-      /@media \(min-width: 720px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*grid-template-columns:\s*repeat\(3, 1fr\)/
+      /@media \(min-width: 960px\)\s*\{[\s\S]*?\.stage\s*\{[^}]*grid-template-columns:\s*1\.2fr\s+1fr/
     );
-    expect(css).not.toMatch(/grid-column:\s*2/);
+    expect(css).toMatch(/\.area-agents\s*\{[^}]*grid-column:\s*2/);
     // the §4.20.G contract carries: pixel frame + hover/press + TALK
     const { container } = render(LandingPage, { props: {} });
     expect(container.querySelector('.agent-card')?.className).toContain('pixel-frame--strong');

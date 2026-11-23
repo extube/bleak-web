@@ -16,7 +16,10 @@ import { get } from 'svelte/store';
 import { ApiError, NetworkError, type Room, type User } from '@bleak/api-client';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
-vi.mock('$app/paths', () => ({ resolve: (route: string) => route }));
+vi.mock('$app/paths', () => ({
+  resolve: (route: string, params?: { income_code?: string }) =>
+    params?.income_code ? route.replace('[income_code]', params.income_code) : route
+}));
 
 vi.mock('#lib/api/invite-resolve', () => {
   class InviteResolveError extends Error {
@@ -65,13 +68,15 @@ const room: Room = {
 };
 
 /**
- * tz12-02 route re-homing (Concept §31): the creation process lives
- * under /income/[room]/create — the room intro's "Create profile"
- * navigates there; the wizard tests render the flow SEEDED (roomParam +
- * ?code=) exactly as the create route mounts it. The entry tests keep
- * driving the /income surfaces (code entry → preview → vault).
+ * tz12-02 route re-homing (Concept §31; param renamed [room] →
+ * [income_code], Concept §44.3/§4.31.D): the creation process lives
+ * under /income/[income_code]/create — the room intro's "Create profile"
+ * navigates there; the wizard tests render the flow SEEDED
+ * (incomeCodeParam + ?code=) exactly as the create route mounts it. The
+ * entry tests keep driving the /income surfaces (code entry → preview →
+ * vault).
  */
-const SEEDED = { roomParam: room.address, deepLinkCode: '123456' };
+const SEEDED = { incomeCodeParam: room.address, deepLinkCode: '123456' };
 
 function user(address: string, name: string, privateBio = ''): User {
   return {
@@ -188,13 +193,14 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
 
 describe('JoinFlow — route re-homing (tz12-02, Concept §31)', () => {
   /**
-   * The creation process lives under /income/[room]/create: the room
-   * intro's "Create profile" navigates there (room param + ?code=), the
-   * create route seeds the same flow directly into the wizard step, and
-   * the wizard's back re-enters /income with the code (the prefill +
-   * auto-submit re-resolves the room preview).
+   * The creation process lives under /income/[income_code]/create (the
+   * param renamed [room] → [income_code], Concept §44.3/§4.31.D): the
+   * room intro's "Create profile" navigates there (income_code param +
+   * ?code=), the create route seeds the same flow directly into the
+   * wizard step, and the wizard's back re-enters /income with the code
+   * (the prefill + auto-submit re-resolves the room preview).
    */
-  it('"Create profile" on the room intro navigates to /income/[room]/create?code=…', async () => {
+  it('"Create profile" on the room intro navigates to /income/<income_code>/create?code=… (the value carried is still the room address — the param NAME changed only)', async () => {
     mockedResolve.mockResolvedValue({ roomAddress: room.address });
     mockedApi.getRoom.mockResolvedValue(room);
     mockedApi.listRoomUsers.mockResolvedValue([]);
@@ -204,7 +210,7 @@ describe('JoinFlow — route re-homing (tz12-02, Concept §31)', () => {
     await screen.findByText(room.name);
     await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
     await waitFor(() =>
-      expect(goto).toHaveBeenCalledWith('/income/[room]/create?code=123456')
+      expect(goto).toHaveBeenCalledWith('/income/0xroom123/create?code=123456')
     );
     // The wizard does NOT render inline anymore — the route owns it.
     expect(screen.queryByText(ru['join.wizard.intro.title'])).toBeNull();
@@ -251,7 +257,7 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
   }
 
   async function openWizard(): Promise<void> {
-    // Seeded render (tz12-02): the flow mounts at /income/[room]/create
+    // Seeded render (tz12-02): the flow mounts at /income/[income_code]/create
     // directly IN the wizard step — the room param + the ?code= seed.
     render(JoinFlow, { props: SEEDED });
     await screen.findByText(ru['join.wizard.intro.title']);
@@ -1122,7 +1128,7 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
    *      exactly as routes/+layout.svelte + routes/income/+page.svelte
    *      (tz12-02: the join entry route) render it;
    *   3. the real JoinFlow is mounted into that fixture — the persona
-   *      step via the /income/[room]/create seed (the entry steps via the
+   *      step via the /income/[income_code]/create seed (the entry steps via the
    *      unseeded /income mount);
    *   4. the COMPUTED cascade of the actual rendered chain is asserted
    *      (happy-dom resolves stylesheet cascade incl. :has()).
@@ -1187,7 +1193,7 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
 
   function seedShellAndWrapper(): HTMLElement {
     // The exact rendered ancestor chain of JoinFlow on /income and
-    // /income/[room]/create (tz12-02 re-homing)
+    // /income/[income_code]/create (tz12-02 re-homing)
     // (routes/+layout.svelte → routes/income/+page.svelte → JoinFlow).
     shell = document.createElement('div');
     shell.className = 'app-shell';
@@ -1214,7 +1220,7 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
   it('the computed chain from div.log to the app-shell is a bounded flex column ending in the log as the single scroll container (tz11-10: the two-region root is the DEFINITE 100dvh wrapper height)', async () => {
     injectCascadeFixtureCss();
     // TWO MOUNTS (tz12-02): the off-state (the code step on /income) and
-    // the on-state (the persona step seeded on /income/[room]/create) —
+    // the on-state (the persona step seeded on /income/[income_code]/create) —
     // the room intro's "Create profile" navigates to the create route, so
     // one mount can no longer hold both steps.
     const wrapper = seedShellAndWrapper();

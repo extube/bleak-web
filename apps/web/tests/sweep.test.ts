@@ -62,7 +62,7 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
     for (const file of [
       'src/routes/+page.svelte',
       'src/routes/income/+page.svelte',
-      'src/routes/income/[room]/create/+page.svelte'
+      'src/routes/income/[income_code]/create/+page.svelte'
     ]) {
       const source = readFileSync(join(WEB_ROOT, file), 'utf8');
       expect(source, `${file} must not poll`).not.toMatch(/new\s+Poller\b/);
