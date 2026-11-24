@@ -1,6 +1,7 @@
-# bleak-web — Product Design (rev. 3 — v2 credentials)
+# bleak-web — Product Design (rev. 4 — v2 credentials + host admin panel)
 
-Design instance: `bd636f23` (2026-11-15); baseline: rev. 2 by `fd19a963`
+Design instances: rev. 4 by `558f4d6b` (2026-11-24); rev. 3 by `bd636f23`
+(2026-11-15); baseline: rev. 2 by `fd19a963`
 (2026-11-14, owner-approved; **v1 delivered and running — do not regress what
 v2 does not touch**). Authority chain: `docs/Concept.md` (owner-approved v1 +
 **§6 v2 scope, owner-approved 2026-11-15**; §1c rulings remain binding except
@@ -36,6 +37,21 @@ Concept §4).
 > §3.1, §3.6, §3.7, §3.8 are substantially rewritten. §4.7 copy table
 > extended (+37 keys). Acceptance-criteria coverage: **118** (was 100; §3.9
 > maps the deltas).
+>
+> **Revision 4 (2026-11-24):** the owner-approved **host admin panel**
+> (Concept §54) is applied: the §3.7 single-page host console is
+> **restructured into a route tree** — `/host` (create **or log back in**
+> with the room key, plus a §54.1 auto-resume probe), `/host/<room_address>`
+> (members + drill-down, **statistics**, share kit, room settings),
+> `/host/<room_address>/invite` (active **and expired/revoked** codes via a
+> per-device localStorage ledger), and `/host/<room_address>/invite/<code>/qr`
+> (client-side QR + share-or-copy-link; **the link text is never shown**).
+> Statistics are a **client-side fan-out engine** (rule A, bounded
+> concurrency, hand-rolled SVG bucket chart — no new dependency); handshake
+> stats (5–7) are **specified but omitted** behind the rule-B/flag-6.9a gate;
+> delete-user stays **backend-gated** (rule D). Host routes leave the tab bar
+> entirely (§4.11.8/§10.1.8 carry over). §4.7 extended (+63 keys);
+> coverage: **160** (was 118; §3.9 maps the deltas).
 
 This document is self-contained: a worker must be able to implement any page
 from its section alone without reading the references.
@@ -52,8 +68,11 @@ an instant mutual handshake); when a handshake is mutual, bleak-node
 auto-creates a **chat** and the two attendees' agents hold a conversation which
 both attendees read live — **agents are the only speakers; humans never type
 messages** (Concept §1c ruling 4). The event **host** creates the room with a
-one-time creation token, receives the QR + invite codes to share, and observes
-the room. **Credential model (v2, Concept §6 + ARCHITECTURE §10):** humans own
+one-time creation token and manages the event from the **`/host` route tree**
+(rev. 4, Concept §54): share kit, invite codes (active and expired/revoked),
+a live member view with room-token chat drill-down (clear + kickoff), and a
+**client-computed statistics panel**. **Credential model (v2, Concept §6 +
+ARCHITECTURE §10):** humans own
 their personas via client-generated access tokens (`Authorization: Bearer` on
 every persona mutation and gated read) — a persona can be edited, imported, or
 used to handshake only by its token holder; QR handshakes are
@@ -79,17 +98,26 @@ image helper (ARCHITECTURE §10.10).
 | `/profile` | `routes/profile/+page.svelte` | attendee | yes | "My profile" screen: centered square avatar + username, 3-stat row, pill tabs (About / Interests / QR code) over the live badge QR — read-only (§4.29) |
 | `/profile/settings` | `routes/profile/settings/+page.svelte` | attendee | no | App-level settings sub-page: profile-edit entry row, locale, token rotation, leave room — list-block pattern (§4.29) |
 | `/profile/edit` | `routes/profile/edit/+page.svelte` | attendee | no | "Edit profile" sub-page: name/bios, greeting (+ regenerate), local contact card; full-width Save Changes (§4.29) |
-| `/host` | `routes/host/+page.svelte` | host | yes* | Host console: one-time creation token, room creation, invite management, share kit, live room view |
+| `/host` | `routes/host/+page.svelte` | host | no | Host entry: auto-resume into the panel (§54.1 probe), create a room (one-time creation token), or log back in with the room key |
+| `/host/[room_address]` | `routes/host/[room_address]/+page.svelte` | host | no | Main admin panel: live members + drill-down, statistics (§3.7.5), share kit, room settings |
+| `/host/[room_address]/invite` | `routes/host/[room_address]/invite/+page.svelte` | host | no | Invite codes: active **and** expired/revoked (device ledger), mint, revoke |
+| `/host/[room_address]/invite/[code]/qr` | `routes/host/[room_address]/invite/[code]/qr/+page.svelte` | host | no | Per-code invite QR + code copy + share-or-copy-link (link text never shown) |
 
-*The Host tab is always visible in the tab bar (an attendee may also be the
-host); the host page itself never requires an attendee identity.
+**SUPERSEDED (Concept §54, 2026-11-24):** the single `/host` console row and
+its tab-bar footnote are replaced by the four-route tree above. The host
+routes carry **no tab bar at all** — §4.11.8 (2026-11-18, Concept §10.1.8)
+already removed the Host footer entry, and §54.4 keeps that binding: hosts
+reach `/host` by URL/bookmark.
 
 (The `/profile` row is rewritten and the `/profile/settings` +
 `/profile/edit` rows are ADDED by the §4.29 profile-redesign rev,
 2026-11-22.)
 
-Parameterized routes: only `/chats/[address]` — `address` is a chat address
-(`0xchat123`-style string from `ChatResponse.address`).
+Parameterized routes: `/chats/[address]` — `address` is a chat address
+(`0xchat123`-style string from `ChatResponse.address`); and the host tree —
+`[room_address]` is a room address (`0xroom…`, matched against
+`bleak.hostRoom.roomAddress`, §3.7) and `[code]` is a 6-digit invite code.
+Unknown/mismatched host parameters redirect to `/host` (§1.3).
 
 Deep links on `/`: `/?code=NNNNNN` (what the host's invite QR encodes, via
 `INVITE_URL_BASE`; unknown/absent `code` → normal manual entry state) and
@@ -114,7 +142,7 @@ single-direction variant (§3.8).
 
 ### 1.2 Bottom tab anatomy (adapted from `docs/refs/searching.png`)
 
-Five tabs, fixed bottom bar (height `--bottom-tabbar-height` = 64px):
+Four tabs, fixed bottom bar (height `--bottom-tabbar-height` = 64px):
 
 | # | Icon (pixel glyph) | Route | RU | EN |
 | --- | --- | --- | --- | --- |
@@ -122,7 +150,10 @@ Five tabs, fixed bottom bar (height `--bottom-tabbar-height` = 64px):
 | 2 | ☺ pixel face | `/people` | Люди | People |
 | 3 | ▤ dialog lines | `/chats` | Диалоги | Chats |
 | 4 | ☾ badge/id card | `/profile` | Профиль | Profile |
-| 5 | ★ star (host) | `/host` | Хост | Host |
+
+**SUPERSEDED (2026-11-18, Concept §10.1.8 / DESIGN §4.11.8):** the Host tab
+(row 5, ★) left the bottom navigation; the table above reflects the delivered
+four-tab set. The `/host` route tree is reached by URL/bookmark only (§3.7).
 
 (The scaffold's `TabBar.svelte` already matches this set; icons are placeholders
 to be replaced by pixel-art SVG glyphs per §4.4.)
@@ -147,7 +178,11 @@ to be replaced by pixel-art SVG glyphs per §4.4.)
   entry. **SUPERSEDED (Concept §47, 2026-11-23): the resume card is removed
   from the entry surface (`/` → now `/income`) — the default 6-digit form
   always shows; no stored-session resume variant.**
-- `/host` never redirects on missing identity.
+- `/host` never redirects on missing attendee identity. The host tree is
+  guarded by **host session** instead: `/host/[room_address]` and its children
+  redirect to `/host` when no stored `bleak.hostRoom` matches the URL's
+  `room_address`; a stored entry makes `/host` itself auto-resume into the
+  panel (§3.7.1) — never a dead screen.
 - Back behavior: `/chats/[address]` header has a back control (history back;
   if `history.length` makes back meaningless → `/chats`). All other navigation
   is via tabs / explicit links.
@@ -202,7 +237,10 @@ Cadences:
 | `/chats` | `listChatsOfUser` (+ `listRoomUsers` for name resolution) | 4 s |
 | `/chats/[address]` | `listChatMessages` | 2 s |
 | `/profile` | token-gated `getRoomUser` (persona Bearer) for the badge live-QR liveness flag (`mutual_code_live`, §3.6); stats fetched on mount + after mutations | 4 s |
-| `/host` | `listRoomUsers` + `getRoom` | 5 s |
+| `/host` (entry) | no interval — one auto-resume probe on mount (`listInvites` with the stored room key, §3.7.1) | — |
+| `/host/[room_address]` | `listRoomUsers` + `getRoom` (public reads); the same Poller's every third tick re-runs the §3.7.5 statistics fan-out (bounded concurrency 4) | 5 s (members) · 15 s (stats) |
+| `/host/[room_address]/invite` | `listInvites` (room token), merged with the device ledger on each tick | 15 s |
+| `/host/[room_address]/invite/[code]/qr` | no polling — static page, one liveness recheck on mount | — |
 
 Renderers use keyed `{#each}` and diff in the caller so a poll that returns
 identical data does not re-render.
@@ -328,8 +366,11 @@ Facts a worker must respect:
   legacy personas are unrecoverable — this notice is the only legacy-facing
   UI in the product.
 - **Host-symmetric gate:** `hostApi` 401/403 on a room-token call clears
-  `bleak.hostRoom` and resets the host console to the creation-token gate
-  (§3.7); it never touches attendee identity.
+  `bleak.hostRoom`, sets `sessionStorage` key `bleak.hostNotice`, and lands
+  on **`/host` in the log-in mode** with the reset notice above the entry
+  card (§3.7.1) — the rev. 4 route-tree landing, superseding the rev. 3
+  single-page console reset (dated Concept §54, 2026-11-24). It never
+  touches attendee identity.
 - The transcript viewer fallback (§3.5) is the **only** code path allowed to
   catch a 401 before the gate fires (ARCHITECTURE §10.3 escape hatch).
 
@@ -344,8 +385,9 @@ error" banner.
 | **Income rule (403)** | a handshake send rejected by the room's income>outcome rule | «Лимит исходящих хендшейков — сначала получите рукопожатия в ответ.» / "Outgoing handshake limit reached — receive handshakes first." (server text appended in muted small text when present) | `HandshakeSheet` on `/room` and `/people`, People card «+» action, scanner result panel, single-direction deep-link card (§3.8) |
 | **Stale mutual code (410)** | `POST /api/handshake/mutual` answered 410 | «Код уже использован — попросите обновить QR на карточке.» / "Code already used — ask them to refresh their badge QR." | scanner result panel; the `?u&m` deep-link confirm path on `/` |
 | **Invalid invite code (creation rejected)** | `POST /api/room/{room}/user` rejected over the code | «Код приглашения недействителен или истёк.» / "The invite code is invalid or expired." | join Step 3a/3b inline error |
+| **Host room key rejected** | a pasted room key + address fails the §3.7.1 validation probe (401/403) | «Ключ комнаты отклонён.» / "Room key rejected." (server text appended when present) | `/host` log-in mode (§3.7.1) |
 
-Rules for all three:
+Rules for all three (four with the host row):
 
 - **Retry semantics (bleak-node §7.3.4):** a **failed** attempt
   (NetworkError, 403, 410) never burns the one-time mutual code — only
@@ -1250,225 +1292,689 @@ handshake QR".
 
 ---
 
-### 3.7 `/host` — Host console
+### 3.7 `/host` route tree — host admin panel + statistics
 
-**Purpose.** The event host's tool: present the operator-granted **one-time
-creation token**, create the event room (the client generates the **room
-token**), receive the share kit (QR + 6-digit codes + invite links), manage
-invite codes (mint/expiry/revoke), and watch and drill into the room live.
-Desktop-comfortable (the only page designed desktop-first), but fully usable
-on a phone.
+**Purpose.** The event host's tool across four routes (rev. 4, Concept §54):
+create the event room **or log back in** with the room key; manage invite
+codes (mint / expiry / revoke) — **active and expired/revoked**; watch the
+room live and drill into members' dialogs (room-token reads, clear +
+kickoff); share any code as QR / copy-link (the link text is never shown);
+edit room settings; and read a **client-computed statistics panel** (seven
+metrics, four live — §3.7.5). Desktop-comfortable, fully usable on a phone.
 
-**API endpoints used.** (Room-token calls carry `bleak.hostRoom.roomToken`
-via the `hostApi` context — auto-injected; a host-context 401/403 resets the
-console, §2.8/§3.7 states.)
+**SUPERSEDED (Concept §54, 2026-11-24):** the rev. 3 single-page console
+layout is restructured into the route tree below. What moved where:
 
-| Endpoint (client method) | Use |
-| --- | --- |
-| `POST /api/room` (`createRoom(requestV2, createToken)`) | create room — **one-time creation token in the header** (header name TBD, ARCHITECTURE §10.13.1; proposed `x-create-token`), client-generated room token in the body (`CreateRoomRequestV2`); the creation token is consumed on use |
-| `GET /h/rooms/{code}/qr` (`inviteQrUrl`) | QR image (PNG 512px) for the share kit — the helper's only remaining endpoint (now stateless, ARCHITECTURE §10.10) |
-| `GET /api/room/{address}` (`getRoom`) — public read, **no token** | room details (`name`, `description`, `language`, `max_user`) |
-| `GET /api/room/{room}/user` (`listRoomUsers`) — public read, **no token** — 5 s poll | live member list |
-| `GET /api/room/{address}/invite` (`listInvites`) — **room token** | active invite codes |
-| `POST /api/room/{address}/invite` (`mintInvite`) — **room token** | mint a code (`{ expires_at? }`; default 24 h server-side) |
-| `DELETE /api/room/{address}/invite/{code}` (`revokeInvite`) — **room token** | revoke a code |
-| `GET /api/chat/{address}` + `GET /api/chat/{address}/message` — **room token** | member drill-down chat reads (plain chat reads — amendment-independent, ARCHITECTURE §10.3) |
-| `DELETE /api/chat/{address}/message` (`clearChatHistory`) — **room token** | clear a member's dialog from the drill-down |
-| `POST /api/chat/{address}/kickoff` (`kickoffChat`) — **room token** | restart a member's dialog from the drill-down |
-| `POST /api/room/{address}/token` (`rotateRoomToken`) — **Bearer = current room token; body = the new raw token** | room-token rotation |
-| `PUT /api/room/{address}` (`updateRoom`) — **room token** | room settings (name, description) |
-| `DELETE /api/room/{address}` (`deleteRoom`) — **room token** | end the event |
+- Creation-token gate + create form → **§3.7.1** (Create mode).
+- Share kit (big code, QR, link, "join as attendee") → **§3.7.2** share
+  region.
+- Invite-management block → **§3.7.3** (its own route; now also shows
+  expired/revoked codes via the device ledger — rule C).
+- Member drill-down with clear/kickoff → **§3.7.2** member region
+  (unchanged semantics; the rev. 3 "chat discovery" contract gap is **closed**
+  — `GET /api/room/{room}/user/{address}/chat` now accepts the room token,
+  so drill-down lists dialogs directly).
+- Room settings + rotation + delete → **§3.7.2** settings region.
+- Kickoff placement (delegated IA call): per-dialog **only**, in the member
+  drill-down (and §3.5's host-view transcript); there is no room-level
+  batch restart — no endpoint exists for one, and none is faked.
+- `GET /h/rooms/{code}/qr` (helper PNG) → **not used on the host tree**
+  (rev. 4); QR renders client-side (`InviteQr`, §3.7.4). The helper endpoint
+  stays for external parity only (ARCHITECTURE §10.10).
 
-**Not built in v2 (do not promise):** per-member handshake **counts** — no
-viable endpoint without the flag 6.9a amendment (Concept §6.6); the
-drill-down ships counts-less (§5 rationale). The helper's `POST /h/rooms`
-and `GET /h/rooms/{code}` mapping endpoints are retired (ARCHITECTURE
-§10.10); the host console talks to bleak-node directly.
+**Host session model (shared by all four routes).**
 
-**Layout.**
-Phone: single column. Desktop (≥ 900px): two columns — left column the share
-kit, right column the live room view; max-width 1080px centered.
+- `bleak.hostRoom = { roomAddress, roomToken, code }` in `localStorage`
+  (Concept §6.6 pattern; ARCHITECTURE §10.4) — the single host credential.
+  Room-token calls go through `hostApi` (auto-injection; ARCHITECTURE
+  §10.3); a host-context 401/403 resets the session per §2.8 and lands on
+  `/host` (log-in mode + notice). Attendee identity is never touched.
+- Invite ledger (rule C): `localStorage` key
+  `bleak.hostInvites.<room address>` — an append-only array of
+  `{ code, created_at, expires_at, revoked_at? }` recording every mint and
+  revoke response of **this device**; merged with the server invite list
+  (§3.7.3).
+- The host routes render **no tab bar** (§1.1 supersession note); each has
+  its own top bar with a back control.
+- Host entry stays **out of the footer nav** (§54.4 → Concept §10.1.8,
+  §4.11.8): hosts reach `/host` by URL/bookmark.
 
-1. **Header**: h1 «Хост» / "Host" + subtitle RU «Создайте комнату события и
-   поделитесь приглашением.» / "Create the event room and share the invite."
-2. **Creation-token gate** (shown when no `bleak.hostRoom` exists — i.e. no
-   active room session on this device): `--color-surface` card with a
-   password-type input (label «Токен создания комнаты» / "Room creation
-   token", masked, 48px, `autocomplete="off"`) + CTA «Продолжить» /
-   "Continue". Copy note RU «Одноразовый токен выдаёт оператор
-   развертывания. После создания комнаты он больше не нужен и не
-   сохраняется.» / "A one-time token issued by the deployment operator.
-   After the room is created it is never needed again and is not stored."
-   **The token is never persisted anywhere** — it lives only in memory for
-   the duration of the create call (it is consumed server-side on use); a
-   later console visit shows the gate again unless the share kit restores
-   from `bleak.hostRoom`.
-3. **Create room form** (card): `name` (required), `description` (optional),
-   `language` select (ru | en; this sets the agents' conversation language —
-   `CreateRoomRequestV2.language`). On submit the client generates the room
-   token (`generateTokenSecret()`) and calls
-   `createRoom(requestV2, createToken)`. CTA «Создать комнату» / "Create
-   room". (`max_user` is **not** settable — flag §6.3.)
-4. **Share kit** (after creation; restored on revisit from
-   `bleak.hostRoom = { roomAddress, roomToken, code }`; the room `name` for
-   display comes from a public `getRoom`):
-   - Big code display: the room's invite `code` in Handjet 40px,
-     letter-spaced, on a surface card with a «Скопировать» / "Copy" chip
-     (writes the digits).
-   - **QR block**: `inviteQrUrl(code)` `<img>` (256px on phone, 320px
-     desktop; alt «QR-код приглашения» / "Invite QR code"), pixel-cornered
-     light frame (`--color-qr-frame`; the helper renders
-     charcoal-on-light).
-   - Invite link row: `{INVITE_URL_BASE}?code={code}` (computed
-     client-side) + copy icon-button.
-   - CTA «Присоединиться как участник» / "Join as attendee" → runs the `/`
-     join flow with this code (navigates to `/?code={code}`).
-   - Link «Создать другую комнату» / "Create another room" → back to the
-     form (the existing room session stays in `bleak.hostRoom` until it is
-     replaced or the room is deleted).
-5. **Invite management block** (v2, room-token authority — new):
-   - Sub-header «Коды приглашения» / "Invite codes" + muted hint RU «Код
-     действует до истечения срока; отозвать можно в любой момент.» / "A code
-     works until it expires; you can revoke it any time."
-   - **Active-code list**: one `InviteRow` per active code (`listInvites`):
-     6-digit code (Handjet 24px), muted expiry «истекает через {time}» /
-     "expires in {time}", and row actions: copy chip, a QR toggle (reveals a
-     small `inviteQrUrl(code)` image for that code), invite-link copy, and
-     «Отозвать» / "Revoke" (outline-destructive; no confirm — revocation is
-     reversible by minting again). On success the row disappears on the next
-     list refresh with the transient note «Код отозван.» / "Code revoked."
-     Revoked and expired codes never render in the list.
-   - **Mint control**: CTA «Выпустить код» / "Mint a code" opens an inline
-     **expiry chooser** — three preset pills «1 час» / "1 hour", «24 часа» /
-     "24 hours" (pre-selected default), «7 дней» / "7 days" — plus a fourth
-     «Своё время…» / "Custom…" that reveals a compact `datetime-local` input
-     (min = now). Mint → `mintInvite(address, roomToken, { expires_at? })` →
-     the new code appears at the top of the list **and joins the share kit**
-     as a per-code row: each minted code carries its own QR + link copies so
-     the host can share several codes side by side (e.g. one per entrance).
-     Presets over free datetime by default: a host mid-event needs two taps,
-     not a calendar (rationale §5; ARCHITECTURE §10.13.8).
-6. **Live room view** (poll 5 s, public reads):
-   - Summary tiles: «Участники {n}/{max_user}» / "Members {n}/{max_user}"
-     (from `listRoomUsers.length` and `getRoom.max_user`), «Язык {language}» /
-     "Language {language}".
-   - **Member list**: rows (avatar, `User.name`, joined time from
-     `created_at`); each row tap → **member drill-down sheet** (on-demand
-     fetches, not polled): the member's dialogs read with the **room token**
-     (plain `getChat` + `listChatMessages` per chat address — amendment-independent, ARCHITECTURE §10.3). **Chat discovery
-      (honest handling of a contract gap):** the plain reads give no
-      room-scoped per-user chat *listing* (that piece is part of the 6.9a
-      amendment), so the drill-down shows the member's dialogs only when
-      their chat addresses are discoverable (via a 6.9a-style room-scoped
-      listing once it exists, or from chat knowledge the console already
-      holds); until then the sheet renders the empty-drill-down copy plus a
-      muted hint RU «Список диалогов участника появится вместе с серверным
-      обновлением (флаг 6.9a).» / "The member's dialog list arrives with the
-      server-side amendment (flag 6.9a)." — never invented client side.
-      Dialog rows
-     link to the read-only `/chats/{address}` transcript (the host observes
-     any transcript — the §3.5 viewer fallback context) **and** carry two
-     inline host actions per dialog: «Очистить историю» / "Clear history" →
-     confirm (body RU «История диалога участников будет очищена.» / "The
-     participants' dialog history will be cleared.") → `clearChatHistory`
-     (room token); «Запустить заново» / "Restart" → reuses the §3.5 kickoff
-     confirm copy → `kickoffChat` (room token). Empty drill-down: «У
-     участника пока нет диалогов.» / "This member has no dialogs yet."
-     **No handshake counts are shown anywhere in the console** (flag 6.9a).
-   - **Host settings** (collapsible): edit `name`/`description` →
-     `PUT updateRoom` (room token); **«Сгенерировать ключ комнаты» /
-     "Regenerate room token"** → `ConfirmDialog` (title «Сгенерировать ключ
-     комнаты?» / "Regenerate the room credential?"; body RU «Текущий ключ
-     комнаты перестанет действовать. Продолжить?» / "The current room
-     credential will stop working. Continue?") → `rotateRoomToken` → the
-     stored `bleak.hostRoom.roomToken` is replaced in place; danger zone
-     «Удалить комнату» / "Delete room" → confirm → `DELETE` (room token) →
-     clears `bleak.hostRoom`, returns to the create form. Copy warning RU
-     «Комната будет удалена вместе со всеми участниками.» / "The room will
-     be deleted with all its members."
+**API endpoints used** (auth verified per-path in
+`/mount/bleak-node/docs/swagger.json`, 2026-11-24; room-token calls carry
+`bleak.hostRoom.roomToken` via the `hostApi` context):
 
-**States.**
-- Creation token rejected (401/403 on create): error under the token field RU
-  «Токен отклонён.» / "Token rejected." (server text appended if present);
-  the entered value stays masked; nothing is stored; the gate remains.
-- Create 400/409: field error from server text (e.g. duplicate name →
-  «Комната с таким именем уже есть» surfaced from server body).
-- Create pending: CTA spinner; form disabled.
-- **Host session reset (`hostApi` 401/403 on any room-token call):**
-  `bleak.hostRoom` is cleared and the console resets to the creation-token
-  gate with a notice line above it: RU «Доступ к комнате отозван — войдите
-  заново с токеном создания.» / "Room access was revoked — sign in again
-  with a creation token." (`aria-live="polite"`; attendee identity is never
-  touched.)
-- Live view empty (no members): «Пока никто не присоединился.» / "Nobody has
-  joined yet."
-- Live view error: `ErrorBanner`; stale list dimmed.
-- Drill-down fetch failure: inline muted error inside the sheet with retry.
-- Invite list/mint/revoke failure: inline muted error inside the invite
-  block with retry; the share kit is unaffected.
-- `getRoom` 404 (room deleted elsewhere): full-section state «Комната
-  удалена.» / "The room was deleted." + reset to create form.
+| Endpoint (client method) | Auth (verified) | Use |
+| --- | --- | --- |
+| `POST /api/room` (`createRoom`) | `x-create-token` header (required, consumed on use) — no Bearer | §3.7.1 create: body `CreateRoomRequest` `{ name, description, language, token }` — `token` is the **client-generated room token** (only its SHA-256 hash is stored). 201 → `CreateRoomResponse` (`address`, `invite_code`, `max_user`, …); 400/401/403/409 |
+| `GET /api/room/{address}` (`getRoom`) | **public** | room details for header/share kit/settings (`name`, `description`, `language`, `max_user`) |
+| `GET /api/room` (`listRooms`) | **public** | §3.7.1 only: the "forgot the address?" finder probes this list with the pasted key |
+| `PUT /api/room/{address}` (`updateRoom`) | **room token per §54.1 — contract nuance: swagger declares NO security scheme on this PUT** (401/403 exist in its responses; the client sends the room token as Bearer) | §3.7.2 settings: body `UpdateRoomRequest` = **`{ name, description }` only** — `language`/`max_user` are **not accepted** (§6 flag F10) |
+| `DELETE /api/room/{address}` (`deleteRoom`) | `RoomToken` | §3.7.2 end the event |
+| `GET /api/room/{room}/user` (`listRoomUsers`) | **public** | §3.7.2 member list (5 s) + §3.7.5 engine step 1 |
+| `GET /api/room/{room}/user/{address}/chat` (`listChatsOfRoomUser`) | scheme `UserToken`; description: persona Bearer **or the room token** → room token used | §3.7.2 drill-down listing + §3.7.5 engine step 2 |
+| `GET /api/room/{room}/user/{address}/chat/{chat}/messages` (`listRoomUserChatMessages`) | same (room token accepted) | §3.7.5 engine step 4 (one fetch per **deduped** chat, via one participant path segment) |
+| `DELETE /api/room/{room}/user/{address}` (`deleteRoomUser`) | **`UserToken` only — persona token; the room token is NOT accepted** (verified) | **no UI call** — rule D gate (§3.7.2 renders the honest unavailable state) |
+| `GET /api/room/{address}/invite` (`listInvites`) | `RoomToken` | §3.7.1 resume probe + §3.7.3 active list; response wraps `{ invites: [InviteResponse…] }` — only **unexpired + unrevoked** codes |
+| `POST /api/room/{address}/invite` (`mintInvite`) | `RoomToken` | §3.7.3 mint; body `CreateInviteRequest` `{ expires_at? }` (default 24 h server-side); 201 → `InviteResponse { code, created_at, expires_at, room }` |
+| `DELETE /api/room/{address}/invite/{code}` (`revokeInvite`) | `RoomToken` | §3.7.3 revoke (immediate) |
+| `POST /api/room/{address}/token` (`rotateRoomToken`) | `RoomToken` — **current** room token as Bearer; body = the new raw token | §3.7.2 rotation |
+| `POST /api/chat/{address}/kickoff` (`kickoffChat`) | scheme `UserToken`; description: participant Bearer **or the room token** | §3.7.2 drill-down restart; 201 → `KickoffResponse { chat, cleared, speaker }` |
+| `DELETE /api/chat/{address}/message` (`clearChatHistory`) | same (room token accepted) | §3.7.2 drill-down clear |
+| `GET /api/handshake/user/{address}` (`listHandshakesOfUser`) | **`UserToken` only — that persona's Bearer** (verified) | **no UI call** until flag 6.9a / `tz2-07a` lands — rule B gate (§3.7.5 metrics 5–7) |
+| `GET /h/rooms/{code}/qr` (`inviteQrUrl`) | helper, no auth | **not used on the host tree** (rev. 4 — client-side `InviteQr`); kept for external parity (§6 note) |
 
-**Responsive.** ≥ 900px two-column as above; the share kit + invite block
-stay in the left column (sticky), the live view scrolls on the right.
+**Not built in rev. 4 (do not promise):** handshake metrics 5–7 (rule B —
+persona-token-only read; panels are specified in §3.7.5 but **omitted from
+the UI** until the flag-6.9a amendment / pre-authorized `tz2-07a` lands);
+member deletion (rule D — persona-token-only endpoint; §3.7.2 renders the
+honest unavailable state). No proxy metrics, no mocks, no backend changes
+(§54 hard ruling). The helper's `POST /h/rooms` / `GET /h/rooms/{code}` stay
+retired (ARCHITECTURE §10.10); the host tree talks to bleak-node directly.
 
-**Accessibility.** Creation-token input is `type="password"` with
-autocomplete off and **never logged, stored, or rendered elsewhere**; the
-code display has `aria-label` with the digits spelled («Код: 1 2 3 4 5 6»).
-Drill-down sheets trap focus; the danger zone is separated with a visible
-warning heading; invite rows are list items whose actions carry per-code
-`aria-label`s («Отозвать код {code}» / "Revoke code {code}").
+#### §3.7.1 `/host` — create a room or log back in
 
-**Acceptance criteria.**
-1. Without a stored `bleak.hostRoom`, `/host` shows the creation-token gate;
-   the entered creation token is never persisted (no
-   localStorage/sessionStorage key exists for it) and never rendered anywhere
-   except the masked input.
-2. A wrong or consumed creation token (401/403 on create) shows «Токен
-   отклонён.» under the field, keeps the entered value masked, and stores
+**User goals.** (a) A first-time host turns the operator-granted one-time
+creation token into a room; (b) a returning host on any device resumes or
+re-establishes a room session with the room key; (c) the app auto-resumes a
+still-valid stored session straight into the panel (§54.1 concept decision,
+specified here explicitly). No dead ends: both entry modes are always
+reachable.
+
+**Layout.** No tab bar; a simple top bar with the app wordmark
+(non-navigational). Centered card column, max-width 640px:
+
+1. **Header**: h1 «Хост» / "Host" + subtitle «Создайте комнату события и
+   управляйте ею.» / "Create the event room and manage it."
+2. **Reset notice** (only when `sessionStorage` `bleak.hostNotice` is set —
+   §2.8 host gate): `--color-surface` notice card, lock pixel glyph, copy
+   «Доступ к комнате отозван — войдите заново с ключом комнаты или создайте
+   новую комнату.» / "Room access was revoked — sign in again with the room
+   key or create a new room." `aria-live="polite"`; the key is removed after
+   rendering (once per incident). When present, the mode switch pre-selects
+   **Log in**.
+3. **Auto-resume probe (§54.1, on mount with a stored `bleak.hostRoom`):**
+   before the entry card renders interactively, the app validates the stored
+   room key with the **invite-list GET** (`GET /api/room/{address}/invite` —
+   room-token-gated; the same call the invite page needs first):
+   - **200** → auto-navigate to `/host/<room_address>` immediately — no form
+     flash. While the probe is in flight the page shows a single skeleton
+     card + muted line «Проверяем доступ к комнате…» / "Checking room
+     access…" (`aria-busy`).
+   - **401** (dead key) → clear `bleak.hostRoom` (host reset semantics,
+     §2.8), show the reset notice, fall back to the entry card in the
+     **Create** mode (the stored key is dead, so log-in would repeat the
+     failure; the Log-in mode stays one tap away).
+   - **404** (room deleted elsewhere) → clear `bleak.hostRoom`, show
+     «Комната удалена.» / "The room was deleted." + the entry card (Create
+     mode).
+   - **NetworkError** → the stored entry is **kept** (a network failure
+     proves nothing about the credential): §2.1 network `ErrorBanner` with
+     retry above the entry card; the card is fully usable meanwhile.
+4. **Entry card** with a **mode switch** (`SegmentedControl`, two segments):
+   «Создать комнату» / "Create room" · «Войти по ключу» / "Sign in with
+   key". Both forms live in the same card; switching never loses input.
+   - **Create mode** (default without a stored session): masked
+     creation-token input (label «Токен создания комнаты» / "Room creation
+     token", `type="password"`, 48px, `autocomplete="off"`), then the room
+     form — `name` (required), `description` (optional), `language` select
+     (ru | en; sets the agents' conversation language). Copy note (binding,
+     carried verbatim from rev. 3): «Одноразовый токен выдаёт оператор
+     развертывания. После создания комнаты он больше не нужен и не
+     сохраняется.» / "A one-time token issued by the deployment operator.
+     After the room is created it is never needed again and is not stored."
+     CTA «Создать комнату» / "Create room". On submit the client generates
+     the room token (`generateTokenSecret()`) and calls `POST /api/room`
+     with the creation token in the **`x-create-token` header** and
+     `{ name, description, language, token }` in the body. **The creation
+     token is consumed server-side and never stored anywhere** — it lives
+     only in memory for the duration of the create call. Success: store
+     `bleak.hostRoom = { roomAddress: response.address, roomToken, code:
+     response.invite_code }` → navigate to `/host/<room_address>`.
+     (`max_user` is not in `CreateRoomRequest` — the server default applies
+     and displays as read-only in the panel.)
+   - **Log-in mode** (always available — new device, rotated key, "use
+     another room"): two fields — room **address** («Адрес комнаты» / "Room
+     address", plain text, e.g. `0xroom…`) and room **key** («Ключ комнаты»
+     / "Room key", masked, `type="password"`, `autocomplete="off"`) — the
+     address is required by every room-token route, so the pair is asked
+     for honestly (there is no token→room resolve endpoint; §6 flag F11).
+     On submit the client validates the pair with the same invite-list GET
+     probe: **200** → store/overwrite `bleak.hostRoom` (the `code` starts
+     unknown and fills from the first invite-list tick on the panel) →
+     navigate to `/host/<room_address>`; **401/403** → inline error «Ключ
+     комнаты отклонён.» / "Room key rejected." under the key field (server
+     text appended when present), the entered value stays masked, **nothing
+     is stored** (§2.9 host row). Secondary link under the fields: «Не
+     помните адрес?» / "Forgot the address?" → the **address finder**: the
+     client fetches the public `GET /api/room` list and probes candidates
+     with the invite-list GET using the entered key (bounded: concurrency
+     4, cap 25 rooms, stops at the first 200), showing «Ищем комнату…» /
+     "Looking for the room…" while running; a match fills the address field
+     and continues the normal validation; no match → honest inline copy
+     «Ключ не подошёл ни к одной комнате.» / "The key didn't match any
+     room." The finder **never writes storage** — only the successful
+     validation does.
+
+**States (§3.7.1).** Loading: probe skeleton (auto-resume) / CTA spinner
+with disabled form (create, log-in, finder in flight). Errors: creation
+token 401/403 → «Токен отклонён.» / "Token rejected." under the field
+(carried verbatim from rev. 3), value stays masked, nothing stored; create
+400/409 → server-text field error (e.g. duplicate name surfaced from the
+server body); log-in failure → §2.9 host row; finder no-match copy above;
+NetworkError anywhere → §2.1 banner + retry. Empty: n/a (the page is a
+form).
+
+**Responsive.** Single column at every width (max 640px, centered); all
+controls ≥ 48px touch targets.
+
+**Accessibility.** Masked inputs are `type="password"` with
+`autocomplete="off"`; the creation token is never logged, stored, or
+rendered elsewhere. The mode switch is a labelled radiogroup (or two
+buttons with `aria-pressed`). The reset notice is `aria-live="polite"`; the
+auto-resume skeleton line uses the same live region. Error copy announces
+once on render (`aria-live="polite"`).
+
+**Acceptance criteria (§3.7.1).**
+1. Without a stored `bleak.hostRoom`, `/host` shows the entry card with the
+   mode switch pre-selected to **Create**; no tab bar and no footer Host
+   entry render on `/host` (or any host route).
+2. The entered creation token is never persisted (no
+   localStorage/sessionStorage key exists for it) and never rendered
+   anywhere except the masked input; a wrong or consumed token (401/403 on
+   create) shows «Токен отклонён.», keeps the value masked, and stores
    nothing.
 3. A successful create generates the room token client-side, calls
-   `POST /api/room` with the creation token in the header and the room token
-   in the body, and stores `{ roomAddress, roomToken, code }` in
-   `bleak.hostRoom`.
-4. The share kit renders the 6-digit `code` (Handjet), the QR `<img>` from
-   `GET /h/rooms/{code}/qr`, and the invite link
-   `{INVITE_URL_BASE}?code={code}`; both copy actions write the correct
-   values to the clipboard.
-5. Revisiting `/host` with a stored `bleak.hostRoom` restores the share kit
-   (room name via public `getRoom`) without re-creating anything.
-6. "Join as attendee" navigates to `/?code={code}` (the deep-link flow of
-   §3.1 takes over).
-7. The invite block lists active codes via `GET …/invite` (room token);
-   minting with a preset expiry (24 h pre-selected) or a custom datetime
-   calls `POST …/invite` and the new code appears in the list with its own
-   copy/QR/link actions.
-8. "Revoke" on a code row calls `DELETE …/invite/{code}` and the row
-   disappears on refresh with the «Код отозван.» note; revoked and expired
-   codes never render as active.
-9. The live view polls members every 5 s (public reads); the members tile
-   shows `listRoomUsers.length` against `getRoom.max_user`.
-10. A member drill-down opens on demand and lists that member's dialogs read
-    with the **room token**; each dialog row links to the read-only
-    `/chats/{address}` transcript and carries "Clear history" and "Restart"
-    actions that call `clearChatHistory` / `kickoffChat` with the room token
-    after their confirm dialogs.
-11. The console shows **no handshake sent/received counts** anywhere.
-12. Host settings save via `PUT /api/room/{address}` (room token);
-    "Delete room" confirms, calls `DELETE`, clears the stored room, and
-    returns to the create form.
-13. "Regenerate room token" confirms with the specified copy, calls
-    `rotateRoomToken` with the current Bearer, and updates the stored
-    `bleak.hostRoom.roomToken` in place.
-14. A host-context 401/403 on any room-token call clears `bleak.hostRoom`,
-    resets the console to the creation-token gate, shows the «Доступ к
-    комнате отозван…» notice (`aria-live="polite"`), and leaves attendee
-    identity untouched.
-15. When no one has joined, the live view shows the empty copy; when the
-    room is deleted while the console is open, the «Комната удалена.» state
-    resets to the create form.
-16. On a ≥ 900px viewport the page lays out in two columns with the share
-    kit + invite block sticky on the left.
+   `POST /api/room` with the creation token in the `x-create-token` header
+   and `{ name, description, language, token }` in the body, stores
+   `{ roomAddress, roomToken, code }` in `bleak.hostRoom`, and navigates to
+   `/host/<room_address>`.
+4. The log-in mode always offers the address + masked key fields; a pair
+   validated by a 200 on `GET /api/room/{address}/invite` stores/overwrites
+   `bleak.hostRoom` and navigates to the panel; a 401/403 shows «Ключ
+   комнаты отклонён.» and stores nothing.
+5. The mode switch never dead-ends: switching modes preserves entered
+   values, and both modes remain reachable from every state of the page.
+6. On mount with a stored `bleak.hostRoom`, the app probes the invite-list
+   GET and, on 200, navigates straight to `/host/<room_address>` without
+   rendering the forms; during the probe a skeleton + «Проверяем доступ к
+   комнате…» show.
+7. A 401 on the resume probe clears `bleak.hostRoom`, shows the reset
+   notice («Доступ к комнате отозван…», `aria-live="polite"`), and falls
+   back to the entry card with Create pre-selected; a 404 shows «Комната
+   удалена.» and clears the entry.
+8. A NetworkError on the resume probe keeps the stored entry, shows the
+   network banner with retry, and leaves the entry card usable.
+9. The reset notice renders only when `bleak.hostNotice` is set, is
+   announced politely, and the sessionStorage key is removed after render
+   (once per incident); its presence pre-selects the Log-in mode.
+10. "Forgot the address?" fetches the public `GET /api/room` list and probes
+    candidates with the entered key at bounded concurrency (≤ 4, cap 25,
+    stop on first 200); a match fills the address and continues validation;
+    no match shows «Ключ не подошёл ни к одной комнате.»; the finder never
+    writes storage by itself.
+11. Masked inputs on this page are `type="password"` with
+    `autocomplete="off"`; the mode switch and every button meet the ≥ 48px
+    touch-target rule with visible focus.
+12. `/host` never redirects based on attendee identity (the identity store
+    may be null); only the host session drives its behavior.
+
+#### §3.7.2 `/host/[room_address]` — main admin panel
+
+**User goals.** Watch the room live (members, dialogs), restart or clear a
+stalled dialog, share the invite (kit + full codes page), edit room
+settings, rotate the room key, end the event — and read the statistics
+panel (§3.7.5, rendered here).
+
+**Guard.** The stored `bleak.hostRoom.roomAddress` must equal the URL param;
+otherwise redirect to `/host` (§1.3). Missing stored entry → `/host`.
+
+**Layout.** No tab bar. Top bar: back control (→ `/host`), room name (live
+`h1` from `getRoom`), muted address chip, and two read-only data chips
+«Язык агентов: {language}» / "Agents' language: {language}" and
+«Вместимость: {n}» / "Capacity: {n}" (data display, never controls).
+Below, regions in this order (delegated IA decision — rationale §5): live
+members first, statistics second, sharing third, dangerous settings last.
+
+1. **Members region** (poll 5 s, public reads — carried from rev. 3):
+   summary tile «Участники {n}/{max_user}» / "Members {n}/{max_user}"
+   (`listRoomUsers.length` vs `getRoom.max_user`), member rows (avatar,
+   `User.name`, joined time from `created_at`). Row tap → **member
+   drill-down sheet** (on-demand, not polled): the member's dialogs read
+   with the **room token**.
+   - Dialog list via **room-token** `GET
+     /api/room/{room}/user/{address}/chat` (the rev. 3 discovery gap is
+     closed — this listing now accepts the room token); each row links to
+     the read-only `/chats/{address}` transcript (host viewer context,
+     §3.5) and carries two inline actions: «Очистить историю» / "Clear
+     history" → confirm (body «История диалога участников будет очищена.» /
+     "The participants' dialog history will be cleared.") → `DELETE
+     /api/chat/{address}/message` (room token); «Запустить заново» /
+     "Restart" → reuses the §3.5 kickoff confirm copy → `POST
+     /api/chat/{address}/kickoff` (room token; 201 → `KickoffResponse` —
+     the speaker line reuses `chat.kickoff.speaker`). **Kickoff placement**
+     (delegated IA call): per-dialog only — here and in §3.5's host view;
+     no room-level batch restart exists in the contract and none is faked. CONFIRM-LF: «У участника пока нет диалогов.» / "This member has
+     no dialogs yet."
+   - **Rule D unavailable state (honest, not a dead button):** at the
+     bottom of the drill-down, where member deletion will live after the
+     backend amendment, a **non-interactive locked row** renders: muted
+     lock glyph + «Удаление участника появится вместе с серверным
+     обновлением.» / "Member deletion arrives with a server-side
+     amendment." — `aria-disabled`, no click handler, and **no**
+     `DELETE /api/room/{room}/user/{address}` call anywhere in the UI (the
+     endpoint is persona-token-only; verified 2026-11-24).
+   - No handshake counts anywhere in the panel (rule B).
+2. **Statistics region** — fully specified in **§3.7.5** (renders in this,
+   second position).
+3. **Share region** (carried from rev. 3; semantics unchanged):
+   - Big code display: the room's current invite `code` (from
+     `bleak.hostRoom`) in Handjet 40px on a surface card + «Скопировать» /
+          "Copy" chip; `aria-label` spells the digits («Код: 1 2 3 4 5 6»).
+   - **QR block**: client-side `InviteQr` SVG (the §3.6 `uqr` renderer —
+     **not** the helper PNG, rev. 4) encoding
+     `{INVITE_URL_BASE}?code={code}`, 256px phone / 320px desktop,
+     pixel-cornered light frame, alt «QR-код приглашения» / "Invite QR
+     code".
+   - CTA «Присоединиться как участник» / "Join as attendee" →
+     `/?code={code}` (§3.1 deep-link flow takes over).
+   - Link row «Все коды приглашения» / "All invite codes" →
+     `/host/<room_address>/invite` (§3.7.3).
+4. **Settings region** (collapsible, last):
+   - **Room edit**: `name` + `description` fields → «Сохранить» / "Save" →
+     `PUT /api/room/{address}` (room token; body `{ name, description }`)
+     → transient «Сохранено» / "Saved" note; the header name refreshes from
+     the PUT response. **`language` and `max_user` render read-only** (the
+     two data chips in the top bar) with a muted hint «Язык и вместимость
+     изменятся вместе с серверным обновлением.» / "Language and capacity
+     become editable with a server-side amendment." — **SUPERSEDED
+     (Concept §54, 2026-11-24):** rev. 3's "max_user not settable (flag
+     §6.3)" note is superseded by §54.1's intent to make it settable, but
+     swagger's `UpdateRoomRequest` still accepts only `name`/`description`
+     (verified 2026-11-24), so the editable controls stay backend-gated
+     (§6 flag F10). 400 → server-text field error.
+   - **«Сгенерировать ключ комнаты» / "Regenerate room token"** →
+     `ConfirmDialog` (title «Сгенерировать ключ комнаты?» / "Regenerate the
+     room credential?"; body «Текущий ключ комнаты перестанет действовать.
+     Продолжить?» / "The current room credential will stop working.
+     Continue?") → `POST /api/room/{address}/token` (current key as Bearer,
+     new client-generated raw token in the body) → the stored
+     `bleak.hostRoom.roomToken` is replaced **in place**.
+   - **Danger zone**, separated by a visible warning heading: «Удалить
+     комнату» / "Delete room" → confirm (body «Комната будет удалена вместе
+     со всеми участниками.» / "The room will be deleted with all its
+     members.") → `DELETE /api/room/{address}` (room token) →
+     `bleak.hostRoom` cleared → navigate to `/host` (entry card, Create
+     mode).
+**States (§3.7.2).**
+- Members empty (no one joined): «Пока никто не присоединился.» / "Nobody
+  has joined yet." — the statistics block then shows its own empty state
+  (§3.7.5); the share region stays fully functional.
+- Live error: `ErrorBanner`; stale lists dimmed; the Poller retries with
+  backoff and clears the banner on the next successful tick.
+- Drill-down fetch failure: inline muted error inside the sheet with retry.
+- **Host session reset (`hostApi` 401/403 on any room-token call):**
+  `bleak.hostRoom` is cleared, `sessionStorage` `bleak.hostNotice` is set,
+  and navigation lands on `/host` (log-in mode) with the notice «Доступ к
+  комнате отозван — войдите заново с ключом комнаты или создайте новую
+  комнату.» / "Room access was revoked — sign in again with the room key or
+  create a new room." (`aria-live="polite"`; attendee identity is never
+  touched.)
+- `getRoom` 404 (room deleted elsewhere): full-page state «Комната
+  удалена.» / "The room was deleted." → `bleak.hostRoom` cleared, redirect
+  to `/host`.
+
+**Responsive.** ≥ 900px two-column: the main column (≈ 58%) holds members +
+statistics + settings and scrolls; the side column (≈ 42%, sticky) holds
+the share region + the invite shortcut; max-width 1080px centered. Below
+900px everything stacks in the region order above.
+
+**Accessibility.** Drill-down sheets trap focus; the danger zone is
+separated with a visible warning heading; member and dialog rows are list
+items whose actions carry per-record `aria-label`s («Запустить заново
+диалог {chat}» / "Restart dialog {chat}", «Очистить историю диалога {chat}»
+/ "Clear dialog {chat} history"). The locked rule-D row is
+`aria-disabled="true"` with its explanation read as the row text.
+
+**Acceptance criteria (§3.7.2).**
+1. The page redirects to `/host` unless the stored `bleak.hostRoom` matches
+   the URL's `[room_address]`.
+2. The top bar shows the live room name (public `getRoom`), the muted
+   address chip, and the read-only «Язык агентов…» / «Вместимость…» data
+   chips; no control mutates `language` or `max_user`.
+3. The member list polls `listRoomUsers` every 5 s (public reads); the
+   members tile shows `listRoomUsers.length` against `getRoom.max_user`;
+   the Poller stops on route teardown.
+4. A member drill-down opens on demand and lists that member's dialogs via
+   the room-token `GET /api/room/{room}/user/{address}/chat`; each dialog
+   row links to the read-only `/chats/{address}` transcript.
+5. "Clear history" confirms with the specified copy and calls `DELETE
+   /api/chat/{address}/message` with the room token.
+6. "Restart" confirms with the §3.5 kickoff copy and calls `POST
+   /api/chat/{address}/kickoff` with the room token; kickoff exists
+   per-dialog only — no room-level batch restart control exists.
+7. The drill-down renders the locked rule-D row («Удаление участника
+   появится вместе с серверным обновлением.») as non-interactive
+   (`aria-disabled`), and no `DELETE /api/room/{room}/user/{address}` call
+   exists anywhere in the UI.
+8. No handshake counts appear anywhere on the panel (rule B).
+9. The share region renders the 6-digit `code` (Handjet, digits spelled in
+   the `aria-label`), a client-side `InviteQr` QR of
+   `{INVITE_URL_BASE}?code={code}` (no helper PNG call), and a working
+   "Join as attendee" link to `/?code={code}`.
+10. Room settings save `name`/`description` via `PUT /api/room/{address}`
+    (room token); a 400 shows the server-text field error; the read-only
+    hint for `language`/`max_user` shows the server-amendment copy.
+11. "Regenerate room token" confirms with the specified copy, calls `POST
+    /api/room/{address}/token` with the current Bearer, and updates the
+    stored `bleak.hostRoom.roomToken` in place.
+12. "Delete room" confirms, calls `DELETE /api/room/{address}`, clears the
+    stored room, and returns to `/host` (entry card, Create mode).
+13. A host-context 401/403 on any room-token call clears `bleak.hostRoom`,
+    sets `bleak.hostNotice`, lands on `/host` (log-in mode) with the
+    «Доступ к комнате отозван…» notice (`aria-live="polite"`), and leaves
+    attendee identity untouched.
+14. When the room is deleted while the panel is open (`getRoom` 404), the
+    «Комната удалена.» state clears the stored room and redirects to
+    `/host`.
+15. On a ≥ 900px viewport the panel lays out in two columns (main + sticky
+    side share column); below 900px the regions stack in the specified
+    order.
+
+#### §3.7.3 `/host/[room_address]/invite` — invite codes, active and expired
+
+**User goals.** See every code the room has — active **and**
+expired/revoked (rule C); mint a code with an expiry (24 h default);
+revoke a code; jump into a code's QR page.
+
+**Guard.** Same as §3.7.2: the stored session must match `[room_address]`,
+otherwise redirect to `/host`.
+
+**Layout.** No tab bar; top bar with back (→ panel), h1 «Коды приглашения»
+/ "Invite codes", muted hint «Код действует до истечения срока; отозвать
+можно в любой момент.» / "A code works until it expires; you can revoke it
+any time." Single column, max-width 720px:
+
+1. **Active codes** (`GET /api/room/{address}/invite`, room token; the
+   response wraps `{ invites: [InviteResponse…] }` and the server returns
+   only unexpired + unrevoked codes): one `InviteRow` per code — 6-digit
+   code (Handjet 24px), muted expiry «истекает через {time}» / "expires in
+   {time}", and row actions: copy chip (aria-label «Скопировать код {code}»
+   / "Copy code {code}"), QR link (→
+   `/host/<room_address>/invite/{code}/qr`; aria-label «QR-код кода {code}»
+   / "QR for code {code}"), invite-link copy («Скопировать ссылку кода
+   {code}» / "Copy link for code {code}"), and «Отозвать» / "Revoke"
+   (outline-destructive; no confirm — revocation is reversible by minting
+   again; aria-label «Отозвать код {code}» / "Revoke code {code}").
+2. **Mint control**: CTA «Выпустить код» / "Mint a code" opens the inline
+   expiry chooser — preset pills «1 час» / "1 hour", «24 часа» / "24 hours"
+   (**pre-selected default** per §6.6), «7 дней» / "7 days" — plus «Своё
+   время…» / "Custom…" revealing a compact `datetime-local` input
+   (min = now). Mint → `POST /api/room/{address}/invite` (`{ expires_at? }`)
+   → the code appears at the top of the active list **and is recorded in
+   the ledger** (rule C). Presets over free datetime by default: a host
+   mid-event needs two taps, not a calendar (rationale §5).
+
+3. **Expired & revoked** (rule C — the device ledger
+   `bleak.hostInvites.<room address>`): a collapsed section listing ledger
+   entries **missing from the server list** — each renders as expired
+   («истёк {date}» / "expired {date}") or revoked («отозван {date}» /
+   "revoked {date}"), badges as muted text, rows non-interactive (display
+   only; no actions on dead codes). **Ledger caveat** (binding copy, shown
+   directly under the section header): «Коды, выпущенные с других
+   устройств, видны в списке только пока они активны; их истечение показать
+   нельзя.» / "Codes minted on other devices appear in the list only while
+   active; their expiry cannot be shown." The section is hidden entirely
+   when no such entries exist.
+4. **Merge rule**: the server list is authoritative for **active** codes;
+   the ledger contributes **history**. A mint or revoke response is
+   appended to the ledger immediately and reconciled on every poll tick;
+   ledger entries still present in the server list are never
+   double-rendered.
+
+**States (§3.7.3).**
+- Loading: skeleton rows on first arrival; 15 s poll refreshes swap in
+  place (no skeleton flicker).
+- Empty (no active codes AND no ledger entries): `EmptyState` «Активных
+  кодов нет. Выпустите код, чтобы пригласить участников.» / "No active
+  codes. Mint one to invite attendees." + the mint CTA.
+- Expired/revoked section with zero entries: the section is omitted (not an
+  empty-state surface).
+- Error: inline muted `ErrorBanner` with retry; the ledger section still
+  renders (it is local).
+- Mint/revoke failure: inline muted error near the control; **nothing is
+  recorded in the ledger on failure**.
+- 404 on the room (deleted): full-page «Комната удалена.» → redirect to
+  `/host` (host reset semantics).
+
+**Responsive.** Single column at every width; row actions wrap to a second
+line under 420px; touch targets ≥ 48px.
+
+**Accessibility.** The list is a real `<ul>`; every row action carries its
+per-code `aria-label`; expired/revoked badges are text (never color-only);
+the history section is a disclosure with an accessible name
+(«Истёкшие и отозванные» / "Expired & revoked").
+
+**Acceptance criteria (§3.7.3).**
+1. The page redirects to `/host` without a matching stored session.
+2. Active codes render from `GET …/invite` (room token) — only unexpired,
+   unrevoked codes; the `{ invites: […] }` response wrapper is handled.
+3. Every mint and revoke response is appended to
+   `bleak.hostInvites.<room address>` (rule C ledger).
+4. Minting with a preset expiry (24 h pre-selected) or a custom datetime
+   calls `POST …/invite` and the new code appears in the active list with
+   its own copy/QR/link/revoke actions.
+5. "Revoke" calls `DELETE …/invite/{code}` with no confirm; the row leaves
+   the active list on the next refresh and appears in the history section
+   as revoked; a transient «Код отозван.» note shows.
+6. Ledger entries missing from the server list render in the "Expired &
+   revoked" section with the correct expired/revoked badge and date.
+7. The ledger caveat («Коды, выпущенные с других устройств…») renders under
+   the history section header in the current locale.
+8. Dead (history) rows are non-interactive: no copy/QR/revoke actions and
+   no navigation into a QR page for a dead code.
+9. The empty state shows when there are no active codes and no ledger
+   entries; the history section is omitted when it has no entries.
+10. The list polls every 15 s; a poll tick re-merges the ledger; errors
+    render inline with retry and never clear the ledger.
+11. Every row action carries its per-code `aria-label`; the QR action
+    navigates to `/host/<room_address>/invite/{code}/qr`.
+12. Rows meet the ≥ 48px touch-target rule; badges are not color-only.
+
+#### §3.7.4 `/host/[room_address]/invite/[code]/qr` — invite QR page
+
+**User goals.** Show or hand out one invite code: a scannable QR of the
+invite deep link, the 6-digit code to read aloud or copy, and a
+share-or-copy-link control. **The link text is never rendered — only
+buttons** (Concept §54.1, hard ruling).
+
+**Guard.** Same as §3.7.2. An unknown `[code]` (not in the server list nor
+the ledger) still renders the page with a warning — the host may be holding
+a printout of a still-valid code this device does not know.
+
+**Layout.** No tab bar; top bar with back (→ invite page), h1
+«QR-приглашение» / "Invite QR". Centered card, max-width 480px:
+
+1. **QR**: client-side `InviteQr` SVG (the §3.6 `uqr` renderer — **no
+   helper PNG call**, rev. 4 decision) encoding the **absolute invite deep
+   link** `{INVITE_URL_BASE}?code={code}` — the same payload the helper's
+   `GET /h/rooms/{code}/qr` PNG encodes. 280px, pixel-cornered light frame,
+   `aria-label` «QR-код приглашения {code}» / "Invite QR code {code}".
+2. **Code row**: the 6-digit code in Handjet 40px + «Скопировать код» /
+   "Copy code" chip (aria-label «Скопировать код {code}» / "Copy code
+   {code}"; the clipboard receives the digits).
+3. **Share-or-copy-link control**: «Скопировать ссылку» / "Copy link"
+   (clipboard gets `{INVITE_URL_BASE}?code={code}`; aria-label «Скопировать
+   ссылку приглашения» / "Copy the invite link") and, **only where
+   `navigator.share` exists**, «Поделиться» / "Share" (Web Share API, same
+   URL). The link string itself is **never** rendered as text, in a
+   `title`, or in a tooltip — buttons only.
+4. **Unknown-code warning** (conditional): muted line «Код не найден в
+   списке активных — возможно, он истёк или отозван.» / "This code is not
+   in the active list — it may have expired or been revoked."
+
+**States (§3.7.4).** Loading: skeleton card during the one liveness recheck
+on mount. Error: inline muted error with retry (the QR is computed
+client-side and cannot fail on network). Empty: n/a. Warning: the
+unknown-code line above.
+
+**Responsive.** Centered card, single column at every width.
+
+**Accessibility.** The QR has a descriptive `aria-label` including the
+code; both copy buttons have distinct `aria-label`s; a transient
+«Скопировано» / "Copied" confirmation is announced `aria-live="polite"`.
+
+**Acceptance criteria (§3.7.4).**
+1. The QR encodes the absolute invite deep link
+   `{INVITE_URL_BASE}?code={code}` — the same payload as the helper's
+   `/h/rooms/{code}/qr` — and renders client-side (no network QR call).
+2. The 6-digit code displays in Handjet with a copy action whose
+   `aria-label` includes the code; the clipboard receives the digits.
+3. The copy-link control writes `{INVITE_URL_BASE}?code={code}` to the
+   clipboard; a native Share button renders **only** when
+   `navigator.share` exists and shares the same URL.
+4. **The link text is never rendered anywhere on the page** — no text
+   node, no `title`, no tooltip; only the buttons (hard AC).
+5. An unknown `[code]` renders the warning line but still renders the QR
+   and the code actions.
+6. No Poller runs on this page (one liveness recheck on mount, then idle).
+7. Copy actions confirm with «Скопировано» announced politely; back returns
+   to the invite page.
+
+#### §3.7.5 Statistics (renders on `/host/[room_address]`, region 2)
+
+**User goals.** The host reads the room's pulse at a glance: message
+activity over the last hour, how many people are in, how many dialogs exist
+and how many finished — plus (gated) handshake totals and leaders. The
+seven metrics of §54.3: 1–4 live, 5–7 backend-gated.
+
+**Engine (rule A — client-side fan-out, bounded).** One pass per stats
+tick, inside the page's Poller (every third 5 s tick ⇒ 15 s):
+
+1. `GET /api/room/{room}/user` (public) — the member list (shared with the
+   5 s member poll; the engine reuses its latest snapshot).
+2. For each member: `GET /api/room/{room}/user/{address}/chat` (room
+   token) — **bounded concurrency 4**; individual branch failures are
+   tolerated (partial-data state below).
+3. **Dedupe chats by chat address** across members (a mutual chat appears
+   under both participants) before any message fetch.
+4. For each **unique** chat: `GET
+   /api/room/{room}/user/{address}/chat/{chat}/messages` (room token; the
+   `address` path segment is one of the chat's participants), concurrency
+   4. Messages carry `created_at` — the bucketing field.
+
+Metrics computed (1–4):
+- **M1 — messages per 5-minute bucket over the past hour**: 12 buckets,
+  bucketed by `message.created_at` (oldest bucket = 60…55 min ago, newest =
+  now).
+- **M2 — entered users**: `listRoomUsers.length`.
+- **M3 — number of chats**: the deduped chat count.
+- **M4 — active vs finished chats**: by `Chat.done` (false → active, true
+  → finished; a kickoff resets `done` to false — Concept §13.1.2).
+
+**Chart treatment (hand-rolled SVG — no new dependency).** Component
+`BucketChart`: `viewBox="0 0 320 120"`, `width="100%"`; 12 bar slots
+(≈ 26px each), bar width 18px, gap 8px, baseline at y = 104. Bars fill
+`color-mix(in srgb, var(--color-accent) 70%, transparent)`; the **newest**
+(rightmost) bucket bar renders at full `--color-accent` when non-zero;
+zero buckets render a 2px stub in `--color-text-disabled`. Baseline: 1px
+line in `--color-text-muted`. Axis labels: **relative**, under the
+baseline, 5 labels only (every 3rd bucket: «−60 мин», «−45 мин», «−30 мин»,
+«−15 мин», «сейчас» / "-60 min", "-45 min", "-30 min", "-15 min", "now"),
+`--color-text-muted`, Inter 14px (the muted-text minimum is respected by
+labeling only every 3rd bucket). The tile caption carries the total
+(«Сообщений за час: {n}» / "Messages this hour: {n}"); the peak bucket is
+marked by a small accent dot above the tallest bar — no per-bar value
+labels. **Empty hour** (all 12 buckets zero, members exist): baseline +
+stubs render, and a muted line under the chart: «За последний час сообщений
+не было.» / "No messages in the last hour." **AA**: accent-on-background
+bars ≈ 10:1 (≥ 3:1 for non-text graphics); muted 14px labels pass 4.5:1 on
+`--color-bg`. No bar animation (static SVG). `role="img"` + `aria-label`
+«Сообщений за последний час: {n}; пик в {bucket}.» / "Messages in the last
+hour: {n}; peak at {bucket}."
+
+**Panel layout (delegated IA — region 2 on the panel, right after
+members).** Section header «Статистика» / "Statistics". A row of
+`StatTile`s (Handjet numeral + Inter caption): M2 «Участники» / "Members",
+M3 «Диалогов» / "Chats", M4 split tile «{active} активных · {finished}
+завершено» / "{active} active · {finished} finished" — then the M1
+`BucketChart` card (full region width). A muted line under the section:
+«Статистика рукопожатий появится вместе с серверным обновлением.» /
+"Handshake statistics arrive with a server-side amendment." (rule B honest
+hint; no locked controls, no zeros, no proxy numbers).
+
+**GATED BLOCK — metrics 5–7 (rule B): DO NOT BUILD until flag 6.9a /
+pre-authorized follow-up `tz2-07a` lands.** The UI ships **without** these
+panels — no locked rows, no zeros, no proxy metric. Specification for the
+moment the gate lifts:
+- **M5 — number of handshakes**: a `StatTile` counting handshake records
+  involving room members, from `GET /api/handshake/user/{address}`
+  (accepted with the **room token** once the amendment lands) fanned out
+  per member (concurrency 4), deduped by from/to pair + `created_at`. The
+  panel caption states the definition: «один хендшейк = одна направленная
+  запись» / "one handshake = one directed record" (a mutual handshake is
+  two records).
+- **M6 — top list**: the 5 members with the largest number of **income**
+  handshakes (records where `to_address` = the member); rows: avatar +
+  name + Handjet count.
+- **M7 — bottom list**: the 5 members with the lowest income-handshake
+  counts (all members incl. zero), same row treatment, ascending.
+- Placement when ungated: the M5 tile joins the `StatTile` row; M6/M7
+  render as two list cards under the chart. Empty lists: «Рукопожатий пока
+  не было.» / "No handshakes yet."
+
+**States (§3.7.5).**
+- Loading (first pass): `SkeletonBlock`s for the tile row + chart card;
+  later ticks swap data in place (no skeleton flicker).
+- Empty (no members): the block renders the members-empty copy «Пока никто
+  не присоединился.» / "Nobody has joined yet." and no tiles/chart (the
+  engine skips the fan-out entirely).
+- Partial: some member-chat or message branches failed after retries →
+  metrics compute from the fetched subset with a muted warning «Часть
+  данных не загрузилась — цифры могут быть занижены.» / "Some data failed
+  to load — figures may be undercounts." + retry.
+- Error (base reads fail): `ErrorBanner` with retry; last-known tiles stay
+  visible, dimmed.
+
+**Responsive.** The tile row wraps 2×2 on narrow phones; the chart card
+scales (`width="100%"`, fixed aspect ratio).
+
+**Accessibility.** The chart is `role="img"` with the summary
+`aria-label`; the tile row is a `<dl>` (caption = term, numeral = value);
+the partial/error lines announce `aria-live="polite"`.
+
+**Acceptance criteria (§3.7.5).**
+1. The engine runs on the page's Poller (15 s cadence — every third 5 s
+   tick), stops on route teardown, and refreshes on visibility regain.
+2. Fan-out order and dedupe: member list → per-member chat lists (room
+   token) → **chats deduped by address** → one message fetch per unique
+   chat via a participant path segment; **concurrency ≤ 4 at every step**.
+3. M2/M3/M4 render from the engine: users = `listRoomUsers.length`, chats
+   = the deduped count, the active/finished split by `Chat.done`.
+4. M1 renders as the hand-rolled SVG `BucketChart`: 12 buckets of 5
+   minutes over the past hour, bucketed by message `created_at`; no chart
+   library and no new dependency is added.
+5. Chart visuals per spec: accent-tinted bars (newest bucket full accent
+   when non-zero), 2px disabled stubs for zero buckets, 1px muted
+   baseline, and the 5 relative axis labels («−60 мин» … «сейчас») at
+   ≥ 14px.
+6. An empty hour shows the baseline + stubs + «За последний час сообщений
+   не было.»; an empty room shows the members-empty copy and skips the
+   engine.
+7. Partial failures keep the subset metrics and show the «Часть данных не
+   загрузилась…» warning; a full failure shows the `ErrorBanner` with
+   dimmed last-known tiles.
+8. The panel shows the rule-B hint line («Статистика рукопожатий появится
+   вместе с серверным обновлением.») and **no handshake metrics, no
+   zeros, no locked controls and no proxy metric** until the gate lifts.
+9. When the flag-6.9a / `tz2-07a` amendment lands, M5–M7 render per this
+   specification (handshake tile + top/bottom income lists, dedupe and
+   definition per spec) without design rework.
+10. The chart carries `role="img"` and the summary `aria-label`; the tile
+    row is a `<dl>`; every new string exists in RU and EN (§4.7 parity).
+11. No hardcoded colors: the chart uses §4.1 tokens only (including the
+    `color-mix` accent tint).
+12. Poll ticks producing identical stats do not re-render (diff in the
+    caller).
 
 ---
 
@@ -1708,7 +2214,7 @@ decorative (`aria-hidden`). Touch targets ≥ 48px.
 
 ---
 
-### 3.9 Acceptance-criteria coverage (rev. 3, for the TZ pass)
+### 3.9 Acceptance-criteria coverage (rev. 4, for the TZ pass)
 
 | Section | ACs | Δ vs rev. 2 | New/changed subject |
 | --- | --- | --- | --- |
@@ -1718,9 +2224,9 @@ decorative (`aria-hidden`). Touch targets ≥ 48px.
 | §3.4 Chats | 8 | 0 | reads now credentialed (AC 1 wording) |
 | §3.5 Transcript | 15 | +2 | viewer fallback (AC 14), global-gate behavior (AC 15); no-composer AC 13 unchanged and re-asserted |
 | §3.6 Profile | 15 | +2 | live QR rotation (AC 14), token rotation (AC 15); QR payload ACs 11–12 rewritten |
-| §3.7 Host | 16 | +4 | creation-token gate (1–3), invite management (7–8), room-token drill-down + rotation (10, 13), host reset (14) |
+| §3.7 Host tree | 58 | +42 | rev. 4 restructure (Concept §54): §3.7.1 entry — create/log-in/auto-resume/finder (12); §3.7.2 panel — members, drill-down (room-token listing now real), rule-D locked state, settings incl. rotation/delete, host reset (15); §3.7.3 invites — active + ledger history, mint/revoke (12); §3.7.4 QR — client-side, link never shown (7); §3.7.5 stats — rule-A engine, SVG chart, rule-B gated block (12) |
 | §3.8 Scanner | 17 | +3 | single mutual call (8), already-mutual behavior (9), 410/403 states (10–11), `?u=`/`?u&m` deep links (14) |
-| **Total** | **118** | **+18** | rev. 2 ended at 100 |
+| **Total** | **160** | **+60** | rev. 3 ended at 118; rev. 4 replaces §3.7's 16 with 58 |
 
 Every AC above is written to be independently checkable by a tester; the TZ
 pass maps each to exactly one implementation task (foundation tasks carry
@@ -1756,15 +2262,21 @@ must remain the approved palette.
 | `SegmentedControl` | locale, filters | pill track on `--color-surface-elevated` |
 | `DigitInput` | `/` | six-cell code entry |
 | `QrScanner` | `/` (context a), `/room` (context b) | camera scanner overlay, §3.8; no route |
-| `QrBlock` | `/host` | invite QR `<img>` from the helper + frame |
 | `QrCodeBadge` | `/profile` | live client-side SVG persona QR (`uqr`; `u` + one-time `m`), light frame, rotation micro-animation, §3.6 |
+| `InviteQr` | `/host` tree (share region §3.7.2, QR page §3.7.4) | **new in rev. 4**: client-side SVG invite QR — the §3.6 `uqr` renderer wrapping the invite deep link `{INVITE_URL_BASE}?code={code}`; replaces the helper PNG on host routes |
 | `NoticeCard` | `/` | global 401 gate notice (§2.8), consumed from sessionStorage |
-| `TokenGateCard` | `/host` | one-time creation-token gate (masked, never stored) |
-| `InviteManager` / `InviteRow` | `/host` | active invite-code rows + mint expiry chooser (presets + custom) + revoke, room-token authority |
+| `HostEntryCard` | `/host` | **new in rev. 4** (extends the retired `TokenGateCard`): mode switch (create / log-in), masked creation token + room form, address + room-key log-in, address finder, reset notice, auto-resume probe states (§3.7.1) |
+| `InviteManager` / `InviteRow` | `/host/[room_address]/invite` | active invite-code rows + mint expiry chooser (presets + custom) + revoke, room-token authority; moved from `/host` to its own route (§3.7.3) |
+| `InviteLedgerRow` | `/host/[room_address]/invite` | **new in rev. 4**: non-interactive history rows for ledger entries missing from the server list (expired/revoked badges, rule C) |
 | `VaultList` / `VaultRow` | `/` | device token-vault import picker (Concept §6.2); dead-entry error state |
-| `CopyButton` / `CopyField` | `/`, `/host` | clipboard + transient «Скопировано» / "Copied" |
+| `CopyButton` / `CopyField` | `/`, `/host` tree | clipboard + transient «Скопировано» / "Copied"; per-code `aria-label`s on the host tree |
 | `SkeletonBlock`, `ErrorBanner`, `EmptyState` | all | §2.1 patterns |
-| `StatTile` | `/profile`, `/host` | Handjet numeral + caption |
+| `StatTile` | `/profile`, `/host/[room_address]` | Handjet numeral + caption; hosts the §3.7.5 metric tiles (M2–M4; M5 when ungated) |
+| `BucketChart` | `/host/[room_address]` | **new in rev. 4**: hand-rolled SVG 5-minute-bucket bar chart (12 buckets, relative axis labels, accent-tinted bars, rule-A M1) — no chart dependency (§3.7.5) |
+| `StatsPanel` | `/host/[room_address]` | **new in rev. 4**: §3.7.5 composition — tile row + `BucketChart` + rule-B hint line; hosts the gated M5–M7 block spec |
+
+Retired in rev. 4: `TokenGateCard` (single-mode gate → `HostEntryCard`),
+`QrBlock` (helper-PNG share-kit QR → `InviteQr`).
 
 ### 4.3 Pixel-avatar generation rules (reference `icons-personage.png`)
 
@@ -1931,9 +2443,81 @@ instant). No scroll-triggered or layout-triggered animation anywhere.
 | `chat.host_view` | Наблюдение хоста | Host view |
 | `common.error.network` | Нет связи. Проверьте Wi-Fi — мы продолжаем попытки. | Connection lost. Check the Wi-Fi — we keep retrying. |
 | `common.retry` | Повторить | Retry |
+| `common.copied` | Скопировано | Copied |
+| `host.title` | Хост | Host |
+| `host.subtitle` | Создайте комнату события и управляйте ею. | Create the event room and manage it. |
+| `host.mode.create` | Создать комнату | Create room |
+| `host.mode.login` | Войти по ключу | Sign in with key |
+| `host.session_reset` | Доступ к комнате отозван — войдите заново с ключом комнаты или создайте новую комнату. | Room access was revoked — sign in again with the room key or create a new room. |
+| `host.resume.checking` | Проверяем доступ к комнате… | Checking room access… |
+| `host.room.deleted` | Комната удалена. | The room was deleted. |
+| `host.login.address` | Адрес комнаты | Room address |
+| `host.login.key` | Ключ комнаты | Room key |
+| `host.login.rejected` | Ключ комнаты отклонён. | Room key rejected. |
+| `host.login.find` | Не помните адрес? | Forgot the address? |
+| `host.login.finding` | Ищем комнату… | Looking for the room… |
+| `host.login.find_none` | Ключ не подошёл ни к одной комнате. | The key didn't match any room. |
+| `host.room.language` | Язык агентов: {language} | Agents' language: {language} |
+| `host.room.max_user` | Вместимость: {n} | Capacity: {n} |
+| `host.room.readonly_hint` | Язык и вместимость изменятся вместе с серверным обновлением. | Language and capacity become editable with a server-side amendment. |
+| `host.room.saved` | Сохранено | Saved |
+| `host.members_tile` | Участники {n}/{max_user} | Members {n}/{max_user} |
+| `host.panel.share` | Приглашение | Invite |
+| `host.panel.invites_link` | Все коды приглашения | All invite codes |
+| `host.qr.alt` | QR-код приглашения | Invite QR code |
+| `host.qr.aria` | QR-код приглашения {code} | Invite QR code {code} |
+| `host.qr.code_aria` | Код: {digits} | Code: {digits} |
+| `host.join_as` | Присоединиться как участник | Join as attendee |
+| `host.delete_room.row` | Удалить комнату | Delete room |
+| `host.delete_room.body` | Комната будет удалена вместе со всеми участниками. | The room will be deleted with all its members. |
+| `host.drill.restart_aria` | Запустить заново диалог {chat} | Restart dialog {chat} |
+| `host.drill.clear_aria` | Очистить историю диалога {chat} | Clear dialog {chat} history |
+| `host.drill.delete_member_locked` | Удаление участника появится вместе с серверным обновлением. | Member deletion arrives with a server-side amendment. |
+| `host.invites.expired_title` | Истёкшие и отозванные | Expired & revoked |
+| `host.invites.ledger_caveat` | Коды, выпущенные с других устройств, видны в списке только пока они активны; их истечение показать нельзя. | Codes minted on other devices appear in the list only while active; their expiry cannot be shown. |
+| `host.invites.expired_at` | истёк {date} | expired {date} |
+| `host.invites.revoked_at` | отозван {date} | revoked {date} |
+| `host.invites.empty` | Активных кодов нет. Выпустите код, чтобы пригласить участников. | No active codes. Mint one to invite attendees. |
+| `host.invites.copy_code` | Скопировать код {code} | Copy code {code} |
+| `host.invites.copy_link` | Скопировать ссылку кода {code} | Copy link for code {code} |
+| `host.invites.qr_aria` | QR-код кода {code} | QR for code {code} |
+| `host.invites.revoke_aria` | Отозвать код {code} | Revoke code {code} |
+| `host.qr.title` | QR-приглашение | Invite QR |
+| `host.qr.copy_code` | Скопировать код | Copy code |
+| `host.qr.copy_code_aria` | Скопировать код {code} | Copy code {code} |
+| `host.qr.copy_link` | Скопировать ссылку | Copy link |
+| `host.qr.copy_link_aria` | Скопировать ссылку приглашения | Copy the invite link |
+| `host.qr.share` | Поделиться | Share |
+| `host.qr.warning` | Код не найден в списке активных — возможно, он истёк или отозван. | This code is not in the active list — it may have expired or been revoked. |
+| `host.qr.back` | К кодам приглашения | Back to invite codes |
+| `host.stats.title` | Статистика | Statistics |
+| `host.stats.members` | Участники | Members |
+| `host.stats.chats` | Диалогов | Chats |
+| `host.stats.active` | {active} активных · {finished} завершено | {active} active · {finished} finished |
+| `host.stats.messages_hour` | Сообщений за час: {n} | Messages this hour: {n} |
+| `host.stats.aria` | Сообщений за последний час: {n}; пик в {bucket}. | Messages in the last hour: {n}; peak at {bucket}. |
+| `host.stats.axis.60` | −60 мин | -60 min |
+| `host.stats.axis.45` | −45 мин | -45 min |
+| `host.stats.axis.30` | −30 мин | -30 min |
+| `host.stats.axis.15` | −15 мин | -15 min |
+| `host.stats.axis.now` | сейчас | now |
+| `host.stats.empty_hour` | За последний час сообщений не было. | No messages in the last hour. |
+| `host.stats.partial` | Часть данных не загрузилась — цифры могут быть занижены. | Some data failed to load — figures may be undercounts. |
+| `host.stats.gated.hint` | Статистика рукопожатий появится вместе с серверным обновлением. | Handshake statistics arrive with a server-side amendment. |
+| `host.stats.gated.def` | один хендшейк = одна направленная запись | one handshake = one directed record |
+| `host.stats.gated.empty` | Рукопожатий пока не было. | No handshakes yet. |
 
 (Existing scaffold keys in `ru.ts`/`en.ts` are kept where they match; workers
-extend both files.)
+extend both files. **Rev. 4 additions:** the 63 `host.*` / `common.copied`
+rows above (62 new + 1 amended `host.session_reset`; RU + EN, the parity
+test stays green). One rev. 3 inline string is
+superseded: the single-page console's reset copy «…с токеном создания.» is
+replaced by `host.session_reset`'s new wording; `host.gate.*`, `host.token.*`,
+`host.create`, `host.invites.*` (title/hint/mint/presets/expires_in/revoke/
+revoked), `host.rotate_room.*`, `host.drill.*` (clear/clear_confirm/empty),
+`host.empty_live` carry over unchanged from rev. 3. The retired inline
+string «Создать другую комнату» / "Create another room" (old share kit) has
+no key and is not re-introduced — the panel's back control covers it.)
 
 ---
 
@@ -11778,7 +12362,58 @@ Revision 3 additions:
   value. If the amendment lands, counts slot into the drill-down header
   without structural change.
 
-## 6. Flagged gaps & open questions (revision 3)
+Revision 4 additions (Concept §54):
+
+- **Route tree over single page**: the owner's four-route split puts each
+  host job on its own URL (entry, panel, invites, per-code QR) — the invite
+  page and QR pages become bookmarkable/shareable, the entry page stops
+  re-rendering the whole console on a credential reset, and the §2.8 host
+  gate gets a clean landing (`/host`, log-in mode). The panel guard
+  (stored room must match the URL) keeps deep links honest.
+- **Auto-resume via the invite-list GET**: it is the cheapest room-token
+  read, it is the same call the invite page needs first, and a 401 on it
+  is unambiguous (the key is dead) — so it doubles as the §54.1 resume
+  probe with no extra endpoint. NetworkError deliberately keeps the stored
+  entry: a failed probe must not destroy a possibly-valid credential.
+- **Log-in needs the address + key, honestly**: every room-token route is
+  addressed by `room_address`; the contract has no token→room resolve, so
+  the paste-token-only form would be a dead end. The secondary "forgot
+  the address?" finder uses the public room list and probes with the
+  host's own key (bounded) — self-service without inventing a resolve
+  endpoint (flag F11).
+- **Statistics fan-out (rule A), cadence and bound**: 15 s full re-run on
+  the panel's Poller (every third 5 s tick) with **concurrency 4** —
+  meetup-scale rooms stay well within venue Wi-Fi, and the metrics stay
+  live without a websocket. Chats are deduped by address before message
+  fetches; partial branch failures render honest undercount warnings
+  rather than silent gaps.
+- **Hand-rolled SVG chart**: 12 five-minute buckets, relative axis labels
+  («−60 мин» … «сейчас») so no locale time formatting is needed and the
+  axis stays truthful across refreshes; every-3rd-bucket labeling keeps
+  muted text at the 14px minimum; accent discipline holds (data marks are
+  the one allowed non-interactive accent use, mirroring the radar's
+  decorative-enhancement precedent — the chart is `role="img"` with a
+  textual summary, so the People-adjacent lists remain the canonical data).
+- **Gated, not hidden (rules B/D)**: metrics 5–7 and member deletion are
+  specified fully but ship **absent** — no locked rows, no zeros, no proxy
+  metrics. The one visible rule-B hint line tells the host why the section
+  is thinner than the concept promises; the rule-D locked row in the
+  drill-down marks where deletion will live, so the amendment slots in
+  without redesign.
+- **Invite ledger (rule C)**: the server list is active-only by contract,
+  so expiry history is device-local by necessity. The ledger renders
+  honestly (badges + dates, caveat about other devices) instead of
+  silently dropping codes the host minted and can no longer see.
+- **Client-side QR (rev. 4)**: the host tree reuses the §3.6 `uqr`
+  renderer for invite QRs — no helper PNG call, no network dependency on
+  the QR path, one renderer for both badge and invite codes. The helper
+  endpoint stays for external parity only.
+- **Share region kept on the panel** (not moved to the invite page): the
+  room's primary code is a glanceable artifact mid-event; per-code sharing
+  lives one tap away on the invite page, and the QR page exists for
+  hand-out moments (print/screen).
+
+## 6. Flagged gaps & open questions (revision 4)
 
 Rev. 2 items resolved by owner rulings (Concept §1c) stay resolved: decline =
 local dismissal, personal QR shipped, no human messaging ever. The import
@@ -11828,11 +12463,58 @@ New in rev. 3:
 8. **Flag 6.9a not landing** → the host drill-down stays counts-less as
    designed (§3.7); no design rework is needed either way.
 
+New in rev. 4 (host admin panel, Concept §54):
+
+9. **`UpdateRoomRequest` has no `language`/`max_user`** (verified in
+   swagger.json 2026-11-24: the PUT body accepts only `name` +
+   `description`). §54.1 intends both to be settable; the DESIGN renders
+   them read-only with a server-amendment hint and keeps the editable
+   controls backend-gated (§3.7.2). Backend TODO ledger item — supersedes
+   the rev. 3 "max_user not settable" note only in intent; the contract
+   still gates it.
+10. **`PUT /api/room/{address}` declares no security scheme** in swagger
+    (unlike its 401/403 responses and the RoomToken-declared sibling
+    DELETE). The DESIGN sends the room token as Bearer per §54.1; the
+    architect should confirm the server enforces it (contract nuance,
+    §3.7 endpoint table).
+11. **No token→room resolve endpoint** — the `/host` log-in mode must ask
+    for the room address + key (§3.7.1); the "forgot the address?" finder
+    leans on the public `GET /api/room` list staying public and
+    venue-scale. If a resolve seam (§6 item 7, `resolveInviteCode`)
+    ships, the finder becomes a one-function change.
+12. **Rule B gate (flag 6.9a / `tz2-07a`)**: stats metrics 5–7 are
+    specified in §3.7.5 and **omitted from the UI**; if the amendment
+    never lands, the panels never build — no design rework either way.
+    Definition nuance recorded there: "number of handshakes" counts
+    directed records (a mutual handshake = two records); the caption
+    states it so testers verify against the same definition.
+13. **Rule D gate**: `DELETE /api/room/{room}/user/{address}` is
+    persona-token-only (verified) — the panel ships the locked
+    unavailable state (§3.7.2), never the call.
+14. **Ledger caveat (rule C)**: codes minted from other devices cannot be
+    reconstructed as expired — they simply vanish from the invite page
+    when they expire. The caveat copy is binding (§3.7.3); a server-side
+    invite-history endpoint would retire the ledger entirely (backend
+    TODO candidate).
+15. **ARCHITECTURE amendments implied by the route tree (for the
+    architect's TZ pass, §6 note only):** §10.9's console-v2 wording
+    (single-page console, helper-PNG share-kit QR, counts-less
+    drill-down) is superseded by the route tree — the drill-down now
+    lists dialogs via the room-token chat **listing** endpoint (the old
+    "plain reads" workaround is retired); §10.3's hostApi reset wording
+    ("resets the host console") should re-point at "lands on `/host`
+    (log-in mode)"; §2.2/§5 polling tables gain the §2.2 rev. 4 rows;
+    api-client gains `listRooms` + the `InviteListResponse` wrapper
+    shape; `GET /h/rooms/{code}/qr` is no longer used by any host route
+    (helper disposition per §10.10 unchanged otherwise).
+
 ---
 
-*End of DESIGN.md — design instance bd636f23, revision 3 (2026-11-15; v2
-credentials scope applied onto the delivered v1 baseline: persona/room
-tokens with a global 401 gate, live one-time badge QR with visible
-rotation, server-mediated QR handshake with 410/403 states, vault-driven
-import, creation-token host console with invite management and room-token
-drill-down). Baseline: rev. 2 by fd19a963.*
+*End of DESIGN.md — rev. 4 by design instance `558f4d6b` (2026-11-24;
+owner-approved Concept §54 applied: the host console restructured into the
+`/host` route tree — entry with create/log-in/auto-resume, admin panel with
+room-token drill-down and the rule-A statistics engine with a hand-rolled
+SVG bucket chart, invite page with the rule-C expired/revoked ledger, and
+the per-code QR page with the never-shown link — rules B and D shipped as
+honest gates, no new dependencies, RU/EN parity). Baselines: rev. 3 by
+`bd636f23` (v2 credentials scope); rev. 2 by `fd19a963`.*
