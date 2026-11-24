@@ -6,9 +6,9 @@
 # Multi-stage build:
 #   1. node:22-alpine — installs the npm workspace and builds the SvelteKit
 #      SPA (adapter-static output in apps/web/build).
-#   2. nginx:alpine — serves the static site, SPA-fallbacks every route to
-#      index.html, and reverse-proxies /api to bleak-node so the SPA's
-#      same-origin relative /api contract (Concept §5) works without CORS.
+#   2. nginx:alpine — serves the static site with an SPA fallback for
+#      every route. TLS and /api routing live on the host's nginx
+#      (https -> http:3000 for the site, https -> http:8989 for the API).
 
 FROM node:22-alpine AS build
 WORKDIR /app

@@ -2,6 +2,11 @@ server {
     listen 80;
     server_name _;
 
+    # Static SPA only. TLS and the /api routing live on the host's nginx:
+    #   https://<site>      -> http://127.0.0.1:3000  (this container)
+    #   https://api.*       -> http://127.0.0.1:8989  (bleak-node)
+    # The SPA calls same-origin /api/*, which the host nginx forwards.
+
     root /usr/share/nginx/html;
     index index.html;
 
@@ -14,28 +19,6 @@ server {
     location /_app/immutable/ {
         add_header Cache-Control "public, max-age=31536000, immutable";
         try_files $uri =404;
-    }
-
-    # bleak-node REST API, same origin — mirrors the vite dev proxy
-    # (vite.config.ts: server.proxy['/api']). The /api prefix is kept:
-    # bleak-node routes live under /api/*.
-    location /api/ {
-        proxy_pass ${BLEAK_NODE_UPSTREAM};
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        # TLS upstream (https://api.notext.tech): send SNI, verify the
-        # certificate against the bundle shipped in the nginx image.
-        proxy_ssl_server_name on;
-        proxy_ssl_protocols TLSv1.2 TLSv1.3;
-        proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
-        proxy_ssl_verify on;
-        proxy_ssl_verify_depth 2;
-        # Agent chats and queue polling can run long.
-        proxy_read_timeout 300s;
-        proxy_send_timeout 300s;
     }
 
     # SPA fallback: client-side routing for every path (adapter-static

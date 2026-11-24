@@ -1,14 +1,15 @@
-# bleak-web deployment: SPA + same-origin /api proxy on port 3000.
+# bleak-web deployment: static SPA on port 3000.
 #
 # Start:  docker compose up -d --build
 # Logs:   docker compose logs -f
 # Stop:   docker compose down
 #
-# The SPA calls bleak-node over the SAME ORIGIN on the relative /api path
-# (VITE_BLEAK_NODE_URL empty, Concept §5) — nginx inside the container
-# proxies /api to the upstream below. Default target is the host's
-# bleak-node on 8989; override BLEAK_NODE_UPSTREAM to point elsewhere
-# (e.g. a bleak-node container on the same docker network).
+# This container serves ONLY the static SPA (port 3000). TLS termination
+# and API routing live on the host's nginx:
+#   https://<site>        -> http://127.0.0.1:3000  (this container)
+#   https://api.notext.tech -> http://127.0.0.1:8989 (bleak-node)
+# The SPA calls same-origin /api/*, which the host nginx forwards to
+# bleak-node — no CORS, no proxy inside this container.
 
 services:
   web:
@@ -18,10 +19,6 @@ services:
     restart: unless-stopped
     ports:
       - "3000:80"
-    environment:
-      # Where nginx routes /api/* (absolute URL, no path). bleak-node is
-      # published at https://api.notext.tech; override to point elsewhere.
-      BLEAK_NODE_UPSTREAM: ${BLEAK_NODE_UPSTREAM:-https://api.notext.tech}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
       interval: 30s
