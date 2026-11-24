@@ -19,11 +19,9 @@ services:
     ports:
       - "3000:80"
     environment:
-      # Where nginx routes /api/* (absolute URL, no path).
-      BLEAK_NODE_UPSTREAM: ${BLEAK_NODE_UPSTREAM:-http://host.docker.internal:8989}
-    # host.docker.internal on Linux resolves to the host via host-gateway.
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      # Where nginx routes /api/* (absolute URL, no path). bleak-node is
+      # published at https://api.notext.tech; override to point elsewhere.
+      BLEAK_NODE_UPSTREAM: ${BLEAK_NODE_UPSTREAM:-https://api.notext.tech}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
       interval: 30s
