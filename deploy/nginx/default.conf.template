@@ -1,0 +1,39 @@
+server {
+    listen 80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # gzip for the text-heavy assets the SPA ships.
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml text/plain;
+    gzip_min_length 1024;
+
+    # Immutable hashed SvelteKit assets.
+    location /_app/immutable/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # bleak-node REST API, same origin — mirrors the vite dev proxy
+    # (vite.config.ts: server.proxy['/api']). The /api prefix is kept:
+    # bleak-node routes live under /api/*.
+    location /api/ {
+        proxy_pass ${BLEAK_NODE_UPSTREAM};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # Agent chats and queue polling can run long.
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
+    # SPA fallback: client-side routing for every path (adapter-static
+    # index.html fallback, Concept §5 — no SSR).
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

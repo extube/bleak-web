@@ -1,0 +1,32 @@
+# bleak-web deployment: SPA + same-origin /api proxy on port 3000.
+#
+# Start:  docker compose up -d --build
+# Logs:   docker compose logs -f
+# Stop:   docker compose down
+#
+# The SPA calls bleak-node over the SAME ORIGIN on the relative /api path
+# (VITE_BLEAK_NODE_URL empty, Concept §5) — nginx inside the container
+# proxies /api to the upstream below. Default target is the host's
+# bleak-node on 8989; override BLEAK_NODE_UPSTREAM to point elsewhere
+# (e.g. a bleak-node container on the same docker network).
+
+services:
+  web:
+    build: .
+    image: bleak-web:latest
+    container_name: bleak-web
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    environment:
+      # Where nginx routes /api/* (absolute URL, no path).
+      BLEAK_NODE_UPSTREAM: ${BLEAK_NODE_UPSTREAM:-http://host.docker.internal:8989}
+    # host.docker.internal on Linux resolves to the host via host-gateway.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

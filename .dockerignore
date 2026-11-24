@@ -1,0 +1,27 @@
+# Keep the build context minimal: only the npm workspace sources the
+# build needs (root package.json, packages/api-client, apps/web).
+.git/
+.githooks/
+.opencode/
+node_modules/
+apps/web/node_modules/
+packages/api-client/node_modules/
+apps/web/build/
+apps/web/.svelte-kit/
+apps/web/tasks.db
+tasks.db
+data/
+docs/
+scripts/
+*.db
+*.db-shm
+*.db-wal
+.env
+*.md
+*.png
+*.jpg
+background-video*.mp4
+Makefile
+docker-compose.yml
+Dockerfile
+.dockerignore
