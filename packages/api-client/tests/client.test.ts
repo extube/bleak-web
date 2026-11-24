@@ -45,6 +45,15 @@ describe('BleakClient endpoint mapping (swagger.json)', () => {
     expect(calls[0]).toEqual({ method: 'POST', path: '/api/room', body: req });
   });
 
+  it('listInvites unwraps the server.InviteListResponse wrapper to the Invite[] array', async () => {
+    // Regression (2026-11-24): the backend wraps the list in
+    // `{"invites": [...]}`; returning it raw crashed the host console
+    // (TypeError: invites.filter is not a function → 500 error page).
+    const invite = { room: '0xr', code: '123456', created_at: 't', expires_at: 't' };
+    const { client } = makeClient(200, { invites: [invite] });
+    await expect(client.listInvites('0xr', 'room-token')).resolves.toEqual([invite]);
+  });
+
   it('routes room CRUD to /api/room/{address} and encodes addresses', async () => {
     const { client, calls } = makeClient(200, { address: '0xr' });
     await client.getRoom('0xroom 1');

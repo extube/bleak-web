@@ -301,6 +301,30 @@ describe('credential attachment (behavioral)', () => {
     expect(authOf(calls[1])).toBe('Bearer room-token-raw');
   });
 
+  it('createRoomWithInvite prefers the invite code minted at creation — no extra mint', async () => {
+    // Regression (2026-11-24): bleak-node returns the room's FIRST invite
+    // code in the creation response (`CreateRoomResponse.invite_code`);
+    // minting a second one inflated the room's invite list.
+    const calls = stubFetch((url) => {
+      if (url.endsWith('/api/room')) {
+        return new Response(
+          JSON.stringify({ address: '0xnewroom', name: 'Event', invite_code: '111222' }),
+          { status: 201 }
+        );
+      }
+      return ok({ code: '654321', created_at: 't', expires_at: 't' });
+    });
+    const result = await hostApi.createRoomWithInvite(
+      { name: 'Event', language: 'ru', token: 'room-token-raw' },
+      'create-token-1'
+    );
+    expect(result).toEqual({
+      room: { address: '0xnewroom', name: 'Event', invite_code: '111222' },
+      code: '111222'
+    });
+    expect(calls).toHaveLength(1); // the mint endpoint was never called
+  });
+
   it('rotations: Bearer = the CURRENT credential, body = the new raw secret', async () => {
     saveIdentity(ME);
     saveHostRoom(HOST);

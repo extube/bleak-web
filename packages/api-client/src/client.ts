@@ -16,6 +16,7 @@ import type {
   Interest,
   InterestInput,
   Invite,
+  InviteListResponse,
   InviteMintRequest,
   KickoffResponse,
   MatchRequest,
@@ -373,9 +374,17 @@ export class BleakClient {
 
   // --- invite management (CONCEPT §7.2) --------------------------------------
 
-  /** GET /api/room/{address}/invite — active invite codes. Room token. */
+  /**
+   * GET /api/room/{address}/invite — active invite codes. Room token.
+   * The backend wraps the list in `server.InviteListResponse`; the wrapper
+   * is unwrapped here so callers always receive the `Invite[]` array.
+   */
   async listInvites(address: string, roomToken: string): Promise<Invite[]> {
-    return this.getJson<Invite[]>(`/api/room/${enc(address)}/invite`, { token: roomToken });
+    const response = await this.getJson<InviteListResponse>(
+      `/api/room/${enc(address)}/invite`,
+      { token: roomToken }
+    );
+    return response.invites;
   }
 
   /** POST /api/room/{address}/invite — mints a code (default expiry 24 h server-side). Room token. */

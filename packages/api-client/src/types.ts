@@ -252,6 +252,12 @@ export interface InviteMintRequest {
  * (CONCEPT §7.2). Reconciled 2026-11-16 against `server.InviteResponse`:
  * the mint/list response carries the owning room's address too.
  */
+/** Response of GET /api/room/{address}/invite — `server.InviteListResponse`
+ *  (the wrapper shape the backend actually sends; unwrapped by listInvites). */
+export interface InviteListResponse {
+  invites: Invite[];
+}
+
 export interface Invite {
   room: string;
   code: string;

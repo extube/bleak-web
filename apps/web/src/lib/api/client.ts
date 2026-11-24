@@ -444,8 +444,13 @@ export const hostApi = {
     createToken: string
   ): Promise<{ room: Room; code: string }> {
     const room = await apiRaw.createRoom(request, createToken);
-    const invite = await roomGate(() => apiRaw.mintInvite(room.address, request.token));
-    return { room, code: invite.code };
+    // bleak-node mints the room's FIRST invite at creation and returns it
+    // (`CreateRoomResponse.invite_code`); mint an extra one only when the
+    // creation response carries no code (older backend / fallback path).
+    const code = room.invite_code
+      ? room.invite_code
+      : (await roomGate(() => apiRaw.mintInvite(room.address, request.token))).code;
+    return { room, code };
   },
 
   // Room settings / delete (room Bearer, gated).
