@@ -17,11 +17,14 @@ scripts/
 *.db-shm
 *.db-wal
 .env
-*.md
-*.png
-*.jpg
-background-video*.mp4
-Makefile
-docker-compose.yml
-Dockerfile
-.dockerignore
+# Root-anchored (leading slash) so app assets like
+# apps/web/src/lib/assets/landing/background-video-loop.mp4 are kept —
+# unanchored patterns match basenames at any depth.
+/*.md
+/*.png
+/*.jpg
+/background-video*.mp4
+/Makefile
+/docker-compose.yml
+/Dockerfile
+/.dockerignore
