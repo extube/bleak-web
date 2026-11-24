@@ -15,7 +15,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { ApiError, NetworkError, type Chat, type Handshake, type User } from '@bleak/api-client';
 import { goto } from '$app/navigation';
@@ -643,7 +643,7 @@ function source(relativePath: string): string {
 }
 
 describe('/people — §4.38 searching new contacts badge, inner redesign (Concept §52; placement/footprint per §4.37)', () => {
-  it('renders FIRST in ul.cards when the SELF roster entry is active=true — PersonCard footprint, blinking bulb + muted title + settings link; absent when active=false (AC 1)', async () => {
+  it('renders FIRST in ul.cards when the SELF roster entry is active=true — PersonCard footprint, blinking bubble + muted title + settings link; absent when active=false (AC 1)', async () => {
     fixture.users = [person('0xa', 'Алиса', 10), { ...person(ME, 'Я', 20) }];
     await renderPage();
 
@@ -660,20 +660,24 @@ describe('/people — §4.38 searching new contacts badge, inner redesign (Conce
     );
     // the §3.3 card family footprint marker; token-level CSS below
     expect(badge.classList.contains('pixel-corners')).toBe(true);
-    // content (§4.38): the blinking bulb (aria-hidden) + the muted title
-    const bulb = badge.querySelector('.bulb') as HTMLElement;
-    expect(bulb).toBeTruthy();
-    expect(bulb.getAttribute('aria-hidden')).toBe('true');
-    // the registry glyph rendered (§4.38.B — a PixelIcon SVG inside .bulb)
-    expect(bulb.querySelector('svg')).toBeTruthy();
+    // content (§4.38.1): the blinking bubble (aria-hidden) + the muted title
+    const bubble = badge.querySelector('.bubble') as HTMLElement;
+    expect(bubble).toBeTruthy();
+    expect(bubble.getAttribute('aria-hidden')).toBe('true');
+    // the registry glyph rendered (§4.38.1 — a PixelIcon SVG inside .bubble)
+    expect(bubble.querySelector('svg')).toBeTruthy();
     expect(badge.querySelector('.title')?.textContent).toBe(ru['people.searching']);
     // the §4.38.C settings remark — the FULL line is ONE anchor
     const remark = badge.querySelector('a.remark') as HTMLAnchorElement;
     expect(remark).toBeTruthy();
     expect(remark.getAttribute('href')).toBe('/profile/settings');
     expect(remark.textContent).toBe(ru['people.searching_settings']);
-    // the §4.38 spinner replacement is complete: no legacy ring in the DOM
+    // the §4.38.1 bubble glyph is the final construction: no legacy loader in the DOM
     expect(badge.querySelector('.loader')).toBeNull();
+    // NEW negative (§4.38.1): the superseded bulb construction is gone from
+    // the rendered DOM — no .bulb anywhere
+    expect(badge.querySelector('.bulb')).toBeNull();
+    expect(document.querySelectorAll('.bulb')).toHaveLength(0);
     // NOT a user: the badge's ONLY text is title + remark — no self name,
     // no real user data, no avatar
     const text = (badge.textContent ?? '').replace(/\s+/g, ' ').trim();
@@ -754,7 +758,7 @@ describe('/people — §4.38 searching new contacts badge, inner redesign (Conce
     expect(document.querySelector('.searching-badge')).toBeNull();
   });
 
-  it('is NOT a user entry: the ONLY interactive element is the §4.38.C settings link — no button/role=button/tabindex, no second anchor, no navigation on tap; the bulb is aria-hidden and title + remark are the only announced text (AC 7)', async () => {
+  it('is NOT a user entry: the ONLY interactive element is the §4.38.C settings link — no button/role=button/tabindex, no second anchor, no navigation on tap; the bubble is aria-hidden and title + remark are the only announced text (AC 7)', async () => {
     fixture.users = [person('0xa', 'Алиса', 10), { ...person(ME, 'Я', 20) }];
     await renderPage();
 
@@ -772,9 +776,9 @@ describe('/people — §4.38 searching new contacts badge, inner redesign (Conce
     expect(badge.querySelector('button, [role="button"], [tabindex]')).toBeNull();
     expect(badge.querySelector('.chip, .expanded-actions, .action')).toBeNull();
     expect(badge.querySelector('.row[role="button"]')).toBeNull();
-    // the bulb is decoration; the visible title + remark are the only
+    // the bubble is decoration; the visible title + remark are the only
     // announced text
-    expect(badge.querySelector('.bulb')?.getAttribute('aria-hidden')).toBe('true');
+    expect(badge.querySelector('.bubble')?.getAttribute('aria-hidden')).toBe('true');
 
     // tapping the full-width row (anywhere outside the link) does NOTHING
     // (goto is the app-wide nav seam)
@@ -783,7 +787,7 @@ describe('/people — §4.38 searching new contacts badge, inner redesign (Conce
     expect(goto).not.toHaveBeenCalled();
   });
 
-  it('footprint + bulb are token/source-level exact (§4.38.A–B, AC 3–8): PersonCard tokens, 56px slot, 32px registry glyph, opacity-only blink, .main stack, underlined .remark; reduced motion = the base.css catch-all static full-opacity, no cursor: pointer', () => {
+  it('footprint + bubble are token/source-level exact (§4.38.1, AC 3–8): PersonCard tokens, 56px slot, 32px registry glyph, opacity-only blink, .main stack, underlined .remark; reduced motion = the base.css catch-all static full-opacity, no cursor: pointer', () => {
     const css = source('src/lib/components/people/SearchingBadge.svelte');
 
     // the root is the first-<li> badge with pixel-corners (§4.37.B)
@@ -792,24 +796,26 @@ describe('/people — §4.38 searching new contacts badge, inner redesign (Conce
     expect(css).toMatch(/\.searching-badge\s*\{[^}]*background:\s*var\(--color-surface\)/);
     expect(css).toMatch(/\.searching-badge\s*\{[^}]*border-radius:\s*var\(--radius-md\)/);
     expect(css).toMatch(/\.searching-badge\s*\{[^}]*padding:\s*var\(--space-4\)/);
-    // the 56px PixelAvatar slot — bulb centered in it (§4.38.A)
+    // the 56px PixelAvatar slot — bubble centered in it (§4.38.1)
     expect(css).toMatch(/\.slot\s*\{[^}]*width:\s*56px/);
     expect(css).toMatch(/\.slot\s*\{[^}]*height:\s*56px/);
-    // §4.38.A anatomy: the .main stack mirroring PersonCard (lines 231–234)
+    // §4.38.1 anatomy: the .main stack mirroring PersonCard (lines 231–234)
     expect(css).toMatch(/\.main\s*\{[^}]*flex:\s*1/);
     expect(css).toMatch(/\.main\s*\{[^}]*min-width:\s*0/);
-    // the §4.38.B bulb: span.bulb (aria-hidden) wrapping the registry glyph
+    // the §4.38.1 bubble: span.bubble (aria-hidden) wrapping the registry glyph
     // at the exact 2× of the 16-grid
-    expect(css).toMatch(/<span class="bulb" aria-hidden="true">/);
-    expect(css).toMatch(/<PixelIcon name="bulb" size=\{32\} \/>/);
-    // the superseded §4.37 spinner construction is GONE (source-level, AC 3)
+    expect(css).toMatch(/<span class="bubble" aria-hidden="true">/);
+    expect(css).toMatch(/<PixelIcon name="bubble" size=\{32\} \/>/);
+    // the superseded §4.38.B bulb construction is GONE (source-level, AC 3):
+    // no 'bulb' anywhere under apps/web/src (§4.38.1 removal)
+    expect(css).not.toMatch(/bulb/);
     expect(css).not.toMatch(/loader/);
     expect(css).not.toMatch(/loader-spin/);
     // the blink: component-scoped keyframes, opacity-only (§4.6) — the
     // "off" phase dips to 0.3; no color swap, no glow, no transform
-    expect(css).toMatch(/\.bulb\s*\{[^}]*display:\s*inline-flex/);
-    expect(css).toMatch(/\.bulb\s*\{[^}]*animation:\s*bulb-blink 1\.2s ease-in-out infinite/);
-    const keyframes = css.match(/@keyframes bulb-blink\s*\{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    expect(css).toMatch(/\.bubble\s*\{[^}]*display:\s*inline-flex/);
+    expect(css).toMatch(/\.bubble\s*\{[^}]*animation:\s*bubble-blink 1\.2s ease-in-out infinite/);
+    const keyframes = css.match(/@keyframes bubble-blink\s*\{[\s\S]*?\n {2}\}/)?.[0] ?? '';
     expect(keyframes).toBeTruthy();
     expect(keyframes).toMatch(/opacity:\s*1/);
     expect(keyframes).toMatch(/opacity:\s*0\.3/);
@@ -829,20 +835,38 @@ describe('/people — §4.38 searching new contacts badge, inner redesign (Conce
     expect(css).toMatch(/\.title\s*\{[^}]*font-weight:\s*600/);
     expect(css).toMatch(/\.title\s*\{[^}]*color:\s*var\(--color-text-muted\)/);
 
-    // the bulb glyph in the pixel-rect registry (§4.38.B): the IconName
-    // union entry + the 8-rect geometry (dome, filament, neck, base) —
-    // same construction rules as the `gear` pattern
+    // the bubble glyph in the pixel-rect registry (§4.38.1): the IconName
+    // union entry + the 6-rect geometry (rounded-rect body, chamfered
+    // corners, stepped tail) — same construction rules as the `gear` pattern
     const registry = source('src/lib/components/icons/registry.ts');
-    expect(registry).toMatch(/\| 'bulb';/);
-    const bulbRects = registry.match(/bulb: \[([\s\S]*?)\]\s*\n\};/)?.[1] ?? '';
-    expect(bulbRects).toBeTruthy();
-    expect(bulbRects.match(/\[\d+, \d+, \d+, \d+\]/g)).toHaveLength(8);
+    expect(registry).toMatch(/\| 'bubble';/);
+    const bubbleRects = registry.match(/bubble: \[([\s\S]*?)\]\s*\n\};/)?.[1] ?? '';
+    expect(bubbleRects).toBeTruthy();
+    expect(bubbleRects.match(/\[\d+, \d+, \d+, \d+\]/g)).toHaveLength(6);
+
+    // NEW negative (§4.38.1): NO file under apps/web/src references 'bulb'
+    // anymore (union, ICON_RECTS, comments, markup, CSS — the removal is
+    // complete at source level)
+    const sweep = (dir: string): string[] => {
+      const out: string[] = [];
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const path = join(dir, entry.name);
+        if (entry.isDirectory()) out.push(...sweep(path));
+        else out.push(path);
+      }
+      return out;
+    };
+    const srcFiles = sweep(join(WEB_ROOT, 'src'));
+    expect(srcFiles.length).toBeGreaterThan(0);
+    for (const file of srcFiles) {
+      expect(readFileSync(file, 'utf8')).not.toMatch(/bulb/);
+    }
 
     // NOT clickable on the root even though the row width equals a
     // tappable PersonCard's (the link's own pointer cursor is the browser
     // default, §4.38.C); reduced motion: NO component-scoped @media and NO
     // animation-fill-mode — the base.css catch-all completes the pulse
-    // instantly and the bulb rests STATIC at full opacity (§4.38.B;
+    // instantly and the bubble rests STATIC at full opacity (§4.38.1;
     // asserted source-level like §4.36.D.4). Comments are excluded (the
     // sweep precedent — naming a rule in prose is allowed; actual styles
     // are not).

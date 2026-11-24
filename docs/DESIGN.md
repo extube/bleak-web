@@ -11413,6 +11413,14 @@ token, no palette value (flagged in §4.38.G.2).
 
 #### 4.38.B Bulb icon + blink spec (DECIDED)
 
+> **SUPERSEDED IN PART (2026-11-24) — see §4.38.1:** the bulb glyph is
+> replaced by the `bubble` glyph (Concept §53 owner micro-order); the
+> slot (56px), render size (32), tone (`currentColor`), blink rhythm
+> (1.2s ease-in-out, opacity 1↔0.3) and reduced-motion static fallback
+> are unchanged, only the glyph and the wrapper/keyframes names
+> (`.bulb`/`bulb-blink` → `.bubble`/`bubble-blink`) change. The text
+> below is kept as the historical record.
+
 **Registry entry.** Append `'bulb'` to the `IconName` union
 (`registry.ts` line 33, after `'gear'` with a `§4.38 (Concept §52)`
 comment) and add the rect data to `ICON_RECTS` after the `gear` entry
@@ -11629,6 +11637,81 @@ cross-cutting:
    the animation budget are fixed by Concept §52; the design picks
    (bulb size/geometry, rhythm, link treatment) are decided above and
    flagged reversible.
+
+### 4.38.1 owner amendment (2026-11-24, Concept §53 record): badge icon bulb → bubble
+
+Owner micro-order (Concept §53, 2026-11-24): on the §4.38 badge the
+light-bulb glyph becomes a **chat (speech) bubble** — the symbol of
+incoming conversations. Everything else from §4.38 stands untouched:
+same 56px slot, same blink animation, same muted `currentColor` tone,
+same 32px render size, same reduced-motion static full-opacity
+fallback; copy, link, placement, condition and footprint unchanged.
+The `bulb` registry icon is REMOVED (grep-audit by the process,
+2026-11-24: its sole consumer is this badge — union entry
+`registry.ts` ~lines 33–37, `ICON_RECTS` entry ~lines 279–300,
+`SearchingBadge.svelte` `.bulb`/`bulb-blink` ~lines 76–93).
+
+**1. Registry — `bulb` → `bubble`, same construction rules.**
+`'bubble'` replaces `'bulb'` at the same union position (comment
+retagged `§4.38.1 (Concept §53)`), and the `ICON_RECTS` `bulb` entry
++ comment are REPLACED by a `bubble` entry: 16×16 grid, `currentColor`,
+2px-weight pixel-stepped outline, span-centered at (7.5, 7.5). Exact
+geometry (6 rects — rounded-rect body + stepped tail):
+
+```ts
+// SEARCHING BADGE (DESIGN §4.38.1): a pixel chat (speech) bubble — a
+// rounded-rect outline body with chamfered corners and a stepped tail
+// at the lower left; currentColor.
+bubble: [
+  [3, 2, 10, 2],   // body top wall          (x3..x12,  y2..y3)
+  [1, 4, 2, 4],    // body left wall         (x1..x2,   y4..y7)
+  [13, 4, 2, 4],   // body right wall        (x13..x14, y4..y7)
+  [3, 8, 10, 2],   // body bottom wall       (x3..x12,  y8..y9)
+  [5, 10, 4, 2],   // tail root              (x5..x8,   y10..y11)
+  [3, 12, 4, 2]    // tail tip, stepped left (x3..x6,   y12..y13)
+]
+```
+
+Geometry rationale: spans x1..x14 / y2..y13 — the set's (7.5, 7.5)
+centering convention; every wall is a 2-cell-thick stroke; the
+chamfered corners (walls start inset from the edges) give the
+rounded-rect read; the tail hangs from the bottom wall's left half —
+root y10..y11, tip stepped left to x3..x6 at y12..y13, edge-connected
+at x5..x6 — legible as an incoming-conversation bubble. Render size
+stays 32 (`size={32}`, the exact 2× per §4.38.B), slot stays 56px.
+
+**2. Naming + animation.** In `SearchingBadge.svelte` the wrapper
+class and keyframes RENAME — `.bulb` → `.bubble`, `bulb-blink` →
+`bubble-blink` — same `animation: bubble-blink 1.2s ease-in-out
+infinite`, same opacity 1 → 0.3 → 1, opacity-only per §4.6 (no color
+swap, no transform, no shadow). Markup: `<span class="bubble"
+aria-hidden="true"><PixelIcon name="bubble" size={32} /></span>` (the
+§4.38.A skeleton, names swapped). Reduced-motion fallback unchanged:
+the `base.css` catch-all completes the pulse instantly and the glyph
+rests STATIC at full opacity — no component-scoped `@media` block is
+added.
+
+**3. `bulb` REMOVED.** `'bulb'` leaves the `IconName` union; its
+`ICON_RECTS` entry and comment are deleted — the sole consumer was
+this badge (grep-audit recorded above). After this change no file
+under `apps/web/src` may reference `bulb` (source-level negative
+assertion).
+
+**4. AC deltas vs §4.38.F.** Items 1–2, 5–10 stand unchanged (item
+10's file list is unchanged). Only:
+
+- Item 3 becomes: the 56px slot holds the bubble — `'bubble'` exists
+  in the `IconName` union and `ICON_RECTS`, the badge renders
+  `<PixelIcon name="bubble" size={32} />` inside `span.bubble`
+  (`aria-hidden="true"`); the `.loader` span, its CSS and the
+  `loader-spin` keyframes stay GONE; the DOM contains no `.loader`.
+  NEW negative assertions: no `'bulb'` anywhere in `apps/web/src`
+  (source-level) and no `.bulb` in the rendered DOM.
+- Item 4 becomes: the `.bubble` rule carries `animation: bubble-blink
+  1.2s ease-in-out infinite`; `@keyframes bubble-blink` alternates
+  opacity 1 → 0.3 → 1 and contains NOTHING but opacity (source-level).
+  The badge's source-level test assertions rename `.bulb`/`bulb-blink`
+  → `.bubble`/`bubble-blink` accordingly.
 
 ## 5. Design-decision rationale (short)
 

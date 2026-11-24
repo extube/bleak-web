@@ -5,7 +5,7 @@
    * PersonCard footprint (§3.3 card family: surface card, pixel-corners,
    * 56px left slot, .row gap) but NOT a user: no navigation, no PersonCard
    * behavior, no relationship data, no real user fields. Content = the
-   * blinking light-bulb pixel glyph (§4.38.B — the §4.13.4 spinner was
+   * blinking chat-bubble pixel glyph (§4.38.1 — the §4.38.B glyph was
    * superseded) + the muted title (the .name family 16px/600 in
    * --color-text-muted — the "muted/secondary styling" that reads as a
    * system state) + the settings remark link (§4.38.C).
@@ -34,10 +34,10 @@
 <li class="searching-badge pixel-corners">
   <div class="row">
     <!-- The 56px PixelAvatar slot — NO avatar, NO placeholder box; the
-         blinking bulb is centered in it (§4.38.A/B). -->
+         blinking bubble is centered in it (§4.38.1/A). -->
     <div class="slot">
-      <span class="bulb" aria-hidden="true">
-        <PixelIcon name="bulb" size={32} />
+      <span class="bubble" aria-hidden="true">
+        <PixelIcon name="bubble" size={32} />
       </span>
     </div>
     <div class="main">
@@ -73,16 +73,16 @@
     align-items: center;
     justify-content: center;
   }
-  /* §4.38.B: the blinking bulb — an opacity-only pulse (§4.6): the "off"
+  /* §4.38.1: the blinking bubble — an opacity-only pulse (§4.6): the "off"
    * phase dips to 0.3, the glyph tone never changes. No animation-fill-mode,
    * so under prefers-reduced-motion: reduce the base.css catch-all completes
-   * the pulse instantly and the bulb rests STATIC at full opacity (the "on"
-   * state); no component-scoped @media block (§4.38.B). */
-  .bulb {
+   * the pulse instantly and the bubble rests STATIC at full opacity (the "on"
+   * state); no component-scoped @media block (§4.38.1). */
+  .bubble {
     display: inline-flex;
-    animation: bulb-blink 1.2s ease-in-out infinite;
+    animation: bubble-blink 1.2s ease-in-out infinite;
   }
-  @keyframes bulb-blink {
+  @keyframes bubble-blink {
     0%,
     100% {
       opacity: 1;
