@@ -13,6 +13,10 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
+# svelte-check/vite need more than Node's default heap (Node sizes it by
+# detected RAM — on small VPSes ~500 MB, which OOMs: exit 134).
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+
 # Install the exact workspace graph first (cacheable layer). Whole
 # workspace directories are copied so the image matches whatever the
 # workspaces currently are (e.g. apps/helper disappears with tz14 —
