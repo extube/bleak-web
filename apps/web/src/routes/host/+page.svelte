@@ -1,463 +1,298 @@
 <script lang="ts">
   /**
-   * `/host` — Host console v2 (DESIGN rev. 3 §3.7, TZ2-07 Part B;
-   * ARCHITECTURE §10.9). Fully reworks the mechanical v1→v2 adaptation:
+   * `/host` — entry route (DESIGN rev. 4 §3.7.1, TZ13-02; Concept §54.1).
+   * The rev. 3 single-page console is restructured into the route tree: this
+   * page keeps ONLY the entry forms (create / log-in) — the panel, invites
+   * and QR moved to their own routes (TZ13-03/TZ13-04).
    *
-   * - **Creation-token gate:** the operator-granted ONE-TIME creation token
-   *   is typed into a masked input (type=password, autocomplete=off) and is
-   *   NEVER persisted anywhere — it lives in memory for the duration of the
-   *   create call and is consumed server-side. A 401/403 → «Токен
-   *   отклонён.» + server text under the field, value kept masked, nothing
-   *   stored.
-   * - **Create room:** the client generates the room token
-   *   (`generateTokenSecret`) → `hostApi.createRoomWithInvite` (creation
-   *   token in the header + room token in the body, first invite minted with
-   *   the room token — the delivered TZ2-05 composite) →
-   *   `bleak.hostRoom = { roomAddress, roomToken, code }`.
-   * - **Share kit:** restored from `bleak.hostRoom`; room name via public
-   *   `getRoom`; invite link computed client-side
-   *   (`{INVITE_URL_BASE}?code={code}`); QR `<img>` from the STATELESS
-   *   helper endpoint.
-   * - **Invite management (room-token authority):** list / mint (expiry
-   *   presets 1 h · 24 h default · 7 d + custom datetime-local) / revoke
-   *   (no confirm — reversible); failures inline with retry. The mint
-   *   response shape is a TBD(WP-6) mapping point — the block consumes only
-   *   the api-client's public `Invite` methods (§8.4.1).
-   * - **Live view:** public 5 s Poller (listRoomUsers + getRoom) —
-   *   instantiated HERE only, stopped on teardown, refreshed on visibility
-   *   regain. Member drill-down is ON-DEMAND (never polled): chat discovery
-   *   is 6.9a-blocked — the sheet renders the honest empty state + the muted
-   *   flag hint, never invented listings; NO handshake counts anywhere
-   *   (AC 11).
-   * - **Host settings:** updateRoom (room token); «Сгенерировать ключ
-   *   комнаты» → confirm → rotateRoomToken → in-place `bleak.hostRoom`
-   *   update; danger-zone delete → confirm → deleteRoom → clear
-   *   `bleak.hostRoom` → create form.
-   * - **Host reset state:** the `bleak.hostNotice` flag (set by the hostApi
-   *   gate on 401/403; TZ13-01 renamed it from the retired host-reset key)
-   *   renders the
-   *   §3.7 reset notice above the
-   *   creation-token gate, consumed on render; `getRoom` 404 → «Комната
-   *   удалена.» reset.
-   *
-   * This page NEVER requires an attendee identity (§1.3).
+   * - **Auto-resume probe (§54.1):** on mount with a stored `bleak.hostRoom`,
+   *   the stored key is validated through the invite-list GET BEFORE the
+   *   entry card renders interactively: 200 → auto-navigate to
+   *   `/host/<room_address>` (skeleton + «Проверяем доступ к комнате…»,
+   *   `aria-busy`, meanwhile); 401/403 → clear + reset notice + entry card in
+   *   the Create mode; 404 → clear + «Комната удалена.»; NetworkError → the
+   *   stored entry is KEPT (a network failure proves nothing about the
+   *   credential) with the §2.1 network banner + retry above the card.
+   * - **Pre-credential probes (TZ §9.4.2):** the resume probe, the log-in
+   *   validation and the address finder run through `hostProbes` — the raw
+   *   client path with LOCAL 401 handling (the `hostApi` roomGate must not
+   *   fire for expected pre-credential 401s). Post-credential room-token
+   *   calls always go through `hostApi`.
+   * - **Reset notice:** renders when `sessionStorage` `bleak.hostNotice` is
+   *   set (the hostApi gate, §2.8) — lock glyph, `host.session_reset` copy,
+   *   `aria-live="polite"`, key removed after render; its presence
+   *   pre-selects the Log-in mode.
+   * - **Create mode:** masked creation token (memory only — never persisted;
+   *   consumed server-side on use) + room form → client generates the room
+   *   token (`generateTokenSecret`) → `hostApi.createRoomWithInvite` (the
+   *   delivered composite: POST /api/room carries the creation token in the
+   *   `x-create-token` header and the room token in the body; the first
+   *   minted `invite_code` comes from the creation response) → store
+   *   `bleak.hostRoom = { roomAddress, roomToken, code }` → navigate to
+   *   `/host/<room_address>`.
+   * - **Log-in mode:** address + masked key → probe validation: 200 →
+   *   store/overwrite `bleak.hostRoom` (`code` starts unknown and fills from
+   *   the panel's first invite-list tick) → navigate; 401/403 → «Ключ
+   *   комнаты отклонён.» inline, value stays masked, nothing stored (§2.9
+   *   host row). 404 on the probe = the address names no room — the same
+   *   honest inline rejection (nothing stored).
+   * - **Address finder (F11):** «Не помните адрес?» → public room list →
+   *   bounded candidate probing with the entered key (concurrency ≤ 4, cap
+   *   25, stop at the first 200 — `findRoomByKey` in HostEntryCard's module
+   *   script); a match fills the address and continues the normal
+   *   validation; no match → «Ключ не подошёл ни к одной комнате.»; the
+   *   finder NEVER writes storage.
+   * - No tab bar on /host (layout); the page NEVER redirects based on
+   *   attendee identity (§1.3) — nothing here reads `identity`.
    */
   import { get } from 'svelte/store';
-  import { ApiError, NetworkError, type Invite, type Room, type User } from '@bleak/api-client';
-  import { hostApi, HOST_NOTICE_KEY } from '#lib/api/client';
-  import { inviteQrUrl } from '#lib/api/helper';
+  import { goto } from '$app/navigation';
+  import { ApiError } from '@bleak/api-client';
+  import { HOST_NOTICE_KEY, hostApi, hostProbes } from '#lib/api/client';
   import { generateTokenSecret } from '#lib/crypto/secrets';
   import { apiErrorText } from '#lib/join';
-  import { Poller } from '#lib/polling/poller';
   import { locale, translate } from '#lib/i18n/locale';
+  import ErrorBanner from '#lib/components/ErrorBanner.svelte';
+  import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
+  import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
+  import HostEntryCard, { findRoomByKey } from '#lib/components/host/HostEntryCard.svelte';
+  import type { RoomDraft } from '#lib/components/host/CreateRoomForm.svelte';
   import {
     clearHostRoom,
     hostRoom,
     initHostSession,
-    saveHostRoom,
-    updateHostRoomToken
+    saveHostRoom
   } from '#lib/stores/hostSession';
-  import { inviteUrlBase } from '#lib/components/profile/qr';
-  import { mergeRoster } from '#lib/people/view';
-  import { inviteLink } from '#lib/components/host/hostLogic';
-  import TokenGate from '#lib/components/host/TokenGate.svelte';
-  import CreateRoomForm from '#lib/components/host/CreateRoomForm.svelte';
-  import ShareKit from '#lib/components/host/ShareKit.svelte';
-  import InviteManager from '#lib/components/host/InviteManager.svelte';
-  import LiveRoom from '#lib/components/host/LiveRoom.svelte';
-  import MemberDrillDown, { type DrillDialog } from '#lib/components/host/MemberDrillDown.svelte';
 
-  type Stage = 'gate' | 'form' | 'share';
+  type Phase = 'boot' | 'probe' | 'entry';
+  type Notice = null | 'reset' | 'deleted';
+  type Banner = null | { kind: 'network' | 'api'; message: string | null };
+  /** What the §2.1 banner's Retry re-runs (memory only — the creation token
+   * retry payload never touches storage). */
+  type Retry =
+    | { kind: 'probe' }
+    | { kind: 'create'; payload: { token: string; draft: RoomDraft } }
+    | { kind: 'login'; pair: { address: string; key: string } }
+    | { kind: 'find'; key: string };
 
-  // --- host session (boot reads localStorage once) ---------------------------
-  let booted = $state(false);
-  let stage = $state<Stage>('gate');
-  /** The one-time CREATION token — memory only, never persisted (§10.11). */
-  let tokenValue = $state('');
-  let resetNotice = $state(false);
-  const currentRoom = $derived($hostRoom);
+  let phase = $state<Phase>('boot');
+  let notice = $state<Notice>(null);
+  let banner = $state<Banner>(null);
+  let retry = $state<Retry | null>(null);
+  /** The active entry mode (§3.7.1): default Create; the reset notice
+   * pre-selects Log-in; a dead-key probe falls back to Create. */
+  let mode = $state<'create' | 'login'>('create');
 
+  function errorFrom(cause: unknown): Banner {
+    if (cause instanceof ApiError) return { kind: 'api', message: apiErrorText(cause) };
+    return { kind: 'network', message: null };
+  }
+
+  // --- boot: session init + notice consumption + auto-resume probe ------------
   $effect(() => {
-    if (booted) return;
+    if (phase !== 'boot') return;
     initHostSession();
-    // Consume the host-reset flag (set by the hostApi gate — possibly while
-    // the console was closed): render the §3.7 notice once, then drop it.
+    // Consume the hostApi gate's flag (set while the panel was open): render
+    // the §3.7.1 reset notice once, then drop the key; its presence
+    // pre-selects the Log-in mode.
     try {
       if (sessionStorage.getItem(HOST_NOTICE_KEY) === '1') {
-        resetNotice = true;
+        notice = 'reset';
         sessionStorage.removeItem(HOST_NOTICE_KEY);
+        mode = 'login'; // the notice's presence pre-selects the Log-in mode
       }
     } catch {
       /* storage unavailable */
     }
-    stage = $hostRoom !== null ? 'share' : 'gate';
-    booted = true;
+    if (get(hostRoom) !== null) {
+      void runProbe();
+    } else {
+      phase = 'entry';
+    }
   });
 
-  // --- create-room flow -------------------------------------------------------
-  let tokenGateError = $state<string | null>(null);
+  /**
+   * Auto-resume probe (§54.1, DESIGN §3.7.1 item 3): validate the STORED key
+   * through the pre-credential probe path — expected 401s are handled LOCALLY
+   * (the hostApi gate must not fire before a credential is accepted).
+   */
+  async function runProbe(): Promise<void> {
+    const stored = get(hostRoom);
+    if (stored === null) {
+      phase = 'entry';
+      return;
+    }
+    banner = null;
+    retry = { kind: 'probe' };
+    phase = 'probe';
+    try {
+      await hostProbes.validateKey(stored.roomAddress, stored.roomToken);
+      // 200 → auto-resume straight into the panel; the skeleton stays while
+      // the navigation lands (no form flash). The panel route is created by
+      // TZ13-03 in this same wave — resolve() typing cannot reference it on
+      // this branch yet, so the navigation is a plain (same-app) path.
+      // eslint-disable-next-line svelte/no-navigation-without-resolve
+      await goto(`/host/${stored.roomAddress}`);
+    } catch (cause: unknown) {
+      if (cause instanceof ApiError && cause.status === 404) {
+        // Room deleted elsewhere → clear + «Комната удалена.» + the card.
+        clearHostRoom();
+        notice = 'deleted';
+        phase = 'entry';
+      } else if (cause instanceof ApiError && (cause.status === 401 || cause.status === 403)) {
+        // Dead key → host reset semantics (§2.8): clear + notice + Create
+        // fallback (log-in would repeat the failure; it stays one tap away).
+        clearHostRoom();
+        notice = 'reset';
+        mode = 'create';
+        phase = 'entry';
+      } else {
+        // NetworkError (or any transient failure) → KEEP the stored entry —
+        // a failed probe must not destroy a possibly-valid credential.
+        banner = errorFrom(cause);
+        phase = 'entry';
+      }
+    }
+  }
+
+  function onBannerRetry(): void {
+    const pending = retry;
+    if (pending === null) return;
+    if (pending.kind === 'probe') void runProbe();
+    else if (pending.kind === 'create') void onCreate(pending.payload);
+    else if (pending.kind === 'login') void onLogin(pending.pair);
+    else void startFind(pending.key);
+  }
+
+  // --- create flow -------------------------------------------------------------
   let creating = $state(false);
-  let createError = $state<string | null>(null);
-  let deletedNotice = $state(false);
+  let createError = $state<string | null>(null); // 400/409 server text
+  let tokenRejected = $state<string | null>(null); // 401/403 on the creation token
 
-  function submitToken(token: string): void {
-    tokenValue = token; // memory only — never written to any storage
-    tokenGateError = null;
-    stage = 'form';
-  }
-
-  function backToGate(): void {
-    stage = 'gate';
-    tokenGateError = null;
-  }
-
-  async function onCreate(draft: { name: string; description: string; language: 'ru' | 'en' }): Promise<void> {
+  async function onCreate(payload: { token: string; draft: RoomDraft }): Promise<void> {
     if (creating) return;
     creating = true;
     createError = null;
-    deletedNotice = false;
+    tokenRejected = null;
+    banner = null;
+    retry = { kind: 'create', payload };
     try {
-      // v2 (ARCHITECTURE §10.9): the client generates the room token, room
-      // creation authenticates with the one-time creation token in the
-      // header, and the room's first invite code is minted with that room
-      // token (the delivered TZ2-05 composite).
+      // The client generates the room token; the creation token travels ONLY
+      // in the x-create-token header (consumed server-side, never stored).
+      // The delivered composite reads the creation response's first minted
+      // `invite_code` (POST /api/room + a fallback mint for older backends).
       const roomToken = generateTokenSecret();
-      const { room: created, code } = await hostApi.createRoomWithInvite(
+      const { room, code } = await hostApi.createRoomWithInvite(
         {
-          name: draft.name,
-          ...(draft.description !== '' ? { description: draft.description } : {}),
-          language: draft.language,
+          name: payload.draft.name,
+          ...(payload.draft.description !== '' ? { description: payload.draft.description } : {}),
+          language: payload.draft.language,
           token: roomToken
         },
-        tokenValue
+        payload.token
       );
-      saveHostRoom({ code, roomAddress: created.address, roomToken });
-      tokenValue = ''; // consumed server-side — the gate value is not kept
-      stage = 'share';
+      saveHostRoom({
+        roomAddress: room.address,
+        roomToken,
+        code
+      });
+      retry = null; // consumed
+      // Same-app path (see the runProbe comment — the panel route lands with
+      // TZ13-03).
+      // eslint-disable-next-line svelte/no-navigation-without-resolve
+      await goto(`/host/${room.address}`);
     } catch (cause: unknown) {
       if (cause instanceof ApiError && (cause.status === 401 || cause.status === 403)) {
-        // Wrong/consumed creation token: back to the gate, the entered value
-        // stays masked, NOTHING is stored (§3.7 states).
-        tokenGateError = translate($locale, 'host.token.rejected');
-        const detail = apiErrorText(cause);
-        if (detail !== '' && detail !== cause.message) tokenGateError = `${tokenGateError} ${detail}`;
-        stage = 'gate';
-      } else if (cause instanceof NetworkError || cause instanceof TypeError) {
-        createError = translate($locale, 'common.error.network');
+        // Wrong/consumed creation token: the entered value stays masked,
+        // NOTHING is stored (§3.7.1 states).
+        tokenRejected = translate($locale, 'host.token.rejected');
+        const detail = cause instanceof ApiError ? apiErrorText(cause) : '';
+        if (detail !== '' && detail !== cause.message) tokenRejected = `${tokenRejected} ${detail}`;
+      } else if (cause instanceof ApiError) {
+        // 400/409 — surface the server's plain-text body (e.g. duplicate name).
+        createError = apiErrorText(cause);
       } else {
-        // Surface the server's plain-text body (400/409 — e.g. duplicate name).
-        createError = cause instanceof ApiError ? apiErrorText(cause) : cause instanceof Error ? cause.message : String(cause);
+        banner = errorFrom(cause); // NetworkError → §2.1 banner + retry
       }
     } finally {
       creating = false;
     }
   }
 
-  /**
-   * Host-gate aftermath: the hostApi gate already cleared `bleak.hostRoom`
-   * and set `bleak.hostNotice` on a 401/403 — when the room session is gone,
-   * the console resets to the creation-token gate with the §3.7 notice.
-   * Attendee identity is never touched (the gate is host-scoped).
-   */
-  function handleHostReset(): void {
-    if (get(hostRoom) === null) {
-      resetNotice = true;
-      try {
-        sessionStorage.removeItem(HOST_NOTICE_KEY);
-      } catch {
-        /* ignore */
-      }
-      stage = 'gate';
-      room = null;
-      members = [];
-      loadingLive = true;
-      roomDeleted = false;
-    }
-  }
+  // --- log-in flow (pre-credential probe validation, local 401 handling) -------
+  let loggingIn = $state(false);
+  let loginRejected = $state<string | null>(null);
+  let address = $state(''); // bindable into the card; the finder fills it
 
-  // --- live room view (5 s Poller — route file only, §2.2) --------------------
-  let room = $state<Room | null>(null);
-  let members = $state<readonly User[]>([]);
-  let loadingLive = $state(true);
-  let pollError = $state<null | { kind: 'network' | 'api'; message: string | null }>(null);
-  let roomDeleted = $state(false);
-  /** Seconds clock shared by the invite rows (expiry display). */
-  let now = $state(Date.now());
-
-  function errorFrom(cause: unknown): { kind: 'network' | 'api'; message: string | null } {
-    if (cause instanceof ApiError) return { kind: 'api', message: apiErrorText(cause) };
-    return { kind: 'network', message: null };
-  }
-
-  async function pollTick(): Promise<void> {
-    const current = get(hostRoom);
-    if (!current) throw new Error('no host room');
-    const [nextRoom, nextMembers] = await Promise.all([
-      hostApi.getRoom(current.roomAddress),
-      hostApi.listRoomUsers(current.roomAddress)
-    ]);
-    room = nextRoom;
-    now = Date.now();
-    // Poll diffing: identical roster keeps its array reference (no re-render).
-    members = mergeRoster(members, nextMembers);
-    loadingLive = false;
-    pollError = null;
-  }
-
-  const poller = new Poller({
-    intervalMs: 5000,
-    backoffMs: 15_000,
-    tick: pollTick,
-    onStall: (cause) => {
-      if (cause instanceof ApiError && cause.status === 404) {
-        // Room deleted elsewhere: full-section state + reset to the form.
-        roomDeleted = true;
-        pollError = null;
-        return;
-      }
-      pollError = errorFrom(cause);
-      handleHostReset();
-    }
-  });
-
-  // Poller lifecycle: only while the share kit + live view are shown.
-  $effect(() => {
-    if (!booted) return;
-    if (stage === 'share' && currentRoom !== null) {
-      poller.start();
-      void poller.refresh();
-      return () => poller.stop();
-    }
-  });
-
-  function onVisibilityChange(): void {
-    if (document.visibilityState === 'visible' && poller.isRunning) void poller.refresh();
-  }
-  $effect(() => {
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
-  });
-
-  // --- invite management (room-token authority) --------------------------------
-  let invites = $state<Invite[] | null>(null);
-  let invitesError = $state<'network' | 'api' | null>(null);
-  let invitesErrorMessage = $state<string | null>(null);
-  let mintPending = $state(false);
-  let revokedNote = $state(false);
-  let revokedTimer: ReturnType<typeof setTimeout> | null = null;
-
-  async function loadInvites(): Promise<void> {
-    const current = get(hostRoom);
-    if (!current) return;
-    invitesError = null;
-    invitesErrorMessage = null;
+  async function onLogin(pair: { address: string; key: string }): Promise<void> {
+    if (loggingIn) return;
+    loggingIn = true;
+    loginRejected = null;
+    banner = null;
+    retry = { kind: 'login', pair };
     try {
-      invites = await hostApi.listInvites(current.roomAddress);
+      await hostProbes.validateKey(pair.address, pair.key);
+      // 200 → store/overwrite bleak.hostRoom (code starts unknown and fills
+      // from the panel's first invite-list tick) → navigate to the panel.
+      saveHostRoom({ roomAddress: pair.address, roomToken: pair.key, code: '' });
+      retry = null;
+      // Same-app path (see the runProbe comment — the panel route lands with
+      // TZ13-03).
+      // eslint-disable-next-line svelte/no-navigation-without-resolve
+      await goto(`/host/${pair.address}`);
     } catch (cause: unknown) {
-      const mapped = errorFrom(cause);
-      invitesError = mapped.kind;
-      invitesErrorMessage = mapped.message;
-      handleHostReset();
-    }
-  }
-
-  $effect(() => {
-    if (stage === 'share' && currentRoom !== null && invites === null) {
-      void loadInvites();
-    }
-  });
-
-  async function onMint(expiresAt?: string): Promise<void> {
-    const current = get(hostRoom);
-    if (!current || mintPending) return;
-    mintPending = true;
-    invitesError = null;
-    try {
-      await hostApi.mintInvite(current.roomAddress, expiresAt ? { expires_at: expiresAt } : {});
-      // The new code appears at the top of the list (activeInvites sorts by
-      // created_at desc) with its own copy/QR/link actions.
-      await loadInvites();
-    } catch (cause: unknown) {
-      const mapped = errorFrom(cause);
-      invitesError = mapped.kind;
-      invitesErrorMessage = mapped.message;
-      handleHostReset();
+      if (cause instanceof ApiError && (cause.status === 401 || cause.status === 403 || cause.status === 404)) {
+        // 401/403: the key is rejected (§2.9 host row); 404: the address
+        // names no room — the same honest inline state. Nothing is stored;
+        // the entered value stays masked.
+        loginRejected = translate($locale, 'host.login.rejected');
+        const detail = apiErrorText(cause);
+        if (detail !== '' && detail !== cause.message) loginRejected = `${loginRejected} ${detail}`;
+      } else {
+        banner = errorFrom(cause); // NetworkError → §2.1 banner + retry
+      }
     } finally {
-      mintPending = false;
+      loggingIn = false;
     }
   }
 
-  async function onRevoke(code: string): Promise<void> {
-    const current = get(hostRoom);
-    if (!current) return;
-    invitesError = null;
-    try {
-      // No confirm — revocation is reversible by minting again (§3.7).
-      await hostApi.revokeInvite(current.roomAddress, code);
-      await loadInvites();
-      revokedNote = true;
-      if (revokedTimer) clearTimeout(revokedTimer);
-      revokedTimer = setTimeout(() => (revokedNote = false), 2000);
-    } catch (cause: unknown) {
-      const mapped = errorFrom(cause);
-      invitesError = mapped.kind;
-      invitesErrorMessage = mapped.message;
-      handleHostReset();
-    }
-  }
+  // --- address finder (F11; bounded probe, never writes storage) ---------------
+  let finding = $state(false);
+  let findMessage = $state<string | null>(null); // the no-match copy
 
-  // --- settings + room-token rotation + delete ---------------------------------
-  let settingsPending = $state(false);
-  let settingsError = $state<string | null>(null);
-  let deletePending = $state(false);
-  let rotatePending = $state(false);
-  let rotateDone = $state(false);
-  let rotateTimer: ReturnType<typeof setTimeout> | null = null;
-
-  async function onUpdateRoom(name: string, description: string): Promise<void> {
-    const current = get(hostRoom);
-    if (!current || settingsPending) return;
-    settingsPending = true;
-    settingsError = null;
+  async function startFind(key: string): Promise<void> {
+    if (finding) return;
+    finding = true;
+    findMessage = null;
+    banner = null;
+    retry = { kind: 'find', key };
     try {
-      const updated = await hostApi.updateRoom(current.roomAddress, {
-        name,
-        ...(description !== '' ? { description } : {})
+      const match = await findRoomByKey(key, {
+        listRooms: () => hostProbes.listRooms(),
+        validateKey: (candidateAddress, candidateKey) =>
+          hostProbes.validateKey(candidateAddress, candidateKey)
       });
-      room = updated;
+      if (match !== null) {
+        // A match fills the address and continues the NORMAL validation
+        // (probe → store → navigate).
+        address = match.address;
+        await onLogin({ address: match.address, key });
+      } else {
+        findMessage = translate($locale, 'host.login.find_none');
+      }
     } catch (cause: unknown) {
-      settingsError = cause instanceof Error ? cause.message : translate($locale, 'common.error');
-      handleHostReset();
+      banner = errorFrom(cause); // listRooms itself failed → §2.1 banner
     } finally {
-      settingsPending = false;
+      finding = false;
     }
   }
 
-  /**
-   * Room-token rotation: Bearer = the CURRENT room token (auto-injected),
-   * body = the new raw secret. The stored `bleak.hostRoom.roomToken` is
-   * replaced IN PLACE only after the 2xx.
-   */
-  async function onRotateRoomToken(): Promise<void> {
-    const current = get(hostRoom);
-    if (!current || rotatePending) return;
-    rotatePending = true;
-    settingsError = null;
-    try {
-      const newRaw = generateTokenSecret();
-      await hostApi.rotateRoomToken(current.roomAddress, newRaw);
-      updateHostRoomToken(newRaw);
-      rotateDone = true;
-      if (rotateTimer) clearTimeout(rotateTimer);
-      rotateTimer = setTimeout(() => (rotateDone = false), 2000);
-    } catch (cause: unknown) {
-      settingsError = cause instanceof Error ? cause.message : translate($locale, 'common.error');
-      handleHostReset();
-    } finally {
-      rotatePending = false;
-    }
-  }
-
-  async function onDeleteRoom(): Promise<void> {
-    const current = get(hostRoom);
-    if (!current || deletePending) return;
-    deletePending = true;
-    try {
-      await hostApi.deleteRoom(current.roomAddress);
-      room = null;
-      members = [];
-      invites = null;
-      loadingLive = true;
-      clearHostRoom();
-      roomDeleted = false;
-      deletedNotice = true;
-      stage = 'form';
-    } catch (cause: unknown) {
-      settingsError = cause instanceof Error ? cause.message : translate($locale, 'common.error');
-      handleHostReset();
-    } finally {
-      deletePending = false;
-    }
-  }
-
-  function resetToCreateForm(): void {
-    clearHostRoom();
-    room = null;
-    members = [];
-    invites = null;
-    loadingLive = true;
-    roomDeleted = false;
-    stage = 'form';
-  }
-
-  function backToCreateForm(): void {
-    // «Создать другую комнату» keeps the stored room until a new one exists.
-    stage = 'form';
-    createError = null;
-  }
-
-  // --- member drill-down (on-demand, never polled; 6.9a-blocked discovery) -----
-  let drillMember = $state<User | null>(null);
-  /**
-   * Chat knowledge the console already holds — v2: NONE (chat discovery is
-   * 6.9a-blocked). The sheet therefore renders the honest empty state + the
-   * muted flag hint; listings are never invented client side. The reads
-   * themselves (clear/kickoff) use the room token via the host context.
-   */
-  let drillChats = $state<DrillDialog[] | null>(null);
-  let drillError = $state<'network' | 'api' | null>(null);
-  let drillErrorMessage = $state<string | null>(null);
-
-  function openMember(user: User): void {
-    drillMember = user;
-    drillChats = null; // no discoverable chat addresses in v2 (flag 6.9a)
-    drillError = null;
-    drillErrorMessage = null;
-  }
-
-  function retryDrillDown(): void {
-    const user = drillMember;
-    if (user) openMember(user);
-  }
-
-  function closeDrillDown(): void {
-    drillMember = null;
-  }
-
-  async function onClearChat(chatAddress: string): Promise<void> {
-    drillError = null;
-    drillErrorMessage = null;
-    try {
-      await hostApi.clearChatHistory(chatAddress); // room token, host context
-    } catch (cause: unknown) {
-      const mapped = errorFrom(cause);
-      drillError = mapped.kind;
-      drillErrorMessage = mapped.message;
-      handleHostReset();
-    }
-  }
-
-  async function onKickoffChat(chatAddress: string): Promise<void> {
-    drillError = null;
-    drillErrorMessage = null;
-    try {
-      await hostApi.kickoffChat(chatAddress); // room token, host context
-    } catch (cause: unknown) {
-      const mapped = errorFrom(cause);
-      drillError = mapped.kind;
-      drillErrorMessage = mapped.message;
-      handleHostReset();
-    }
-  }
-
-  // --- copy -------------------------------------------------------------------
+  // --- copy --------------------------------------------------------------------
   const title = $derived(translate($locale, 'host.title'));
   const subtitle = $derived(translate($locale, 'host.subtitle'));
-  const deletedMessage = $derived(translate($locale, 'host.room_deleted'));
-  const anotherLabel = $derived(translate($locale, 'host.create_another'));
   const resetMessage = $derived(translate($locale, 'host.session_reset'));
-  const qrSrc = $derived(currentRoom ? inviteQrUrl(currentRoom.code) : '');
-  const inviteUrl = $derived(currentRoom ? inviteLink(currentRoom.code, inviteUrlBase()) : '');
+  const deletedMessage = $derived(translate($locale, 'host.room.deleted'));
+  const checkingMessage = $derived(translate($locale, 'host.resume.checking'));
 </script>
 
 <svelte:head>
@@ -470,84 +305,48 @@
     <p class="subtitle">{subtitle}</p>
   </header>
 
-  {#if stage === 'gate'}
-    {#if resetNotice}
-      <p class="reset-notice" aria-live="polite" role="status">{resetMessage}</p>
-    {/if}
-    <TokenGate initial={tokenValue} rejected={tokenGateError} onsubmit={submitToken} />
-  {:else if stage === 'form'}
-    {#if deletedNotice}
-      <p class="deleted-notice" role="status">{deletedMessage}</p>
-    {/if}
-    <button type="button" class="back-link" onclick={backToGate}>
-      {translate($locale, 'common.back')}
-    </button>
-    <CreateRoomForm pending={creating} error={createError} onsubmit={onCreate} />
-  {:else if roomDeleted || currentRoom === null}
-    <section class="deleted card pixel-corners">
-      <p role="status">{deletedMessage}</p>
-      <button type="button" class="cta" onclick={resetToCreateForm}>{anotherLabel}</button>
-    </section>
-  {:else if currentRoom}
-    <div class="columns">
-      <div class="left">
-        <ShareKit
-          code={currentRoom.code}
-          {inviteUrl}
-          qrSrc={qrSrc}
-          oncreateAnother={backToCreateForm}
-        />
-        <InviteManager
-          {invites}
-          error={invitesError}
-          errorMessage={invitesErrorMessage}
-          {mintPending}
-          revokedNote={revokedNote}
-          baseUrl={inviteUrlBase()}
-          {now}
-          onmint={(expiresAt) => void onMint(expiresAt)}
-          onrevoke={(code) => void onRevoke(code)}
-          onretry={() => void loadInvites()}
-        />
-      </div>
-      <div class="right">
-        <LiveRoom
-          {room}
-          {members}
-          loading={loadingLive}
-          {pollError}
-          {settingsPending}
-          {settingsError}
-          {deletePending}
-          {rotatePending}
-          rotateDone={rotateDone}
-          onretry={() => void poller.refresh()}
-          onopenMember={openMember}
-          onupdateRoom={(name, description) => void onUpdateRoom(name, description)}
-          onrotateRoomToken={() => void onRotateRoomToken()}
-          ondeleteRoom={() => void onDeleteRoom()}
-        />
-      </div>
+  {#if phase === 'probe'}
+    <div class="probe" aria-busy="true" aria-live="polite">
+      <SkeletonBlock height="220px" />
+      <p class="probe-line">{checkingMessage}</p>
     </div>
-  {/if}
+  {:else if phase === 'entry'}
+    {#if notice === 'reset'}
+      <section class="notice pixel-corners" role="status" aria-live="polite">
+        <PixelIcon name="lock" size={16} />
+        <p>{resetMessage}</p>
+      </section>
+    {:else if notice === 'deleted'}
+      <p class="deleted-notice" role="status" aria-live="polite">{deletedMessage}</p>
+    {/if}
 
-  <MemberDrillDown
-    member={drillMember}
-    chats={drillChats}
-    error={drillError}
-    errorMessage={drillErrorMessage}
-    onretry={retryDrillDown}
-    onclose={closeDrillDown}
-    onclear={(chat) => void onClearChat(chat)}
-    onkickoff={(chat) => void onKickoffChat(chat)}
-  />
+    {#if banner !== null}
+      <ErrorBanner kind={banner.kind} message={banner.message} onretry={onBannerRetry} />
+    {/if}
+
+    <HostEntryCard
+      {mode}
+      onmodechange={(next) => (mode = next)}
+      {creating}
+      {createError}
+      {tokenRejected}
+      oncreate={(payload) => void onCreate(payload)}
+      bind:address
+      {loggingIn}
+      {loginRejected}
+      onlogin={(pair) => void onLogin(pair)}
+      {finding}
+      {findMessage}
+      onfind={(key) => void startFind(key)}
+    />
+  {/if}
 </main>
 
 <style>
   .host-page {
     flex: 1;
     width: 100%;
-    max-width: 1080px;
+    max-width: 640px;
     margin: 0 auto;
     padding: var(--space-5) var(--space-4) calc(var(--bottom-tabbar-height) + var(--space-5));
     display: flex;
@@ -562,12 +361,39 @@
     font-size: 14px;
     color: var(--color-text-muted);
   }
-  .reset-notice {
+  .probe {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    align-self: center;
+    width: 100%;
+    max-width: 640px;
+  }
+  .probe-line {
     margin: 0;
-    padding: var(--space-2) var(--space-3);
-    background: var(--color-accent-soft);
-    border-radius: var(--radius-md);
     font-size: 14px;
+    color: var(--color-text-muted);
+    text-align: center;
+  }
+  .notice {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-4);
+    background: var(--color-surface);
+    color: var(--color-text);
+    text-align: left;
+  }
+  .notice :global(svg) {
+    color: var(--color-accent);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .notice p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
   }
   .deleted-notice {
     margin: 0;
@@ -575,60 +401,5 @@
     background: var(--color-accent-soft);
     border-radius: var(--radius-md);
     font-size: 14px;
-  }
-  .back-link {
-    align-self: flex-start;
-    background: transparent;
-    border: none;
-    color: var(--color-text-muted);
-    min-height: var(--touch-target);
-    font-size: 14px;
-  }
-  .deleted {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-    align-items: flex-start;
-    max-width: 480px;
-  }
-  .deleted p {
-    margin: 0;
-    font-size: 14px;
-    color: var(--color-text-muted);
-  }
-  .cta {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--color-accent);
-    color: var(--color-accent-ink);
-    border: none;
-    border-radius: var(--radius-pill);
-    min-height: var(--touch-target);
-    padding: 0 var(--space-5);
-    font-weight: 600;
-    text-decoration: none;
-  }
-  .columns {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-5);
-  }
-  .left {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-5);
-  }
-  @media (min-width: 900px) {
-    .columns {
-      display: grid;
-      grid-template-columns: minmax(360px, 460px) 1fr;
-      gap: var(--space-6);
-      align-items: start;
-    }
-    .left {
-      position: sticky;
-      top: var(--space-5);
-    }
   }
 </style>

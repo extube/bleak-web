@@ -215,6 +215,36 @@ function ownAddress(address: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// hostProbes — pre-credential key-validation probes (TZ13-02, TZ §9.4.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Host PRE-CREDENTIAL probes — the documented `apiRaw` exception (TZ §9.4.2):
+ * the auto-resume probe, the log-in key validation and the address finder
+ * validate a room key with the invite-list GET **before any stored
+ * credential exists** (or with an explicitly passed key). The expected
+ * 401/403 answers are ordinary validation results there, so the `hostApi`
+ * roomGate must NOT fire for them (it would clear the session + set the
+ * reset notice on an ordinary validation failure). These calls run through
+ * the raw client path with LOCAL 401 handling in the `/host` entry page
+ * (DESIGN §3.7.1 states). Post-credential room-token calls always go
+ * through `hostApi`.
+ */
+export const hostProbes = {
+  /**
+   * GET /api/room/{address}/invite with an EXPLICIT key — the §3.7.1
+   * key-validation probe (resume probe + log-in validation + finder).
+   */
+  validateKey(address: string, roomKey: string): Promise<Invite[]> {
+    return apiRaw.listInvites(address, roomKey);
+  },
+  /** GET /api/room — the public room list (the address-finder source). */
+  listRooms(): Promise<Room[]> {
+    return apiRaw.listRooms();
+  }
+};
+
+// ---------------------------------------------------------------------------
 // api — attendee (persona) context
 // ---------------------------------------------------------------------------
 
