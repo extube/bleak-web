@@ -230,7 +230,7 @@ describe('DESIGN §4.7 copy table coverage', () => {
       'Одноразовый токен выдаёт оператор развертывания. После создания комнаты он больше не нужен и не сохраняется.'
     );
     expect(ru['host.session_reset']).toBe(
-      'Доступ к комнате отозван — войдите заново с токеном создания.'
+      'Доступ к комнате отозван — войдите заново с ключом комнаты или создайте новую комнату.'
     );
     expect(ru['hs.income_limit']).toBe(
       'Лимит исходящих хендшейков — сначала получите рукопожатия в ответ.'
@@ -253,6 +253,110 @@ describe('DESIGN §4.7 copy table coverage', () => {
     expect(ru['host.drill.clear_confirm']).toBe('История диалога участников будет очищена.');
     expect(ru['host.drill.empty']).toBe('У участника пока нет диалогов.');
     expect(ru['chat.host_view']).toBe('Наблюдение хоста');
+  });
+});
+
+/**
+ * Host-tree foundations (TZ13-01): the DESIGN rev. 4 §4.7 additions — the
+ * 62 `host.*` rows of the rev. 4 block (the /host entry, panel, invite
+ * ledger, QR page and statistics copy) plus the amended `host.session_reset`
+ * wording. Every key exists in BOTH dictionaries (parity is CI-enforced);
+ * verbatim spot-checks pin the owner copy.
+ */
+const DESIGN_REV4_HOST_KEYS: string[] = [
+  'host.title', 'host.subtitle',
+  'host.mode.create', 'host.mode.login', 'host.session_reset',
+  'host.resume.checking', 'host.room.deleted',
+  'host.login.address', 'host.login.key', 'host.login.rejected',
+  'host.login.find', 'host.login.finding', 'host.login.find_none',
+  'host.room.language', 'host.room.max_user', 'host.room.readonly_hint',
+  'host.room.saved', 'host.members_tile',
+  'host.panel.share', 'host.panel.invites_link',
+  'host.qr.alt', 'host.qr.aria', 'host.qr.code_aria',
+  'host.join_as',
+  'host.delete_room.row', 'host.delete_room.body',
+  'host.drill.restart_aria', 'host.drill.clear_aria', 'host.drill.delete_member_locked',
+  'host.invites.expired_title', 'host.invites.ledger_caveat',
+  'host.invites.expired_at', 'host.invites.revoked_at', 'host.invites.empty',
+  'host.invites.copy_code', 'host.invites.copy_link', 'host.invites.qr_aria',
+  'host.invites.revoke_aria',
+  'host.qr.title', 'host.qr.copy_code', 'host.qr.copy_code_aria',
+  'host.qr.copy_link', 'host.qr.copy_link_aria', 'host.qr.share',
+  'host.qr.warning', 'host.qr.back',
+  'host.stats.title', 'host.stats.members', 'host.stats.chats', 'host.stats.active',
+  'host.stats.messages_hour', 'host.stats.aria',
+  'host.stats.axis.60', 'host.stats.axis.45', 'host.stats.axis.30',
+  'host.stats.axis.15', 'host.stats.axis.now',
+  'host.stats.empty_hour', 'host.stats.partial',
+  'host.stats.gated.hint', 'host.stats.gated.def', 'host.stats.gated.empty'
+];
+
+describe('DESIGN §4.7 rev. 4 host-tree keys (TZ13-01, Concept §54)', () => {
+  it('every rev. 4 host key exists in BOTH dictionaries (62 rows incl. the amended session_reset)', () => {
+    expect(DESIGN_REV4_HOST_KEYS).toHaveLength(62);
+    for (const key of DESIGN_REV4_HOST_KEYS) {
+      expect(en, `en missing rev. 4 host key "${key}"`).toHaveProperty(key);
+      expect(ru, `ru missing rev. 4 host key "${key}"`).toHaveProperty(key);
+      expect((ru as Record<string, string>)[key]?.trim().length).toBeGreaterThan(0);
+      expect((en as Record<string, string>)[key]?.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('the amended host.session_reset wording replaces the rev. 3 creation-token copy in BOTH dictionaries', () => {
+    expect(ru['host.session_reset']).toBe(
+      'Доступ к комнате отозван — войдите заново с ключом комнаты или создайте новую комнату.'
+    );
+    expect(en['host.session_reset']).toBe(
+      'Room access was revoked — sign in again with the room key or create a new room.'
+    );
+  });
+
+  it('spot-checks verbatim rev. 4 RU strings (entry + panel + invites + stats)', () => {
+    expect(ru['host.subtitle']).toBe('Создайте комнату события и управляйте ею.');
+    expect(ru['host.mode.login']).toBe('Войти по ключу');
+    expect(ru['host.resume.checking']).toBe('Проверяем доступ к комнате…');
+    expect(ru['host.login.rejected']).toBe('Ключ комнаты отклонён.');
+    expect(ru['host.login.find_none']).toBe('Ключ не подошёл ни к одной комнате.');
+    expect(ru['host.room.readonly_hint']).toBe(
+      'Язык и вместимость изменятся вместе с серверным обновлением.'
+    );
+    expect(ru['host.members_tile']).toBe('Участники {n}/{max_user}');
+    expect(ru['host.drill.delete_member_locked']).toBe(
+      'Удаление участника появится вместе с серверным обновлением.'
+    );
+    expect(ru['host.invites.expired_title']).toBe('Истёкшие и отозванные');
+    expect(ru['host.invites.ledger_caveat']).toBe(
+      'Коды, выпущенные с других устройств, видны в списке только пока они активны; их истечение показать нельзя.'
+    );
+    expect(ru['host.qr.warning']).toBe(
+      'Код не найден в списке активных — возможно, он истёк или отозван.'
+    );
+    expect(ru['host.stats.messages_hour']).toBe('Сообщений за час: {n}');
+    expect(ru['host.stats.gated.def']).toBe('один хендшейк = одна направленная запись');
+  });
+
+  it('the retired inline «Создать другую комнату» string is not re-introduced as a new rev. 4 key', () => {
+    // The old share-kit string has NO rev. 4 key — the panel's back control
+    // covers it (DESIGN §4.7 note). The only host.* keys of the retired
+    // wording stay the pre-existing scaffold key until its owner tasks
+    // (TZ13-02/03/04) rework the consumers.
+    for (const key of DESIGN_REV4_HOST_KEYS) {
+      expect((ru as Record<string, string>)[key]).not.toBe('Создать другую комнату');
+    }
+  });
+
+  it('interpolates the new {code}/{digits}/{date} placeholders in both languages', () => {
+    expect(translate('ru', 'host.qr.aria', { code: '123456' })).toBe('QR-код приглашения 123456');
+    expect(translate('en', 'host.qr.aria', { code: '123456' })).toBe('Invite QR code 123456');
+    expect(translate('ru', 'host.qr.code_aria', { digits: '123 456' })).toBe('Код: 123 456');
+    expect(translate('ru', 'host.invites.expired_at', { date: '24.11' })).toBe('истёк 24.11');
+    expect(translate('en', 'host.invites.revoked_at', { date: 'Nov 24' })).toBe('revoked Nov 24');
+    expect(translate('ru', 'host.stats.active', { active: '3', finished: '1' })).toBe(
+      '3 активных · 1 завершено'
+    );
+    expect(translate('en', 'host.stats.active', { active: '3', finished: '1' })).toBe(
+      '3 active · 1 finished'
+    );
   });
 });
 

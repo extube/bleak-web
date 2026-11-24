@@ -375,14 +375,16 @@ export const en = {
 
   /* --- host (DESIGN §3.7, §4.7) --- */
   'host.title': 'Host',
-  'host.subtitle': 'Create an event room and share the invite.',
+  'host.subtitle': 'Create the event room and manage it.',
   // v2 credentials (DESIGN rev. 3 §3.7): one-time creation-token gate — the
   // renamed host.gate.* keys; host.token.* remnants stay until TZ2-11 drops them.
   'host.gate.label': 'Room creation token',
   'host.gate.continue': 'Continue',
   'host.gate.note':
     'A one-time token issued by the deployment operator. After the room is created it is never needed again and is not stored.',
-  'host.session_reset': 'Room access was revoked — sign in again with a creation token.',
+  // DESIGN rev. 4 §4.7 (host-tree rework): the reset copy no longer mentions
+  // the creation token — the log-in mode takes the room key.
+  'host.session_reset': 'Room access was revoked — sign in again with the room key or create a new room.',
   'host.token.rejected': 'Token rejected.',
   'host.form.name': 'Name',
   'host.form.description': 'Description',
@@ -390,7 +392,9 @@ export const en = {
   'host.create': 'Create room',
   'host.join_attendee': 'Join as attendee',
   'host.create_another': 'Create another room',
-  'host.stats.members': 'Members {n}/{max}',
+  // rev. 4 §4.7: the plain stats-tile label — the count lives in
+  // host.members_tile ('{n}/{max_user}').
+  'host.stats.members': 'Members',
   'host.stats.language': 'Language {language}',
   'host.empty_live': 'Nobody has joined yet.',
   'host.delete_room': 'Delete room',
@@ -431,6 +435,67 @@ export const en = {
     "The member's dialog list arrives with the server-side amendment (flag 6.9a).",
   'host.drill.kickoff': 'Restart',
   'host.drill.dialogs': 'Dialogs',
+
+  /* --- host-tree foundations (DESIGN rev. 4 §4.7 additions — verbatim;
+   * --- /host entry, panel, invites + ledger, QR page, statistics;
+   * --- RU/EN parity) --- */
+  'host.mode.create': 'Create room',
+  'host.mode.login': 'Sign in with key',
+  'host.resume.checking': 'Checking room access…',
+  'host.room.deleted': 'The room was deleted.',
+  'host.login.address': 'Room address',
+  'host.login.key': 'Room key',
+  'host.login.rejected': 'Room key rejected.',
+  'host.login.find': 'Forgot the address?',
+  'host.login.finding': 'Looking for the room…',
+  'host.login.find_none': "The key didn't match any room.",
+  'host.room.language': "Agents' language: {language}",
+  'host.room.max_user': 'Capacity: {n}',
+  'host.room.readonly_hint': 'Language and capacity become editable with a server-side amendment.',
+  'host.room.saved': 'Saved',
+  'host.members_tile': 'Members {n}/{max_user}',
+  'host.panel.share': 'Invite',
+  'host.panel.invites_link': 'All invite codes',
+  'host.qr.aria': 'Invite QR code {code}',
+  'host.qr.code_aria': 'Code: {digits}',
+  'host.join_as': 'Join as attendee',
+  'host.delete_room.row': 'Delete room',
+  'host.delete_room.body': 'The room will be deleted with all its members.',
+  'host.drill.restart_aria': 'Restart dialog {chat}',
+  'host.drill.clear_aria': 'Clear dialog {chat} history',
+  'host.drill.delete_member_locked': 'Member deletion arrives with a server-side amendment.',
+  'host.invites.expired_title': 'Expired & revoked',
+  'host.invites.ledger_caveat':
+    'Codes minted on other devices appear in the list only while active; their expiry cannot be shown.',
+  'host.invites.expired_at': 'expired {date}',
+  'host.invites.revoked_at': 'revoked {date}',
+  'host.invites.empty': 'No active codes. Mint one to invite attendees.',
+  'host.invites.copy_code': 'Copy code {code}',
+  'host.invites.copy_link': 'Copy link for code {code}',
+  'host.invites.qr_aria': 'QR for code {code}',
+  'host.qr.title': 'Invite QR',
+  'host.qr.copy_code': 'Copy code',
+  'host.qr.copy_code_aria': 'Copy code {code}',
+  'host.qr.copy_link': 'Copy link',
+  'host.qr.copy_link_aria': 'Copy the invite link',
+  'host.qr.share': 'Share',
+  'host.qr.warning': 'This code is not in the active list — it may have expired or been revoked.',
+  'host.qr.back': 'Back to invite codes',
+  'host.stats.title': 'Statistics',
+  'host.stats.chats': 'Chats',
+  'host.stats.active': '{active} active · {finished} finished',
+  'host.stats.messages_hour': 'Messages this hour: {n}',
+  'host.stats.aria': 'Messages in the last hour: {n}; peak at {bucket}.',
+  'host.stats.axis.60': '-60 min',
+  'host.stats.axis.45': '-45 min',
+  'host.stats.axis.30': '-30 min',
+  'host.stats.axis.15': '-15 min',
+  'host.stats.axis.now': 'now',
+  'host.stats.empty_hour': 'No messages in the last hour.',
+  'host.stats.partial': 'Some data failed to load — figures may be undercounts.',
+  'host.stats.gated.hint': 'Handshake statistics arrive with a server-side amendment.',
+  'host.stats.gated.def': 'one handshake = one directed record',
+  'host.stats.gated.empty': 'No handshakes yet.',
 
   /* --- landing v3.14 + v3.15 + v3.16 + §4.22.1 + §4.23 (Concept
    * --- §31+§32+§33+§34+§35, DESIGN §4.20.M as amended by §4.21.H,

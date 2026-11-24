@@ -96,12 +96,11 @@ describe('registerFreshMutualCode (hash-only registration, §7.4)', () => {
   });
 });
 
-// --- uqr code-split rule (AC 13) -------------------------------------------
+// --- uqr code-split rule (AC 13, amended by TZ §9.4.4) ----------------------
 // Source-scan equivalent of the build-output grep: the static `uqr` import
-// may appear only under src/routes/profile/ or src/lib/components/profile/.
-// (TZ-08 technical criterion: "verify via build output grep in a test or
-// build script note" — this test pins the rule at the source level; the
-// build-grep result is additionally recorded in the hand-over report.)
+// lives ONLY in the shared lib/qr module (svgQr.ts — the TZ13-01 extraction;
+// "uqr shared, lazy, profile + host chunks"). Consumers (the profile badge,
+// the host tree's InviteQr) import that module, never `uqr` directly.
 
 const SRC_ROOT = join(process.cwd(), 'src');
 
@@ -115,26 +114,39 @@ function walk(dir: string): string[] {
   return out;
 }
 
-describe('uqr code-split (AC 13)', () => {
-  it("no file outside the /profile route tree statically imports 'uqr'", () => {
+describe('uqr code-split (AC 13 as amended, TZ §9.4.4)', () => {
+  it("only the shared lib/qr module statically imports 'uqr'", () => {
     const offenders: string[] = [];
     for (const file of walk(SRC_ROOT)) {
       const rel = relative(SRC_ROOT, file).replaceAll('\\', '/');
       const content = readFileSync(file, 'utf8');
-      if (/from\s+['"]uqr['"]/.test(content)) {
-        const inProfile =
-          rel.startsWith('routes/profile/') || rel.startsWith('lib/components/profile/');
-        if (!inProfile) offenders.push(rel);
+      if (/from\s+['"]uqr['"]/.test(content) && rel !== 'lib/qr/svgQr.ts') {
+        offenders.push(rel);
       }
     }
     expect(offenders).toEqual([]);
   });
 
-  it('the profile badge really does import uqr (the rule is not vacuous)', () => {
+  it('the shared module really does import uqr (the rule is not vacuous)', () => {
+    const shared = readFileSync(join(SRC_ROOT, 'lib/qr/svgQr.ts'), 'utf8');
+    expect(shared).toMatch(/from\s+['"]uqr['"]/);
+  });
+
+  it('the profile badge consumes the shared module (never uqr directly)', () => {
     const badge = readFileSync(
       join(SRC_ROOT, 'lib/components/profile/QrCodeBadge.svelte'),
       'utf8'
     );
-    expect(badge).toMatch(/from\s+['"]uqr['"]/);
+    expect(badge).toMatch(/from\s+['"]#lib\/qr\/svgQr['"]/);
+    expect(badge).not.toMatch(/from\s+['"]uqr['"]/);
+  });
+
+  it('the host InviteQr consumes the same shared module (one renderer, no helper PNG)', () => {
+    const invite = readFileSync(join(SRC_ROOT, 'lib/components/qr/InviteQr.svelte'), 'utf8');
+    expect(invite).toMatch(/from\s+['"]#lib\/qr\/svgQr['"]/);
+    expect(invite).not.toMatch(/from\s+['"]uqr['"]/);
+    // Zero-network contract: no fetch/XHR/img-source of the helper QR on the
+    // client-side path (§3.7.4 — the QR is computed client-side).
+    expect(invite).not.toMatch(/inviteQrUrl|\/h\/rooms|fetch\(|new Image/);
   });
 });

@@ -33,8 +33,10 @@
    *   комнаты» → confirm → rotateRoomToken → in-place `bleak.hostRoom`
    *   update; danger-zone delete → confirm → deleteRoom → clear
    *   `bleak.hostRoom` → create form.
-   * - **Host reset state:** the `bleak.hostReset` flag (set by the hostApi
-   *   gate on 401/403) renders the §3.7 reset notice above the
+   * - **Host reset state:** the `bleak.hostNotice` flag (set by the hostApi
+   *   gate on 401/403; TZ13-01 renamed it from the retired host-reset key)
+   *   renders the
+   *   §3.7 reset notice above the
    *   creation-token gate, consumed on render; `getRoom` 404 → «Комната
    *   удалена.» reset.
    *
@@ -42,7 +44,7 @@
    */
   import { get } from 'svelte/store';
   import { ApiError, NetworkError, type Invite, type Room, type User } from '@bleak/api-client';
-  import { hostApi, HOST_RESET_KEY } from '#lib/api/client';
+  import { hostApi, HOST_NOTICE_KEY } from '#lib/api/client';
   import { inviteQrUrl } from '#lib/api/helper';
   import { generateTokenSecret } from '#lib/crypto/secrets';
   import { apiErrorText } from '#lib/join';
@@ -81,9 +83,9 @@
     // Consume the host-reset flag (set by the hostApi gate — possibly while
     // the console was closed): render the §3.7 notice once, then drop it.
     try {
-      if (sessionStorage.getItem(HOST_RESET_KEY) === '1') {
+      if (sessionStorage.getItem(HOST_NOTICE_KEY) === '1') {
         resetNotice = true;
-        sessionStorage.removeItem(HOST_RESET_KEY);
+        sessionStorage.removeItem(HOST_NOTICE_KEY);
       }
     } catch {
       /* storage unavailable */
@@ -153,7 +155,7 @@
 
   /**
    * Host-gate aftermath: the hostApi gate already cleared `bleak.hostRoom`
-   * and set `bleak.hostReset` on a 401/403 — when the room session is gone,
+   * and set `bleak.hostNotice` on a 401/403 — when the room session is gone,
    * the console resets to the creation-token gate with the §3.7 notice.
    * Attendee identity is never touched (the gate is host-scoped).
    */
@@ -161,7 +163,7 @@
     if (get(hostRoom) === null) {
       resetNotice = true;
       try {
-        sessionStorage.removeItem(HOST_RESET_KEY);
+        sessionStorage.removeItem(HOST_NOTICE_KEY);
       } catch {
         /* ignore */
       }

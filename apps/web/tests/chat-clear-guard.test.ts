@@ -46,7 +46,7 @@ const apiRawMock = vi.hoisted(() => ({
 vi.mock('#lib/api/client', () => ({
   api: apiMock,
   apiRaw: apiRawMock,
-  HOST_RESET_KEY: 'bleak.hostReset'
+  HOST_NOTICE_KEY: 'bleak.hostNotice'
 }));
 
 import { api, apiRaw } from '#lib/api/client';

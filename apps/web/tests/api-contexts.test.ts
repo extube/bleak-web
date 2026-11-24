@@ -7,7 +7,8 @@
  *    getRoomUser injects only for the attendee's own address;
  * 3. the global 401 gate (identity + mutual code cleared, `bleak.authNotice`
  *    set, navigation to `/` queued, error rethrown) and the host gate
- *    (401/403 → `bleak.hostRoom` cleared + `bleak.hostReset` set, attendee
+ *    (401/403 → `bleak.hostRoom` cleared + `bleak.hostNotice` set — the
+ *    TZ13-01 rename of the retired host-reset key — attendee
  *    identity never touched, no navigation);
  * 4. the apiRaw usage restriction (grep test: only the web api module may
  *    reference it — the TZ2-06 Part D transcript fallback joins the
@@ -27,7 +28,7 @@ import {
   apiRaw,
   AUTH_NOTICE_KEY,
   hostApi,
-  HOST_RESET_KEY,
+  HOST_NOTICE_KEY,
   PERSONA_TOKEN_METHODS,
   ROOM_TOKEN_METHODS
 } from '../src/lib/api/client';
@@ -407,7 +408,7 @@ describe('global 401 gate (attendee)', () => {
 
 describe('host gate (room context)', () => {
   it.each([401, 403])(
-    '%i on a room-token call clears bleak.hostRoom + sets bleak.hostReset; attendee identity untouched; rethrown',
+    '%i on a room-token call clears bleak.hostRoom + sets bleak.hostNotice; attendee identity untouched; rethrown',
     async (status) => {
       saveHostRoom(HOST);
       saveIdentity(ME);
@@ -422,7 +423,7 @@ describe('host gate (room context)', () => {
       expect(caught).toBeInstanceOf(ApiError);
       expect((caught as ApiError).status).toBe(status);
       expect(localStorage.getItem('bleak.hostRoom')).toBeNull();
-      expect(sessionStorage.getItem(HOST_RESET_KEY)).toBe('1');
+      expect(sessionStorage.getItem(HOST_NOTICE_KEY)).toBe('1');
       // The attendee identity is NEVER touched by the host gate.
       expect(JSON.parse(localStorage.getItem('bleak.identity') ?? 'null')).toEqual(ME);
       // No navigation in the host gate (the console renders the reset notice).
@@ -437,14 +438,14 @@ describe('host gate (room context)', () => {
     expect(JSON.parse(localStorage.getItem('bleak.hostRoom') ?? 'null')).toMatchObject({
       roomToken: 'r-tok'
     });
-    expect(sessionStorage.getItem(HOST_RESET_KEY)).toBeNull();
+    expect(sessionStorage.getItem(HOST_NOTICE_KEY)).toBeNull();
   });
 
-  it('room creation is NOT gated: a 403 there sets no hostReset (creation-token rejection, §3.7)', async () => {
+  it('room creation is NOT gated: a 403 there sets no hostNotice (creation-token rejection, §3.7)', async () => {
     saveIdentity(ME);
     stubFetch(() => empty(403));
     await expect(hostApi.createRoom({ name: 'x', token: 'r' }, 'ctok')).rejects.toBeInstanceOf(ApiError);
-    expect(sessionStorage.getItem(HOST_RESET_KEY)).toBeNull();
+    expect(sessionStorage.getItem(HOST_NOTICE_KEY)).toBeNull();
     expect(goto).not.toHaveBeenCalled();
     // identity untouched
     expect(JSON.parse(localStorage.getItem('bleak.identity') ?? 'null')).toEqual(ME);

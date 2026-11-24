@@ -19,7 +19,7 @@ vi.mock('$app/paths', () => ({
 }));
 
 vi.mock('#lib/api/client', () => ({
-  HOST_RESET_KEY: 'bleak.hostReset',
+  HOST_NOTICE_KEY: 'bleak.hostNotice',
   api: {
     getRoom: vi.fn(),
     listRoomUsers: vi.fn()
@@ -464,7 +464,7 @@ describe('host session reset (AC 14)', () => {
       identity.set({ roomAddress: ROOM.address, userAddress: '0xme', token: 'p-tok' });
       mockedHostApi.updateRoom.mockImplementation(async () => {
         clearHostRoom();
-        sessionStorage.setItem('bleak.hostReset', '1');
+        sessionStorage.setItem('bleak.hostNotice', '1');
         throw new ApiError(status, '/api/room/0xroom', 'room token invalid');
       });
       await renderPage();
@@ -476,7 +476,7 @@ describe('host session reset (AC 14)', () => {
       await waitFor(() => expect(screen.getByText(ru['host.session_reset'])).toBeTruthy());
       await waitFor(() => expect(screen.getByLabelText(ru['host.gate.label'])).toBeTruthy());
       expect(localStorage.getItem('bleak.hostRoom')).toBeNull();
-      expect(sessionStorage.getItem('bleak.hostReset')).toBeNull(); // consumed on mount
+      expect(sessionStorage.getItem('bleak.hostNotice')).toBeNull(); // consumed on mount
       // The attendee identity is NEVER touched by the host reset.
       expect(JSON.parse(localStorage.getItem('bleak.identity') ?? 'null')).toEqual({
         roomAddress: ROOM.address,

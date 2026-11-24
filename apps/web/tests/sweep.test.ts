@@ -166,11 +166,11 @@ describe('sweep: QR module placement (DESIGN §3.8 AC 14, §3.6 AC 13)', () => {
     expect(dynamic).toEqual(['src/lib/scanner/decode.ts']);
   });
 
-  it('uqr is imported only inside the /profile component tree', () => {
+  it('uqr is imported only by the shared lib/qr module (TZ13-01 extraction — profile + host chunks share it)', () => {
     const offenders = ALL_SOURCE.filter((f) => /from\s+['"]uqr['"]/.test(readFileSync(f, 'utf8')))
-      .filter((f) => !f.includes(`${sep}components${sep}profile${sep}`))
+      .filter((f) => !f.endsWith(`${sep}svgQr.ts`))
       .map(rel);
-    expect(offenders, 'uqr imported outside /profile tree').toEqual([]);
+    expect(offenders, 'uqr imported outside the shared lib/qr module').toEqual([]);
   });
 });
 

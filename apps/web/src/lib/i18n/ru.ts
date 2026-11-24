@@ -375,14 +375,17 @@ export const ru: Record<MessageKey, string> = {
 
   /* --- host --- */
   'host.title': 'Хост',
-  'host.subtitle': 'Создайте комнату события и поделитесь приглашением.',
+  'host.subtitle': 'Создайте комнату события и управляйте ею.',
   // v2-учётные данные (DESIGN rev. 3 §3.7): гейт одноразового токена создания —
   // переименованные ключи host.gate.*; остатки host.token.* уберёт TZ2-11.
   'host.gate.label': 'Токен создания комнаты',
   'host.gate.continue': 'Продолжить',
   'host.gate.note':
     'Одноразовый токен выдаёт оператор развертывания. После создания комнаты он больше не нужен и не сохраняется.',
-  'host.session_reset': 'Доступ к комнате отозван — войдите заново с токеном создания.',
+  // DESIGN rev. 4 §4.7 (host-tree rework): the reset copy no longer mentions
+  // the creation token — the log-in mode takes the room key.
+  'host.session_reset':
+    'Доступ к комнате отозван — войдите заново с ключом комнаты или создайте новую комнату.',
   'host.token.rejected': 'Токен отклонён.',
   'host.form.name': 'Название',
   'host.form.description': 'Описание',
@@ -390,7 +393,9 @@ export const ru: Record<MessageKey, string> = {
   'host.create': 'Создать комнату',
   'host.join_attendee': 'Присоединиться как участник',
   'host.create_another': 'Создать другую комнату',
-  'host.stats.members': 'Участники {n}/{max}',
+  // rev. 4 §4.7: the plain stats-tile label — the count lives in
+  // host.members_tile ('{n}/{max_user}').
+  'host.stats.members': 'Участники',
   'host.stats.language': 'Язык {language}',
   'host.empty_live': 'Пока никто не присоединился.',
   'host.delete_room': 'Удалить комнату',
@@ -432,6 +437,67 @@ export const ru: Record<MessageKey, string> = {
     'Список диалогов участника появится вместе с серверным обновлением (флаг 6.9a).',
   'host.drill.kickoff': 'Запустить заново',
   'host.drill.dialogs': 'Диалоги',
+
+  /* --- host-tree foundations (DESIGN rev. 4 §4.7 additions — verbatim;
+   * --- /host entry, panel, invites + ledger, QR page, statistics;
+   * --- RU/EN паритет) --- */
+  'host.mode.create': 'Создать комнату',
+  'host.mode.login': 'Войти по ключу',
+  'host.resume.checking': 'Проверяем доступ к комнате…',
+  'host.room.deleted': 'Комната удалена.',
+  'host.login.address': 'Адрес комнаты',
+  'host.login.key': 'Ключ комнаты',
+  'host.login.rejected': 'Ключ комнаты отклонён.',
+  'host.login.find': 'Не помните адрес?',
+  'host.login.finding': 'Ищем комнату…',
+  'host.login.find_none': 'Ключ не подошёл ни к одной комнате.',
+  'host.room.language': 'Язык агентов: {language}',
+  'host.room.max_user': 'Вместимость: {n}',
+  'host.room.readonly_hint': 'Язык и вместимость изменятся вместе с серверным обновлением.',
+  'host.room.saved': 'Сохранено',
+  'host.members_tile': 'Участники {n}/{max_user}',
+  'host.panel.share': 'Приглашение',
+  'host.panel.invites_link': 'Все коды приглашения',
+  'host.qr.aria': 'QR-код приглашения {code}',
+  'host.qr.code_aria': 'Код: {digits}',
+  'host.join_as': 'Присоединиться как участник',
+  'host.delete_room.row': 'Удалить комнату',
+  'host.delete_room.body': 'Комната будет удалена вместе со всеми участниками.',
+  'host.drill.restart_aria': 'Запустить заново диалог {chat}',
+  'host.drill.clear_aria': 'Очистить историю диалога {chat}',
+  'host.drill.delete_member_locked': 'Удаление участника появится вместе с серверным обновлением.',
+  'host.invites.expired_title': 'Истёкшие и отозванные',
+  'host.invites.ledger_caveat':
+    'Коды, выпущенные с других устройств, видны в списке только пока они активны; их истечение показать нельзя.',
+  'host.invites.expired_at': 'истёк {date}',
+  'host.invites.revoked_at': 'отозван {date}',
+  'host.invites.empty': 'Активных кодов нет. Выпустите код, чтобы пригласить участников.',
+  'host.invites.copy_code': 'Скопировать код {code}',
+  'host.invites.copy_link': 'Скопировать ссылку кода {code}',
+  'host.invites.qr_aria': 'QR-код кода {code}',
+  'host.qr.title': 'QR-приглашение',
+  'host.qr.copy_code': 'Скопировать код',
+  'host.qr.copy_code_aria': 'Скопировать код {code}',
+  'host.qr.copy_link': 'Скопировать ссылку',
+  'host.qr.copy_link_aria': 'Скопировать ссылку приглашения',
+  'host.qr.share': 'Поделиться',
+  'host.qr.warning': 'Код не найден в списке активных — возможно, он истёк или отозван.',
+  'host.qr.back': 'К кодам приглашения',
+  'host.stats.title': 'Статистика',
+  'host.stats.chats': 'Диалогов',
+  'host.stats.active': '{active} активных · {finished} завершено',
+  'host.stats.messages_hour': 'Сообщений за час: {n}',
+  'host.stats.aria': 'Сообщений за последний час: {n}; пик в {bucket}.',
+  'host.stats.axis.60': '−60 мин',
+  'host.stats.axis.45': '−45 мин',
+  'host.stats.axis.30': '−30 мин',
+  'host.stats.axis.15': '−15 мин',
+  'host.stats.axis.now': 'сейчас',
+  'host.stats.empty_hour': 'За последний час сообщений не было.',
+  'host.stats.partial': 'Часть данных не загрузилась — цифры могут быть занижены.',
+  'host.stats.gated.hint': 'Статистика рукопожатий появится вместе с серверным обновлением.',
+  'host.stats.gated.def': 'один хендшейк = одна направленная запись',
+  'host.stats.gated.empty': 'Рукопожатий пока не было.',
 
   /* --- лендинг v3.14 + v3.15 + v3.16 + §4.22.1 + §4.23 (Concept
    * --- §31+§32+§33+§34+§35, DESIGN §4.20.M с поправками §4.21.H, §4.22.H,

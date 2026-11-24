@@ -22,10 +22,11 @@
  * `bleak.authNotice` sessionStorage flag, navigates to `/` and rethrows —
  * no stale error UI flashes under the redirect. The host gate is symmetric
  * without navigation: 401/403 on a room-token call clears `bleak.hostRoom`
- * and sets `bleak.hostReset` (§3.7 host reset) — attendee identity is never
- * touched. Room creation is NOT gated (its credential is the one-time
- * creation token, consumed on use — a rejection is the §3.7 token-gate
- * state, not a revoked-room reset).
+ * sets `bleak.hostNotice` (§3.7 host reset; renamed from the retired
+ * host-reset key by TZ13-01) — attendee identity is never touched. Room
+ * creation is NOT gated (its credential is the one-time creation token,
+ * consumed on use — a rejection is the §3.7 token-gate state, not a
+ * revoked-room reset).
  */
 import { get } from 'svelte/store';
 import { goto } from '$app/navigation';
@@ -146,8 +147,10 @@ export const ROOM_TOKEN_METHODS = [
 
 /** Consumed by the `/` join page on mount (§2.8 notice card). */
 export const AUTH_NOTICE_KEY = 'bleak.authNotice';
-/** Consumed by the `/host` console on mount (§3.7 reset notice). */
-export const HOST_RESET_KEY = 'bleak.hostReset';
+/** Consumed by the `/host` tree on mount (§3.7 reset notice; DESIGN rev. 4
+ * names the key `bleak.hostNotice` — TZ13-01 renamed it from the retired
+ * host-reset key). */
+export const HOST_NOTICE_KEY = 'bleak.hostNotice';
 
 function setFlag(key: string): void {
   try {
@@ -180,7 +183,7 @@ async function roomGate<T>(run: () => Promise<T>): Promise<T> {
   } catch (cause) {
     if (cause instanceof ApiError && (cause.status === 401 || cause.status === 403)) {
       clearHostRoom();
-      setFlag(HOST_RESET_KEY);
+      setFlag(HOST_NOTICE_KEY);
     }
     throw cause;
   }
