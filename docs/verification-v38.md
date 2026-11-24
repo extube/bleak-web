@@ -1,5 +1,48 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.35 ROUND NOTE (Concept §53 owner micro-order — badge icon bulb →
+> bubble on `/people` — appended by the process 2026-11-24, post-round
+> three-gate run GREEN: lint clean · 1106 tests total (52 api-client +
+> 8 helper + 1046 web, 54 files) · svelte-check 0 errors (the 10
+> pre-existing `state_referenced_locally` warnings in untouched
+> TokenGate/JoinFlow files), dev `00baa26`):**
+> **Delivered end-to-end** (task 144, worker `8d0010e5`, design
+> `a223fa3d`, process `2f4dd06a`; branch
+> `feature/8d0010e5-searching-badge-bubble-icon` — one worker commit
+> `adf7ce4` squashed to ONE landing commit dev `00baa26`; DESIGN-FIRST
+> honored — the feature-scoped design pass wrote the dated **DESIGN
+> §4.38.1** amendment (2026-11-24, Concept §53 record) + the §4.38.B
+> supersession pointer BEFORE implementation; the uncommitted owner
+> edit to `docs/Concept.md` §53 and stray session/log records left
+> unstaged — landing staged by pathspec (the 3 branch files + DESIGN.md
+> + the two instance session records), not `git add -A`; concept's §53
+> brief carried pre-approved landing — lean protocol per §22.2):
+> on the §4.38 badge the light-bulb glyph became a **chat (speech)
+> bubble** (the incoming-conversations symbol): new **`bubble`**
+> registry glyph (6-rect pixel geometry, 16×16 grid, `currentColor`,
+> span-centered (7.5, 7.5) — DESIGN §4.38.1) rendered `<PixelIcon
+> name="bubble" size={32}/>` in the kept 56px slot inside
+> `span.bubble[aria-hidden]`; blink = renamed `@keyframes
+> bubble-blink` — same 1.2s ease-in-out infinite, **opacity 1 ↔ 0.3**
+> (opacity-only, §4.6); reduced motion = the standing `base.css`
+> catch-all **STATIC full-opacity** rest (no component `@media`);
+> **`bulb` REMOVED** from the registry (sole consumer was this badge —
+> grep-audited; new negative assertions: no `bulb` anywhere in
+> `apps/web/src`, no `.bulb` in the rendered DOM); copy, title,
+> remark/link (`/profile/settings`), placement, condition, footprint —
+> ALL unchanged. Tests: the bulb-specific people-page assertions
+> swapped to `.bubble`/`bubble-blink` + the registry 6-rect assert;
+> title/link/footprint/non-interactivity/reduced-motion assertions kept
+> green. Manual checks for the owner: on `/people` with the §49 flag
+> ON — the first card shows the blinking bubble glyph (both locales);
+> reduced motion → static; flag OFF → no badge (all as v3.34, glyph
+> swapped).
+> Housekeeping: devops `-D` branch-cleanup list adds
+> `feature/8d0010e5-searching-badge-bubble-icon` (`git branch -d`
+> refused on the squash-landed branch, `-D` mechanically denied); the
+> process session-record close delta rides the next landing
+> (disclosed).
+
 > **v3.34 ROUND NOTE (Concept §52 owner batch — searching-badge INNER
 > redesign on `/people` — appended by the process 2026-11-24, post-round
 > three-gate run GREEN: lint clean · 1106 tests total (52 api-client +
