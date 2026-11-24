@@ -2034,6 +2034,133 @@ step blocks, existing suites green).
 
 ---
 
+## 49. Owner batch: auto-handshake opt-out (`active` flag) on profile — ✅ APPROVED (2026-11-23)
+
+bleak-node added a new `User` field: **`active`** (boolean, `true` by
+default). Per swagger: active users are matched by the auto-matchmaking
+worker; the flag is togglable via the user update endpoint — swagger
+records **PUT `/api/room/{room}/user/{address}`** with
+`server.UpdateUserRequest.active` (**omitted keeps the current flag**).
+This flag opts the persona in/out of the automatic sending of relevant
+handshakes — the user-facing control for the auto-matchmaking mechanic
+(Concept ruling 1), now implemented server-side (backend feature #36).
+Owner wants it exposed in bleak-web:
+
+1. **`/profile` — show the current auto-handshake state** on the
+   profile page (a visible indicator of whether the persona is
+   currently opted in).
+2. **`/profile/settings` — the user may enable/disable it there.** The
+   control is a **check/toggle labeled "Automatically send handshake"**
+   (RU copy in the same spirit, e.g. «Отправлять рукопожатия
+   автоматически» — concept owns the exact wording; **adopted wording**:
+   EN **"Automatically send handshake"**, RU **«Отправлять рукопожатия
+   автоматически»**; EN/RU i18n parity mandatory). **Supersession:**
+   DESIGN §4.29 records "no toggle rows" in settings — that constraint
+   is **superseded by this feature** (this is the first real
+   toggle-backed setting); the supersession must be written into the
+   docs (DESIGN amendment, dated).
+
+Scope notes (binding):
+
+- **api-client reconciliation first:** in
+  `packages/api-client/src/types.ts` the `User` interface lacks
+  `active` and `UpdateUserRequest` lacks `active`; the client method
+  `updateRoomUser` already exists — add the field to both interfaces
+  (optional in the request, boolean in the model), reconcile names with
+  swagger exactly.
+- **Default is `true` (opt-out model)** — existing personas need no
+  migration.
+- **No mocks: wire to the real field only** (real reads and real
+  writes through `updateRoomUser`; no placeholder state).
+- Existing personas need no migration; all §43 profile contracts stay
+  in force otherwise; RU/EN parity; no new deps; existing suites green.
+
+---
+
+## 50. Owner bug batch: scan button, scanner corners, edit-save overflow — ✅ APPROVED (2026-11-23)
+
+Owner-reported fixes (owner, 2026-11-23):
+
+1. **`/profile` header scan button opens the wrong thing:** the header
+   has a **scan button**, but pressing it currently opens the **QR
+   code (display)** — it must open the **QR scanner** instead.
+2. **Scanner corner brackets mis-oriented:** in the scanner all four
+   corners are oriented in one direction — **each corner must face its
+   own angle** (top-left bracket opens right/down, top-right opens
+   left/down, bottom-left right/up, bottom-right left/up — the classic
+   viewfinder framing).
+3. **`/profile/edit` phone-view overflow:** the **Save Changes button
+   is shifted slightly to the right in phone view, causing a
+   horizontal scroll** — fix it (no horizontal scroll at phone
+   widths). Additionally, **the settings rows must be in one line with
+   one width** (the key-value edit rows aligned on a common single-line
+   layout with a shared width — no ragged offsets).
+
+Scope: §43/§49 profile contracts otherwise in force; RU/EN parity; no
+new deps; existing suites green.
+
+---
+
+## 51. Owner batch: "searching new contacts" badge on `/people` — ✅ APPROVED (2026-11-23)
+
+On the **`/people` page**, add a **badge above all users**, styled in
+the **same style as a user item** (owner, 2026-11-23):
+
+1. **Condition:** shown when the **user is active** (the §49 `active`
+   flag — the auto-matchmaking worker is running for this persona).
+2. **Dimensions:** the badge is **the same dimensions as a user item**
+   (same footprint as the entries it sits above).
+3. **Content:** a **loading-circle (spinner) animation** and the title
+   **"searching new contacts"** (EN; RU copy in the same spirit —
+   concept owns the exact wording; i18n parity mandatory).
+
+Scope: RU/EN parity; no new deps; spinner follows the standing
+reduced-motion fallback (static when reduced motion is on); existing
+suites green.
+
+---
+
+## 52. Owner batch: "searching new contacts" badge inner redesign — ✅ APPROVED (2026-11-24)
+
+Change the **inner design of the Searching-new-contacts badge** on
+`/people` (§51; badge stays in place, same style/footprint/condition —
+only the inside changes). Owner, 2026-11-24:
+
+1. **New title:** something like **«режим автоматического поиска
+   контактов»** — concept-adopted wording: RU **«Режим автоматического
+   поиска контактов»**, EN **"Automatic contact search mode"** (i18n
+   parity; the §51 `people.searching` keys are replaced/superseded).
+2. **Instead of the loading spinner — a blinking light bulb:** an
+   animated bulb icon (blinking/pulsing glow), no loader. Reduced
+   motion = static bulb (standing fallback). The bulb is an SVG icon —
+   add it to the icon registry; no new deps.
+3. **Add a remark for the user** that the mode can be changed in
+   **settings** — a short secondary line with a **link redirecting to
+   `/profile/settings`** (the exact toggle from §49). Concept-adopted
+   copy: RU **«Изменить можно в настройках»**, EN **"Change it in
+   settings"** — with "настройках"/"settings" as the link part; full
+   line clickable is also acceptable (design picks, one target only:
+   `/profile/settings`).
+
+Scope: §51 badge contracts (placement, condition, non-interactive
+except the new settings link, footprint) otherwise in force; RU/EN
+parity; no new deps; existing suites green.
+
+---
+
+## 53. Owner micro-order: badge icon bulb → bubble — ✅ APPROVED (2026-11-24)
+
+On the §52 badge, **change the light-bulb icon into a light bubble**
+(owner, 2026-11-24). Concept reading: the glyph becomes a **chat
+(speech) bubble** — the symbol of incoming conversations — keeping the
+**same blink animation and reduced-motion static fallback**, same
+56px slot, same muted tone. The `bulb` registry icon is superseded by
+a `bubble` glyph (same pixel-glyph pattern, no new deps). Copy and
+everything else from §52 unchanged. (If the owner meant a different
+"light bubble", the icon swaps again — one-glyph change.)
+
+---
+
 ## 43. Profile page redesign `/profile` — ✅ APPROVED (2026-11-22)
 
 *(Renumbered from §42 → §43 on 2026-11-23: the §42 number was
@@ -2086,6 +2213,147 @@ My profile, Settings, Edit Profile. Owner decisions (asked 2026-11-22):
 Scope: `/profile` + `/profile/settings` + new `/profile/edit`.
 Everything else (routes model, i18n RU/EN parity, polling contracts,
 live-QR §6.3, token rotation §8.1.3, tests green) stays in force.
+
+---
+
+## 54. New feature: host admin panel — route tree + statistics — ✅ APPROVED (owner directive, 2026-11-24)
+
+Owner requirements given verbatim in chat (2026-11-24), including an
+explicit owner ruling. Binding for the DESIGN pass and the build loop.
+**Hard ruling: no backend changes** — all statistics come from existing
+endpoints only; no mocks, no new bleak-node work in this feature. The
+sourcing was verified against the contract by the owner; rules A–D below
+are pre-decided and binding.
+
+### 54.1 Routes (supersedes the §6.6 single-page console where noted)
+
+The §6.6 host console becomes a **route tree**:
+
+- **`/host`** — create a room OR log back in as host. Two entry modes:
+  1. **Create:** consume a one-time creation token (masked input); the
+     client generates the room token; `POST /api/room` sends the
+     creation token in the `x-create-token` header and the room token
+     in the body (per §6.6 — the creation token is **consumed, never
+     stored**).
+  2. **Log back in:** paste the existing room admin (room) token.
+  On success the room token is saved to localStorage
+  (`bleak.hostRoom = { roomAddress, roomToken, code }` — §6.6 pattern).
+  **Returning-host UX (concept decision):** when `/host` loads and a
+  stored `bleak.hostRoom` entry validates against a room-token-gated
+  call (the invite-list GET — the same call the invite page needs
+  first), the app **auto-resumes** straight into
+  `/host/<room_address>`; a 401 clears the stored entry (DESIGN §3.7
+  host reset) and falls back to the token form. The token-paste form
+  stays always available (new device, rotated token, "use another
+  room") — no dead ends.
+- **`/host/<room_address>`** — main admin panel:
+  - manage the room: edit `name` / `description` / `language` /
+    `max_user` via `PUT /api/room/{address}` (room token);
+  - **restart chats — kickoff** (room token accepted; already the
+    delivered host-observation behavior — DESIGN kickoff contract);
+  - **delete users — degradation rule D:** `DELETE
+    /api/room/{room}/user/{address}` is persona-token-only in the
+    contract. The requirement stays in the docs as
+    **backend-dependency-gated**; the UI ships **without it** under
+    this ruling (ledger entry in §54.5);
+  - statistics section (§54.3).
+- **`/host/<room_address>/invite`** — all invites: **active and
+  expired**; create one; delete one. Mint/revoke are room-token-gated
+  (contract: `GET/POST /api/room/{address}/invite`, `DELETE
+  /api/room/{address}/invite/{code}` — all RoomToken). The §6.6 mint
+  settings (settable expiry, default 24 h) carry over.
+- **`/host/<room_address>/invite/<invite-code>/qr`** — QR invite page:
+  the QR encodes the **invite deep link** (the same payload as the
+  helper's `/h/rooms/{code}/qr` — the absolute join link), the 6-digit
+  code with a **copy action**, and the **share-or-copy-link control** —
+  the link text is **never shown, only buttons**.
+
+### 54.2 Statistics — sourcing rules (owner ruling, pre-decided)
+
+- **A. Stats engine = client-side fan-out aggregation.**
+  `GET /api/room/{room}/user` (public) → per user
+  `GET /api/room/{room}/user/{address}/chat` (room token) → **dedupe
+  chats by address** before message fetches (a mutual chat appears
+  under both participants) → `GET
+  /api/room/{room}/user/{address}/chat/{chat}/messages` (room token),
+  **bounded concurrency**. Meetup-scale rooms make the N+1 acceptable.
+  Stats 1–4 compute from this tree. Refresh cadence per ARCHITECTURE
+  §2.2/§5 — the panel is a route; a per-page Poller is allowed there
+  (start/stop on mount/teardown, diff in the caller, no re-render
+  spam).
+- **B. Handshake stats = degradation gate (§6.6's own fallback rule).**
+  The only handshake read (`GET /api/handshake/user/{address}`) is
+  persona-token-only. The three handshake panels are specified here and
+  in DESIGN and render **only when the flag-6.9a amendment
+  (pre-authorized follow-up `tz2-07a`) lands**; until then they are
+  **omitted from the UI**. **Do NOT substitute a proxy metric.**
+- **C. Expired invites = client-side per-room invite ledger.** The
+  invite list endpoint returns only unexpired+unrevoked codes, so the
+  client keeps a **localStorage ledger per room**
+  (`bleak.hostInvites.<room address>`): mint/revoke responses are
+  recorded and merged with the server list; ledger entries missing
+  from the server list render as expired/revoked. Recorded caveat:
+  **codes minted from other devices cannot be reconstructed as
+  expired.**
+- **D. Delete users = backend-gated** (see §54.1 panel bullet).
+
+### 54.3 Statistics content (the seven requested metrics)
+
+1. **Messages per 5-minute bucket over the past hour** (bucketed by
+   message `created_at`).
+2. **Number of entered users** (room user list count).
+3. **Number of chats** (deduped).
+4. **Active vs finished chats** (`Chat.done`; kickoff resets a chat to
+   active — §13.1.2 semantics).
+5. **Number of handshakes** (rule B).
+6. **Top list — users with the largest number of income handshakes**
+   (rule B).
+7. **Bottom list — users with the lowest** (rule B).
+
+**Chart rendering (concept decision; owner's pre-decided preference):**
+**hand-rolled SVG — no new chart dependency.** Exact visual treatment,
+bucket axis labeling, and the panel IA / stats placement are the
+**DESIGN pass's** call (owner delegated layout to the design round).
+
+### 54.4 Supersessions & scope notes
+
+- §6.6's single-page console layout is superseded by this route tree;
+  its credential semantics carry over unchanged (creation token
+  consumed, `bleak.hostRoom`, room-token authority, share kit).
+- §10.1.8 stays: the Host entry is **not** in the footer nav — hosts
+  reach `/host` directly by URL/bookmark.
+- RU/EN i18n parity for every new string (standing parity test stays
+  green). No new dependencies (hand-rolled SVG; QR rendering reuses the
+  app's existing QR capability). WCAG AA basics and the dark-token
+  system apply.
+
+### 54.5 Backend TODO ledger additions (§1c ledger)
+
+- [ ] Room-token acceptance on `GET /api/handshake/user/{address}`
+  (flag 6.9a; the pre-authorized client follow-up is `tz2-07a`) — gates
+  statistics 5–7 (rule B).
+- [ ] Room-token acceptance on `DELETE /api/room/{room}/user/{address}`
+  (rule D) — gates the host delete-user UI.
+
+### 54.6 Routing note (standard flow)
+
+Concept amendment (this section) → **DESIGN pass for all four routes +
+the stats section** (process → design instance; DESIGN amends its own
+§2/§3.7 single-page host contracts where needed) → owner DESIGN
+approval → architect TZ pass (resumed instance) → owner TZ approval →
+build loop (workers; CI is the QA gate). Merge mode: **default
+per-feature approval** (`NOT_MAINTAIN_APPROVAL` unset) — the process
+reports each ready-for-merge handover and merges only on the owner's
+approval relayed via concept. Suggested round naming: `tz13-*`.
+
+### 54.7 Owner directive — autonomous merge mode for this round (2026-11-24)
+
+The owner switched the round to **autonomous merge mode** in chat
+(2026-11-24, "run autonomous"): the process **merges immediately** when a
+worker hands over (`ready-for-merge`) — no per-feature owner gate; CI
+still gates closure (red CI = bug + reopen per AGENTS.md, reported to
+the owner via concept). Standing default returns to per-feature
+approval after this round unless the owner directs otherwise.
 
 ---
 

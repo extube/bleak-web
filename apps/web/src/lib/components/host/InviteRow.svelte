@@ -1,20 +1,23 @@
 <script lang="ts">
   /**
-   * InviteRow (DESIGN rev. 3 §3.7 item 5): one active invite code — Handjet
-   * 24px digits, muted expiry «истекает через {time}», and the row actions:
-   * code copy chip, a QR toggle (the small stateless-helper PNG for THIS
-   * code), an invite-link copy, and «Отозвать» (outline-destructive, NO
-   * confirm — revocation is reversible by minting again). Actions carry
-   * per-code aria-labels («Отозвать код {code}», §3.7 a11y).
+   * InviteRow (DESIGN rev. 4 §3.7.3 item 1, reworked for the invite route
+   * by TZ13-04): one ACTIVE invite code — Handjet 24px digits, muted expiry
+   * «истекает через {time}», and the row actions: code copy chip, a QR link
+   * to the per-code QR page (§3.7.4), an invite-link copy, and «Отозвать»
+   * (outline-destructive, NO confirm — revocation is reversible by minting
+   * again). Every action carries its per-code `aria-label`. The invite link
+   * itself is never rendered as text — it exists only as the copy payload.
    */
   import { locale, translate } from '#lib/i18n/locale';
-  import { inviteQrUrl } from '#lib/api/helper';
+  import { resolve } from '$app/paths';
   import CopyButton from '#lib/components/CopyButton.svelte';
   import { expiresIn, inviteLink } from './hostLogic';
   import type { Invite } from '@bleak/api-client';
 
   interface Props {
     invite: Invite;
+    /** URL param — builds the per-code QR route link (§3.7.3). */
+    roomAddress: string;
     /** Client-computed invite-link base ({INVITE_URL_BASE}, §10.9). */
     baseUrl: string;
     /** Seconds clock (driven by the page so rows update on polls). */
@@ -22,45 +25,51 @@
     onrevoke: (code: string) => void;
   }
 
-  let { invite, baseUrl, now, onrevoke }: Props = $props();
+  let { invite, roomAddress, baseUrl, now, onrevoke }: Props = $props();
 
-  let qrOpen = $state(false);
-
+  const copyCodeAria = $derived(
+    translate($locale, 'host.invites.copy_code', { code: invite.code })
+  );
+  const qrAria = $derived(translate($locale, 'host.invites.qr_aria', { code: invite.code }));
+  const copyLinkAria = $derived(
+    translate($locale, 'host.invites.copy_link', { code: invite.code })
+  );
   const revokeLabel = $derived(translate($locale, 'host.invites.revoke'));
   const revokeAria = $derived(
     translate($locale, 'host.invites.revoke_aria', { code: invite.code })
   );
-  const qrToggleAria = $derived(
-    translate($locale, 'host.invites.qr_toggle', { code: invite.code })
-  );
   const expiry = $derived(
     translate($locale, 'host.invites.expires_in', { time: expiresIn(invite.expires_at, now) })
   );
+  /** Copy payload only — never rendered as text (§3.7.4 hard ruling). */
   const link = $derived(inviteLink(invite.code, baseUrl));
 </script>
 
 <li class="invite-row">
-  <span class="code">{invite.code}</span>
-  <span class="expiry">{expiry}</span>
+  <div class="line">
+    <span class="code">{invite.code}</span>
+    <span class="expiry">{expiry}</span>
+  </div>
   <div class="actions">
-    <CopyButton value={invite.code} />
+    <CopyButton value={invite.code} label={copyCodeAria} />
+    <a
+      class="qr-link"
+      href={resolve('/host/[room_address]/invite/[code]/qr', {
+        room_address: roomAddress,
+        code: invite.code
+      })}
+      aria-label={qrAria}
+    >QR</a>
+    <CopyButton value={link} label={copyLinkAria} />
     <button
       type="button"
-      class="icon-action"
-      aria-expanded={qrOpen}
-      aria-label={qrToggleAria}
-      onclick={() => (qrOpen = !qrOpen)}
+      class="revoke"
+      aria-label={revokeAria}
+      onclick={() => onrevoke(invite.code)}
     >
-      QR
-    </button>
-    <CopyButton value={link} label={translate($locale, 'host.invite_link')} />
-    <button type="button" class="revoke" aria-label={revokeAria} onclick={() => onrevoke(invite.code)}>
       {revokeLabel}
     </button>
   </div>
-  {#if qrOpen}
-    <img class="row-qr" src={inviteQrUrl(invite.code)} alt={qrToggleAria} width="128" height="128" />
-  {/if}
 </li>
 
 <style>
@@ -69,8 +78,14 @@
     flex-direction: column;
     gap: var(--space-2);
     padding: var(--space-3);
+    min-height: var(--touch-target);
     background: var(--color-surface);
     border-radius: var(--radius-md);
+  }
+  .line {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
   }
   .code {
     font-family: var(--font-pixel);
@@ -88,12 +103,11 @@
     flex-wrap: wrap;
     gap: var(--space-2);
   }
-  .icon-action,
-  .revoke {
+  .qr-link {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 40px;
+    min-height: var(--touch-target);
     padding: 0 var(--space-4);
     border: 1px solid var(--color-text-disabled-strong);
     background: transparent;
@@ -101,17 +115,27 @@
     border-radius: var(--radius-pill);
     font-size: 14px;
     font-weight: 600;
+    text-decoration: none;
     transition:
       border-color 120ms ease-out,
       color 120ms ease-out;
   }
   .revoke {
-    color: var(--color-text-muted);
-  }
-  .row-qr {
-    align-self: flex-start;
-    background: var(--color-qr-frame);
-    padding: var(--space-2);
-    border-radius: var(--radius-md);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-target);
+    padding: 0 var(--space-4);
+    /* outline-destructive (Concept §7.1.6, DESIGN §4.9.3): transparent
+       background, --color-danger border, --color-danger-text font. */
+    border: 1px solid var(--color-danger);
+    background: transparent;
+    color: var(--color-danger-text);
+    border-radius: var(--radius-pill);
+    font-size: 14px;
+    font-weight: 600;
+    transition:
+      border-color 120ms ease-out,
+      color 120ms ease-out;
   }
 </style>

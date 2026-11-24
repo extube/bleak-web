@@ -10,3 +10,6 @@
 2026-11-15T18:50:02Z [architect] restructure committed as e25825a (TZ.md only; an earlier commit attempt accidentally swept two pre-staged process-log files — soft-reset and re-committed clean, no content lost, their staged state returned to working tree)
 2026-11-15T18:50:02Z [architect] restructure pass complete: e25825a, session closed done
 2026-11-15T18:57:53Z [architect] TZ restructure merged into dev by concept agent
+2026-11-24T12:26:05Z [architect] TZ pass 3 (tz13 host admin panel): instance started, reading Concept §54 / DESIGN rev.4 / TZ.md structure
+2026-11-24T12:31:10Z [architect] tz13 TZ pass: on branch feature/81037a13-tz13-host-admin, derivation complete (Concept §54 + DESIGN §3.7.1-3.7.5 rev.4 + delivered plumbing audit), writing Part III
+2026-11-24T12:35:00Z [architect] tz13 TZ pass: committed 963d217 on feature/81037a13-tz13-host-admin (docs/TZ.md only, 657 insertions: Part III + dated pointer notes); nothing merged, working tree foreign changes untouched

@@ -42,7 +42,7 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
       .filter((f) => !ROUTE_FILES.includes(f))
       .map(rel);
     expect(offenders, `new Poller outside route files: ${offenders.join(', ')}`).toEqual([]);
-    // The rule is not vacuous: the seven polling pages really do instantiate it.
+    // The rule is not vacuous: the eight polling pages really do instantiate it.
     const pollingRoutes = ROUTE_FILES
       .filter((f) => /new\s+Poller\b/.test(readFileSync(f, 'utf8')))
       .map(rel)
@@ -54,6 +54,9 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
       // rev. 4 §2.2 row (TZ13-03): the admin panel polls members 5 s, and
       // the statistics fan-out runs on every third tick of that Poller.
       'src/routes/host/[room_address]/+page.svelte',
+      // rev. 4 §3.7.3 (TZ13-04): the invite route polls the room-token
+      // listInvites every 15 s; each tick re-merges the rule-C ledger.
+      'src/routes/host/[room_address]/invite/+page.svelte',
       'src/routes/people/+page.svelte',
       'src/routes/profile/+page.svelte',
       'src/routes/room/+page.svelte'
@@ -89,6 +92,9 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
       // third tick of the same Poller (⇒ 15 s; host-stats/host-panel
       // tests). The entry route polls nothing (TZ13-02).
       'src/routes/host/[room_address]/+page.svelte': '5000',
+      // rev. 4 §3.7.3 row (TZ13-04): the invite route polls the room-token
+      // listInvites at 15 s (each tick re-merges the rule-C ledger).
+      'src/routes/host/[room_address]/invite/+page.svelte': '15000',
       // rev. 3 §2.2 row: /profile polls the token-gated getRoomUser at 4 s
       // for the badge live-QR liveness flag (TZ2-07 Part A).
       'src/routes/profile/+page.svelte': '4000'
