@@ -37,7 +37,9 @@ describe('requireIdentityOrRedirect', () => {
       'src/routes/chats/+page.svelte',
       'src/routes/chats/[address]/+page.svelte',
       'src/routes/profile/+page.svelte',
-      'src/routes/profile/settings/+page.svelte'
+      'src/routes/profile/settings/+page.svelte',
+      // v3.23 (DESIGN §4.29.C): the new editing route is guarded too.
+      'src/routes/profile/edit/+page.svelte'
     ];
     for (const route of guardedRoutes) {
       const source = readFileSync(join(WEB_ROOT, route), 'utf8');

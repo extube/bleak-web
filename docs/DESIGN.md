@@ -1,6 +1,7 @@
-# bleak-web — Product Design (rev. 3 — v2 credentials)
+# bleak-web — Product Design (rev. 4 — v2 credentials + host admin panel)
 
-Design instance: `bd636f23` (2026-11-15); baseline: rev. 2 by `fd19a963`
+Design instances: rev. 4 by `558f4d6b` (2026-11-24); rev. 3 by `bd636f23`
+(2026-11-15); baseline: rev. 2 by `fd19a963`
 (2026-11-14, owner-approved; **v1 delivered and running — do not regress what
 v2 does not touch**). Authority chain: `docs/Concept.md` (owner-approved v1 +
 **§6 v2 scope, owner-approved 2026-11-15**; §1c rulings remain binding except
@@ -36,6 +37,21 @@ Concept §4).
 > §3.1, §3.6, §3.7, §3.8 are substantially rewritten. §4.7 copy table
 > extended (+37 keys). Acceptance-criteria coverage: **118** (was 100; §3.9
 > maps the deltas).
+>
+> **Revision 4 (2026-11-24):** the owner-approved **host admin panel**
+> (Concept §54) is applied: the §3.7 single-page host console is
+> **restructured into a route tree** — `/host` (create **or log back in**
+> with the room key, plus a §54.1 auto-resume probe), `/host/<room_address>`
+> (members + drill-down, **statistics**, share kit, room settings),
+> `/host/<room_address>/invite` (active **and expired/revoked** codes via a
+> per-device localStorage ledger), and `/host/<room_address>/invite/<code>/qr`
+> (client-side QR + share-or-copy-link; **the link text is never shown**).
+> Statistics are a **client-side fan-out engine** (rule A, bounded
+> concurrency, hand-rolled SVG bucket chart — no new dependency); handshake
+> stats (5–7) are **specified but omitted** behind the rule-B/flag-6.9a gate;
+> delete-user stays **backend-gated** (rule D). Host routes leave the tab bar
+> entirely (§4.11.8/§10.1.8 carry over). §4.7 extended (+63 keys);
+> coverage: **160** (was 118; §3.9 maps the deltas).
 
 This document is self-contained: a worker must be able to implement any page
 from its section alone without reading the references.
@@ -52,8 +68,11 @@ an instant mutual handshake); when a handshake is mutual, bleak-node
 auto-creates a **chat** and the two attendees' agents hold a conversation which
 both attendees read live — **agents are the only speakers; humans never type
 messages** (Concept §1c ruling 4). The event **host** creates the room with a
-one-time creation token, receives the QR + invite codes to share, and observes
-the room. **Credential model (v2, Concept §6 + ARCHITECTURE §10):** humans own
+one-time creation token and manages the event from the **`/host` route tree**
+(rev. 4, Concept §54): share kit, invite codes (active and expired/revoked),
+a live member view with room-token chat drill-down (clear + kickoff), and a
+**client-computed statistics panel**. **Credential model (v2, Concept §6 +
+ARCHITECTURE §10):** humans own
 their personas via client-generated access tokens (`Authorization: Bearer` on
 every persona mutation and gated read) — a persona can be edited, imported, or
 used to handshake only by its token holder; QR handshakes are
@@ -76,14 +95,29 @@ image helper (ARCHITECTURE §10.10).
 | `/people` | `routes/people/+page.svelte` | attendee | yes | Full attendee list, search, filters, handshake actions |
 | `/chats` | `routes/chats/+page.svelte` | attendee | yes | List of agent dialogs (mutual handshakes) |
 | `/chats/[address]` | `routes/chats/[address]/+page.svelte` | attendee | no | Dialog transcript (read-only) + kickoff |
-| `/profile` | `routes/profile/+page.svelte` | attendee | yes | Persona badge card (with personal QR), editing, stats, locale, leave room |
-| `/host` | `routes/host/+page.svelte` | host | yes* | Host console: one-time creation token, room creation, invite management, share kit, live room view |
+| `/profile` | `routes/profile/+page.svelte` | attendee | yes | "My profile" screen: centered square avatar + username, 3-stat row, pill tabs (About / Interests / QR code) over the live badge QR — read-only (§4.29) |
+| `/profile/settings` | `routes/profile/settings/+page.svelte` | attendee | no | App-level settings sub-page: profile-edit entry row, locale, token rotation, leave room — list-block pattern (§4.29) |
+| `/profile/edit` | `routes/profile/edit/+page.svelte` | attendee | no | "Edit profile" sub-page: name/bios, greeting (+ regenerate), local contact card; full-width Save Changes (§4.29) |
+| `/host` | `routes/host/+page.svelte` | host | no | Host entry: auto-resume into the panel (§54.1 probe), create a room (one-time creation token), or log back in with the room key |
+| `/host/[room_address]` | `routes/host/[room_address]/+page.svelte` | host | no | Main admin panel: live members + drill-down, statistics (§3.7.5), share kit, room settings |
+| `/host/[room_address]/invite` | `routes/host/[room_address]/invite/+page.svelte` | host | no | Invite codes: active **and** expired/revoked (device ledger), mint, revoke |
+| `/host/[room_address]/invite/[code]/qr` | `routes/host/[room_address]/invite/[code]/qr/+page.svelte` | host | no | Per-code invite QR + code copy + share-or-copy-link (link text never shown) |
 
-*The Host tab is always visible in the tab bar (an attendee may also be the
-host); the host page itself never requires an attendee identity.
+**SUPERSEDED (Concept §54, 2026-11-24):** the single `/host` console row and
+its tab-bar footnote are replaced by the four-route tree above. The host
+routes carry **no tab bar at all** — §4.11.8 (2026-11-18, Concept §10.1.8)
+already removed the Host footer entry, and §54.4 keeps that binding: hosts
+reach `/host` by URL/bookmark.
 
-Parameterized routes: only `/chats/[address]` — `address` is a chat address
-(`0xchat123`-style string from `ChatResponse.address`).
+(The `/profile` row is rewritten and the `/profile/settings` +
+`/profile/edit` rows are ADDED by the §4.29 profile-redesign rev,
+2026-11-22.)
+
+Parameterized routes: `/chats/[address]` — `address` is a chat address
+(`0xchat123`-style string from `ChatResponse.address`); and the host tree —
+`[room_address]` is a room address (`0xroom…`, matched against
+`bleak.hostRoom.roomAddress`, §3.7) and `[code]` is a 6-digit invite code.
+Unknown/mismatched host parameters redirect to `/host` (§1.3).
 
 Deep links on `/`: `/?code=NNNNNN` (what the host's invite QR encodes, via
 `INVITE_URL_BASE`; unknown/absent `code` → normal manual entry state) and
@@ -108,7 +142,7 @@ single-direction variant (§3.8).
 
 ### 1.2 Bottom tab anatomy (adapted from `docs/refs/searching.png`)
 
-Five tabs, fixed bottom bar (height `--bottom-tabbar-height` = 64px):
+Four tabs, fixed bottom bar (height `--bottom-tabbar-height` = 64px):
 
 | # | Icon (pixel glyph) | Route | RU | EN |
 | --- | --- | --- | --- | --- |
@@ -116,7 +150,10 @@ Five tabs, fixed bottom bar (height `--bottom-tabbar-height` = 64px):
 | 2 | ☺ pixel face | `/people` | Люди | People |
 | 3 | ▤ dialog lines | `/chats` | Диалоги | Chats |
 | 4 | ☾ badge/id card | `/profile` | Профиль | Profile |
-| 5 | ★ star (host) | `/host` | Хост | Host |
+
+**SUPERSEDED (2026-11-18, Concept §10.1.8 / DESIGN §4.11.8):** the Host tab
+(row 5, ★) left the bottom navigation; the table above reflects the delivered
+four-tab set. The `/host` route tree is reached by URL/bookmark only (§3.7).
 
 (The scaffold's `TabBar.svelte` already matches this set; icons are placeholders
 to be replaced by pixel-art SVG glyphs per §4.4.)
@@ -138,8 +175,14 @@ to be replaced by pixel-art SVG glyphs per §4.4.)
 - `/` when identity exists → shows a resume card ("Продолжить в «{room.name}»"
   / "Continue to {room.name}") plus a secondary "Присоединиться к другому
   событию" ("Join another event") that clears identity and reveals the code
-  entry.
-- `/host` never redirects on missing identity.
+  entry. **SUPERSEDED (Concept §47, 2026-11-23): the resume card is removed
+  from the entry surface (`/` → now `/income`) — the default 6-digit form
+  always shows; no stored-session resume variant.**
+- `/host` never redirects on missing attendee identity. The host tree is
+  guarded by **host session** instead: `/host/[room_address]` and its children
+  redirect to `/host` when no stored `bleak.hostRoom` matches the URL's
+  `room_address`; a stored entry makes `/host` itself auto-resume into the
+  panel (§3.7.1) — never a dead screen.
 - Back behavior: `/chats/[address]` header has a back control (history back;
   if `history.length` makes back meaningless → `/chats`). All other navigation
   is via tabs / explicit links.
@@ -194,7 +237,10 @@ Cadences:
 | `/chats` | `listChatsOfUser` (+ `listRoomUsers` for name resolution) | 4 s |
 | `/chats/[address]` | `listChatMessages` | 2 s |
 | `/profile` | token-gated `getRoomUser` (persona Bearer) for the badge live-QR liveness flag (`mutual_code_live`, §3.6); stats fetched on mount + after mutations | 4 s |
-| `/host` | `listRoomUsers` + `getRoom` | 5 s |
+| `/host` (entry) | no interval — one auto-resume probe on mount (`listInvites` with the stored room key, §3.7.1) | — |
+| `/host/[room_address]` | `listRoomUsers` + `getRoom` (public reads); the same Poller's every third tick re-runs the §3.7.5 statistics fan-out (bounded concurrency 4) | 5 s (members) · 15 s (stats) |
+| `/host/[room_address]/invite` | `listInvites` (room token), merged with the device ledger on each tick | 15 s |
+| `/host/[room_address]/invite/[code]/qr` | no polling — static page, one liveness recheck on mount | — |
 
 Renderers use keyed `{#each}` and diff in the caller so a poll that returns
 identical data does not re-render.
@@ -320,8 +366,11 @@ Facts a worker must respect:
   legacy personas are unrecoverable — this notice is the only legacy-facing
   UI in the product.
 - **Host-symmetric gate:** `hostApi` 401/403 on a room-token call clears
-  `bleak.hostRoom` and resets the host console to the creation-token gate
-  (§3.7); it never touches attendee identity.
+  `bleak.hostRoom`, sets `sessionStorage` key `bleak.hostNotice`, and lands
+  on **`/host` in the log-in mode** with the reset notice above the entry
+  card (§3.7.1) — the rev. 4 route-tree landing, superseding the rev. 3
+  single-page console reset (dated Concept §54, 2026-11-24). It never
+  touches attendee identity.
 - The transcript viewer fallback (§3.5) is the **only** code path allowed to
   catch a 401 before the gate fires (ARCHITECTURE §10.3 escape hatch).
 
@@ -336,8 +385,9 @@ error" banner.
 | **Income rule (403)** | a handshake send rejected by the room's income>outcome rule | «Лимит исходящих хендшейков — сначала получите рукопожатия в ответ.» / "Outgoing handshake limit reached — receive handshakes first." (server text appended in muted small text when present) | `HandshakeSheet` on `/room` and `/people`, People card «+» action, scanner result panel, single-direction deep-link card (§3.8) |
 | **Stale mutual code (410)** | `POST /api/handshake/mutual` answered 410 | «Код уже использован — попросите обновить QR на карточке.» / "Code already used — ask them to refresh their badge QR." | scanner result panel; the `?u&m` deep-link confirm path on `/` |
 | **Invalid invite code (creation rejected)** | `POST /api/room/{room}/user` rejected over the code | «Код приглашения недействителен или истёк.» / "The invite code is invalid or expired." | join Step 3a/3b inline error |
+| **Host room key rejected** | a pasted room key + address fails the §3.7.1 validation probe (401/403) | «Ключ комнаты отклонён.» / "Room key rejected." (server text appended when present) | `/host` log-in mode (§3.7.1) |
 
-Rules for all three:
+Rules for all three (four with the host row):
 
 - **Retry semantics (bleak-node §7.3.4):** a **failed** attempt
   (NetworkError, 403, 410) never burns the one-time mutual code — only
@@ -533,7 +583,11 @@ title after successful resolution. The 401 notice card is announced
     with a way back to persona creation.
 15. With an existing identity, `/` shows the resume card with the room name
     and a working "join another event" action that clears identity and the
-    `mutualCode` store but keeps the vault.
+    `mutualCode` store but keeps the vault. **SUPERSEDED (Concept §47,
+    2026-11-23): /income (the entry surface) ALWAYS shows the default
+    6-digit form — the resume variant and its "join another event" action
+    are removed; test expectation: the form renders with or without an
+    existing identity.**
 16. The RU|EN segmented control switches all visible strings on this page and
     persists across reloads.
 17. All six digit cells are keyboard-reachable; paste of a 6-digit string
@@ -1238,225 +1292,689 @@ handshake QR".
 
 ---
 
-### 3.7 `/host` — Host console
+### 3.7 `/host` route tree — host admin panel + statistics
 
-**Purpose.** The event host's tool: present the operator-granted **one-time
-creation token**, create the event room (the client generates the **room
-token**), receive the share kit (QR + 6-digit codes + invite links), manage
-invite codes (mint/expiry/revoke), and watch and drill into the room live.
-Desktop-comfortable (the only page designed desktop-first), but fully usable
-on a phone.
+**Purpose.** The event host's tool across four routes (rev. 4, Concept §54):
+create the event room **or log back in** with the room key; manage invite
+codes (mint / expiry / revoke) — **active and expired/revoked**; watch the
+room live and drill into members' dialogs (room-token reads, clear +
+kickoff); share any code as QR / copy-link (the link text is never shown);
+edit room settings; and read a **client-computed statistics panel** (seven
+metrics, four live — §3.7.5). Desktop-comfortable, fully usable on a phone.
 
-**API endpoints used.** (Room-token calls carry `bleak.hostRoom.roomToken`
-via the `hostApi` context — auto-injected; a host-context 401/403 resets the
-console, §2.8/§3.7 states.)
+**SUPERSEDED (Concept §54, 2026-11-24):** the rev. 3 single-page console
+layout is restructured into the route tree below. What moved where:
 
-| Endpoint (client method) | Use |
-| --- | --- |
-| `POST /api/room` (`createRoom(requestV2, createToken)`) | create room — **one-time creation token in the header** (header name TBD, ARCHITECTURE §10.13.1; proposed `x-create-token`), client-generated room token in the body (`CreateRoomRequestV2`); the creation token is consumed on use |
-| `GET /h/rooms/{code}/qr` (`inviteQrUrl`) | QR image (PNG 512px) for the share kit — the helper's only remaining endpoint (now stateless, ARCHITECTURE §10.10) |
-| `GET /api/room/{address}` (`getRoom`) — public read, **no token** | room details (`name`, `description`, `language`, `max_user`) |
-| `GET /api/room/{room}/user` (`listRoomUsers`) — public read, **no token** — 5 s poll | live member list |
-| `GET /api/room/{address}/invite` (`listInvites`) — **room token** | active invite codes |
-| `POST /api/room/{address}/invite` (`mintInvite`) — **room token** | mint a code (`{ expires_at? }`; default 24 h server-side) |
-| `DELETE /api/room/{address}/invite/{code}` (`revokeInvite`) — **room token** | revoke a code |
-| `GET /api/chat/{address}` + `GET /api/chat/{address}/message` — **room token** | member drill-down chat reads (plain chat reads — amendment-independent, ARCHITECTURE §10.3) |
-| `DELETE /api/chat/{address}/message` (`clearChatHistory`) — **room token** | clear a member's dialog from the drill-down |
-| `POST /api/chat/{address}/kickoff` (`kickoffChat`) — **room token** | restart a member's dialog from the drill-down |
-| `POST /api/room/{address}/token` (`rotateRoomToken`) — **Bearer = current room token; body = the new raw token** | room-token rotation |
-| `PUT /api/room/{address}` (`updateRoom`) — **room token** | room settings (name, description) |
-| `DELETE /api/room/{address}` (`deleteRoom`) — **room token** | end the event |
+- Creation-token gate + create form → **§3.7.1** (Create mode).
+- Share kit (big code, QR, link, "join as attendee") → **§3.7.2** share
+  region.
+- Invite-management block → **§3.7.3** (its own route; now also shows
+  expired/revoked codes via the device ledger — rule C).
+- Member drill-down with clear/kickoff → **§3.7.2** member region
+  (unchanged semantics; the rev. 3 "chat discovery" contract gap is **closed**
+  — `GET /api/room/{room}/user/{address}/chat` now accepts the room token,
+  so drill-down lists dialogs directly).
+- Room settings + rotation + delete → **§3.7.2** settings region.
+- Kickoff placement (delegated IA call): per-dialog **only**, in the member
+  drill-down (and §3.5's host-view transcript); there is no room-level
+  batch restart — no endpoint exists for one, and none is faked.
+- `GET /h/rooms/{code}/qr` (helper PNG) → **not used on the host tree**
+  (rev. 4); QR renders client-side (`InviteQr`, §3.7.4). The helper endpoint
+  stays for external parity only (ARCHITECTURE §10.10).
 
-**Not built in v2 (do not promise):** per-member handshake **counts** — no
-viable endpoint without the flag 6.9a amendment (Concept §6.6); the
-drill-down ships counts-less (§5 rationale). The helper's `POST /h/rooms`
-and `GET /h/rooms/{code}` mapping endpoints are retired (ARCHITECTURE
-§10.10); the host console talks to bleak-node directly.
+**Host session model (shared by all four routes).**
 
-**Layout.**
-Phone: single column. Desktop (≥ 900px): two columns — left column the share
-kit, right column the live room view; max-width 1080px centered.
+- `bleak.hostRoom = { roomAddress, roomToken, code }` in `localStorage`
+  (Concept §6.6 pattern; ARCHITECTURE §10.4) — the single host credential.
+  Room-token calls go through `hostApi` (auto-injection; ARCHITECTURE
+  §10.3); a host-context 401/403 resets the session per §2.8 and lands on
+  `/host` (log-in mode + notice). Attendee identity is never touched.
+- Invite ledger (rule C): `localStorage` key
+  `bleak.hostInvites.<room address>` — an append-only array of
+  `{ code, created_at, expires_at, revoked_at? }` recording every mint and
+  revoke response of **this device**; merged with the server invite list
+  (§3.7.3).
+- The host routes render **no tab bar** (§1.1 supersession note); each has
+  its own top bar with a back control.
+- Host entry stays **out of the footer nav** (§54.4 → Concept §10.1.8,
+  §4.11.8): hosts reach `/host` by URL/bookmark.
 
-1. **Header**: h1 «Хост» / "Host" + subtitle RU «Создайте комнату события и
-   поделитесь приглашением.» / "Create the event room and share the invite."
-2. **Creation-token gate** (shown when no `bleak.hostRoom` exists — i.e. no
-   active room session on this device): `--color-surface` card with a
-   password-type input (label «Токен создания комнаты» / "Room creation
-   token", masked, 48px, `autocomplete="off"`) + CTA «Продолжить» /
-   "Continue". Copy note RU «Одноразовый токен выдаёт оператор
-   развертывания. После создания комнаты он больше не нужен и не
-   сохраняется.» / "A one-time token issued by the deployment operator.
-   After the room is created it is never needed again and is not stored."
-   **The token is never persisted anywhere** — it lives only in memory for
-   the duration of the create call (it is consumed server-side on use); a
-   later console visit shows the gate again unless the share kit restores
-   from `bleak.hostRoom`.
-3. **Create room form** (card): `name` (required), `description` (optional),
-   `language` select (ru | en; this sets the agents' conversation language —
-   `CreateRoomRequestV2.language`). On submit the client generates the room
-   token (`generateTokenSecret()`) and calls
-   `createRoom(requestV2, createToken)`. CTA «Создать комнату» / "Create
-   room". (`max_user` is **not** settable — flag §6.3.)
-4. **Share kit** (after creation; restored on revisit from
-   `bleak.hostRoom = { roomAddress, roomToken, code }`; the room `name` for
-   display comes from a public `getRoom`):
-   - Big code display: the room's invite `code` in Handjet 40px,
-     letter-spaced, on a surface card with a «Скопировать» / "Copy" chip
-     (writes the digits).
-   - **QR block**: `inviteQrUrl(code)` `<img>` (256px on phone, 320px
-     desktop; alt «QR-код приглашения» / "Invite QR code"), pixel-cornered
-     light frame (`--color-qr-frame`; the helper renders
-     charcoal-on-light).
-   - Invite link row: `{INVITE_URL_BASE}?code={code}` (computed
-     client-side) + copy icon-button.
-   - CTA «Присоединиться как участник» / "Join as attendee" → runs the `/`
-     join flow with this code (navigates to `/?code={code}`).
-   - Link «Создать другую комнату» / "Create another room" → back to the
-     form (the existing room session stays in `bleak.hostRoom` until it is
-     replaced or the room is deleted).
-5. **Invite management block** (v2, room-token authority — new):
-   - Sub-header «Коды приглашения» / "Invite codes" + muted hint RU «Код
-     действует до истечения срока; отозвать можно в любой момент.» / "A code
-     works until it expires; you can revoke it any time."
-   - **Active-code list**: one `InviteRow` per active code (`listInvites`):
-     6-digit code (Handjet 24px), muted expiry «истекает через {time}» /
-     "expires in {time}", and row actions: copy chip, a QR toggle (reveals a
-     small `inviteQrUrl(code)` image for that code), invite-link copy, and
-     «Отозвать» / "Revoke" (outline-destructive; no confirm — revocation is
-     reversible by minting again). On success the row disappears on the next
-     list refresh with the transient note «Код отозван.» / "Code revoked."
-     Revoked and expired codes never render in the list.
-   - **Mint control**: CTA «Выпустить код» / "Mint a code" opens an inline
-     **expiry chooser** — three preset pills «1 час» / "1 hour", «24 часа» /
-     "24 hours" (pre-selected default), «7 дней» / "7 days" — plus a fourth
-     «Своё время…» / "Custom…" that reveals a compact `datetime-local` input
-     (min = now). Mint → `mintInvite(address, roomToken, { expires_at? })` →
-     the new code appears at the top of the list **and joins the share kit**
-     as a per-code row: each minted code carries its own QR + link copies so
-     the host can share several codes side by side (e.g. one per entrance).
-     Presets over free datetime by default: a host mid-event needs two taps,
-     not a calendar (rationale §5; ARCHITECTURE §10.13.8).
-6. **Live room view** (poll 5 s, public reads):
-   - Summary tiles: «Участники {n}/{max_user}» / "Members {n}/{max_user}"
-     (from `listRoomUsers.length` and `getRoom.max_user`), «Язык {language}» /
-     "Language {language}".
-   - **Member list**: rows (avatar, `User.name`, joined time from
-     `created_at`); each row tap → **member drill-down sheet** (on-demand
-     fetches, not polled): the member's dialogs read with the **room token**
-     (plain `getChat` + `listChatMessages` per chat address — amendment-independent, ARCHITECTURE §10.3). **Chat discovery
-      (honest handling of a contract gap):** the plain reads give no
-      room-scoped per-user chat *listing* (that piece is part of the 6.9a
-      amendment), so the drill-down shows the member's dialogs only when
-      their chat addresses are discoverable (via a 6.9a-style room-scoped
-      listing once it exists, or from chat knowledge the console already
-      holds); until then the sheet renders the empty-drill-down copy plus a
-      muted hint RU «Список диалогов участника появится вместе с серверным
-      обновлением (флаг 6.9a).» / "The member's dialog list arrives with the
-      server-side amendment (flag 6.9a)." — never invented client side.
-      Dialog rows
-     link to the read-only `/chats/{address}` transcript (the host observes
-     any transcript — the §3.5 viewer fallback context) **and** carry two
-     inline host actions per dialog: «Очистить историю» / "Clear history" →
-     confirm (body RU «История диалога участников будет очищена.» / "The
-     participants' dialog history will be cleared.") → `clearChatHistory`
-     (room token); «Запустить заново» / "Restart" → reuses the §3.5 kickoff
-     confirm copy → `kickoffChat` (room token). Empty drill-down: «У
-     участника пока нет диалогов.» / "This member has no dialogs yet."
-     **No handshake counts are shown anywhere in the console** (flag 6.9a).
-   - **Host settings** (collapsible): edit `name`/`description` →
-     `PUT updateRoom` (room token); **«Сгенерировать ключ комнаты» /
-     "Regenerate room token"** → `ConfirmDialog` (title «Сгенерировать ключ
-     комнаты?» / "Regenerate the room credential?"; body RU «Текущий ключ
-     комнаты перестанет действовать. Продолжить?» / "The current room
-     credential will stop working. Continue?") → `rotateRoomToken` → the
-     stored `bleak.hostRoom.roomToken` is replaced in place; danger zone
-     «Удалить комнату» / "Delete room" → confirm → `DELETE` (room token) →
-     clears `bleak.hostRoom`, returns to the create form. Copy warning RU
-     «Комната будет удалена вместе со всеми участниками.» / "The room will
-     be deleted with all its members."
+**API endpoints used** (auth verified per-path in
+`/mount/bleak-node/docs/swagger.json`, 2026-11-24; room-token calls carry
+`bleak.hostRoom.roomToken` via the `hostApi` context):
 
-**States.**
-- Creation token rejected (401/403 on create): error under the token field RU
-  «Токен отклонён.» / "Token rejected." (server text appended if present);
-  the entered value stays masked; nothing is stored; the gate remains.
-- Create 400/409: field error from server text (e.g. duplicate name →
-  «Комната с таким именем уже есть» surfaced from server body).
-- Create pending: CTA spinner; form disabled.
-- **Host session reset (`hostApi` 401/403 on any room-token call):**
-  `bleak.hostRoom` is cleared and the console resets to the creation-token
-  gate with a notice line above it: RU «Доступ к комнате отозван — войдите
-  заново с токеном создания.» / "Room access was revoked — sign in again
-  with a creation token." (`aria-live="polite"`; attendee identity is never
-  touched.)
-- Live view empty (no members): «Пока никто не присоединился.» / "Nobody has
-  joined yet."
-- Live view error: `ErrorBanner`; stale list dimmed.
-- Drill-down fetch failure: inline muted error inside the sheet with retry.
-- Invite list/mint/revoke failure: inline muted error inside the invite
-  block with retry; the share kit is unaffected.
-- `getRoom` 404 (room deleted elsewhere): full-section state «Комната
-  удалена.» / "The room was deleted." + reset to create form.
+| Endpoint (client method) | Auth (verified) | Use |
+| --- | --- | --- |
+| `POST /api/room` (`createRoom`) | `x-create-token` header (required, consumed on use) — no Bearer | §3.7.1 create: body `CreateRoomRequest` `{ name, description, language, token }` — `token` is the **client-generated room token** (only its SHA-256 hash is stored). 201 → `CreateRoomResponse` (`address`, `invite_code`, `max_user`, …); 400/401/403/409 |
+| `GET /api/room/{address}` (`getRoom`) | **public** | room details for header/share kit/settings (`name`, `description`, `language`, `max_user`) |
+| `GET /api/room` (`listRooms`) | **public** | §3.7.1 only: the "forgot the address?" finder probes this list with the pasted key |
+| `PUT /api/room/{address}` (`updateRoom`) | **room token per §54.1 — contract nuance: swagger declares NO security scheme on this PUT** (401/403 exist in its responses; the client sends the room token as Bearer) | §3.7.2 settings: body `UpdateRoomRequest` = **`{ name, description }` only** — `language`/`max_user` are **not accepted** (§6 flag F10) |
+| `DELETE /api/room/{address}` (`deleteRoom`) | `RoomToken` | §3.7.2 end the event |
+| `GET /api/room/{room}/user` (`listRoomUsers`) | **public** | §3.7.2 member list (5 s) + §3.7.5 engine step 1 |
+| `GET /api/room/{room}/user/{address}/chat` (`listChatsOfRoomUser`) | scheme `UserToken`; description: persona Bearer **or the room token** → room token used | §3.7.2 drill-down listing + §3.7.5 engine step 2 |
+| `GET /api/room/{room}/user/{address}/chat/{chat}/messages` (`listRoomUserChatMessages`) | same (room token accepted) | §3.7.5 engine step 4 (one fetch per **deduped** chat, via one participant path segment) |
+| `DELETE /api/room/{room}/user/{address}` (`deleteRoomUser`) | **`UserToken` only — persona token; the room token is NOT accepted** (verified) | **no UI call** — rule D gate (§3.7.2 renders the honest unavailable state) |
+| `GET /api/room/{address}/invite` (`listInvites`) | `RoomToken` | §3.7.1 resume probe + §3.7.3 active list; response wraps `{ invites: [InviteResponse…] }` — only **unexpired + unrevoked** codes |
+| `POST /api/room/{address}/invite` (`mintInvite`) | `RoomToken` | §3.7.3 mint; body `CreateInviteRequest` `{ expires_at? }` (default 24 h server-side); 201 → `InviteResponse { code, created_at, expires_at, room }` |
+| `DELETE /api/room/{address}/invite/{code}` (`revokeInvite`) | `RoomToken` | §3.7.3 revoke (immediate) |
+| `POST /api/room/{address}/token` (`rotateRoomToken`) | `RoomToken` — **current** room token as Bearer; body = the new raw token | §3.7.2 rotation |
+| `POST /api/chat/{address}/kickoff` (`kickoffChat`) | scheme `UserToken`; description: participant Bearer **or the room token** | §3.7.2 drill-down restart; 201 → `KickoffResponse { chat, cleared, speaker }` |
+| `DELETE /api/chat/{address}/message` (`clearChatHistory`) | same (room token accepted) | §3.7.2 drill-down clear |
+| `GET /api/handshake/user/{address}` (`listHandshakesOfUser`) | **`UserToken` only — that persona's Bearer** (verified) | **no UI call** until flag 6.9a / `tz2-07a` lands — rule B gate (§3.7.5 metrics 5–7) |
+| `GET /h/rooms/{code}/qr` (`inviteQrUrl`) | helper, no auth | **not used on the host tree** (rev. 4 — client-side `InviteQr`); kept for external parity (§6 note) |
 
-**Responsive.** ≥ 900px two-column as above; the share kit + invite block
-stay in the left column (sticky), the live view scrolls on the right.
+**Not built in rev. 4 (do not promise):** handshake metrics 5–7 (rule B —
+persona-token-only read; panels are specified in §3.7.5 but **omitted from
+the UI** until the flag-6.9a amendment / pre-authorized `tz2-07a` lands);
+member deletion (rule D — persona-token-only endpoint; §3.7.2 renders the
+honest unavailable state). No proxy metrics, no mocks, no backend changes
+(§54 hard ruling). The helper's `POST /h/rooms` / `GET /h/rooms/{code}` stay
+retired (ARCHITECTURE §10.10); the host tree talks to bleak-node directly.
 
-**Accessibility.** Creation-token input is `type="password"` with
-autocomplete off and **never logged, stored, or rendered elsewhere**; the
-code display has `aria-label` with the digits spelled («Код: 1 2 3 4 5 6»).
-Drill-down sheets trap focus; the danger zone is separated with a visible
-warning heading; invite rows are list items whose actions carry per-code
-`aria-label`s («Отозвать код {code}» / "Revoke code {code}").
+#### §3.7.1 `/host` — create a room or log back in
 
-**Acceptance criteria.**
-1. Without a stored `bleak.hostRoom`, `/host` shows the creation-token gate;
-   the entered creation token is never persisted (no
-   localStorage/sessionStorage key exists for it) and never rendered anywhere
-   except the masked input.
-2. A wrong or consumed creation token (401/403 on create) shows «Токен
-   отклонён.» under the field, keeps the entered value masked, and stores
+**User goals.** (a) A first-time host turns the operator-granted one-time
+creation token into a room; (b) a returning host on any device resumes or
+re-establishes a room session with the room key; (c) the app auto-resumes a
+still-valid stored session straight into the panel (§54.1 concept decision,
+specified here explicitly). No dead ends: both entry modes are always
+reachable.
+
+**Layout.** No tab bar; a simple top bar with the app wordmark
+(non-navigational). Centered card column, max-width 640px:
+
+1. **Header**: h1 «Хост» / "Host" + subtitle «Создайте комнату события и
+   управляйте ею.» / "Create the event room and manage it."
+2. **Reset notice** (only when `sessionStorage` `bleak.hostNotice` is set —
+   §2.8 host gate): `--color-surface` notice card, lock pixel glyph, copy
+   «Доступ к комнате отозван — войдите заново с ключом комнаты или создайте
+   новую комнату.» / "Room access was revoked — sign in again with the room
+   key or create a new room." `aria-live="polite"`; the key is removed after
+   rendering (once per incident). When present, the mode switch pre-selects
+   **Log in**.
+3. **Auto-resume probe (§54.1, on mount with a stored `bleak.hostRoom`):**
+   before the entry card renders interactively, the app validates the stored
+   room key with the **invite-list GET** (`GET /api/room/{address}/invite` —
+   room-token-gated; the same call the invite page needs first):
+   - **200** → auto-navigate to `/host/<room_address>` immediately — no form
+     flash. While the probe is in flight the page shows a single skeleton
+     card + muted line «Проверяем доступ к комнате…» / "Checking room
+     access…" (`aria-busy`).
+   - **401** (dead key) → clear `bleak.hostRoom` (host reset semantics,
+     §2.8), show the reset notice, fall back to the entry card in the
+     **Create** mode (the stored key is dead, so log-in would repeat the
+     failure; the Log-in mode stays one tap away).
+   - **404** (room deleted elsewhere) → clear `bleak.hostRoom`, show
+     «Комната удалена.» / "The room was deleted." + the entry card (Create
+     mode).
+   - **NetworkError** → the stored entry is **kept** (a network failure
+     proves nothing about the credential): §2.1 network `ErrorBanner` with
+     retry above the entry card; the card is fully usable meanwhile.
+4. **Entry card** with a **mode switch** (`SegmentedControl`, two segments):
+   «Создать комнату» / "Create room" · «Войти по ключу» / "Sign in with
+   key". Both forms live in the same card; switching never loses input.
+   - **Create mode** (default without a stored session): masked
+     creation-token input (label «Токен создания комнаты» / "Room creation
+     token", `type="password"`, 48px, `autocomplete="off"`), then the room
+     form — `name` (required), `description` (optional), `language` select
+     (ru | en; sets the agents' conversation language). Copy note (binding,
+     carried verbatim from rev. 3): «Одноразовый токен выдаёт оператор
+     развертывания. После создания комнаты он больше не нужен и не
+     сохраняется.» / "A one-time token issued by the deployment operator.
+     After the room is created it is never needed again and is not stored."
+     CTA «Создать комнату» / "Create room". On submit the client generates
+     the room token (`generateTokenSecret()`) and calls `POST /api/room`
+     with the creation token in the **`x-create-token` header** and
+     `{ name, description, language, token }` in the body. **The creation
+     token is consumed server-side and never stored anywhere** — it lives
+     only in memory for the duration of the create call. Success: store
+     `bleak.hostRoom = { roomAddress: response.address, roomToken, code:
+     response.invite_code }` → navigate to `/host/<room_address>`.
+     (`max_user` is not in `CreateRoomRequest` — the server default applies
+     and displays as read-only in the panel.)
+   - **Log-in mode** (always available — new device, rotated key, "use
+     another room"): two fields — room **address** («Адрес комнаты» / "Room
+     address", plain text, e.g. `0xroom…`) and room **key** («Ключ комнаты»
+     / "Room key", masked, `type="password"`, `autocomplete="off"`) — the
+     address is required by every room-token route, so the pair is asked
+     for honestly (there is no token→room resolve endpoint; §6 flag F11).
+     On submit the client validates the pair with the same invite-list GET
+     probe: **200** → store/overwrite `bleak.hostRoom` (the `code` starts
+     unknown and fills from the first invite-list tick on the panel) →
+     navigate to `/host/<room_address>`; **401/403** → inline error «Ключ
+     комнаты отклонён.» / "Room key rejected." under the key field (server
+     text appended when present), the entered value stays masked, **nothing
+     is stored** (§2.9 host row). Secondary link under the fields: «Не
+     помните адрес?» / "Forgot the address?" → the **address finder**: the
+     client fetches the public `GET /api/room` list and probes candidates
+     with the invite-list GET using the entered key (bounded: concurrency
+     4, cap 25 rooms, stops at the first 200), showing «Ищем комнату…» /
+     "Looking for the room…" while running; a match fills the address field
+     and continues the normal validation; no match → honest inline copy
+     «Ключ не подошёл ни к одной комнате.» / "The key didn't match any
+     room." The finder **never writes storage** — only the successful
+     validation does.
+
+**States (§3.7.1).** Loading: probe skeleton (auto-resume) / CTA spinner
+with disabled form (create, log-in, finder in flight). Errors: creation
+token 401/403 → «Токен отклонён.» / "Token rejected." under the field
+(carried verbatim from rev. 3), value stays masked, nothing stored; create
+400/409 → server-text field error (e.g. duplicate name surfaced from the
+server body); log-in failure → §2.9 host row; finder no-match copy above;
+NetworkError anywhere → §2.1 banner + retry. Empty: n/a (the page is a
+form).
+
+**Responsive.** Single column at every width (max 640px, centered); all
+controls ≥ 48px touch targets.
+
+**Accessibility.** Masked inputs are `type="password"` with
+`autocomplete="off"`; the creation token is never logged, stored, or
+rendered elsewhere. The mode switch is a labelled radiogroup (or two
+buttons with `aria-pressed`). The reset notice is `aria-live="polite"`; the
+auto-resume skeleton line uses the same live region. Error copy announces
+once on render (`aria-live="polite"`).
+
+**Acceptance criteria (§3.7.1).**
+1. Without a stored `bleak.hostRoom`, `/host` shows the entry card with the
+   mode switch pre-selected to **Create**; no tab bar and no footer Host
+   entry render on `/host` (or any host route).
+2. The entered creation token is never persisted (no
+   localStorage/sessionStorage key exists for it) and never rendered
+   anywhere except the masked input; a wrong or consumed token (401/403 on
+   create) shows «Токен отклонён.», keeps the value masked, and stores
    nothing.
 3. A successful create generates the room token client-side, calls
-   `POST /api/room` with the creation token in the header and the room token
-   in the body, and stores `{ roomAddress, roomToken, code }` in
-   `bleak.hostRoom`.
-4. The share kit renders the 6-digit `code` (Handjet), the QR `<img>` from
-   `GET /h/rooms/{code}/qr`, and the invite link
-   `{INVITE_URL_BASE}?code={code}`; both copy actions write the correct
-   values to the clipboard.
-5. Revisiting `/host` with a stored `bleak.hostRoom` restores the share kit
-   (room name via public `getRoom`) without re-creating anything.
-6. "Join as attendee" navigates to `/?code={code}` (the deep-link flow of
-   §3.1 takes over).
-7. The invite block lists active codes via `GET …/invite` (room token);
-   minting with a preset expiry (24 h pre-selected) or a custom datetime
-   calls `POST …/invite` and the new code appears in the list with its own
-   copy/QR/link actions.
-8. "Revoke" on a code row calls `DELETE …/invite/{code}` and the row
-   disappears on refresh with the «Код отозван.» note; revoked and expired
-   codes never render as active.
-9. The live view polls members every 5 s (public reads); the members tile
-   shows `listRoomUsers.length` against `getRoom.max_user`.
-10. A member drill-down opens on demand and lists that member's dialogs read
-    with the **room token**; each dialog row links to the read-only
-    `/chats/{address}` transcript and carries "Clear history" and "Restart"
-    actions that call `clearChatHistory` / `kickoffChat` with the room token
-    after their confirm dialogs.
-11. The console shows **no handshake sent/received counts** anywhere.
-12. Host settings save via `PUT /api/room/{address}` (room token);
-    "Delete room" confirms, calls `DELETE`, clears the stored room, and
-    returns to the create form.
-13. "Regenerate room token" confirms with the specified copy, calls
-    `rotateRoomToken` with the current Bearer, and updates the stored
-    `bleak.hostRoom.roomToken` in place.
-14. A host-context 401/403 on any room-token call clears `bleak.hostRoom`,
-    resets the console to the creation-token gate, shows the «Доступ к
-    комнате отозван…» notice (`aria-live="polite"`), and leaves attendee
-    identity untouched.
-15. When no one has joined, the live view shows the empty copy; when the
-    room is deleted while the console is open, the «Комната удалена.» state
-    resets to the create form.
-16. On a ≥ 900px viewport the page lays out in two columns with the share
-    kit + invite block sticky on the left.
+   `POST /api/room` with the creation token in the `x-create-token` header
+   and `{ name, description, language, token }` in the body, stores
+   `{ roomAddress, roomToken, code }` in `bleak.hostRoom`, and navigates to
+   `/host/<room_address>`.
+4. The log-in mode always offers the address + masked key fields; a pair
+   validated by a 200 on `GET /api/room/{address}/invite` stores/overwrites
+   `bleak.hostRoom` and navigates to the panel; a 401/403 shows «Ключ
+   комнаты отклонён.» and stores nothing.
+5. The mode switch never dead-ends: switching modes preserves entered
+   values, and both modes remain reachable from every state of the page.
+6. On mount with a stored `bleak.hostRoom`, the app probes the invite-list
+   GET and, on 200, navigates straight to `/host/<room_address>` without
+   rendering the forms; during the probe a skeleton + «Проверяем доступ к
+   комнате…» show.
+7. A 401 on the resume probe clears `bleak.hostRoom`, shows the reset
+   notice («Доступ к комнате отозван…», `aria-live="polite"`), and falls
+   back to the entry card with Create pre-selected; a 404 shows «Комната
+   удалена.» and clears the entry.
+8. A NetworkError on the resume probe keeps the stored entry, shows the
+   network banner with retry, and leaves the entry card usable.
+9. The reset notice renders only when `bleak.hostNotice` is set, is
+   announced politely, and the sessionStorage key is removed after render
+   (once per incident); its presence pre-selects the Log-in mode.
+10. "Forgot the address?" fetches the public `GET /api/room` list and probes
+    candidates with the entered key at bounded concurrency (≤ 4, cap 25,
+    stop on first 200); a match fills the address and continues validation;
+    no match shows «Ключ не подошёл ни к одной комнате.»; the finder never
+    writes storage by itself.
+11. Masked inputs on this page are `type="password"` with
+    `autocomplete="off"`; the mode switch and every button meet the ≥ 48px
+    touch-target rule with visible focus.
+12. `/host` never redirects based on attendee identity (the identity store
+    may be null); only the host session drives its behavior.
+
+#### §3.7.2 `/host/[room_address]` — main admin panel
+
+**User goals.** Watch the room live (members, dialogs), restart or clear a
+stalled dialog, share the invite (kit + full codes page), edit room
+settings, rotate the room key, end the event — and read the statistics
+panel (§3.7.5, rendered here).
+
+**Guard.** The stored `bleak.hostRoom.roomAddress` must equal the URL param;
+otherwise redirect to `/host` (§1.3). Missing stored entry → `/host`.
+
+**Layout.** No tab bar. Top bar: back control (→ `/host`), room name (live
+`h1` from `getRoom`), muted address chip, and two read-only data chips
+«Язык агентов: {language}» / "Agents' language: {language}" and
+«Вместимость: {n}» / "Capacity: {n}" (data display, never controls).
+Below, regions in this order (delegated IA decision — rationale §5): live
+members first, statistics second, sharing third, dangerous settings last.
+
+1. **Members region** (poll 5 s, public reads — carried from rev. 3):
+   summary tile «Участники {n}/{max_user}» / "Members {n}/{max_user}"
+   (`listRoomUsers.length` vs `getRoom.max_user`), member rows (avatar,
+   `User.name`, joined time from `created_at`). Row tap → **member
+   drill-down sheet** (on-demand, not polled): the member's dialogs read
+   with the **room token**.
+   - Dialog list via **room-token** `GET
+     /api/room/{room}/user/{address}/chat` (the rev. 3 discovery gap is
+     closed — this listing now accepts the room token); each row links to
+     the read-only `/chats/{address}` transcript (host viewer context,
+     §3.5) and carries two inline actions: «Очистить историю» / "Clear
+     history" → confirm (body «История диалога участников будет очищена.» /
+     "The participants' dialog history will be cleared.") → `DELETE
+     /api/chat/{address}/message` (room token); «Запустить заново» /
+     "Restart" → reuses the §3.5 kickoff confirm copy → `POST
+     /api/chat/{address}/kickoff` (room token; 201 → `KickoffResponse` —
+     the speaker line reuses `chat.kickoff.speaker`). **Kickoff placement**
+     (delegated IA call): per-dialog only — here and in §3.5's host view;
+     no room-level batch restart exists in the contract and none is faked. CONFIRM-LF: «У участника пока нет диалогов.» / "This member has
+     no dialogs yet."
+   - **Rule D unavailable state (honest, not a dead button):** at the
+     bottom of the drill-down, where member deletion will live after the
+     backend amendment, a **non-interactive locked row** renders: muted
+     lock glyph + «Удаление участника появится вместе с серверным
+     обновлением.» / "Member deletion arrives with a server-side
+     amendment." — `aria-disabled`, no click handler, and **no**
+     `DELETE /api/room/{room}/user/{address}` call anywhere in the UI (the
+     endpoint is persona-token-only; verified 2026-11-24).
+   - No handshake counts anywhere in the panel (rule B).
+2. **Statistics region** — fully specified in **§3.7.5** (renders in this,
+   second position).
+3. **Share region** (carried from rev. 3; semantics unchanged):
+   - Big code display: the room's current invite `code` (from
+     `bleak.hostRoom`) in Handjet 40px on a surface card + «Скопировать» /
+          "Copy" chip; `aria-label` spells the digits («Код: 1 2 3 4 5 6»).
+   - **QR block**: client-side `InviteQr` SVG (the §3.6 `uqr` renderer —
+     **not** the helper PNG, rev. 4) encoding
+     `{INVITE_URL_BASE}?code={code}`, 256px phone / 320px desktop,
+     pixel-cornered light frame, alt «QR-код приглашения» / "Invite QR
+     code".
+   - CTA «Присоединиться как участник» / "Join as attendee" →
+     `/?code={code}` (§3.1 deep-link flow takes over).
+   - Link row «Все коды приглашения» / "All invite codes" →
+     `/host/<room_address>/invite` (§3.7.3).
+4. **Settings region** (collapsible, last):
+   - **Room edit**: `name` + `description` fields → «Сохранить» / "Save" →
+     `PUT /api/room/{address}` (room token; body `{ name, description }`)
+     → transient «Сохранено» / "Saved" note; the header name refreshes from
+     the PUT response. **`language` and `max_user` render read-only** (the
+     two data chips in the top bar) with a muted hint «Язык и вместимость
+     изменятся вместе с серверным обновлением.» / "Language and capacity
+     become editable with a server-side amendment." — **SUPERSEDED
+     (Concept §54, 2026-11-24):** rev. 3's "max_user not settable (flag
+     §6.3)" note is superseded by §54.1's intent to make it settable, but
+     swagger's `UpdateRoomRequest` still accepts only `name`/`description`
+     (verified 2026-11-24), so the editable controls stay backend-gated
+     (§6 flag F10). 400 → server-text field error.
+   - **«Сгенерировать ключ комнаты» / "Regenerate room token"** →
+     `ConfirmDialog` (title «Сгенерировать ключ комнаты?» / "Regenerate the
+     room credential?"; body «Текущий ключ комнаты перестанет действовать.
+     Продолжить?» / "The current room credential will stop working.
+     Continue?") → `POST /api/room/{address}/token` (current key as Bearer,
+     new client-generated raw token in the body) → the stored
+     `bleak.hostRoom.roomToken` is replaced **in place**.
+   - **Danger zone**, separated by a visible warning heading: «Удалить
+     комнату» / "Delete room" → confirm (body «Комната будет удалена вместе
+     со всеми участниками.» / "The room will be deleted with all its
+     members.") → `DELETE /api/room/{address}` (room token) →
+     `bleak.hostRoom` cleared → navigate to `/host` (entry card, Create
+     mode).
+**States (§3.7.2).**
+- Members empty (no one joined): «Пока никто не присоединился.» / "Nobody
+  has joined yet." — the statistics block then shows its own empty state
+  (§3.7.5); the share region stays fully functional.
+- Live error: `ErrorBanner`; stale lists dimmed; the Poller retries with
+  backoff and clears the banner on the next successful tick.
+- Drill-down fetch failure: inline muted error inside the sheet with retry.
+- **Host session reset (`hostApi` 401/403 on any room-token call):**
+  `bleak.hostRoom` is cleared, `sessionStorage` `bleak.hostNotice` is set,
+  and navigation lands on `/host` (log-in mode) with the notice «Доступ к
+  комнате отозван — войдите заново с ключом комнаты или создайте новую
+  комнату.» / "Room access was revoked — sign in again with the room key or
+  create a new room." (`aria-live="polite"`; attendee identity is never
+  touched.)
+- `getRoom` 404 (room deleted elsewhere): full-page state «Комната
+  удалена.» / "The room was deleted." → `bleak.hostRoom` cleared, redirect
+  to `/host`.
+
+**Responsive.** ≥ 900px two-column: the main column (≈ 58%) holds members +
+statistics + settings and scrolls; the side column (≈ 42%, sticky) holds
+the share region + the invite shortcut; max-width 1080px centered. Below
+900px everything stacks in the region order above.
+
+**Accessibility.** Drill-down sheets trap focus; the danger zone is
+separated with a visible warning heading; member and dialog rows are list
+items whose actions carry per-record `aria-label`s («Запустить заново
+диалог {chat}» / "Restart dialog {chat}", «Очистить историю диалога {chat}»
+/ "Clear dialog {chat} history"). The locked rule-D row is
+`aria-disabled="true"` with its explanation read as the row text.
+
+**Acceptance criteria (§3.7.2).**
+1. The page redirects to `/host` unless the stored `bleak.hostRoom` matches
+   the URL's `[room_address]`.
+2. The top bar shows the live room name (public `getRoom`), the muted
+   address chip, and the read-only «Язык агентов…» / «Вместимость…» data
+   chips; no control mutates `language` or `max_user`.
+3. The member list polls `listRoomUsers` every 5 s (public reads); the
+   members tile shows `listRoomUsers.length` against `getRoom.max_user`;
+   the Poller stops on route teardown.
+4. A member drill-down opens on demand and lists that member's dialogs via
+   the room-token `GET /api/room/{room}/user/{address}/chat`; each dialog
+   row links to the read-only `/chats/{address}` transcript.
+5. "Clear history" confirms with the specified copy and calls `DELETE
+   /api/chat/{address}/message` with the room token.
+6. "Restart" confirms with the §3.5 kickoff copy and calls `POST
+   /api/chat/{address}/kickoff` with the room token; kickoff exists
+   per-dialog only — no room-level batch restart control exists.
+7. The drill-down renders the locked rule-D row («Удаление участника
+   появится вместе с серверным обновлением.») as non-interactive
+   (`aria-disabled`), and no `DELETE /api/room/{room}/user/{address}` call
+   exists anywhere in the UI.
+8. No handshake counts appear anywhere on the panel (rule B).
+9. The share region renders the 6-digit `code` (Handjet, digits spelled in
+   the `aria-label`), a client-side `InviteQr` QR of
+   `{INVITE_URL_BASE}?code={code}` (no helper PNG call), and a working
+   "Join as attendee" link to `/?code={code}`.
+10. Room settings save `name`/`description` via `PUT /api/room/{address}`
+    (room token); a 400 shows the server-text field error; the read-only
+    hint for `language`/`max_user` shows the server-amendment copy.
+11. "Regenerate room token" confirms with the specified copy, calls `POST
+    /api/room/{address}/token` with the current Bearer, and updates the
+    stored `bleak.hostRoom.roomToken` in place.
+12. "Delete room" confirms, calls `DELETE /api/room/{address}`, clears the
+    stored room, and returns to `/host` (entry card, Create mode).
+13. A host-context 401/403 on any room-token call clears `bleak.hostRoom`,
+    sets `bleak.hostNotice`, lands on `/host` (log-in mode) with the
+    «Доступ к комнате отозван…» notice (`aria-live="polite"`), and leaves
+    attendee identity untouched.
+14. When the room is deleted while the panel is open (`getRoom` 404), the
+    «Комната удалена.» state clears the stored room and redirects to
+    `/host`.
+15. On a ≥ 900px viewport the panel lays out in two columns (main + sticky
+    side share column); below 900px the regions stack in the specified
+    order.
+
+#### §3.7.3 `/host/[room_address]/invite` — invite codes, active and expired
+
+**User goals.** See every code the room has — active **and**
+expired/revoked (rule C); mint a code with an expiry (24 h default);
+revoke a code; jump into a code's QR page.
+
+**Guard.** Same as §3.7.2: the stored session must match `[room_address]`,
+otherwise redirect to `/host`.
+
+**Layout.** No tab bar; top bar with back (→ panel), h1 «Коды приглашения»
+/ "Invite codes", muted hint «Код действует до истечения срока; отозвать
+можно в любой момент.» / "A code works until it expires; you can revoke it
+any time." Single column, max-width 720px:
+
+1. **Active codes** (`GET /api/room/{address}/invite`, room token; the
+   response wraps `{ invites: [InviteResponse…] }` and the server returns
+   only unexpired + unrevoked codes): one `InviteRow` per code — 6-digit
+   code (Handjet 24px), muted expiry «истекает через {time}» / "expires in
+   {time}", and row actions: copy chip (aria-label «Скопировать код {code}»
+   / "Copy code {code}"), QR link (→
+   `/host/<room_address>/invite/{code}/qr`; aria-label «QR-код кода {code}»
+   / "QR for code {code}"), invite-link copy («Скопировать ссылку кода
+   {code}» / "Copy link for code {code}"), and «Отозвать» / "Revoke"
+   (outline-destructive; no confirm — revocation is reversible by minting
+   again; aria-label «Отозвать код {code}» / "Revoke code {code}").
+2. **Mint control**: CTA «Выпустить код» / "Mint a code" opens the inline
+   expiry chooser — preset pills «1 час» / "1 hour", «24 часа» / "24 hours"
+   (**pre-selected default** per §6.6), «7 дней» / "7 days" — plus «Своё
+   время…» / "Custom…" revealing a compact `datetime-local` input
+   (min = now). Mint → `POST /api/room/{address}/invite` (`{ expires_at? }`)
+   → the code appears at the top of the active list **and is recorded in
+   the ledger** (rule C). Presets over free datetime by default: a host
+   mid-event needs two taps, not a calendar (rationale §5).
+
+3. **Expired & revoked** (rule C — the device ledger
+   `bleak.hostInvites.<room address>`): a collapsed section listing ledger
+   entries **missing from the server list** — each renders as expired
+   («истёк {date}» / "expired {date}") or revoked («отозван {date}» /
+   "revoked {date}"), badges as muted text, rows non-interactive (display
+   only; no actions on dead codes). **Ledger caveat** (binding copy, shown
+   directly under the section header): «Коды, выпущенные с других
+   устройств, видны в списке только пока они активны; их истечение показать
+   нельзя.» / "Codes minted on other devices appear in the list only while
+   active; their expiry cannot be shown." The section is hidden entirely
+   when no such entries exist.
+4. **Merge rule**: the server list is authoritative for **active** codes;
+   the ledger contributes **history**. A mint or revoke response is
+   appended to the ledger immediately and reconciled on every poll tick;
+   ledger entries still present in the server list are never
+   double-rendered.
+
+**States (§3.7.3).**
+- Loading: skeleton rows on first arrival; 15 s poll refreshes swap in
+  place (no skeleton flicker).
+- Empty (no active codes AND no ledger entries): `EmptyState` «Активных
+  кодов нет. Выпустите код, чтобы пригласить участников.» / "No active
+  codes. Mint one to invite attendees." + the mint CTA.
+- Expired/revoked section with zero entries: the section is omitted (not an
+  empty-state surface).
+- Error: inline muted `ErrorBanner` with retry; the ledger section still
+  renders (it is local).
+- Mint/revoke failure: inline muted error near the control; **nothing is
+  recorded in the ledger on failure**.
+- 404 on the room (deleted): full-page «Комната удалена.» → redirect to
+  `/host` (host reset semantics).
+
+**Responsive.** Single column at every width; row actions wrap to a second
+line under 420px; touch targets ≥ 48px.
+
+**Accessibility.** The list is a real `<ul>`; every row action carries its
+per-code `aria-label`; expired/revoked badges are text (never color-only);
+the history section is a disclosure with an accessible name
+(«Истёкшие и отозванные» / "Expired & revoked").
+
+**Acceptance criteria (§3.7.3).**
+1. The page redirects to `/host` without a matching stored session.
+2. Active codes render from `GET …/invite` (room token) — only unexpired,
+   unrevoked codes; the `{ invites: […] }` response wrapper is handled.
+3. Every mint and revoke response is appended to
+   `bleak.hostInvites.<room address>` (rule C ledger).
+4. Minting with a preset expiry (24 h pre-selected) or a custom datetime
+   calls `POST …/invite` and the new code appears in the active list with
+   its own copy/QR/link/revoke actions.
+5. "Revoke" calls `DELETE …/invite/{code}` with no confirm; the row leaves
+   the active list on the next refresh and appears in the history section
+   as revoked; a transient «Код отозван.» note shows.
+6. Ledger entries missing from the server list render in the "Expired &
+   revoked" section with the correct expired/revoked badge and date.
+7. The ledger caveat («Коды, выпущенные с других устройств…») renders under
+   the history section header in the current locale.
+8. Dead (history) rows are non-interactive: no copy/QR/revoke actions and
+   no navigation into a QR page for a dead code.
+9. The empty state shows when there are no active codes and no ledger
+   entries; the history section is omitted when it has no entries.
+10. The list polls every 15 s; a poll tick re-merges the ledger; errors
+    render inline with retry and never clear the ledger.
+11. Every row action carries its per-code `aria-label`; the QR action
+    navigates to `/host/<room_address>/invite/{code}/qr`.
+12. Rows meet the ≥ 48px touch-target rule; badges are not color-only.
+
+#### §3.7.4 `/host/[room_address]/invite/[code]/qr` — invite QR page
+
+**User goals.** Show or hand out one invite code: a scannable QR of the
+invite deep link, the 6-digit code to read aloud or copy, and a
+share-or-copy-link control. **The link text is never rendered — only
+buttons** (Concept §54.1, hard ruling).
+
+**Guard.** Same as §3.7.2. An unknown `[code]` (not in the server list nor
+the ledger) still renders the page with a warning — the host may be holding
+a printout of a still-valid code this device does not know.
+
+**Layout.** No tab bar; top bar with back (→ invite page), h1
+«QR-приглашение» / "Invite QR". Centered card, max-width 480px:
+
+1. **QR**: client-side `InviteQr` SVG (the §3.6 `uqr` renderer — **no
+   helper PNG call**, rev. 4 decision) encoding the **absolute invite deep
+   link** `{INVITE_URL_BASE}?code={code}` — the same payload the helper's
+   `GET /h/rooms/{code}/qr` PNG encodes. 280px, pixel-cornered light frame,
+   `aria-label` «QR-код приглашения {code}» / "Invite QR code {code}".
+2. **Code row**: the 6-digit code in Handjet 40px + «Скопировать код» /
+   "Copy code" chip (aria-label «Скопировать код {code}» / "Copy code
+   {code}"; the clipboard receives the digits).
+3. **Share-or-copy-link control**: «Скопировать ссылку» / "Copy link"
+   (clipboard gets `{INVITE_URL_BASE}?code={code}`; aria-label «Скопировать
+   ссылку приглашения» / "Copy the invite link") and, **only where
+   `navigator.share` exists**, «Поделиться» / "Share" (Web Share API, same
+   URL). The link string itself is **never** rendered as text, in a
+   `title`, or in a tooltip — buttons only.
+4. **Unknown-code warning** (conditional): muted line «Код не найден в
+   списке активных — возможно, он истёк или отозван.» / "This code is not
+   in the active list — it may have expired or been revoked."
+
+**States (§3.7.4).** Loading: skeleton card during the one liveness recheck
+on mount. Error: inline muted error with retry (the QR is computed
+client-side and cannot fail on network). Empty: n/a. Warning: the
+unknown-code line above.
+
+**Responsive.** Centered card, single column at every width.
+
+**Accessibility.** The QR has a descriptive `aria-label` including the
+code; both copy buttons have distinct `aria-label`s; a transient
+«Скопировано» / "Copied" confirmation is announced `aria-live="polite"`.
+
+**Acceptance criteria (§3.7.4).**
+1. The QR encodes the absolute invite deep link
+   `{INVITE_URL_BASE}?code={code}` — the same payload as the helper's
+   `/h/rooms/{code}/qr` — and renders client-side (no network QR call).
+2. The 6-digit code displays in Handjet with a copy action whose
+   `aria-label` includes the code; the clipboard receives the digits.
+3. The copy-link control writes `{INVITE_URL_BASE}?code={code}` to the
+   clipboard; a native Share button renders **only** when
+   `navigator.share` exists and shares the same URL.
+4. **The link text is never rendered anywhere on the page** — no text
+   node, no `title`, no tooltip; only the buttons (hard AC).
+5. An unknown `[code]` renders the warning line but still renders the QR
+   and the code actions.
+6. No Poller runs on this page (one liveness recheck on mount, then idle).
+7. Copy actions confirm with «Скопировано» announced politely; back returns
+   to the invite page.
+
+#### §3.7.5 Statistics (renders on `/host/[room_address]`, region 2)
+
+**User goals.** The host reads the room's pulse at a glance: message
+activity over the last hour, how many people are in, how many dialogs exist
+and how many finished — plus (gated) handshake totals and leaders. The
+seven metrics of §54.3: 1–4 live, 5–7 backend-gated.
+
+**Engine (rule A — client-side fan-out, bounded).** One pass per stats
+tick, inside the page's Poller (every third 5 s tick ⇒ 15 s):
+
+1. `GET /api/room/{room}/user` (public) — the member list (shared with the
+   5 s member poll; the engine reuses its latest snapshot).
+2. For each member: `GET /api/room/{room}/user/{address}/chat` (room
+   token) — **bounded concurrency 4**; individual branch failures are
+   tolerated (partial-data state below).
+3. **Dedupe chats by chat address** across members (a mutual chat appears
+   under both participants) before any message fetch.
+4. For each **unique** chat: `GET
+   /api/room/{room}/user/{address}/chat/{chat}/messages` (room token; the
+   `address` path segment is one of the chat's participants), concurrency
+   4. Messages carry `created_at` — the bucketing field.
+
+Metrics computed (1–4):
+- **M1 — messages per 5-minute bucket over the past hour**: 12 buckets,
+  bucketed by `message.created_at` (oldest bucket = 60…55 min ago, newest =
+  now).
+- **M2 — entered users**: `listRoomUsers.length`.
+- **M3 — number of chats**: the deduped chat count.
+- **M4 — active vs finished chats**: by `Chat.done` (false → active, true
+  → finished; a kickoff resets `done` to false — Concept §13.1.2).
+
+**Chart treatment (hand-rolled SVG — no new dependency).** Component
+`BucketChart`: `viewBox="0 0 320 120"`, `width="100%"`; 12 bar slots
+(≈ 26px each), bar width 18px, gap 8px, baseline at y = 104. Bars fill
+`color-mix(in srgb, var(--color-accent) 70%, transparent)`; the **newest**
+(rightmost) bucket bar renders at full `--color-accent` when non-zero;
+zero buckets render a 2px stub in `--color-text-disabled`. Baseline: 1px
+line in `--color-text-muted`. Axis labels: **relative**, under the
+baseline, 5 labels only (every 3rd bucket: «−60 мин», «−45 мин», «−30 мин»,
+«−15 мин», «сейчас» / "-60 min", "-45 min", "-30 min", "-15 min", "now"),
+`--color-text-muted`, Inter 14px (the muted-text minimum is respected by
+labeling only every 3rd bucket). The tile caption carries the total
+(«Сообщений за час: {n}» / "Messages this hour: {n}"); the peak bucket is
+marked by a small accent dot above the tallest bar — no per-bar value
+labels. **Empty hour** (all 12 buckets zero, members exist): baseline +
+stubs render, and a muted line under the chart: «За последний час сообщений
+не было.» / "No messages in the last hour." **AA**: accent-on-background
+bars ≈ 10:1 (≥ 3:1 for non-text graphics); muted 14px labels pass 4.5:1 on
+`--color-bg`. No bar animation (static SVG). `role="img"` + `aria-label`
+«Сообщений за последний час: {n}; пик в {bucket}.» / "Messages in the last
+hour: {n}; peak at {bucket}."
+
+**Panel layout (delegated IA — region 2 on the panel, right after
+members).** Section header «Статистика» / "Statistics". A row of
+`StatTile`s (Handjet numeral + Inter caption): M2 «Участники» / "Members",
+M3 «Диалогов» / "Chats", M4 split tile «{active} активных · {finished}
+завершено» / "{active} active · {finished} finished" — then the M1
+`BucketChart` card (full region width). A muted line under the section:
+«Статистика рукопожатий появится вместе с серверным обновлением.» /
+"Handshake statistics arrive with a server-side amendment." (rule B honest
+hint; no locked controls, no zeros, no proxy numbers).
+
+**GATED BLOCK — metrics 5–7 (rule B): DO NOT BUILD until flag 6.9a /
+pre-authorized follow-up `tz2-07a` lands.** The UI ships **without** these
+panels — no locked rows, no zeros, no proxy metric. Specification for the
+moment the gate lifts:
+- **M5 — number of handshakes**: a `StatTile` counting handshake records
+  involving room members, from `GET /api/handshake/user/{address}`
+  (accepted with the **room token** once the amendment lands) fanned out
+  per member (concurrency 4), deduped by from/to pair + `created_at`. The
+  panel caption states the definition: «один хендшейк = одна направленная
+  запись» / "one handshake = one directed record" (a mutual handshake is
+  two records).
+- **M6 — top list**: the 5 members with the largest number of **income**
+  handshakes (records where `to_address` = the member); rows: avatar +
+  name + Handjet count.
+- **M7 — bottom list**: the 5 members with the lowest income-handshake
+  counts (all members incl. zero), same row treatment, ascending.
+- Placement when ungated: the M5 tile joins the `StatTile` row; M6/M7
+  render as two list cards under the chart. Empty lists: «Рукопожатий пока
+  не было.» / "No handshakes yet."
+
+**States (§3.7.5).**
+- Loading (first pass): `SkeletonBlock`s for the tile row + chart card;
+  later ticks swap data in place (no skeleton flicker).
+- Empty (no members): the block renders the members-empty copy «Пока никто
+  не присоединился.» / "Nobody has joined yet." and no tiles/chart (the
+  engine skips the fan-out entirely).
+- Partial: some member-chat or message branches failed after retries →
+  metrics compute from the fetched subset with a muted warning «Часть
+  данных не загрузилась — цифры могут быть занижены.» / "Some data failed
+  to load — figures may be undercounts." + retry.
+- Error (base reads fail): `ErrorBanner` with retry; last-known tiles stay
+  visible, dimmed.
+
+**Responsive.** The tile row wraps 2×2 on narrow phones; the chart card
+scales (`width="100%"`, fixed aspect ratio).
+
+**Accessibility.** The chart is `role="img"` with the summary
+`aria-label`; the tile row is a `<dl>` (caption = term, numeral = value);
+the partial/error lines announce `aria-live="polite"`.
+
+**Acceptance criteria (§3.7.5).**
+1. The engine runs on the page's Poller (15 s cadence — every third 5 s
+   tick), stops on route teardown, and refreshes on visibility regain.
+2. Fan-out order and dedupe: member list → per-member chat lists (room
+   token) → **chats deduped by address** → one message fetch per unique
+   chat via a participant path segment; **concurrency ≤ 4 at every step**.
+3. M2/M3/M4 render from the engine: users = `listRoomUsers.length`, chats
+   = the deduped count, the active/finished split by `Chat.done`.
+4. M1 renders as the hand-rolled SVG `BucketChart`: 12 buckets of 5
+   minutes over the past hour, bucketed by message `created_at`; no chart
+   library and no new dependency is added.
+5. Chart visuals per spec: accent-tinted bars (newest bucket full accent
+   when non-zero), 2px disabled stubs for zero buckets, 1px muted
+   baseline, and the 5 relative axis labels («−60 мин» … «сейчас») at
+   ≥ 14px.
+6. An empty hour shows the baseline + stubs + «За последний час сообщений
+   не было.»; an empty room shows the members-empty copy and skips the
+   engine.
+7. Partial failures keep the subset metrics and show the «Часть данных не
+   загрузилась…» warning; a full failure shows the `ErrorBanner` with
+   dimmed last-known tiles.
+8. The panel shows the rule-B hint line («Статистика рукопожатий появится
+   вместе с серверным обновлением.») and **no handshake metrics, no
+   zeros, no locked controls and no proxy metric** until the gate lifts.
+9. When the flag-6.9a / `tz2-07a` amendment lands, M5–M7 render per this
+   specification (handshake tile + top/bottom income lists, dedupe and
+   definition per spec) without design rework.
+10. The chart carries `role="img"` and the summary `aria-label`; the tile
+    row is a `<dl>`; every new string exists in RU and EN (§4.7 parity).
+11. No hardcoded colors: the chart uses §4.1 tokens only (including the
+    `color-mix` accent tint).
+12. Poll ticks producing identical stats do not re-render (diff in the
+    caller).
 
 ---
 
@@ -1696,7 +2214,7 @@ decorative (`aria-hidden`). Touch targets ≥ 48px.
 
 ---
 
-### 3.9 Acceptance-criteria coverage (rev. 3, for the TZ pass)
+### 3.9 Acceptance-criteria coverage (rev. 4, for the TZ pass)
 
 | Section | ACs | Δ vs rev. 2 | New/changed subject |
 | --- | --- | --- | --- |
@@ -1706,9 +2224,9 @@ decorative (`aria-hidden`). Touch targets ≥ 48px.
 | §3.4 Chats | 8 | 0 | reads now credentialed (AC 1 wording) |
 | §3.5 Transcript | 15 | +2 | viewer fallback (AC 14), global-gate behavior (AC 15); no-composer AC 13 unchanged and re-asserted |
 | §3.6 Profile | 15 | +2 | live QR rotation (AC 14), token rotation (AC 15); QR payload ACs 11–12 rewritten |
-| §3.7 Host | 16 | +4 | creation-token gate (1–3), invite management (7–8), room-token drill-down + rotation (10, 13), host reset (14) |
+| §3.7 Host tree | 58 | +42 | rev. 4 restructure (Concept §54): §3.7.1 entry — create/log-in/auto-resume/finder (12); §3.7.2 panel — members, drill-down (room-token listing now real), rule-D locked state, settings incl. rotation/delete, host reset (15); §3.7.3 invites — active + ledger history, mint/revoke (12); §3.7.4 QR — client-side, link never shown (7); §3.7.5 stats — rule-A engine, SVG chart, rule-B gated block (12) |
 | §3.8 Scanner | 17 | +3 | single mutual call (8), already-mutual behavior (9), 410/403 states (10–11), `?u=`/`?u&m` deep links (14) |
-| **Total** | **118** | **+18** | rev. 2 ended at 100 |
+| **Total** | **160** | **+60** | rev. 3 ended at 118; rev. 4 replaces §3.7's 16 with 58 |
 
 Every AC above is written to be independently checkable by a tester; the TZ
 pass maps each to exactly one implementation task (foundation tasks carry
@@ -1744,15 +2262,21 @@ must remain the approved palette.
 | `SegmentedControl` | locale, filters | pill track on `--color-surface-elevated` |
 | `DigitInput` | `/` | six-cell code entry |
 | `QrScanner` | `/` (context a), `/room` (context b) | camera scanner overlay, §3.8; no route |
-| `QrBlock` | `/host` | invite QR `<img>` from the helper + frame |
 | `QrCodeBadge` | `/profile` | live client-side SVG persona QR (`uqr`; `u` + one-time `m`), light frame, rotation micro-animation, §3.6 |
+| `InviteQr` | `/host` tree (share region §3.7.2, QR page §3.7.4) | **new in rev. 4**: client-side SVG invite QR — the §3.6 `uqr` renderer wrapping the invite deep link `{INVITE_URL_BASE}?code={code}`; replaces the helper PNG on host routes |
 | `NoticeCard` | `/` | global 401 gate notice (§2.8), consumed from sessionStorage |
-| `TokenGateCard` | `/host` | one-time creation-token gate (masked, never stored) |
-| `InviteManager` / `InviteRow` | `/host` | active invite-code rows + mint expiry chooser (presets + custom) + revoke, room-token authority |
+| `HostEntryCard` | `/host` | **new in rev. 4** (extends the retired `TokenGateCard`): mode switch (create / log-in), masked creation token + room form, address + room-key log-in, address finder, reset notice, auto-resume probe states (§3.7.1) |
+| `InviteManager` / `InviteRow` | `/host/[room_address]/invite` | active invite-code rows + mint expiry chooser (presets + custom) + revoke, room-token authority; moved from `/host` to its own route (§3.7.3) |
+| `InviteLedgerRow` | `/host/[room_address]/invite` | **new in rev. 4**: non-interactive history rows for ledger entries missing from the server list (expired/revoked badges, rule C) |
 | `VaultList` / `VaultRow` | `/` | device token-vault import picker (Concept §6.2); dead-entry error state |
-| `CopyButton` / `CopyField` | `/`, `/host` | clipboard + transient «Скопировано» / "Copied" |
+| `CopyButton` / `CopyField` | `/`, `/host` tree | clipboard + transient «Скопировано» / "Copied"; per-code `aria-label`s on the host tree |
 | `SkeletonBlock`, `ErrorBanner`, `EmptyState` | all | §2.1 patterns |
-| `StatTile` | `/profile`, `/host` | Handjet numeral + caption |
+| `StatTile` | `/profile`, `/host/[room_address]` | Handjet numeral + caption; hosts the §3.7.5 metric tiles (M2–M4; M5 when ungated) |
+| `BucketChart` | `/host/[room_address]` | **new in rev. 4**: hand-rolled SVG 5-minute-bucket bar chart (12 buckets, relative axis labels, accent-tinted bars, rule-A M1) — no chart dependency (§3.7.5) |
+| `StatsPanel` | `/host/[room_address]` | **new in rev. 4**: §3.7.5 composition — tile row + `BucketChart` + rule-B hint line; hosts the gated M5–M7 block spec |
+
+Retired in rev. 4: `TokenGateCard` (single-mode gate → `HostEntryCard`),
+`QrBlock` (helper-PNG share-kit QR → `InviteQr`).
 
 ### 4.3 Pixel-avatar generation rules (reference `icons-personage.png`)
 
@@ -1919,9 +2443,81 @@ instant). No scroll-triggered or layout-triggered animation anywhere.
 | `chat.host_view` | Наблюдение хоста | Host view |
 | `common.error.network` | Нет связи. Проверьте Wi-Fi — мы продолжаем попытки. | Connection lost. Check the Wi-Fi — we keep retrying. |
 | `common.retry` | Повторить | Retry |
+| `common.copied` | Скопировано | Copied |
+| `host.title` | Хост | Host |
+| `host.subtitle` | Создайте комнату события и управляйте ею. | Create the event room and manage it. |
+| `host.mode.create` | Создать комнату | Create room |
+| `host.mode.login` | Войти по ключу | Sign in with key |
+| `host.session_reset` | Доступ к комнате отозван — войдите заново с ключом комнаты или создайте новую комнату. | Room access was revoked — sign in again with the room key or create a new room. |
+| `host.resume.checking` | Проверяем доступ к комнате… | Checking room access… |
+| `host.room.deleted` | Комната удалена. | The room was deleted. |
+| `host.login.address` | Адрес комнаты | Room address |
+| `host.login.key` | Ключ комнаты | Room key |
+| `host.login.rejected` | Ключ комнаты отклонён. | Room key rejected. |
+| `host.login.find` | Не помните адрес? | Forgot the address? |
+| `host.login.finding` | Ищем комнату… | Looking for the room… |
+| `host.login.find_none` | Ключ не подошёл ни к одной комнате. | The key didn't match any room. |
+| `host.room.language` | Язык агентов: {language} | Agents' language: {language} |
+| `host.room.max_user` | Вместимость: {n} | Capacity: {n} |
+| `host.room.readonly_hint` | Язык и вместимость изменятся вместе с серверным обновлением. | Language and capacity become editable with a server-side amendment. |
+| `host.room.saved` | Сохранено | Saved |
+| `host.members_tile` | Участники {n}/{max_user} | Members {n}/{max_user} |
+| `host.panel.share` | Приглашение | Invite |
+| `host.panel.invites_link` | Все коды приглашения | All invite codes |
+| `host.qr.alt` | QR-код приглашения | Invite QR code |
+| `host.qr.aria` | QR-код приглашения {code} | Invite QR code {code} |
+| `host.qr.code_aria` | Код: {digits} | Code: {digits} |
+| `host.join_as` | Присоединиться как участник | Join as attendee |
+| `host.delete_room.row` | Удалить комнату | Delete room |
+| `host.delete_room.body` | Комната будет удалена вместе со всеми участниками. | The room will be deleted with all its members. |
+| `host.drill.restart_aria` | Запустить заново диалог {chat} | Restart dialog {chat} |
+| `host.drill.clear_aria` | Очистить историю диалога {chat} | Clear dialog {chat} history |
+| `host.drill.delete_member_locked` | Удаление участника появится вместе с серверным обновлением. | Member deletion arrives with a server-side amendment. |
+| `host.invites.expired_title` | Истёкшие и отозванные | Expired & revoked |
+| `host.invites.ledger_caveat` | Коды, выпущенные с других устройств, видны в списке только пока они активны; их истечение показать нельзя. | Codes minted on other devices appear in the list only while active; their expiry cannot be shown. |
+| `host.invites.expired_at` | истёк {date} | expired {date} |
+| `host.invites.revoked_at` | отозван {date} | revoked {date} |
+| `host.invites.empty` | Активных кодов нет. Выпустите код, чтобы пригласить участников. | No active codes. Mint one to invite attendees. |
+| `host.invites.copy_code` | Скопировать код {code} | Copy code {code} |
+| `host.invites.copy_link` | Скопировать ссылку кода {code} | Copy link for code {code} |
+| `host.invites.qr_aria` | QR-код кода {code} | QR for code {code} |
+| `host.invites.revoke_aria` | Отозвать код {code} | Revoke code {code} |
+| `host.qr.title` | QR-приглашение | Invite QR |
+| `host.qr.copy_code` | Скопировать код | Copy code |
+| `host.qr.copy_code_aria` | Скопировать код {code} | Copy code {code} |
+| `host.qr.copy_link` | Скопировать ссылку | Copy link |
+| `host.qr.copy_link_aria` | Скопировать ссылку приглашения | Copy the invite link |
+| `host.qr.share` | Поделиться | Share |
+| `host.qr.warning` | Код не найден в списке активных — возможно, он истёк или отозван. | This code is not in the active list — it may have expired or been revoked. |
+| `host.qr.back` | К кодам приглашения | Back to invite codes |
+| `host.stats.title` | Статистика | Statistics |
+| `host.stats.members` | Участники | Members |
+| `host.stats.chats` | Диалогов | Chats |
+| `host.stats.active` | {active} активных · {finished} завершено | {active} active · {finished} finished |
+| `host.stats.messages_hour` | Сообщений за час: {n} | Messages this hour: {n} |
+| `host.stats.aria` | Сообщений за последний час: {n}; пик в {bucket}. | Messages in the last hour: {n}; peak at {bucket}. |
+| `host.stats.axis.60` | −60 мин | -60 min |
+| `host.stats.axis.45` | −45 мин | -45 min |
+| `host.stats.axis.30` | −30 мин | -30 min |
+| `host.stats.axis.15` | −15 мин | -15 min |
+| `host.stats.axis.now` | сейчас | now |
+| `host.stats.empty_hour` | За последний час сообщений не было. | No messages in the last hour. |
+| `host.stats.partial` | Часть данных не загрузилась — цифры могут быть занижены. | Some data failed to load — figures may be undercounts. |
+| `host.stats.gated.hint` | Статистика рукопожатий появится вместе с серверным обновлением. | Handshake statistics arrive with a server-side amendment. |
+| `host.stats.gated.def` | один хендшейк = одна направленная запись | one handshake = one directed record |
+| `host.stats.gated.empty` | Рукопожатий пока не было. | No handshakes yet. |
 
 (Existing scaffold keys in `ru.ts`/`en.ts` are kept where they match; workers
-extend both files.)
+extend both files. **Rev. 4 additions:** the 63 `host.*` / `common.copied`
+rows above (62 new + 1 amended `host.session_reset`; RU + EN, the parity
+test stays green). One rev. 3 inline string is
+superseded: the single-page console's reset copy «…с токеном создания.» is
+replaced by `host.session_reset`'s new wording; `host.gate.*`, `host.token.*`,
+`host.create`, `host.invites.*` (title/hint/mint/presets/expires_in/revoke/
+revoked), `host.rotate_room.*`, `host.drill.*` (clear/clear_confirm/empty),
+`host.empty_live` carry over unchanged from rev. 3. The retired inline
+string «Создать другую комнату» / "Create another room" (old share kit) has
+no key and is not re-introduced — the panel's back control covers it.)
 
 ---
 
@@ -3504,6 +4100,8203 @@ and `landing.agent.*` as their accessible names — no extra keys.
    don't copy content"). Owner tone/naming approval requested before the
    worker lands final copy.
 
+### 4.21 v3.15 feature design (2026-11-22, owner-approved Concept §33): §33 landing adjustments — owner photo review
+
+The owner reviewed the live landing (photo `real-design.png`, workspace
+root) and issued the 7-item change batch of Concept §33. This section
+amends the §4.20 landing spec item by item; **where §4.21 is silent, §4.20
+stands verbatim** — header/taglines (§4.20.B), headline + subheadline +
+Start CTA (§4.20.C), mascot-chat strip content and timing (§4.20.F), agent
+card (§4.20.G-b), behavior/routes (§4.20.L except as amended in
+§4.21.D/§4.21.G), a11y and reduced-motion baselines (§4.20.L). The live
+build matches §4.20 faithfully (verified against `real-design.png`), so
+every item below is an adjustment to the shipped composition, not a
+re-derivation. Two new inputs: the owner's pixel scene image
+**`background-img.jpg`** (workspace root — a boy and a robot in a purple
+flower field before a violet city skyline, under a glowing HELLO speech
+bubble) becomes the composition block's background, and the reminder box
+gains the no-overlay / 1:3.5 ratio / bottom-fixed / bob rules. Hard
+constraints unchanged: **no new dependencies, no new color values (§4.1 —
+every value below is an existing token or a `color-mix` alpha variant),
+routes `/income` + `/income/[room]/create` untouched, the §4.20.F
+mascot-chat animation stays (placement re-verified in §4.21.D), and the
+PHONE stacking order is exactly §4.20.K's** except where an element was
+removed or merged below. **API endpoints used: none** — unchanged; the
+landing stays fetch-free (§4.20 preamble), no loading/empty/error data
+states exist.
+
+#### 4.21.A Hero pair redo — ASTRA replaces BYTE (amends §4.20.D, §4.20.J)
+
+The left figure **NOVA is unchanged** (owner: "the left personage is
+good"). The right figure becomes **ASTRA**: a copy of NOVA — same body
+rects, same proportions, same back-view pose, same palette discipline —
+with only the head changed: **white hair** + **two small purple horns**.
+
+- **Derivation:** ASTRA's rect data is NOVA's §4.20.D construction
+  re-based to its own bounding box (origin = head top-left; the pair
+  renders as two separate absolutely-positioned SVGs so each can be
+  placed independently — see §4.21.B). **One shared part table serves
+  both figures** (add `nova` + `astra` to `LANDING_FIGURES` in
+  `lib/components/landing/figures.ts`; `Figure` gains explicit
+  `viewW`/`viewH` so `LandingFigure` derives a non-square
+  `viewBox="0 0 16 31"`). Both figures render through `LandingFigure`
+  (idle sway kept: 1.6s `steps(2)` ±2°, §4.6 family).
+
+  Shared 16×31 table (grid units; NOVA = same table **without** the two
+  horn groups and with NOVA's current hair fills; ASTRA = full table):
+
+  | Part | Fill | Rects [x, y, w, h] |
+  | --- | --- | --- |
+  | Horn L (ASTRA only) | `--color-deepa-4` | `[3,0,2,3]` |
+  | Horn L glint (ASTRA only) | `--color-text` | `[3,0,2,1]` |
+  | Horn R (ASTRA only) | `--color-deepa-4` | `[11,0,2,3]` |
+  | Horn R glint (ASTRA only) | `--color-text` | `[11,0,2,1]` |
+  | Hair top | NOVA: `color-mix(in srgb, var(--color-art-hair-3) 65%, var(--color-surface))` · ASTRA: `--color-text` | `[4,3,8,2]` |
+  | Hair mid | same split as hair top | `[2,5,12,8]` |
+  | Hair low (under-shade) | NOVA: current lower-shade mix · ASTRA: `color-mix(in srgb, var(--color-text) 72%, var(--color-surface-elevated))` | `[3,13,10,3]` |
+  | Neck | `--color-art-skin-2` | `[6,16,4,2]` |
+  | Scarf | `--color-text` | `[1,18,14,4]` |
+  | Scarf stripes | `--color-deepa-4` | `[4,18,2,4]`, `[10,18,2,4]` |
+  | Coat + arms + legs | `--color-surface-elevated` | `[2,22,12,5]`, `[0,23,2,5]`, `[14,23,2,5]`, `[3,27,4,4]`, `[9,27,4,4]` |
+  | Shoes | `--color-text` | `[2,30,5,1]`, `[9,30,5,1]` |
+
+- **White-hair palette (art, AA not required):** nearest-white token
+  `--color-text` (#f0f0f0) for the lit rows plus the 72/28
+  `--color-text`→`--color-surface-elevated` mix as the under-shade — the
+  established two-shade art-shading discipline (§4.3), zero new values.
+- **Horns:** two 2×3-unit `--color-deepa-4` columns rising from the hair
+  top (grid y 0–3), each with a 2×1 `--color-text` glint cell — small,
+  accent-token, symmetric; they read against the dark bg via the glint +
+  the §4.20.A glow recipe (`drop-shadow` accent mix at 35%) on the horn
+  group only.
+- **BYTE is removed from the hero and retired from the landing:** the
+  `<g data-figure="byte">` group is deleted from `LandingHeroScene`; the
+  robot in `background-img.jpg` is scene art, not the BYTE mascot. §4.20.J
+  cast table updates: BYTE → **ASTRA** (hero scene, right figure, white
+  hair + horns); cast stays six distinct figures (NOVA, ASTRA, VECTOR,
+  BLOOM, PIP, GLITCH).
+- **Focal element amended:** the §4.20.D floating handshake-node diamond +
+  light beam are **retired** — the image's glowing HELLO bubble (the
+  composition's own focal bloom, §4.21.B) replaces it; the mesh/sparkle
+  system stays (§4.21.B layer 3).
+
+#### 4.21.B Pixel-art composition block — taller, image background, smooth edge (amends §4.20.D)
+
+One block (`.art-block`, center of section 2) holds everything that used
+to be the bare hero scene. **Height: 500px mobile / 680px ≥720px** (was
+320/480 — the owner's "taller"). Width: full content column (mobile) /
+center grid column (desktop, §4.21.D). Stacking order bottom→top:
+
+| z | Layer | Spec |
+| --- | --- | --- |
+| 0 | Base | `background-color: color-mix(in srgb, var(--color-deepa-4) 6%, var(--color-bg))` (alpha-mix tint, §4.1-legal; shows only pre-load) |
+| 1 | Background image | `<img>` inset 0, `object-fit: cover`, `object-position: 50% 50%`, `alt=""` + `aria-hidden="true"`, `loading="eager"`, `decoding="async"`, intrinsic 1024×1024 attrs (no CLS) |
+| 2 | Edge-fade vignette | `::after` overlay, `pointer-events: none`: `background: radial-gradient(ellipse 80% 78% at 50% 46%, transparent 0 52%, color-mix(in srgb, var(--color-bg) 45%, transparent) 72%, var(--color-bg) 100%)` — the **smooth transition**: every edge dissolves into exactly `--color-bg`, no hard rectangle edge at any breakpoint |
+| 3 | Animated purple pixels | the §4.20.D mesh/sparkle system **kept**, re-expressed as ~12 absolutely-positioned pixel dots (`<span>`s, 4–6px squares, the existing three `--color-deepa-4` alpha shades 18/35/60%), `steps(2)` twinkle 1.6s, staggered 0–1.2s delays: sky dots at (5%,12%), (93%,16%), (8%,55%), (90%,60%); ground-band dots at (4%,90%), (12%,95%), (88%,90%), (95%,94%) + 4 more in the bottom band outside the protected rect |
+| 4 | Hero pair | NOVA + ASTRA SVGs (`LandingFigure`, 16×31 viewBox): **desktop** each 160px tall (~82px wide), NOVA anchored `left: 2%`, ASTRA `right: 2%`, feet line at `bottom: calc(var(--reminder-h) + 16px)` (~115px); **mobile** each 64px tall (~33px wide), same left/right 2% anchors, feet at `bottom: calc(var(--reminder-h) + 16px)` (~89px) — both figures stand in the image's flower band, flanking the central scene without entering it |
+| 5 | Reminder box | §4.21.C — `position: absolute; bottom: 16px; left/right insets per breakpoint` |
+
+**Asset path & import (worker instruction):** copy the owner's
+`background-img.jpg` from the workspace root to
+**`apps/web/src/lib/assets/landing/background.jpg`** and commit it there
+(app asset; the root copy is an owner working file, not committed).
+Import as a Vite **URL import** — `import backgroundUrl from
+'#lib/assets/landing/background.jpg';` (the established `#lib` alias;
+`?raw` is for SVG text only) — and bind it as the `<img>` `src`. No
+static/ usage, no new loader, no new dependency.
+
+**Protected central safe zone (the image's scenario — nothing may render
+over it):** conservative union rect valid at both breakpoints (derived
+from the cover-crop math at 288/350/472px block widths):
+
+- **Figures band (boy + robot): x 21–83%, y 44–80% of the block.**
+- **HELLO bubble: x 24–76%, y 2–22% of the block.**
+
+The reminder box (layer 5) satisfies this by geometry: with height =
+width ÷ 3.5 and bottom inset 16px, its **top edge sits at ≥81% of the
+block height** at both breakpoints (500px block: (73+16)/500 = 17.8% →
+top 82.2%; 680px block: (99+16)/680 = 16.9% → top 83.1%). The pair
+(layer 4) satisfies it by x-anchor (±2% edges vs the 21%/83% bounds).
+The pixel dots are placed outside both rects. Test at 320×640, 390×844
+and 1280×800.
+
+#### 4.21.C Agent reminder box (amends §4.20.E — the retro dialogue box becomes the reminder)
+
+The three cycling agent lines keep their copy (`landing.dialog.line1–3`,
+200ms cross-fade, sr-only static line) and move **inside the art block,
+fixed at its bottom** — no longer a sibling overlapping the hero's edge.
+
+- **Geometry (owner ratio 1 : 3.5 height:width — a wide strip):**
+  `aspect-ratio: 3.5 / 1; min-height: 64px;` width capped per breakpoint
+  so it can never overlay the nearest blocks left/right/top:
+  - **<720px:** `width: min(100% - 32px, 256px)` → ~256×73px; side
+    insets 16px each; `position: absolute; bottom: 16px;` centered via
+    `left: 0; right: 0; margin-inline: auto;` (no transform centering —
+    transform is reserved for the bob).
+  - **≥720px:** `width: min(100% - 48px, 348px)` → ~348×99px; side
+    insets 24px each; same absolute bottom anchoring.
+  Expose the resolved height as `--reminder-h` on the block (the pair's
+  `bottom` offset consumes it, §4.21.B). Because the box lives strictly
+  inside the block's padding box with these insets, it cannot overlap
+  the chat strip, agent card or headline at 320/390/1280.
+- **Frame:** the §4.20.E pixel-frame stands — `--frame-strong`, 2px
+  `--color-text` border, 4px stepped notches, bg `--color-surface`.
+- **Font — PIXEL (owner item 2a):** the message text renders in the
+  established pixel font stack **Handjet** (was Inter): 16px mobile /
+  18px desktop, `letter-spacing: 0.05em`, `line-height: 1.3`,
+  `--color-text`, **horizontally centered** (owner item 2c), max 2
+  lines, padding 12px 20px so text clears the corner glyph.
+- **Pixel emoji at the left-top corner (owner item 2c):** an original
+  §4.3-construction glyph — a 16-grid **pixel sparkle-star** (arms
+  `[7,2,2,2]`, `[7,12,2,2]`, `[2,7,2,2]`, `[12,7,2,2]`; diagonals
+  `[4,4]`, `[5,5]`, `[10,5]`, `[11,4]`, `[4,10]`, `[5,11]`, `[10,11]`,
+  `[11,10]` as 2×2 cells; center `[7,7,2,2]` with a `--color-text`
+  highlight cell) — fill `--color-deepa-4`, rendered **24px**,
+  absolutely positioned at the box's top-left corner at offset
+  (−10px, −10px) overlapping the frame; `aria-hidden`; twinkle
+  opacity 1↔0.55, 1.6s `steps(2)` infinite.
+- **Check mark at the bottom — bigger and more visible (owner item 2e):
+  ** the §4.20.E 8px caret is replaced by a **24px (20px mobile) pixel
+  check mark**: 12-grid cell run `[(2,6),(3,7),(4,8),(5,7),(6,6),(7,5),
+  (8,4),(9,3)]` as 1u rects, fill `--color-deepa-4`, plus a 1×1
+  `--color-text` glint at the vertex (4,8); positioned bottom-center of
+  the box, half-out over the frame edge (`translateY(50%)` via a wrapper
+  so the bob transform stays free); visibility = size + the §4.20.A glow
+  (`drop-shadow(0 0 6px color-mix(in srgb, var(--color-deepa-4) 60%,
+  transparent))`) pulsing to the 100% mix, 1.6s `steps(2)` infinite
+  alternate. Reads against both the box surface and the page bg.
+- **Up-and-down movement (owner item 2e):** ambient bob on the whole
+  box, transform-only: `@keyframes reminder-bob { 0%,100% {
+  transform: translateY(0); } 50% { transform: translateY(calc(-1 *
+  var(--bob-amp))); } }` — `--bob-amp: 6px` mobile / `10px` ≥720px;
+  **duration 3s, `ease-in-out`, infinite** (smooth float — a `steps()`
+  bob on a large box reads as a glitch; this is the one §4.6-table
+  addition: *reminder ambient bob · translateY · 3s ease-in-out*).
+  `prefers-reduced-motion: reduce` → bob, twinkle, glow pulse and the
+  line cross-fade all collapse (static first line + static glyph), per
+  §4.6/§4.20.L.
+
+#### 4.21.D Layout reorganization (amends §4.20.K — desktop clarity; PHONE ORDER UNCHANGED)
+
+**Section 1 = the header: §4.20.B unchanged entirely** (taglines, locale
+switch, START control, anchors).
+
+**≥720px — three explicit sections on the 1000px canvas:**
+
+- **Section 2 (`grid-template-columns: 27% minmax(0,1fr) 26%`, `grid-template-areas: "lead art agent" / "lead art chat"`, `grid-template-rows: auto 1fr`, gap `--space-6`, `align-items: start`):**
+  - `lead` (left column): the headline block + subheadline + **Start**
+    CTA (§4.20.C verbatim).
+  - `art` (center column): the §4.21.B composition block — background
+    image, animated pixels, the NOVA/ASTRA pair, and the **reminder box
+    fixed at the block's bottom**.
+  - `agent` + `chat` (right column, two rows): the agent character card
+    (`#agents`, §4.20.G-b) on top, the §4.20.F **mascot-chat strip
+    unchanged** below it (280px, 4-turn typewriter loop). Placement
+    re-verified against the taller art block: the strip stays in the
+    right column — it never shares space with the art block or the
+    reminder, no conflict; no position amendment needed.
+- **Section 3 (all the other blocks):** vertical stack, gap
+  `--space-6` — row 1: the **stat card full-width** (§4.21.F compact);
+  row 2: `#tutorial` = the **three big step blocks** in an equal
+  left-to-right row (`grid-template-columns: repeat(3, 1fr)`, gap
+  `--space-6`; §4.21.E). The stat card leaves the §4.20.G-a "left column
+  bottom" slot.
+- **Footer:** the §4.21.G contact block, full-width centered.
+
+**<720px — the §4.20.K stacking order stands EXACTLY, top→bottom:** top
+bar → headline block (centered) → subheadline → **Start CTA** → art
+block (the composition block; the reminder lives inside it at the
+bottom — this is the one consolidation: §4.20.E's separate dialogue-box
+slot merges into the hero slot it already followed) → mascot-chat strip
+→ agent character card → stat card → the three step blocks (§4.21.E
+stack) → contact footer. The removed §4.20.I footer blocks simply
+disappear from the tail. Same DOM order on both breakpoints; desktop is
+CSS-grid rearrangement only; no horizontal scroll at 320px.
+
+#### 4.21.E Find >> Chat >> Share — three BIG separate blocks (REPLACES §4.20.H)
+
+The small icon row is retired. `#tutorial` becomes three large
+**non-interactive display blocks** — how the app works, one step each,
+in the §31 order find → chat → share:
+
+- **Frame & surface:** `--frame-strong` pixel-frame (§4.20.A/§4.5), bg
+  `--color-surface`, **desktop each block ~300px min-height** (equal
+  thirds of the row), padding 20px (mobile 16px); mobile full-width
+  stacked with `--space-5` gaps, natural height.
+- **Contents top→bottom:** ① **pixel step number** — "01" / "02" / "03"
+  in Handjet 40px, `--color-deepa-4`, `letter-spacing: 0.1em`, the
+  §4.20.A text-shadow glow (locale-invariant literals, not keys);
+  ② **title** — pixel font Handjet 20px uppercase `--color-text`,
+  reusing `landing.tutorial.search` / `.chat` / `.share` (FIND / CHAT /
+  SHARE — «НАЙДИ» / «ОБЩАЙСЯ» / «ПОДЕЛИСЬ»); ③ **step icon** — the
+  §4.4 glyphs at 32px in a 48px zone: `search`, `dialog-lines`,
+  `contact-share` (the §4.20.H set incl. the contact-share glyph,
+  `currentColor` tinted `--color-text-muted`); ④ **mini description** —
+  one line, Inter 13px `--color-text-muted` (new keys, §4.21.H).
+- **Order:** desktop left→right 01→02→03; phone top→bottom 01→02→03
+  (the §4.20.K tail order with the row swapped for the stack).
+- **Interaction:** none — static display blocks; no hover/press states,
+  no motion (§4.6 no scroll-triggered motion); icons `aria-hidden` +
+  visible text.
+
+#### 4.21.F "Real people. Real results" — padding minimized (amends §4.20.G-a)
+
+Stat card padding **20px → 12px 14px mobile / 16px 20px desktop**;
+internal title 18px→17px, three lines keep Inter 13px with
+`line-height: 1.35` and 2px inter-line gaps; BLOOM glyph 56px → **44px
+mobile / 48px desktop**; the desktop layout stays title-left /
+glyph-right in one compact row, full-width atop section 3. Frame, copy
+and hover states (§4.20.G preamble) unchanged.
+
+#### 4.21.G Contact footer (REPLACES §4.20.I)
+
+Both §4.20.I footer blocks (the "bleak-web — every connection matters"
+positioning block and the "start now — 6 digits to join" CTA badge) are
+**removed**; their keys die (§4.21.H) and the CTA badge's /income role
+dies with it — **the /income entry points are now exactly two: the Start
+CTA and the agent-card TALK** (§4.20.L amended accordingly; deep-link
+forwarding untouched). The footer becomes a single **site contact
+block**: one `--frame-strong` pixel-frame (§4.20.A), bg
+`--color-surface`, `max-width: 560px`, centered, padding `16px 20px`,
+containing:
+
+- Row 1: the existing 16px logo glyph + "bleak-web" (Handjet 14px) +
+  "· 2026" (Inter 11px muted) — the kept `landing.footer.copyright`
+  content.
+- Row 2 (two links, side-by-side ≥720px / stacked with 8px gap on
+  phone): **EMAIL → `mailto:extube@proton.me`** and **GITHUB →
+  `https://github.com/extube`** (`target="_blank"` `rel="noopener
+  noreferrer"`). Label in Handjet 12px `--color-text-muted`
+  (`landing.footer.contact.email.label` = ПОЧТА / EMAIL;
+  `landing.footer.contact.github.label` = ГИТХАБ / GITHUB), value in
+  Handjet 13px `--color-text` — the address/URL are locale-invariant
+  literals in markup; hover `--color-accent` + glow, `:focus` ring per
+  §2.6. The block is pixel-framed and consistent with the card family.
+
+#### 4.21.H RU/EN i18n amendments (delta on §4.20.M; §4.7 format; both dictionaries required)
+
+| Δ | Key | RU | EN |
+| --- | --- | --- | --- |
+| + | `landing.steps.find.desc` | Радар показывает, кто рядом прямо сейчас. | The radar shows who is around you right now. |
+| + | `landing.steps.chat.desc` | Ваши агенты заводят разговор до вашего прихода. | Your agents break the ice before you arrive. |
+| + | `landing.steps.share.desc` | Одно рукопожатие — и контакты обменяны. | One handshake — and contacts are exchanged. |
+| + | `landing.footer.contact.email.label` | ПОЧТА | EMAIL |
+| + | `landing.footer.contact.github.label` | ГИТХАБ | GITHUB |
+| ~ | `landing.hero.aria` | Пиксельная сцена: двое у фиолетового города под светящимся приветствием | Pixel scene: two figures before a violet city under a glowing hello |
+| − | `landing.footer.line` | — | — |
+| − | `landing.footer.badge` | — | — |
+
+Unchanged and kept: `landing.dialog.line1–3` (now the reminder lines),
+`landing.tutorial.search/chat/share` (now the step-block titles),
+`landing.footer.copyright` (now inside the contact block), all
+§4.20.M keys not listed above. **Deleted keys must be removed from BOTH
+`ru.ts` and `en.ts`.** New parity total: **38 keys** (35 − 2 + 5); the
+extended parity test asserts 38/38 in both dicts and the absence of the
+two dead keys.
+
+#### 4.21.I Acceptance criteria (checkable)
+
+1. Hero right figure: `/` renders NOVA (left, unchanged) and ASTRA
+   (right) — same body/proportions as NOVA, **white hair**
+   (`--color-text` + its 72% surface-elevated shade) and **two small
+   purple horns** (`--color-deepa-4` + `--color-text` glints); the BYTE
+   robot appears nowhere on `/`.
+2. The §4.20.D handshake-node diamond + light beam are gone from the
+   hero; the composition's focal glow is the background image's HELLO
+   bubble.
+3. Reminder box: message text renders in **Handjet** (pixel font),
+   **horizontally centered**, with a **24px pixel sparkle glyph
+   overlapping the box's top-left corner** and the asterisk-prefixed
+   cycling lines intact (3 lines, 200ms cross-fade).
+4. Reminder box proportions = **1 : 3.5 (height:width)** at 320, 390
+   and 1280 widths (measured: ~256×73px mobile, ~348×99px desktop).
+5. Reminder adaptivity: at 320×640, 390×844 and 1280×800 the box never
+   overlays the chat strip, agent card, headline or the art block's
+   side edges (16px/24px side insets; bottom 16px; top edge ≥81% of the
+   block height).
+6. The reminder box is **fixed at the bottom of the art block** on both
+   breakpoints (absolute within the block, not a sibling section).
+7. Reminder bob: the box floats up and down continuously — translateY
+   0→−6px (mobile) / −10px (desktop), 3s ease-in-out loop,
+   transform-only; under `prefers-reduced-motion: reduce` it is static.
+8. The check mark at the reminder's bottom is a ≥20px pixel check
+   (accent violet + glint) with a visible glow, clearly larger and
+   brighter than the retired 8px caret.
+9. Desktop ≥720px (test 1280×800) shows the three sections: header;
+   hero zone = left (headline + Start) / center (art block with the
+   bottom-fixed reminder) / right (agent card above the chat strip);
+   then stat card full-width + the three step blocks in one equal row;
+   then the contact footer. No horizontal scroll.
+10. Phone <720px (test 320×640 and 390×844) stacks in exactly the
+    §4.20.K order with the two removals and the dialogue-into-art-block
+    merge: top bar → headline → sub → Start → art block (reminder
+    inside, bottom) → chat strip → agent card → stat card → three step
+    blocks → contact footer. No horizontal scroll at 320px.
+11. The three step blocks each show the pixel step number (01/02/03),
+    the pixel-font title (FIND/CHAT/SHARE per locale), the step icon
+    (search / dialog-lines / contact-share) and a one-line description;
+    desktop = left-to-right equal row, phone = top-to-bottom stack;
+    none is interactive.
+12. The "bleak-web — every connection matters" block and the "start now
+    — 6 digits to join" badge are absent from `/` (no DOM node, no
+    rendered copy).
+13. The art block's background is the committed app asset
+    `apps/web/src/lib/assets/landing/background.jpg`, imported via the
+    `#lib` URL import (not hotlinked, not in `static/`), rendered
+    `object-fit: cover`, block height ≥500px mobile / ≥680px desktop.
+14. Smooth transition: at every tested width the image dissolves into
+    `--color-bg` at all four block edges (radial vignette) — no hard
+    edge line where image meets page background.
+15. Protected scenario: no rendered element (pair figures, pixel dots,
+    reminder box, any other block) intersects the figures rect
+    (x 21–83%, y 44–80%) or the bubble rect (x 24–76%, y 2–22%) of the
+    art block at 320/390/1280.
+16. The animated purple pixels still animate over the image (steps(2)
+    twinkle loop visible; static under reduced motion).
+17. Stat card padding measures ≤14px mobile / ≤20px desktop (was 20px
+    uniform).
+18. Footer: mailto `extube@proton.me` and `github.com/extube` links with
+    RU/EN labels (ПОЧТА/EMAIL, ГИТХАБ/GITHUB) that swap with the locale
+    switch without a reload; focus rings visible; external link opens
+    safely (`rel="noopener noreferrer"`).
+19. i18n: exactly **38** `landing.*` keys exist in BOTH dictionaries;
+    `landing.footer.line` and `landing.footer.badge` exist in NEITHER;
+    the extended parity test is green.
+20. Start CTA and agent-card TALK navigate to `/income` (6-digit entry);
+    `/income` and `/income/[room]/create` behavior unchanged (existing
+    suites green); the bottom tab bar is not rendered on `/`.
+21. The mascot-chat strip keeps its §4.20.F behavior (4 alternating
+    typewriter turns, infinite loop, reduced-motion static) and its
+    desktop slot under the agent card — no overlap with the art block
+    or reminders at any tested width.
+22. Palette/stack audit: no new color values (tokens or `color-mix`
+    alpha variants only), no new dependencies, no canvas, no animation
+    library; `make lint && make test && make build` green.
+
+#### 4.21.J Flags for the owner / concept (concept report)
+
+1. **ADVICE NEEDED — SVG pair vs the image's own cast:** the owner kept
+   the left personage, redid the right one, AND set `background-img.jpg`
+   (which contains its own boy + robot) as the block background. I
+   resolved the double cast by flanking: NOVA + ASTRA stand small in the
+   bottom-corner flower band, strictly outside the protected central
+   scene (mobile: 64px corner figures; desktop: 160px). If the owner
+   prefers the image's duo to be the ONLY cast (SVG pair dropped, or
+   desktop-only), that is a one-line layer removal — confirm before the
+   worker lands.
+2. **ADVICE NEEDED — inventions carried over from §4.20.O-2:** the new
+   figure's name **ASTRA**, BYTE's retirement, the node+beam retirement,
+   and the three step-block descriptions + contact-footer labels are
+   design adaptations of the owner's items (the owner specified
+   structure, not copy). Owner tone/naming approval requested with the
+   §4.20.O-2 batch.
+3. **ADVICE NEEDED — contact footer content:** specced as
+   `extube@proton.me` + `github.com/extube` per the caller's suggestion;
+   confirm (or substitute) before landing — it is published contact
+   information.
+
+### 4.22 v3.16 feature design (2026-11-22, owner-approved Concept §34): §34 video hero + header cleanup + Vector→Bleak
+
+The owner added a 16:9 `.mp4` video (workspace root: `background-video.mp4`,
+~4.4 MB, the clip's own background is near-black — the owner explicitly
+matches the page background to it) and issued the six-item §34 batch. This
+section amends the §4.20/§4.21 landing spec item by item; **where §4.22 is
+silent, §4.20/§4.21 stand verbatim** (headline block + Start CTA §4.20.C,
+mascot-chat strip content/timing §4.20.F, cards §4.20.G/§4.21.F, step blocks
+§4.21.E, contact footer §4.21.G, behavior §4.20.L, motion/a11y baselines
+§4.20.L/§4.6). Constraint on inspection: **no video-inspection tooling exists
+in this environment** (no ffmpeg/ffprobe rights; the mp4 is not readable
+here) — every choice that depends on the video's exact frames is specced
+DEFENSIVELY below (attribute-based fallbacks, the structural dissolve, no
+frame-dependent geometry). The owner's still `background-img.jpg` (boy +
+robot in a purple flower field before a violet city skyline, under a glowing
+HELLO bubble, near-black purple-cast ground) is treated as the preview of the
+clip's art and the tone reference. Hard constraints unchanged: **no new
+dependencies, no new color values (§4.1 — tokens or `color-mix` alpha
+variants only), no canvas, no animation library; routes `/income` +
+`/income/[room]/create` untouched structurally (the income mascot swap is
+content-only); §23 no-background-plates; §24–§29 wizard geometry contracts
+untouched; PHONE stacking order preserved except the video restructure.**
+**API endpoints used: none** — unchanged; the landing stays fetch-free
+(§4.20 preamble), no loading/empty/error data states exist; the video adds
+media states only (§4.22.B). Task: tz12-06 (`feature/a4e2a3c6-tz12-06-video-hero`).
+
+#### 4.22.A Header slim-down (amends §4.20.B — taglines dropped, icon added)
+
+The header keeps ONLY the **web icon + the navigation + the language
+switcher**. Removed from `/` entirely:
+
+- the §4.20.B **top-left tagline pair** (`landing.tagline.left.1/.2`);
+- the **top-center line** (`landing.tagline.top`, ≥720px);
+- the **top-right tagline pair + the 24px GLITCH glyph**
+  (`landing.tagline.right.1/.2`) — the glyph was tagline-bound and dies with
+  the taglines (GLITCH remains only in the mascot-chat strip — this restores
+  §4.20.J's "no figure appears twice" cleanly);
+- the **header START controls** (`.start-pill` mobile / `.start-link`
+  desktop) — not in the owner's keep-list; the `/income` entry points return
+  to **exactly two: the lead-block Start CTA and the agent-card TALK**
+  (§4.21.G's rule, now truly exact — see §4.22.K flag 1).
+
+What remains, one non-sticky row on both breakpoints (height ~56px):
+
+- **Left: the web icon** — the FormShell header's exact app mark (§30
+  header-left treatment: the PWA mark's graphic itself, **no background
+  plate**, 40px, `aria-hidden` decorative). Token fills; its cutout cells
+  use the landing page background token (`--color-landing-bg`, §4.22.F) so
+  the cutouts dissolve into the new black page instead of reading as
+  `--color-bg` chips.
+- **Center/right: the nav anchors** — the existing two in-page anchors
+  (`#tutorial`, `#agents`; accessible names reuse `landing.tutorial.*` +
+  `landing.agent.name`, no new keys), **desktop-only (≥720px) as
+  established**: icon · anchors · switcher left→right. On phone the header
+  is icon + switcher only (the anchors were already a desktop convenience;
+  phone navigates by scroll) — stated explicitly so the header is never
+  empty at 320px.
+- **Right: the LocaleControl** (the shared control, unchanged sizing from
+  the live header).
+
+i18n keys retired from BOTH dictionaries: `landing.tagline.left.1`,
+`landing.tagline.left.2`, `landing.tagline.top`, `landing.tagline.right.1`,
+`landing.tagline.right.2` (§4.22.H).
+
+#### 4.22.B The video block — structure, stage layout, attributes
+
+**Structure.** The hero common block is built around the **video**. The
+`.stage` wrapper (new; replaces §4.21.D's three-column grid for section 2)
+contains, in this DOM order (= the phone stacking order): **lead block**
+(headline + subheadline + Start CTA, §4.20.C verbatim) → **video block** →
+**mascot-chat strip** (§4.20.F verbatim) → **agent card** (BLEAK, §4.20.G-b
+as renamed §4.22.D). Section 3 (stat card, step blocks) and the contact
+footer follow below, unchanged.
+
+- **Video block** (`LandingVideoHero.svelte` — replaces
+  `LandingHeroScene.svelte`, which is deleted with its only consumer): one
+  block, **full common-block width** (the 1000px canvas's content width;
+  ~888px at ≥1120px viewports), `aspect-ratio: 16 / 9` (the video's own
+  ratio — the block height derives from the video: ~500px desktop, ~150–200px
+  phone; the fixed 500/680px art-block heights of §4.21.B are superseded).
+  Layers bottom→top: ① the `<video>` (`width/height: 100%`,
+  `object-fit: cover` — with the block ratio pinned to the video's 16:9,
+  cover degrades to exact-fit; defensive if the true ratio drifts slightly,
+  it crops minimally instead of letterboxing); ② the edge-fade vignette
+  (§4.22.F); ③ the **animated purple pixels** — the §4.21.B layer-3 dot mesh
+  **kept verbatim** (the same 12 `DOTS` table, three `--color-deepa-4` alpha
+  shades 18/35/60%, `steps(2)` twinkle 1.6s, staggered 0–1.2s delays,
+  `aria-hidden`), re-anchored over the video block (the percent positions are
+  breakpoint-independent; the §4.21.B protected-scenario rects are RETIRED
+  with the still image — see §4.22.G); ④ the reminder box (§4.22.C); ⑤ the
+  play control (below).
+
+- **Video attributes (decisive set):**
+
+  ```html
+  <video src={videoUrl} muted loop playsinline preload="metadata"
+         disablepictureinpicture aria-hidden="true"></video>
+  ```
+
+  - **No `autoplay` attribute** (it cannot be conditional) and **no
+    `controls`** (the custom control replaces it). Playback starts from a
+    one-shot mount effect: `if (!matchMedia('(prefers-reduced-motion:
+    reduce)').matches) video.play().catch(showControl)` — **muted + loop +
+    playsinline** make this policy-compliant in every evergreen browser;
+    `preload="metadata"` keeps the initial payload light (the clip streams
+    progressively; ~4.4 MB is acceptable as a committed hero asset).
+  - **Reduced motion:** the video stays **paused** (static first frame where
+    the browser paints one; otherwise the base tint + dots show) — the
+    owner's "autoplay-off under reduced motion", specced as the gated
+    `.play()` above; the play control (below) lets the user opt in.
+  - **Play control fallback:** a 48px-target ghost button, bottom-right of
+    the video block (16px insets; never overlaps the reminder's centered
+    band at any tested width), translucent scrim chip
+    (`color-mix(in srgb, var(--color-landing-bg) 60%, transparent)`) with an
+    inline pixel play/pause glyph (§4.4 rect construction, `currentColor`,
+    `--color-text-muted`, hover `--color-text`, `:focus-visible` ring).
+    Visible **only when playback is not running** (paused, failed, or
+    reduced-motion); hidden while playing. `aria-label`:
+    `landing.video.play` / `landing.video.pause` (§4.22.H); toggles
+    playback; a rejected `.play()` (autoplay blocked) reveals it.
+  - **Failure degradation:** on the video `error` event the element is
+    hidden — the block degrades to the **black background + the purple pixel
+    treatment**: base tint = `var(--color-landing-bg)` (seamless with the
+    page), the vignette, the animated dots and the reminder all keep
+    running. No broken-media glyph, never a blank box, no layout shift (the
+    `aspect-ratio` box is fixed before the media arrives). **No `poster`**
+    (the still image is retired; the tint IS the pre/fallback state).
+
+- **Desktop composition (≥720px) — the owner's overlay rule.** The video is
+  the full common-block width; the two side blocks **overlay the video from
+  their sides**, floating over the video's dark (vignette-dissolved) edges:
+
+  ```css
+  .stage { position: relative; }                       /* ≥720px */
+  .video-block { position: relative; z-index: 0; }      /* in flow, full width */
+  .area-lead  { position: absolute; z-index: 2; left: 0;  top: 50%;
+                transform: translateY(-50%); width: 27%; }
+  .area-agents { position: absolute; z-index: 2; right: 0; top: 50%;
+                transform: translateY(-50%); width: 26%; }
+  ```
+
+  Widths 27% / 26% = the established §4.21.D grid columns (~26–28% band);
+  both overlays are **vertically centered** on the video. The overlays sit
+  above the block (z 2 > 0); the block's internal layers stay inside its own
+  stacking context. The lead overlay may run slightly taller than a short
+  video at the narrow desktop edge — it floats over the page background too;
+  no clipping is required. The agent-card overlay's hover/press states
+  (§4.20.G) are unchanged and still work over the video.
+  **The chat strip on desktop:** it cannot fit under the agent card inside
+  the 26% overlay (card ≈ full overlay height), so it flows **below the
+  video block, right-aligned, 280px wide** (inside `.stage`, normal flow
+  after the video block: `margin-left: auto; width: 280px;`) — decided
+  placement, **no conflict with the reminder box** (the reminder lives
+  inside the video block's bottom; the strip is below the block entirely).
+  On phone the strip keeps its §4.20.K full-width slot in the same DOM
+  position. Section 3 + footer are unchanged full-width rows below
+  `.stage` (§4.21.D rows 2–3 carry over as plain blocks).
+
+- **PHONE (<720px) — NO overlay; the exact stacking order (§33's phone order
+  preserved; only the art block becomes the video block):** ① slimmed header
+  (icon + switcher); ② headline block (centered, accent word); ③
+  subheadline; ④ **Start CTA**; ⑤ **video block** (full-width 16:9 video,
+  purple dots, the reminder bottom-fixed inside it, play control when
+  paused); ⑥ mascot-chat strip (full-width); ⑦ agent card (BLEAK); ⑧ stat
+  card; ⑨ the three step blocks (01→03 stacked); ⑩ contact footer. Same DOM
+  on both breakpoints; the desktop overlay is CSS-only re-composition; no
+  horizontal scroll at 320px.
+
+#### 4.22.C Reminder-box contract migration (amends §4.21.B layer 5 / §4.21.C)
+
+The §33/§4.21.C reminder box now lives **inside the video block,
+bottom-fixed over the video** — its geometry/animation contracts carry over
+**verbatim**: the retro pixel-frame (`--frame-strong`, 2px `--color-text`
+border, 4px stepped notches, bg `--color-surface`), the **1 : 3.5
+height:width ratio** (`aspect-ratio: 3.5 / 1; min-height: 64px`), the
+Handjet centered message (16px mobile / 18px desktop), the 24px sparkle
+emoji at the top-left corner (−10, −10), the ≥20px glowing pixel check at
+the bottom-center, the three cycling asterisk lines (12s loop, 200ms
+cross-fade, sr-only static line), and the **3s ease-in-out bob**
+(translateY 0→−6px mobile / −10px desktop, transform-only; everything
+collapses under `prefers-reduced-motion`).
+
+- **Width-cap change over a full-width video (the one amendment):** on
+  desktop the reminder must keep the §33.2.2 no-overlay rule **against the
+  new flanking overlays** (27% + 26% of the block). The ≥720px cap becomes
+  `--reminder-w: min(calc(47% - 48px), 348px)` — 47% = 100% − 27% − 26%
+  (the clear center band), 48px = two 24px gutters. Verified: 888px block →
+  348px (the old cap); 608px → ~238px; the reminder's x-band never enters
+  either overlay's band at 720/760/1280. **Phone cap unchanged:**
+  `min(100% - 32px, 256px)` — no flanking blocks exist on phone. Bottom
+  inset stays 16px; `--reminder-h` stays exposed on the block (the
+  video-block consumers that used it — the retired pair — are gone, but the
+  variable stays for the play-control geometry if needed).
+- The §4.21.B **protected central safe zone** (figures/bubble rects) is
+  **retired with the still image** — the video is a moving composition and
+  no static rect contract is enforceable; the owner's standing rules that
+  replace it are exactly the two above (reminder bottom-fixed inside the
+  block; flanking overlays cover only the side edges).
+
+#### 4.22.D Vector → Bleak rename (landing) — item 4a
+
+- **Card title / i18n:** `landing.agent.name` — EN `VECTOR` → **`BLEAK`**;
+  RU `ВЕКТОР` → **`БЛИК`**. **RU form decision (grounded in the live dict):**
+  the income mascot is already named «Блик» / "Bleak" in
+  `join.wizard.agent.name` + `join.wizard.intro.title` — RU transliteration
+  is the established brand handling, so the card's RU name becomes the same
+  character's name («БЛИК», uppercase per the card's styling). The header
+  anchor and every consumer of the key follow automatically.
+- **Component/code rename:** `figures.ts` — `FigureName` `'vector'` →
+  `'bleak'`; the record key and its comments renamed; **the rect data is
+  UNCHANGED** (the personage art is identical — only the name changes);
+  `+page.svelte` `kind="vector"` → `kind="bleak"`; all comments updated.
+- **Alt text / aria labels:** the card carries no image alt (the portrait is
+  `LandingFigure`, decorative by default); the header `#agents` anchor's
+  accessible name = `landing.agent.name` (follows the rename). No other
+  landing label names the agent.
+- **Grep-audit AC:** no `vector`/`VECTOR`/`Вектор`/`ВЕКТОР` remains in the
+  landing sources (`routes/+page.svelte`, `lib/components/landing/*`, both
+  i18n dicts) — case-insensitive, excluding unrelated matches outside the
+  landing scope (e.g. `vector-effect` in the radar).
+
+#### 4.22.E Income surfaces — mascot swap to the Bleak personage — item 4b
+
+**Audit (live code):** the mascots rendered on `/income*` today are ALL
+`BleakMascot.svelte` (the 12×12 ghost) at exactly these mounts:
+
+| Surface | Component | Mount |
+| --- | --- | --- |
+| `/income` — 6-digit entry form | `CodeEntry.svelte` | FormShell middle, mascot-at-top: `<BleakMascot size={96} idle />` |
+| `/income` — room intro (create-profile / change-code choice) | `RoomPreview.svelte` | FormShell middle, mascot-at-top: `<BleakMascot size={96} idle />` |
+| `/income/[room]/create` — wizard intro + steps | `CreationWizard.svelte` | two mascot rows: `<BleakMascot size={96} />` (intro) + `<BleakMascot size={112} />` (steps) |
+| `/income/[room]/create` — the interviewer's chat avatar rows | `MessageBubble.svelte` via the `mascot` prop (set only by CreationWizard) | agent-bubble row: `<BleakMascot size={28} idle />` |
+
+No other surface mounts `BleakMascot` (the main-room transcript never sets
+`mascot: true` — the swap is behavior-neutral there). The import/vault
+surfaces (`VaultList`, `ImportUsers`) render no mascot.
+
+**Swap mechanism — promote/reuse, do not duplicate.** The Bleak personage
+art already exists as the agent-card portrait (the `bleak` figure,
+§4.22.D). It becomes the shared mascot figure:
+
+1. **Promote the data:** move the personage's `Figure` entry (rect data
+   verbatim) out of `landing/figures.ts` into a shared module (e.g.
+   `lib/components/personage/bleakFigure.ts`), re-exported into
+   `landing/figures.ts` as its `bleak` entry so `LandingFigure` and the
+   agent card keep rendering the SAME data — one source of truth, zero art
+   duplication.
+2. **Re-point `BleakMascot.svelte`:** its public API is kept EXACTLY
+   (`size` px height, `idle` boolean, `label` accessible name; decorative
+   by default) and its body becomes a renderer of the promoted figure (the
+   §4.3 rect technique / or an internal `LandingFigure kind="bleak"`
+   wrapper) — the 32×32 square personage renders identically to the old
+   square ghost at every mounted size, so **no geometry moves**.
+3. **Idle contract amended:** the ghost's 2-frame blink no longer exists in
+   the personage; `idle` now maps to the personage's established idle — the
+   §4.20.J card-portrait sway (1.6s `steps(2)` ±2°, transform-origin
+   50% 100%; base.css reduced-motion catch-all governs, no local override).
+   `mascot.test.ts` is amended accordingly (§4.22.J).
+4. **Contracts that must stay green, untouched:** §23.1.1 **no background**
+   (the personage is plate-less by construction); §23.1.2/§23.1.3
+   **mascot-at-top ordering** (the swap is inside the same mount slots —
+   mascot → title → content order unchanged); §30 **FormShell three-block
+   geometry** (the shell is untouched; content-only swap); §24–§29 wizard
+   geometry (sizes kept 96/112/28 — square for square, boxes identical);
+   the «Привет! Я Блик.» / "Hi! I'm Bleak." intro copy is now literally
+   accurate — **no copy change**; `join.wizard.agent.name` («Блик»/"Bleak")
+   unchanged.
+
+#### 4.22.F Black page background + dissolve — item 5
+
+- **Resolution against §4.1 (no new colors):** the landing page background
+  becomes a **near-black with the video's faint violet cast**, expressed as
+  ONE derived token declared in `tokens.css` (the §4.1-sanctioned place for
+  derived variants):
+  `--color-landing-bg: color-mix(in srgb, var(--color-deepa-4) 5%,
+  var(--color-surface))` — built from the established black-family token
+  (`--color-surface` #101213, the palette's near-black) with a 5% Deepa
+  violet cast (the same recipe family as the §4.21.B base tint). Plain
+  `--color-bg` (#1A1C20) is too light/cool to sit seamlessly against the
+  clip's purple-cast black; `--color-surface` alone is neutral — the 5%
+  mix is the owner's "black matching the video clip's background" without a
+  new hex. **Scoped to `/` only** — every other page keeps `--color-bg`;
+  the landing route paints it full-bleed (a page wrapper, `min-height:
+  100dvh`, `background: var(--color-landing-bg)`) with the 1000px canvas
+  centered inside.
+- **The dissolve (§4.21.B adapted):** the video block's edge-fade vignette
+  is kept with its outer stop re-pointed to the page token —
+  `radial-gradient(ellipse 80% 78% at 50% 46%, transparent 0 52%,
+  color-mix(in srgb, var(--color-landing-bg) 45%, transparent) 72%,
+  var(--color-landing-bg) 100%)` — **no hard edge** at any breakpoint. The
+  block's own base/fallback tint = `var(--color-landing-bg)` (invisible
+  against the page until the video paints). **Defensive note:** the clip's
+  exact background value is unverifiable here (no inspection tooling), so
+  seamlessness is guaranteed STRUCTURALLY (the vignette dissolves every
+  edge into exactly the page color) rather than by value-matching; if the
+  owner wants a closer cast match, the mix ratio is a one-line tokens.css
+  tweak (§4.22.K flag 3). Header icon cutouts and the play-control scrim
+  consume the same token (§4.22.A/§4.22.B).
+
+#### 4.22.G Supersessions (explicit record)
+
+1. **The video fully replaces the still image.** The §33 drawn-scene
+   composition (§4.21.B) is superseded: **`background.jpg` is RETIRED** —
+   delete `apps/web/src/lib/assets/landing/background.jpg`, its `#lib`
+   import, its usages and its tests (the §4.21.B asset test re-targets the
+   mp4, §4.22.J).
+2. **The §33 SVG hero pair retires.** **NOVA + ASTRA are removed from the
+   landing** — the video carries its own cast (the boy + robot of the
+   owner's art). `figures.ts`: delete the `nova` + `astra` entries and
+   their `FigureName` literals (audit: referenced only by
+   `LandingHeroScene.svelte` — safe; the explicit `viewW/viewH` interface
+   stays, no churn). BYTE was already retired (§4.21.A). The §4.21.J-1
+   ADVICE flag (SVG pair vs the image's own cast) is **resolved by this
+   supersession**: the video's duo is the only hero cast; no SVG figures
+   overlay the video.
+3. **`LandingHeroScene.svelte` is deleted** (its only consumer is the
+   landing page); the video block is the new `LandingVideoHero.svelte`
+   (§4.22.B).
+4. **`landing.hero.aria` is retired** with the SVG pair; the video block
+   carries `landing.video.aria` (§4.22.H).
+5. **The §4.21.B protected-scenario rects and the fixed 500/680px block
+   heights are retired** with the still image (§4.22.B/§4.22.C replace
+   them with the owner's standing overlay rules).
+6. **The header taglines + the GLITCH tagline glyph are retired**
+   (§4.22.A); §4.20.B's tagline specs are dead text. §4.20.J's cast table
+   is amended accordingly (§4.22.I).
+7. **The income mascot (the ghost) retires from the income surfaces** —
+   the Bleak personage is the mascot everywhere on `/income*` (§4.22.E);
+   `BleakMascot`'s ghost art is deleted with the component's re-point.
+
+#### 4.22.H RU/EN i18n delta (on §4.20.M + §4.21.H; both dictionaries required)
+
+| Δ | Key | RU | EN |
+| --- | --- | --- | --- |
+| − | `landing.tagline.left.1` | — | — |
+| − | `landing.tagline.left.2` | — | — |
+| − | `landing.tagline.top` | — | — |
+| − | `landing.tagline.right.1` | — | — |
+| − | `landing.tagline.right.2` | — | — |
+| − | `landing.hero.aria` | — | — |
+| ~ | `landing.agent.name` | ВЕКТОР → **БЛИК** | VECTOR → **BLEAK** |
+| + | `landing.video.aria` | Видео: двое у фиолетового города под светящимся приветствием | Video: two figures before a violet city under a glowing hello |
+| + | `landing.video.play` | Запустить видео | Play video |
+| + | `landing.video.pause` | Поставить на паузу | Pause video |
+
+New parity total: **35 keys** (38 − 5 taglines − 1 hero.aria + 3 video
+keys). All other landing keys unchanged. The RU form of the brand follows
+the live dict's established transliteration («Блик», `join.wizard.agent.name`)
+— untouched there. The wizard's own keys are untouched. Parity test
+amended: 35/35 in both dicts; the six dead keys exist in NEITHER.
+
+#### 4.22.I Mascot cast update (amends §4.20.J)
+
+| Figure | Where | Status |
+| --- | --- | --- |
+| NOVA | was hero scene, left | **RETIRED** (§4.22.G) |
+| ASTRA | was hero scene, right | **RETIRED** (§4.22.G) |
+| BYTE | — | retired (§4.21.A) |
+| **BLEAK** (ex-VECTOR) | agent-card portrait **+ the income-forms mascot** (§4.22.E — promoted shared personage) | renamed, art unchanged |
+| BLOOM | stat-card glyph | unchanged |
+| PIP | mascot-chat strip, left | unchanged |
+| GLITCH | mascot-chat strip, right | unchanged (the header tagline-glyph slot died with the taglines — the strip is now GLITCH's only appearance) |
+
+Landing cast = four figures (BLEAK, BLOOM, PIP, GLITCH); no figure appears
+twice on the page.
+
+#### 4.22.J Acceptance criteria (checkable)
+
+**Header (item 1):**
+1. The `/` header renders exactly: the web icon (the §30 FormShell mark,
+   plate-less, cutouts in `--color-landing-bg`), the two in-page anchors
+   (`#tutorial`, `#agents` — ≥720px only) and the LocaleControl; the
+   LocaleControl still switches every landing string without a reload.
+2. No tagline text renders anywhere on `/` (left pair, top-center line,
+   right pair — no DOM nodes); the GLITCH figure appears only inside the
+   mascot-chat strip; the header carries no START control.
+3. At 320px the header is icon + switcher (no horizontal scroll, nothing
+   clipped); the phone header is never empty.
+
+**Video block (items 2/3/6):**
+4. The committed app asset `apps/web/src/lib/assets/landing/background-video.mp4`
+   exists and is imported via the `#lib` URL import (not hotlinked, not in
+   `static/`); the source-level test asserts both (the §4.21.B jpg-test
+   pattern re-targeted); `make build` emits the mp4 into the client build
+   (CI-verified).
+5. The video block spans the full common-block width with
+   `aspect-ratio: 16/9` (height derives from the width — no fixed 500/680px
+   height remains), `object-fit: cover`, and renders `muted loop playsinline
+   preload="metadata" disablepictureinpicture` with NO `autoplay` attribute
+   and NO native `controls`.
+6. Autoplay is gated: with `prefers-reduced-motion: reduce` the video does
+   not start (stays paused); without it, playback starts on mount via the
+   one-shot gated `.play()`.
+7. The play control: visible when playback is not running (reduced-motion,
+   autoplay-blocked, or user-paused) with the play label
+   (`landing.video.play`), hidden while playing, toggles playback, 48px
+   target, focus ring, never overlapping the reminder's band at
+   320/390/1280.
+8. Failure degradation: with the video source failing/erroring, the block
+   shows the `--color-landing-bg` base tint + the animated purple dots + the
+   reminder — no broken-media glyph, no blank box, no layout shift.
+9. Desktop ≥720px (test 1280×800 and 760px): the lead block overlays the
+   video's LEFT edge (absolute, left 0, vertically centered, 27% width) and
+   the agent card overlays the RIGHT edge (right 0, vertically centered,
+   26% width); both sit above the video (z-order); the chat strip sits
+   below the video block, right-aligned, 280px wide. No horizontal scroll.
+10. Phone <720px (test 320×640 and 390×844): NO overlay — the exact stack
+    is header → headline → sub → Start → video block → chat strip → agent
+    card → stat card → three step blocks → contact footer; the video is
+    full-width; no horizontal scroll at 320px.
+11. The animated purple pixels animate over the video (the kept 12-dot
+    mesh, steps(2) twinkle, staggered; static under reduced motion).
+12. `background.jpg` is gone: the asset file, its import, its usages and
+    its tests no longer exist; NOVA/ASTRA rect data and `nova`/`astra`
+    literals no longer exist in `figures.ts`; `LandingHeroScene.svelte` no
+    longer exists.
+
+**Reminder contracts (item 3):**
+13. The reminder box lives inside the video block, absolute, bottom 16px,
+    centered; ratio 1:3.5 at 320/390/1280 (measured width per the caps:
+    ~256px phone, ≤348px desktop); Handjet centered text, top-left sparkle
+    emoji, ≥20px glowing check, 3s ease-in-out bob (−6px/−10px), 3-line
+    cycle + sr-only line — all verbatim §4.21.C; static under reduced
+    motion.
+14. Desktop: the reminder never overlays the flanking lead/agent overlays
+    (the 47%−48px center-band cap holds at 720/760/1280); phone: it stays
+    within the block's padding box (16px side insets).
+
+**Bleak rename + income mascot swap (item 4):**
+15. The agent card renders the BLEAK personage with `landing.agent.name` =
+    "BLEAK" (EN) / «БЛИК» (RU), swapping live with the locale switch; the
+    personage's rect data is byte-identical to the pre-rename VECTOR art.
+16. Grep-audit: no `vector`/`VECTOR`/`Вектор`/`ВЕКТОР` in
+    `routes/+page.svelte`, `lib/components/landing/*`, or either i18n dict
+    (landing-scope case-insensitive).
+17. Every `/income*` mascot mount (CodeEntry 96, RoomPreview 96,
+    CreationWizard 96 + 112, MessageBubble mascot rows 28) renders the
+    Bleak personage (the promoted shared figure) — the ghost art appears
+    nowhere on `/income*`.
+18. The swap is content-only: FormShell three-block geometry, the §23
+    mascot-at-top order, the §24–§29 wizard contracts and the no-background
+    rule are unchanged; `join.wizard.agent.name`/intro copy unchanged
+    («Блик»/"Bleak"); the main-room transcript is unaffected.
+19. The personage data has ONE source (the promoted shared module consumed
+    by both the landing card and `BleakMascot`); `BleakMascot`'s public API
+    (size/idle/label, decorative default) is unchanged, with `idle` =
+    the 1.6s steps(2) ±2° sway.
+
+**Black background + dissolve (item 5):**
+20. The landing page paints `--color-landing-bg`
+    (`color-mix(in srgb, var(--color-deepa-4) 5%, var(--color-surface))`,
+    declared in tokens.css) full-bleed on `/`; every other page keeps
+    `--color-bg`; no new hex anywhere (the sweep stays green).
+21. At every tested width the video's edges dissolve into
+    `--color-landing-bg` (the radial vignette) — no hard edge line where
+    the video meets the page background; the pre-load/fallback state is
+    seamless with the page.
+
+**Carried contracts:**
+22. The three step blocks (§4.21.E), the compact stat card (§4.21.F), the
+    contact footer (§4.21.G), the headline block + accent word + Start CTA
+    (§4.20.C) render unchanged; Start CTA and agent-card TALK navigate to
+    `/income`; the tab bar is not rendered on `/`; deep links forward
+    unchanged.
+23. The mascot-chat strip keeps its §4.20.F behavior (4 alternating
+    typewriter turns, infinite loop, reduced-motion static) in its new
+    desktop slot (below the video, right-aligned) and its unchanged phone
+    slot.
+24. i18n: exactly **35** `landing.*` keys in BOTH dictionaries;
+    `landing.tagline.*` (5) and `landing.hero.aria` exist in NEITHER; the
+    extended parity test is green.
+25. Suites amended and green: `landing-page.test.ts` (header/video/supersession
+    ACs above), `mascot.test.ts` (personage art + sway idle + the four
+    mounts), `i18n.test.ts` (35-key parity + dead keys), `join-flow.test.ts`
+    / `creation-wizard.test.ts` (mascot mounts via FormShell), `sweep.test.ts`
+    (token discipline incl. the one derived tokens.css declaration);
+    `make lint && make test && make build` green; no new dependencies, no
+    canvas, no animation library.
+
+#### 4.22.K Flags for the owner / concept (concept report)
+
+1. **ADVICE NEEDED — header START control removed:** the owner's keep-list
+   ("only the web icon, the navigation, and the language switcher") omits
+   the header START pill/link, so §4.22.A removes them; the `/income`
+   entry points become exactly the lead Start CTA + the card TALK (§4.21.G
+   made exact). If the owner wanted the header START kept, it is a
+   two-element restore.
+2. **ADVICE NEEDED — phone reminder proportion over a short video:** a
+   16:9 video at phone width is ~150–200px tall, so the verbatim §33
+   reminder (256×73px + bob) covers a larger share of the frame than it
+   did over the 500px art block. The verbatim geometry is kept per the
+   owner's standing contract; if the owner prefers, the phone cap is a
+   one-token reduction (or a taller phone block — rejected here as
+   defensive: cover-cropping the unknown framing could cut the scene).
+3. **ADVICE NEEDED — background value matching:** the clip's exact
+   background color is unverifiable in this sandbox (no video tooling), so
+   seamlessness is structural (vignette → `--color-landing-bg`), with the
+   5% violet cast as the best token-only estimate of the clip's purple
+   black. The mix ratio is a one-line tokens.css tweak if the owner wants
+   it closer.
+4. **RU brand form:** resolved from the live dict («Блик», the wizard's
+   established transliteration) — recorded per the caller's "be explicit";
+   a Latin "BLEAK" in RU is a one-value change if preferred.
+
+### 4.22.1 owner amendment (2026-11-22, Concept §34 record): chat-strip retirement
+
+Owner order (2026-11-22, recorded in Concept.md §34): the mascot-chat
+animation strip — the §32 PIP↔GLITCH pixel-message exchange, placed per
+§4.20.F / §4.22.B below the video block, right-aligned 280px on desktop and
+full-width on phone — is **RETIRED** from the center pixel-art composition:
+the video's own cast (the boy + robot inside the video) is the only animated
+center content on `/`. This supersedes the §4.20.F strip spec and the
+§4.22.B strip-flow placement decision (desktop grid row 2 slot included),
+and resolves the §32 mascot-chat requirement by owner order; the strip
+component (`LandingChatStrip.svelte`), its timeline module
+(`chatTimeline.ts`), the PIP/GLITCH figure data, the `landing.chat.*` i18n
+keys (both dictionaries), their tests and their style/markup hooks are
+deleted — pure subtraction, nothing replaces it, no redesign; the `.stage`
+DOM order shrinks to lead → video block → agent card. All other contracts
+(reminder box, purple pixel treatment, Start/TALK → `/income`, header
+keep-list, BLEAK/БЛИК naming, three step blocks, contact footer, black
+landing-bg + dissolve, RU/EN parity) are unchanged.
+
+### 4.23 v3.17 feature design (2026-11-22, owner-approved Concept §35): §35 full-screen video background + liquid-glass header + reminders removed
+
+The owner reviewed the video hero and issued the three-item §35 batch: the
+video becomes a **full-screen fixed background** the whole page scrolls over,
+the header becomes a **liquid-glass panel** (frosted translucent, backdrop
+blur, rounded corners), and the **agent reminders are removed entirely**.
+This section amends §4.22 (→ §4.21 → §4.20) item by item; **where §4.23 is
+silent, the earlier specs stand EXCEPT where §4.23.E explicitly supersedes
+them** (cards §4.20.G/§4.21.F, step blocks §4.21.E, contact footer §4.21.G,
+headline block + Start CTA §4.20.C, behavior §4.20.L, motion/a11y baselines
+§4.20.L/§4.6 all carry over unchanged). Same sandbox constraint as §4.22:
+**no video-inspection tooling exists** (no ffmpeg; the mp4 is not viewable
+here) — every frame-dependent choice is specced defensively; the video asset
+is already committed (`apps/web/src/lib/assets/landing/background-video.mp4`,
+16:9, ~4.4 MB, near-black background) and **stays untouched**. Grounded in
+the live code: `apps/web/src/routes/+page.svelte`,
+`lib/components/landing/LandingVideoHero.svelte`,
+`LandingReminder.svelte`, `figures.ts`, `lib/styles/tokens.css`,
+`tests/landing-page.test.ts`. Hard constraints unchanged: **no new
+dependencies** (`backdrop-filter` is native CSS — fine), **no new color
+values** (§4.1 — tokens or `color-mix` alpha variants only; the black
+`--color-landing-bg` token family is unchanged), **no canvas, no animation
+library**, **routes untouched**, **/income surfaces untouched**, the video
+asset stays. **API endpoints used: none** — the landing stays fetch-free
+(§4.20 preamble); the only states are media states (§4.23.G). Task:
+tz12-07 (`feature/9659161e-tz12-07-video-background`).
+
+#### 4.23.A Fixed full-viewport video background — the layer architecture (item 1)
+
+The video covers the **whole device screen** — full-viewport,
+`object-fit: cover`, `position: fixed` (inset 0), **independent of
+scrolling**; ALL landing blocks scroll over it as overlays of the video
+background. The §4.22.B "center video block" (the `.stage` aspect-ratio
+block with flanking absolute overlays) is **retired**; §4.23.E records the
+supersessions.
+
+**Component decision — `LandingVideoHero.svelte` is REPURPOSED, not
+replaced.** It already owns the video element, the decisive §34 attribute
+set, the purple-dot mesh, the vignette and the error fallback — it is
+rebuilt in place as the fixed background layer (its reminder import and its
+play control are deleted, §4.23.C; its `<section aria-label>` root becomes a
+decorative `<div>` root, aria-hidden, with NO props — `aria`,
+`playLabel`, `pauseLabel`, `lines`, `srLine` all removed). The component
+moves OUT of the content flow: it renders as the **first child of
+`.landing-page`**, before `.landing`, as a fixed layer.
+
+**Fixed layer stack (bottom → top), all `position: fixed; inset: 0;`
+pointer-events none except none needed:**
+
+1. **z 0 — the `<video>`**: `width: 100%; height: 100%;
+   object-fit: cover; object-position: 50% 50%;`. With `cover` the video
+   fills ANY viewport aspect ratio (it crops, never letterboxes: portrait
+   phone viewports crop the clip's left/right, ultrawide crops
+   top/bottom — the center-anchored `object-position` keeps the scene's
+   cast in frame). The §34 attribute set is kept **verbatim**: `muted loop
+   playsinline preload="metadata" disablepictureinpicture aria-hidden` —
+   no `autoplay` attribute, no native controls. Playback starts from the
+   existing ONE-SHOT mount effect, still gated on `prefers-reduced-motion`
+   (no call under reduce → the video stays paused at its first frame);
+   muted + loop + playsinline keep the programmatic start
+   policy-compliant. A rejected `.play()` is swallowed (the tint + vignette
+   + dots state shows; there is no control to reveal — §4.23.I flag 1).
+2. **z 1 — the dissolve vignette (re-specified for a fixed full-screen
+   layer):** the fixed `::after` of the layer,
+   `radial-gradient(ellipse 120% 105% at 50% 50%, transparent 0 55%,
+   color-mix(in srgb, var(--color-landing-bg) 55%, transparent) 78%,
+   var(--color-landing-bg) 100%)`. Every viewport edge dissolves into
+   exactly `--color-landing-bg` — **no hard edge where the video meets the
+   black page background at any viewport ratio**. The §4.22.F rationale is
+   corrected for the fixed layer: with `cover` there is no letterbox edge
+   to hide on any aspect ratio, so the vignette's job is the **smooth
+   dissolve mood + edge darkening** (it also darkens the zone under the
+   floating glass panels); seamlessness stays STRUCTURAL (dissolve into the
+   page token), not value-matched — the clip's exact background value
+   remains unverifiable here (§4.22.K flag 3 carries over). **The black bg
+   token stays:** `.landing-page` keeps painting
+   `background: var(--color-landing-bg)` full-bleed — it is what shows
+   through the dissolve, under the reduced-motion state and under the
+   error fallback. Plus the **global legibility tint**: the same fixed
+   vignette element carries a base wash,
+   `background-color: color-mix(in srgb, var(--color-landing-bg) 30%,
+   transparent)` (a uniform 30% darkening over the video for mood + a
+   first legibility pass; text-level legibility is guaranteed per-section,
+   §4.23.D).
+3. **z 2 — the animated purple pixels, KEPT as a fixed overlay layer above
+   the video, below the content.** Decision: KEEP (the owner has
+   consistently kept the dot treatment through §33 item 7 and §34 item 6 —
+   it does not read as noise over the near-black clip; it IS the page's
+   signature sparkle in the "sky" between sections). The §4.21.B mesh is
+   kept verbatim (the same 12 `DOTS` table, three `--color-deepa-4` alpha
+   shades 18/35/60%, `steps(2)` twinkle 1.6s, staggered 0–1.2s delays,
+   `aria-hidden`, `pointer-events: none`); its percent positions now map to
+   the FULL VIEWPORT (breakpoint-independent, so no table change); dots
+   near the viewport edges sit over the vignette and behind content cards —
+   visible only in the gaps between sections and over raw-over-video zones,
+   which is the intended "ambient sky" read.
+4. **z 3 — the content column** `.landing` (the scrolling page content —
+   §4.23.D).
+5. **z 10 — the sticky glass header** (§4.23.B), above the content.
+
+**Scroll-over architecture.** The page content is a **normal scrolling
+column above the fixed layer**: `.landing-page` keeps
+`min-height: 100dvh` + the token background; `.landing` gains
+`position: relative; z-index: 3` (the 1000px canvas, its `--space-5/--space-7`
+padding and its `--space-6` gap rhythm are unchanged). The document scrolls;
+the video layer does not move. No horizontal scroll at 320px (unchanged
+§4.20.K invariant). Because the fixed layer is `pointer-events: none`
+(vignette + dots) with the video beneath, all content interaction is
+unaffected.
+
+#### 4.23.B Liquid-glass header (item 2)
+
+The header becomes a **floating rounded glass panel** — frosted translucent
+glass over the video. Keep-list **UNCHANGED (§4.22.A verbatim)**: web icon +
+nav anchors + language switcher only; no START control; phone = icon +
+switcher only.
+
+- **Geometry — floating chip with insets (modern liquid-glass practice),
+  sticky at top:** the `<header class="top">` wrapper becomes the glass
+  panel: `position: sticky; top: var(--space-3)` (12px — the video shows in
+  the gap above it when scrolled), `z-index: 10` (above the content
+  column's z 3, over the video),
+  `width: min(100% - 24px, calc(1000px - 48px))`, `margin-inline: auto`
+  (side insets 12px; on wide viewports the panel aligns to the 1000px
+  canvas minus its padding). Desktop (≥720px) padding `10px 16px`,
+  min-height 56px (unchanged row height); phone padding `8px 10px`,
+  min-height 52px, and the panel is the smaller chip (icon + switcher only,
+  §4.22.A).
+- **Rounded corners — the owner explicitly orders rounded here, scoped to
+  glass surfaces only:** `border-radius: var(--radius-lg)` (24px) on
+  desktop, `var(--radius-md)` (20px) on the smaller phone chip — both
+  existing tokens, no new value. The established pixel style's square /
+  stepped corners (§4.5) remain the rule for every pixel-frame card, the
+  step blocks and the footer; **the rounded corner is the glass-surface
+  exception** (header panel + the lead panel, §4.23.D — the two liquid-glass
+  surfaces), not a general restyle.
+- **The glass recipe (exact values):**
+  ```css
+  .top {
+    background: color-mix(in srgb, var(--color-landing-bg) 92%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(1.1);
+    backdrop-filter: blur(14px) saturate(1.1);
+    border: 1px solid color-mix(in srgb, var(--color-deepa-4) 22%, transparent);
+    border-radius: var(--radius-lg); /* 20px on the phone chip */
+  }
+  ```
+  — translucent fill via `color-mix` of the black token family
+  (`--color-landing-bg` at 92%), blur radius 14px with a mild 1.1
+  saturation lift, and a subtle violet hairline border per the pixel
+  aesthetic (all token-only, §4.1).
+- **AA note (the fill must stay dark enough):** header text = the nav
+  anchors (`--color-text-muted`) and the LocaleControl labels. Worst-case
+  bound, no blur assumed: a pure-white video pixel behind the 92% fill
+  composites (in sRGB space) to ≈ #232527 — the muted text holds
+  ≈ 5.0:1 (AA ≥ 4.5); with `blur(14px)` the real local average is the
+  clip's near-black, well above that. The 92% ratio is therefore the floor:
+  do not lower it for translucency. `@supports` fallback: where
+  `backdrop-filter` is unsupported the fill alone still guarantees the same
+  worst-case contrast — the panel just reads near-solid. The panel's own
+  hairline is decorative (non-text, ≥3:1 not required; it also carries the
+  22% violet over the dark fill visibly).
+- **Stacking vs the fixed video:** the panel is above the content column
+  and above the video layer (z 10 > 3 > 2 > 1 > 0) — glass over video,
+  content scrolls under the stuck panel (which stays glass over the video
+  at every scroll position). Anchor targets keep working: `#tutorial` and
+  `#agents` gain `scroll-margin-top: 80px` so an anchored section never
+  hides under the stuck glass panel.
+- The header icon's cutout cells keep their `--color-landing-bg` fill —
+  over the 92% glass fill they read as the panel itself (no visual glitch,
+  zero churn; §4.22.A's dissolve intent is inherited by the panel).
+
+#### 4.23.C Remove the agent reminders ENTIRELY (item 3)
+
+The §33 item 2 reminder contracts are **RETIRED** — pixel-font message,
+1:3.5 strip, emoji corner, bottom-fixed position, up-down bob, check mark:
+**all go** (§4.23.E records the explicit supersessions of §4.21.C and
+§4.22.C). Pure subtraction, nothing replaces it:
+
+- **Delete the component:** `lib/components/landing/LandingReminder.svelte`
+  (file, markup, styles, its `spark`/`check` glyphs, the
+  `reminder-bob`/`reminder-line`/`spark-twinkle`/`check-glow` keyframes).
+- **Delete its integration:** the `LandingReminder` import + mount in
+  `LandingVideoHero.svelte`; the `lines`/`srLine` props (and then the whole
+  Props interface — §4.23.A); the `--reminder-w`/`--reminder-h` custom
+  properties and the `.video-block :global(.reminder)` z-index rule and the
+  play-control phone `bottom: calc(16px + var(--reminder-h))` rule (the
+  control retires too); in `+page.svelte` the `dialogLines` derivation
+  (`landing.dialog.line1/2/3`) and the `videoAria`/`videoPlay`/`videoPause`
+  derivations (§4.23.F).
+- **Key audit (live grep, both dicts):** there is **no
+  `landing.reminder.*` family** — the reminder's copy lives in
+  **`landing.dialog.line1`, `landing.dialog.line2`, `landing.dialog.line3`**
+  (en.ts/ru.ts ~417–419). Those three keys are the reminder family and are
+  removed from BOTH dictionaries. With the play control retired and the
+  video layer decorative, **`landing.video.aria`, `landing.video.play`,
+  `landing.video.pause`** are also removed (§4.23.F). No other landing key
+  references the reminder.
+- **Delete its tests:** the `landing-page.test.ts` reminder block (the
+  named-region/inside-the-block test, the 1:3.5 proportions + caps test,
+  the no-overlay center-band test, the pixel-font test, the cycling-copy
+  test, the sparkle-emoji test, the check-mark test, the bob test, the
+  play-control-never-overlaps test) and every `landing.dialog.*` /
+  `landing.video.*` assertion in the parity/dead-key/copy-verbatim/re-render
+  tests — replaced by §4.23.H's negative assertions + key-cleanup
+  assertions. All other suites stay green.
+
+#### 4.23.D Content sections over the video (per-section treatment)
+
+The content column (`.landing`, z 3) stacks, in the existing DOM order,
+with the `.stage` grid retired to a plain flow container:
+
+1. **Glass header panel** (§4.23.B) — the only chrome; glass over video.
+2. **Lead section (headline + subheadline + Start CTA, §4.20.C verbatim) —
+   a liquid-glass panel.** Decision: the lead text block gets the SAME
+   glass treatment as the header (same fill/blur/hairline recipe,
+   `border-radius: var(--radius-lg)`, padding 20px phone / 28px desktop).
+   Rationale (the legibility decision §35 demands): raw muted body text
+   over an arbitrary bright video region cannot be guaranteed AA at any
+   tolerable global tint (a worst-case white pixel needs ≈90% darkening,
+   which kills the video); a local glass panel guarantees it with the same
+   92% recipe (≈5:1 muted worst-case, §4.23.B math). The panel sizes to its
+   content (`width: fit-content`, max-width 560px), aligned left on desktop
+   (≥720px, per §4.20.C's left alignment) and full-width-ish centered on
+   phone. This is the second (and last) rounded-corner surface — rounded
+   corners stay scoped to glass surfaces.
+3. **BLEAK agent card (§4.20.G-b as renamed §4.22.D) — UNCHANGED pixel
+   frame, floating.** Decision: NO glass on the cards — the established
+   `pixel-corners pixel-frame pixel-frame--strong` + `--color-surface`
+   opaque body is already self-legible over any video content and is the
+   page's pixel identity; glass there would erode the pixel language. The
+   card's §4.20.G contract (hover lift + glow, press scale, focus rings)
+   carries over verbatim; it simply floats over the video.
+4. **The three step blocks (§4.21.E) — UNCHANGED, floating.** FIND / CHAT /
+   SHARE keep their §4.21.E contracts verbatim (pixel step number, pixel
+   title, step icon, mini description; phone stacked top→bottom, desktop
+   left→right equal thirds, ~300px min-height, no hover/press/motion);
+   opaque `--color-surface` bodies (no glass) read over the video as-is.
+5. **Contact footer (§4.21.G) — UNCHANGED, floating.** The pixel-framed
+   site contact block keeps its §4.21.G contract verbatim (copyright row +
+   EMAIL/GITHUB links, centered, max-width 560px); opaque surface body, no
+   glass.
+6. **Stat card (§4.21.F compact) — UNCHANGED, floating** (§4.20.G-a as
+   compacted; sits between the agent card and the steps, same DOM order).
+
+**Desktop composition (≥720px):** lead panel and agent card share one
+plain-flow two-column row (`.stage` becomes
+`display: grid; grid-template-columns: minmax(0, 1fr) 360px;
+column-gap: var(--space-6); align-items: start` — the lead panel in column
+1, the agent card capped at 360px in column 2), the stat card full-width,
+then the steps grid, then the footer. **Phone (<720px):** everything
+stacks in the same DOM order — header chip → lead panel → agent card →
+stat card → three step blocks → contact footer (the §34 phone no-overlay
+rule is moot: everything overlays the fixed video background now,
+§4.23.E). The section rhythm (`--space-6` gaps) is unchanged; the video +
+dots show through the gaps between sections — the scroll-over "sky".
+
+**Unchanged behavior contracts:** BLEAK/БЛИК naming (§4.22.D), the income
+mascot swap (§4.22.E), Start CTA + agent-card TALK → `/income` as the
+exactly two entry points (§4.22.A/§4.20.L), the join deep-link forwarding
+(`?code=` / `?u=`, §3.1 guard), the tab bar absent on `/`, RU/EN
+switching without reload — all verbatim.
+
+#### 4.23.E Supersessions (explicit record)
+
+1. **§4.22.B "center video block" geometry superseded:** no `.stage`
+   aspect-ratio video row; the 27%/1fr/26% lead/art/agents overlay grid is
+   retired — blocks are now plain scroll-over sections above the fixed
+   full-viewport layer (§4.23.A/§4.23.D). The 16:9 `aspect-ratio` box, its
+   ~500px desktop height and the flanking absolute-overlay CSS are gone.
+2. **§34 phone no-overlay rule superseded:** EVERYTHING overlays the video
+   background now — there is no video "block" to stack around; the phone
+   stack is the §4.23.D list, not a video-block sandwich.
+3. **§33 item 7 rules MOOT:** the protected-centered-scenario rects and the
+   art-block height contracts died with the still image (§4.22.G) and have
+   no successor — there is no art block; the video is the background.
+4. **§4.21.C/§4.22.C reminder contracts superseded** by §4.23.C's full
+   retirement (§35 item 3) — the 1:3.5 strip, pixel message font, emoji
+   corner, bottom-fixed position, bob, check mark and the §4.22.C width
+   caps / no-overlay band all cease.
+5. **§4.22.B play control superseded:** the floating play/pause ghost chip
+   retires with the video-as-content model — the video is now aria-hidden
+   ambient background scenery, not a content surface with playback state
+   (§4.23.A; §4.23.I flag 1 records it as restorable).
+6. **`landing.video.aria` named-region superseded:** the fixed layer is a
+   decorative `aria-hidden` div — no region role, no accessible name
+   (§4.23.F).
+7. **§4.22.F vignette rationale amended** (not superseded): the dissolve is
+   re-specced for the fixed full-screen layer (§4.23.A layer 2); the token,
+   its declaration site and the structural-seamlessness principle stand.
+8. **Superseded-but-carried:** the §4.22.B decisive video attribute set,
+   the gated one-shot mount `.play()`, the error-fallback structure, the
+   kept 12-dot mesh and the §4.22.A header keep-list all CARRY into
+   §4.23.A/§4.23.B unchanged.
+
+#### 4.23.F RU/EN i18n delta (grep-audited; both dictionaries required)
+
+Pure subtraction — **no new keys** (nothing new is spoken: the header is a
+landmark with existing key names; the fixed layer is `aria-hidden`;
+the glass panels carry existing copy):
+
+| Δ | Key | RU | EN |
+| --- | --- | --- | --- |
+| − | `landing.dialog.line1` | * Агент здоровается… | * The agent says hello… |
+| − | `landing.dialog.line2` | * Ваш агент уже нашёл три совпадения. | * Your agent already found three matches. |
+| − | `landing.dialog.line3` | * Совпадение принято. Обмен контактами через минуту. | * Match accepted. Contact exchange in a minute. |
+| − | `landing.video.aria` | Видео: двое у фиолетового города… | Video: two figures before a violet city… |
+| − | `landing.video.play` | Запустить видео | Play video |
+| − | `landing.video.pause` | Поставить на паузу | Pause video |
+
+New parity total: **29 keys** (35 − 3 dialog − 3 video). Grep audit before
+removal (live): `landing.dialog.*` appears only in `en.ts`/`ru.ts`
+(~417–419), `+page.svelte` (79–82) and `landing-page.test.ts`
+(79–82/470–476/898); `landing.video.*` only in the dicts (~420–422),
+`+page.svelte` (74–76) and the tests (82–84/274–291/588–593/863–905);
+`LandingReminder` only in `LandingVideoHero.svelte` (import + mount) and
+the tests; `--reminder-` only in `LandingVideoHero.svelte` +
+`LandingReminder.svelte`. After the change: no `landing.dialog.` or
+`landing.video.` match remains in either dict, any route, any component or
+any test; the dead-key lists in `landing-page.test.ts`/`i18n.test.ts`
+extend by these six. Parity test amended: 29/29 in both dicts; the six
+dead keys exist in NEITHER.
+
+#### 4.23.G Reduced motion + media states
+
+- **Reduced motion (`prefers-reduced-motion: reduce`):** the video shows
+  **NO motion** — decision: keep the video element **paused at frame 0**
+  (the mount effect skips `.play()` entirely, unchanged gate) **+ the black
+  tint layer** (the 30% wash + the vignette over `--color-landing-bg`;
+  where the browser paints no first frame from `preload="metadata"`, the
+  tint + vignette + dots ARE the static state — the same near-black the
+  §35 fallback names). No opt-in control exists (§4.23.E.5). The dot
+  twinkle collapses to static base opacity (the established
+  base.css/§4.6 catch-all; no local override). Everything else on the page
+  is already reduced-motion-safe (cards/steps/footer have no ambient
+  motion).
+- **Loading state:** none beyond the established pattern — `preload=
+  "metadata"` keeps the payload light; before the first frame paints the
+  fixed layer shows the tint + vignette + dots (seamless with the page —
+  the tint IS the pre-state; no poster, no skeleton, no layout shift: a
+  fixed layer cannot shift layout).
+- **Error state:** on the video `error` event the element is hidden — the
+  fixed layer degrades to the **static near-black + purple pixel
+  treatment** (the `--color-landing-bg` page token + the vignette wash +
+  the dots). No broken-media glyph, never a blank screen, no layout shift;
+  the content column is unaffected. No retry UI (ambient scenery; a reload
+  remounts).
+- **Empty state:** not applicable — the landing fetches nothing
+  (§4.20.L); no data states exist.
+
+#### 4.23.H Acceptance criteria (checkable)
+
+**Fixed video background (item 1):**
+1. The committed asset `apps/web/src/lib/assets/landing/background-video.mp4`
+   is still imported via the `#lib` URL import by the (repurposed)
+   `LandingVideoHero.svelte` — not hotlinked, not in `static/`, the file
+   itself untouched.
+2. The video layer is `position: fixed; inset: 0` (z 0, first child of
+   `.landing-page`), full-viewport with `width/height: 100%` +
+   `object-fit: cover` + `object-position: 50% 50%` — verified at desktop
+   (1280×800) and phone (320×640, 390×844) viewports: the video fills the
+   whole screen at every ratio, no letterbox bars.
+3. The video is independent of scrolling: at every scroll offset the video
+   layer stays viewport-sized and unmoving while `.landing` scrolls over it
+   (`position: fixed` assertion; the page scrolls normally, no horizontal
+   scroll at 320px).
+4. The attribute set is verbatim: `muted loop playsinline
+   preload="metadata" disablepictureinpicture aria-hidden` — no `autoplay`
+   attribute, no native `controls`; playback starts from the one-shot
+   mount effect (no `.play()` under reduced motion — AC 15).
+5. The layer stack holds: video (z 0) → vignette + 30% tint (z 1) → dots
+   (z 2) → content column (z 3) → sticky header (z 10); the 12-dot mesh
+   animates over the full viewport (steps(2), staggered; static under
+   reduced motion) and sits below the content (never above a card).
+6. The dissolve: at every tested viewport the layer's edges dissolve into
+   `--color-landing-bg` (the radial vignette + the token page background) —
+   no hard edge where the video meets the black page background; the
+   `--color-landing-bg` token declaration in tokens.css is unchanged.
+7. Error fallback: with the video source failing, the layer shows the
+   near-black tint + vignette + dots — no broken-media glyph, no blank
+   screen, no layout shift; the content column is unaffected.
+
+**Liquid-glass header (item 2):**
+8. The header renders as a floating glass panel: computed styles assert
+   `backdrop-filter`/`-webkit-backdrop-filter` blur(14px), the fill
+   `color-mix(in srgb, var(--color-landing-bg) 92%, transparent)`, the
+   violet hairline `color-mix(in srgb, var(--color-deepa-4) 22%,
+   transparent)`, and the rounded corners — `border-radius` resolves to
+   24px (`--radius-lg`) at 1280px and 20px (`--radius-md`) at 320/390px
+   (class-assertable via the panel element's computed border-radius).
+9. The panel is sticky: at 12px from the viewport top with `z-index` above
+   the content column; the keep-list is UNCHANGED (§4.22.A): exactly the
+   web icon, the two desktop-only anchors and the LocaleControl; phone =
+   icon + switcher; no START control; the LocaleControl still switches
+   every landing string without a reload.
+10. Rounded corners stay scoped: the glass header panel (+ the lead
+    panel, AC 12) are the only rounded surfaces — every pixel-frame card,
+    step block and the footer keep the square/stepped corner treatment
+    (no `border-radius` on them beyond the existing pixel construction).
+
+**Reminders removed (item 3):**
+11. Negative assertions: no `.reminder` DOM node, no
+    `LandingReminder.svelte` file, no `LandingReminder` import, no
+    `reminder-bob`/`reminder-line`/`spark-twinkle`/`check-glow` keyframes,
+    no `--reminder-w`/`--reminder-h` custom properties anywhere in the
+    landing sources; no reminder copy renders anywhere on `/`.
+12. The lead panel (glass, §4.23.D) carries the §4.20.C headline +
+    accent word + subheadline + Start CTA verbatim; Start → `/income`.
+
+**Content over the video (carried contracts):**
+13. Desktop ≥720px: the lead panel (column 1) and the agent card
+    (column 2, 360px cap) share one plain-flow row; the stat card, the
+    three step blocks (equal thirds, ~300px min-height) and the contact
+    footer follow as full-width rows — all scrolling over the fixed video;
+    no horizontal scroll at 320/760/1280.
+14. Phone <720px: the stack is header chip → lead panel → agent card →
+    stat card → three step blocks (01→03) → contact footer, in DOM order,
+    all over the video background.
+15. Reduced motion: the video does not start (stays paused at frame 0 or
+    shows the tint); the dots are static; no other motion changes.
+
+**i18n + suites:**
+16. i18n: exactly **29** `landing.*` keys in BOTH dictionaries;
+    `landing.dialog.line1/2/3` and `landing.video.aria/play/pause` exist in
+    NEITHER dict, no route, no component, no test (grep-audited); the
+    extended parity test is green; RU/EN parity holds for every remaining
+    string (switch re-renders the page without a reload).
+17. Suites amended and green: `landing-page.test.ts` (reminder +
+    block-geometry + play-control + video-region assertions dropped or
+    updated per this section), `i18n.test.ts` (29-key parity + dead keys),
+    `sweep.test.ts` (token discipline — no new hex, the color-mix recipes
+    only), `join-flow.test.ts`/`creation-wizard.test.ts` (untouched —
+    /income surfaces unchanged), `mascot.test.ts` (untouched);
+    `make lint && make test && make build` green; no new dependencies
+    (`backdrop-filter` is native CSS), no canvas, no animation library;
+    routes untouched; the video asset stays.
+
+#### 4.23.I Flags for the owner / concept (concept report)
+
+1. **ADVICE NEEDED — the play/pause control retires:** §4.22.B's gated
+   play chip existed because the video was a content block; as fixed
+   aria-hidden background scenery (§35's own framing) a playback control
+   over the whole page is chrome the owner did not ask for, and §35's
+   reduced-motion contract ("static black/near-black, no video motion")
+   no longer contemplates user-driven playback — so §4.23.E.5 retires it
+   with its three i18n keys. Restoring it is one floating glass chip
+   (bottom-right, the §4.22.B pattern) + the three keys back.
+2. **ADVICE NEEDED — glass lead panel:** §35 orders glass for the header
+   explicitly; §4.23.D extends the same glass treatment to the lead text
+   block as the legibility decision (raw muted text over an arbitrary
+   bright video region cannot be guaranteed AA at any tolerable global
+   tint). If the owner prefers the lead raw over the video, the fallback
+   is a heavier fixed tint (~90% globally — the video then reads as a
+   faint ambient texture only).
+3. **Background value matching (§4.22.K flag 3, carried):** the clip's
+   exact background color remains unverifiable in this sandbox; the
+   dissolve stays structural (vignette → `--color-landing-bg`), and the
+   5% violet cast in the token stays the best token-only estimate.
+
+### 4.24 v3.18 feature design (2026-11-22, owner-approved Concept §36): §36 80% widths + opaque narrower lead + thirds layout + phone open state
+
+The owner reviewed the video-background landing and issued the four-item §36
+batch: the header and the whole page content are constrained to **80% of the
+screen width** (centered), the lead block becomes **fully opaque and
+narrower**, the desktop composition becomes a **thirds row** (lead / empty /
+agent), and on **phones the site opens with the top two-thirds showing no
+content blocks** — pure video under the floating header. This section amends
+§4.23 (→ §4.22 → §4.21 → §4.20) item by item; **where §4.24 is silent, the
+earlier specs stand** except where §4.24.F explicitly supersedes them (the
+video layer stack §4.23.A, the keep-list §4.22.A, cards §4.20.G/§4.21.F, step
+blocks §4.21.E, contact footer §4.21.G, headline copy + Start CTA §4.20.C,
+behavior §4.20.L, motion/a11y baselines §4.20.L/§4.6 all carry over unchanged
+unless named below). Same sandbox constraint as §4.22/§4.23: **no
+video-inspection tooling exists** — the video layer decisions carry VERBATIM
+from §4.23 (fixed z 0 video + z 1 vignette/tint + z 2 dots + z 3 content +
+z 10 header; the committed asset stays untouched; reduced-motion fallback
+unchanged). Grounded in the live code: `apps/web/src/routes/+page.svelte`,
+`lib/components/landing/LandingVideoHero.svelte`, `lib/styles/tokens.css`,
+`tests/landing-page.test.ts`. Hard constraints unchanged: **no new
+dependencies** (`@supports`/`clamp()` are native CSS), **no new color values**
+(tokens or `color-mix` alpha variants only — the opaque lead reuses an
+EXISTING surface token), **no canvas, no animation library**, **routes
+untouched**, **/income surfaces untouched**, the video asset stays.
+**API endpoints used: none** — the landing stays fetch-free (§4.20
+preamble). Task: tz12-08 (`feature/aef20dd9-tz12-08-widths-thirds`).
+
+#### 4.24.A The 80%-width container + the 80% header (item 1)
+
+One container rule governs the whole page; the header rides the same width.
+
+- **The content container (`.landing`) — exactly 80% of the screen width,
+  centered:** `.landing` drops `max-width: 1000px` (the §4.20 canvas cap is
+  RETIRED for width — §36's wording is unconditional: "constrained to 80% of
+  the screen width"; capping at 1000px would make the content 52% wide at
+  1920, contradicting the owner) and gains:
+  ```css
+  .landing {
+    width: max(80%, 280px);
+    margin-inline: auto;
+    /* max-width: none — the 1000px cap retires; padding, flex column and
+       the --space-6 gap rhythm are unchanged (§4.23.A) */
+  }
+  ```
+  The internal padding stays `var(--space-5)` phone / `var(--space-7)`
+  desktop; the flex-column `gap: var(--space-6)` stays. `.landing` remains
+  the ONE container: header + `main.canvas` (lead thirds row, stat card,
+  step blocks, footer) all live inside it — every section is constrained to
+  the same 80% column. The `--color-landing-bg` full-bleed page background
+  and the fixed video layer are NOT constrained (they stay full-viewport,
+  §4.23.A).
+- **The 280px floor (phone keep-list usability):** 80% of a 320px screen is
+  256px — usable but tight; `max(80%, 280px)` floors the column at 280px.
+  At 320px the column is 280px (20px gutters each side — no horizontal
+  scroll, the §4.20.K invariant holds); the phone chip (icon + switcher
+  only, §4.22.A) uses ≈ 40px icon + 16px gap + ≈ 84px LocaleControl +
+  20px padding ≈ 160px inside 280px — the keep-list fits with ≈ 120px
+  slack. At 390px the column is 312px (pure 80%). At ≥ 350px screens the
+  floor never engages (pure 80%).
+- **The header = the same 80%, via a container breakout:** the §4.23.B chip
+  width `min(100% - 24px, calc(1000px - 48px))` is RETIRED. The sticky
+  header stays the first child of `.landing` (sticky still works — its
+  containing block `.landing` spans the full page height) and breaks out of
+  the container's padding so it spans the container's full 80%:
+  ```css
+  .top {
+    position: sticky;        /* top: var(--space-3), z-index: 10 unchanged */
+    width: calc(100% + 2 * var(--space-5));
+    margin-inline: calc(-1 * var(--space-5));
+  }
+  @media (min-width: 720px) {
+    .top {
+      width: calc(100% + 2 * var(--space-7));
+      margin-inline: calc(-1 * var(--space-7));
+    }
+  }
+  ```
+  Resulting widths: **1280 → 1024px header (80%), 390 → 312px, 320 → 280px
+  (the floor)** — the header is exactly as wide as the content container,
+  centered with it. The header's own inner padding is unchanged
+  (`8px 10px` phone / `10px 16px` desktop, min-height 52/56px); the sticky
+  offset `top: var(--space-3)` and `z-index: 10` are unchanged; the
+  `scroll-margin-top: 80px` anchor guard is unchanged (the header row
+  height did not change). No `vw` units anywhere — the breakout is computed
+  from the container's own padding, so a visible classic scrollbar can
+  never make the header outgrow the viewport.
+
+#### 4.24.B Header blur verification + the two-tier glass recipe (item 1 rider)
+
+The owner hints the backdrop blur "may have been hard to see". The audit is
+done; the fix is a fill-opacity tier, not a property change.
+
+- **Verification outcome (live audit, 2026-11-22):** the recipe IS applied —
+  `+page.svelte` renders `backdrop-filter: blur(14px) saturate(1.1)` +
+  `-webkit-backdrop-filter` on `.top` (lines ~359–360), and **nothing
+  overrides it** (grep over `apps/web/src`: the only other
+  `backdrop-filter` is `ShareContactSlide.svelte`, a different page — no
+  ancestor creates a containing block, no mask/filter interference). The
+  imperceptibility is a **legibility-vs-visibility trade-off**, not a
+  missing property: the 92% `--color-landing-bg` fill leaves only 8%
+  show-through, and the show-through is of an already near-black clip —
+  blurred near-black under a 92% dark fill reads as a flat dark chip. The
+  glass cues that DO render are the hairline and the rounded corners.
+- **The fix — a two-tier fill, AA floor kept (decided):** keep the 92% fill
+  as the no-blur fallback floor and lower the fill to **88%** where
+  `backdrop-filter` actually runs:
+  ```css
+  .top {
+    /* tier 1 — the @supports fallback floor (§4.23.B math unchanged) */
+    background: color-mix(in srgb, var(--color-landing-bg) 92%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(1.1);
+    backdrop-filter: blur(14px) saturate(1.1);
+    border: 1px solid color-mix(in srgb, var(--color-deepa-4) 22%, transparent);
+    border-radius: var(--radius-lg); /* var(--radius-md) phone chip */
+  }
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .top {
+      /* tier 2 — 12% show-through: the blur becomes perceptible */
+      background: color-mix(in srgb, var(--color-landing-bg) 88%, transparent);
+    }
+  }
+  ```
+  **AA re-derivation for the 88% tier:** §4.23.B's 5.0:1 worst case assumed
+  a pure-white pixel with NO blur. Where the blur runs, a worst-case white
+  pixel is diffused across the 14px kernel; the conservative bound is a
+  kernel window ≤ 50% bright pixels → the composite is ≈ rgb(36, 31, 43)
+  → muted text `#919397` holds ≈ **5.2:1** (AA ≥ 4.5 kept). Where
+  `backdrop-filter` is unsupported, tier 1 (92%) keeps the original
+  ≈ 5.0:1 no-blur worst case — the floor never drops. Blur radius (14px)
+  and saturation lift (1.1) are unchanged; the hairline, radius tokens and
+  keep-list are unchanged. **Explicit test assertions (amend the
+  `landing-page.test.ts` glass-recipe test):** (a) the `backdrop-filter` /
+  `-webkit-backdrop-filter` declarations are present on `.top` (the
+  existing source-regex assertions stay); (b) the `@supports` 88% tier
+  exists in the source CSS; (c) the 92% tier 1 declaration still exists;
+  (d) no OTHER rule in the landing sources overrides
+  `backdrop-filter` on `.top` (a negative grep-style assertion). The lead
+  panel leaves the glass recipe entirely (§4.24.C), so the shared
+  `.top, .glass` selector block reduces to `.top` alone and the `.glass`
+  class retires from markup and CSS.
+
+#### 4.24.C The lead block: fully OPAQUE + narrower (item 2)
+
+The §4.23.D liquid-glass lead panel is RETIRED. The lead becomes a solid
+panel in the established §4.20.G card language — the translucency contrast
+with the glass header is intentional (one glass surface, one opaque surface).
+
+- **Token — decided:** the lead body is solid **`--color-surface`**
+  (`#101213`, the exact token every pixel-frame card body already uses —
+  agent/stat/step/footer). NOT `--color-landing-bg` (the page token — a
+  panel of it would melt into the page background and only the hairline
+  would betray it; `--color-surface` reads as the established card
+  material). Muted/body text on `--color-surface` is the established AA
+  geometry (§4.20.G).
+- **Construction — the §4.20.G opaque-surface pixel-frame contract keeps:**
+  the lead section adopts the same card construction as the agent/stat
+  cards: outer `pixel-corners pixel-frame pixel-frame--strong` + inner
+  `pixel-corners` body (`background: var(--color-surface)`, the existing
+  card pattern), **square/stepped corners** — with the glass gone, the
+  rounded-corner exception (§4.23.B: "scoped to glass surfaces") no longer
+  applies to the lead; **the header is the ONLY rounded surface left**.
+  Padding stays `20px` phone / `28px` desktop (inside the body). NO
+  `backdrop-filter`, no translucent fill, no hairline-glass border — the
+  pixel frame IS the border.
+- **Narrower — decided width:** the lead no longer sizes to content
+  (`fit-content`, max-width 560px — retired); it **fills its thirds column**
+  (§4.24.D): `width: 100%` of grid column 1. Exact calc at **1280** with
+  the 80% container: 0.8 × 1280 = **1024px container**; minus the container
+  padding 2 × 48 (`--space-7`) = 928px content; thirds grid with two
+  `--space-6` (32px) gaps: (928 − 64) / 3 = **288px per third → the lead
+  panel is ≈ 288px wide** (down from ≤ 560px), ≈ 232px of text width after
+  its 28px padding. Phone: the lead is **100% of the container content
+  width** (232px at a 320px screen, 264px at 390px).
+- **Copy + alignment verbatim (§4.20.C):** headline (3 lines + accent word
+  + sparkles) + subheadline + Start CTA → `/income`; left-aligned desktop,
+  centered phone — all unchanged. **One size amendment (recorded in
+  §4.24.J):** the desktop headline drops from the §4.20.C 64px to
+  `clamp(22px, 3.5vw, 44px)` at ≥ 720px — 64px "CONNECTIONS" (≈ 300px in
+  Handjet) cannot hold a 232px text column without a mid-word break
+  (`overflow-wrap: anywhere`); at 1280 the clamp caps at 44px (≈ 210px —
+  fits), and it scales down with the third at narrower desktops (≈ 25px at
+  720px, still one line). Phone sizes unchanged (36px / 44px ≥ 480px — the
+  208px phone text box holds 36px "CONNECTIONS" ≈ 170px). The sub
+  (16px/40ch) and the CTA pill are unchanged.
+
+#### 4.24.D The thirds layout (desktop ≥720px) (item 3)
+
+The §4.23.D plain-flow two-column row (`minmax(0, 1fr) 360px`) is RETIRED.
+Within the 80% container, the first content row becomes **three equal
+thirds — lead / EMPTY / agent**:
+
+```css
+@media (min-width: 720px) {
+  .stage {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    column-gap: var(--space-6);        /* 32px — the §4.23.D gap rhythm */
+    align-items: start;                 /* carried from §4.23.D */
+  }
+  .area-lead   { grid-column: 1; }      /* the lead = the FIRST third */
+  .area-agents { grid-column: 3; }      /* the BLEAK card = the LAST third */
+  /* column 2: NO element — nothing is placed there */
+}
+```
+
+- **The middle third is EMPTY:** no block, no glass panel, no spacer — the
+  fixed video layer (z 0) + vignette/tint (z 1) + the dot mesh (z 2) show
+  through directly (the content column paints no background). Dots falling
+  in that band are visible — intended (the ambient "sky", §4.23.A layer 3).
+  Negative assertion: no landing element declares `grid-column: 2`, and no
+  glass panel exists in the middle third.
+- **The 360px agent-card cap is RE-CUT:** the card's `width: 100%` now
+  resolves against its thirds column — **288px at 1280** (the §4.23.D
+  `360px` cap and the `minmax(0, 1fr) 360px` track both retire). The card's
+  §4.20.G contract (pixel frame, hover lift + glow, press scale, focus
+  rings, TALK → `/income`) carries verbatim; its body padding (20px) and
+  inner layout are unchanged — the 248px inner width holds the 96px
+  portrait, the 24px BLEAK name, the badge, the traits and the quote.
+- **Below the thirds row, unchanged:** the stat card (§4.21.F compact),
+  the three step blocks (§4.21.E — equal thirds, ~300px min-height, no
+  hover/motion) and the contact footer (§4.21.G) keep their contracts
+  verbatim, now as full-width rows of the 80% container. Phone (<720px):
+  `.stage` stays the §4.23.D flex-column stack in DOM order (lead → agent
+  → stat → steps → footer); the thirds grid is desktop-only.
+
+#### 4.24.E Phone open state (item 4)
+
+Owner verbatim (Concept §36.4, recorded as such): *"the site should opens
+with 2/3 from top without blocks from content's"* — sane reading: when the
+site opens on a phone, the top two-thirds of the screen show no content
+blocks (the video background only, under the floating glass header); the
+content blocks begin below that mark.
+
+- **Construction — a spacer on the content wrapper (decided, robust):**
+  the first content block's offset is `padding-top` on `main.canvas`
+  (the content wrapper under the header), phone only:
+  ```css
+  @media (max-width: 719.98px) {
+    .canvas {
+      padding-top: calc(200dvh / 3);   /* exactly 2/3 of the viewport */
+    }
+  }
+  ```
+  Why this construction: it offsets WHATEVER the first block is (no
+  coupling to the lead element), it is one declaration, and it is immune
+  to the header's exact height. **Threshold — decided:** `200dvh / 3` in
+  **`dvh`** units (not `vh`) — the dynamic viewport tracks the mobile URL
+  bar's collapse/expand so the open state reads "two-thirds of what you
+  see"; `dvh` is already the established unit on this page
+  (`.landing-page { min-height: 100dvh }`). Desktop (≥720px) has **no
+  offset** — the thirds row sits directly under the header.
+- **What the open state shows:** the sticky glass header chip floats at
+  the top (in-flow first child, sticky `top: 12px` — it never leaves) over
+  PURE VIDEO for the top two-thirds; the first content block (the lead)
+  begins at or below the two-thirds mark (header ≈ 56px + container
+  padding 24px + the spacer ⇒ at 390×844 the first block's top is
+  ≈ 639px > the 562.7px two-thirds mark; at 320×640 ≈ 483px > 426.7px).
+  The header is chrome, not a content block — the owner's reading is
+  "header over pure video".
+- **Interactions with carried contracts:** reduced motion — the video-only
+  zone shows the static tint + vignette + dots state (§4.23.G unchanged;
+  the spacer is motion-free). Video error — the same zone shows the
+  near-black treatment. The page scrolls normally; the spacer adds no
+  horizontal scroll risk (§4.20.K); anchor jumps (`#tutorial`, `#agents`)
+  are unaffected (the spacer only pads the top of the flow).
+
+#### 4.24.F Supersessions (explicit record)
+
+1. **§4.23.B header chip width superseded:** `width: min(100% - 24px,
+   calc(1000px - 48px))` is replaced by the container breakout (§4.24.A) —
+   the header spans the full 80% column (`calc(100% + 2 * padding)` +
+   negative `margin-inline`), not a narrower inset chip. Sticky offset,
+   z-index, padding, min-height, radius tokens and keep-list unchanged.
+2. **The 1000px canvas cap superseded (width only):** `.landing` drops
+   `max-width: 1000px` for `width: max(80%, 280px)` (§4.24.A) — the §4.20
+   "1000px content canvas" is retired as a width rule; the container's
+   padding, flex rhythm and centering stand.
+3. **§4.23.D glass lead panel superseded:** the liquid-glass lead (92%
+   fill + blur + rounded corners + hairline) is retired; the lead is a
+   solid `--color-surface` pixel-frame panel (§4.24.C). §4.23.I flag 2
+   (the glass-lead ADVICE flag) is resolved by the owner's §36 item 2.
+4. **§4.23.B rounded-scope amended:** the lead was the second rounded
+   surface; now **only the header** is rounded — every pixel-frame surface
+   (including the lead) is square/stepped again.
+5. **§4.23.D desktop two-column row superseded:** `grid-template-columns:
+   minmax(0, 1fr) 360px` is replaced by the thirds grid
+   `repeat(3, 1fr)` — lead col 1, agent col 3, col 2 empty; the 360px
+   agent-card cap re-cuts to the column width (§4.24.D).
+6. **§4.23.D phone stack top superseded:** on phones the content stack no
+   longer starts near the top — the `calc(200dvh / 3)` canvas spacer puts
+   the first block below the two-thirds mark (§4.24.E). DOM order below
+   the spacer unchanged.
+7. **§4.23.B "92% is the floor — do not lower" amended:** the 92% fill
+   remains the no-blur fallback floor, and a `@supports` tier lowers the
+   fill to 88% where the blur actually runs — the AA floor is kept on both
+   tiers by the blur-inclusive re-derivation (§4.24.B).
+8. **Superseded-but-carried:** the §4.23.A fixed layer stack (z 0–10), the
+   decisive video attribute set, the gated one-shot mount `.play()`, the
+   error fallback, the 12-dot mesh, the §4.22.A keep-list, the §4.20.C
+   copy/CTA, the §4.21.E/F/G section contracts and the §4.20.L behavior
+   all carry into §4.24 unchanged.
+
+#### 4.24.G RU/EN i18n delta (grep-audited; both dictionaries required)
+
+**Zero delta** — §36 adds, removes and rewords no string: the header,
+lead, agent card, stat card, steps and footer keep their existing keys; the
+new layout is pure geometry/CSS. Live grep audit (2026-11-22, both dicts):
+exactly **23 `landing.*` keys per dictionary** (`headline.1/2/accent`,
+`sub`, `cta`, `stat.title`, `stat.line1/2/3`, `agent.name/badge/traits/
+quote/cta`, `tutorial.search/chat/share`, `steps.find/chat/share.desc`,
+`footer.contact.email.label`, `footer.contact.github.label`,
+`footer.copyright`) — the parity test asserts `toHaveLength(23)` and stays
+green UNCHANGED. (Record for accuracy: §4.23.F's prose projected 29 keys
+pre-build; the landed build consolidated to 23, which is what both dicts
+and the test carry — §4.24 changes nothing about that count.) No dead keys
+added or removed; the RU/EN switch still re-renders the page without a
+reload.
+
+#### 4.24.H Reduced motion + media states
+
+Unchanged from §4.23.G in full — the spacer and the 80% container are
+motion-free geometry. The phone open state's video-only zone shows the
+same static tint + vignette + dots under reduced motion and the same
+near-black treatment on video error; no loading/empty/error states exist
+(the landing fetches nothing, §4.20.L).
+
+#### 4.24.I Acceptance criteria (checkable)
+
+**80% widths (item 1):**
+1. `.landing` computes to **80% of the screen width, centered** — 1024px at
+   a 1280×800 viewport, 312px at 390px, **280px (the floor) at 320px** —
+   with `max-width: none` (no 1000px cap remains on `.landing`) and no
+   horizontal scroll at 320/760/1280 (§4.20.K holds).
+2. EVERY landing section (header, lead, agent card, stat card, three step
+   blocks, contact footer) lives inside that one container — no section
+   paints wider than 80% of the screen; the full-bleed layers
+   (`--color-landing-bg` background, fixed video/vignette/dots) are the
+   only full-width surfaces.
+3. The sticky header spans the same 80% (1024px at 1280; 312px at 390;
+   280px floor at 320), centered, via the container breakout
+   (`calc(100% + 2 * var(--space-5|--space-7))` + matching negative
+   `margin-inline`); sticky `top: 12px`, z 10, inner padding, min-heights
+   and the keep-list (§4.22.A verbatim) are unchanged; the phone chip
+   (icon + switcher) fits 280px with slack.
+
+**Header blur verification (item 1 rider):**
+4. The glass recipe on `.top` is applied AND verified: `backdrop-filter` +
+   `-webkit-backdrop-filter: blur(14px) saturate(1.1)` present (source
+   assertion, kept), the 92% tier-1 fill present, **and the
+   `@supports` tier-2 `color-mix(… 88% …)` fill present**; no other landing
+   rule overrides `backdrop-filter` on `.top` (negative assertion); the
+   AA floor holds on both tiers (92% ≈ 5.0:1 no-blur worst case; 88%
+   ≈ 5.2:1 blur-inclusive worst case, muted text ≥ 4.5:1).
+
+**Opaque narrower lead (item 2):**
+5. The lead panel is FULLY OPAQUE: body `background: var(--color-surface)`,
+   pixel-corners/pixel-frame construction, square corners, **no
+   `backdrop-filter` and no translucent `color-mix` fill** anywhere on it;
+   the copy (headline + accent + sparkles + sub + Start CTA) is §4.20.C
+   verbatim, left-aligned desktop / centered phone, Start → `/income`.
+6. The lead is NARROWER: it fills its thirds column — ≈ **288px at 1280**
+   (80% container − padding − gaps ÷ 3) and **100% of the container
+   content width on phone** (232px at 320, 264px at 390); the desktop
+   headline adapts (`clamp(22px, 3.5vw, 44px)`) with no mid-word break at
+   720/760/1024/1280; phone headline sizes unchanged.
+
+**Thirds layout (item 3, desktop ≥720px):**
+7. At ≥720px the first content row is a `repeat(3, 1fr)` thirds grid with
+   `--space-6` gaps and `align-items: start`: the **lead in column 1**, the
+   **BLEAK agent card in column 3**, **column 2 EMPTY** — no content block
+   and no glass panel occupy the middle third (negative assertion: no
+   `grid-column: 2` element); the video + vignette + dots show through.
+8. The agent card's width is its third's width (≈ 288px at 1280 — no
+   360px cap remains); its §4.20.G contract (hover lift + glow, press
+   scale, focus rings, TALK → `/income`) and the BLEAK/БЛИК naming
+   (§4.22.D) are unchanged.
+9. Below the thirds row the stat card (§4.21.F), the three step blocks
+   (§4.21.E: 01→03, equal thirds, ~300px min-height, no hover/motion) and
+   the contact footer (§4.21.G) render unchanged as full-width rows of the
+   80% container; phone (<720px) stacks lead → agent → stat → steps →
+   footer in DOM order (the thirds grid is desktop-only).
+
+**Phone open state (item 4):**
+10. At phone viewports (<720px) `main.canvas` carries
+    `padding-top: calc(200dvh / 3)` (dvh, not vh) — the first content
+    block's top lands **below the two-thirds mark** (≥ 2/3 of the dynamic
+    viewport: at 390×844 > 562.7px; at 320×640 > 426.7px) with NOTHING
+    between the floating glass header and that mark but the video layer;
+    the ≥720px rule sets NO such offset (the thirds row starts directly
+    under the header).
+11. The open state holds under reduced motion (static tint + vignette +
+    dots zone) and on video error (near-black treatment) — no blank screen,
+    no layout shift; anchor jumps still clear the stuck header
+    (`scroll-margin-top: 80px` unchanged).
+
+**i18n + behavior + suites:**
+12. i18n: **zero delta** — exactly 23 `landing.*` keys in BOTH dictionaries
+    (unchanged count, unchanged copy); the parity/dead-key tests pass
+    UNAMENDED; RU/EN switching re-renders without a reload.
+13. Behavior (§4.20.L/§4.22.A made exact): the entry points are EXACTLY
+    TWO — Start CTA and agent-card TALK, both → `/income`; the join
+    deep-links (`?code=` / `?u=`) still forward to `/income` with the
+    query preserved; the tab bar is absent on `/`; nothing on `/` fetches
+    (API endpoints used: none).
+14. Constraints: no new dependencies; palette tokens unchanged (the opaque
+    lead reuses `--color-surface`; the 88% tier is a `color-mix` alpha
+    variant of the existing `--color-landing-bg`); routes untouched;
+    `/income` untouched; the video asset stays; reduced-motion fallback
+    unchanged (§4.23.G); the video layer stack (z 0/1/2 + content z 3 +
+    header z 10) is unchanged.
+15. Suites amended and green: `landing-page.test.ts` (80% container +
+    header breakout + @supports 88% tier + opaque-lead + thirds-grid +
+    phone-spacer assertions; the `minmax(0,1fr) 360px` and
+    `min(100% - 24px, calc(1000px - 48px))` source assertions replaced),
+    `i18n.test.ts` / `sweep.test.ts` / `join-flow.test.ts` /
+    `creation-wizard.test.ts` / `mascot.test.ts` (untouched, green);
+    `make lint && make test && make build` green.
+
+#### 4.24.J Flags for the owner / concept (concept report)
+
+1. **ADVICE NEEDED — the desktop headline size:** §4.20.C fixed the desktop
+   headline at 64px; inside a 288px third that size mid-word-breaks
+   ("CONNECTIONS" ≈ 300px vs a 232px text box), so §4.24.C specs
+   `clamp(22px, 3.5vw, 44px)` at ≥ 720px (44px at 1280). If the owner
+   wants the 64px kept, the alternative is a wider lead (e.g. lead spanning
+   columns 1–2 with a narrower empty band), which contradicts the thirds
+   reading — the clamp is the recommended resolution.
+2. **ADVICE NEEDED — the glass-visibility band:** the 88% tier is decided;
+   on real-device smoke the owner may step it down to **85%** (still
+   ≈ 5.05:1 under the same blur-inclusive worst case) if the blur remains
+   imperceptible — 85% is the documented floor of the band, NOT a change
+   in this pass.
+3. **Record — the spacer lands the first block slightly below the exact
+   two-thirds line** (the in-flow header + container padding sit inside
+   the offset zone): the guarantee is "no content block within the top
+   two-thirds", which satisfies the owner's verbatim reading; landing the
+   block exactly AT the mark would require subtracting the header's
+   rendered height (fragile across the 52–56px row) and is not specced.
+
+### 4.25 v3.19 feature design (2026-11-22, owner-approved Concept §37): §37 owner correction — open state + transparent lead + true liquid-glass header
+
+"Not, is not what I want" — the owner reviewed the §36/§4.24 result and
+issued the three-item §37 correction batch: on open, **only the Start block
+and the Bleak block are displayed, vertically centered** (everything else —
+stat card, steps, footer — below the screen space initially), the lead
+block becomes **TRANSPARENT and without border** (no solid panel, no pixel
+frame — text and Start button sit directly over the video), and the header
+becomes **true liquid glassmorphism** with the owner's EXACT css values.
+This section amends §4.24 (→ §4.23 → §4.22 → §4.21 → §4.20) item by item;
+**where §4.25 is silent, the earlier specs stand** except where §4.25.D
+explicitly supersedes them (the video layer stack §4.23.A, the keep-list
+§4.22.A, the card contracts §4.20.G/§4.21.F, step blocks §4.21.E, contact
+footer §4.21.G, headline copy + Start CTA §4.20.C, behavior §4.20.L,
+motion/a11y baselines §4.20.L/§4.6 all carry over unchanged unless named
+below). Same sandbox constraint as §4.22–§4.24: **no video-inspection
+tooling exists** — the video layer decisions carry VERBATIM from §4.23
+(fixed z 0 video + z 1 vignette/tint + z 2 dots + z 3 content + z 10
+header; the committed asset stays untouched; reduced-motion fallback
+unchanged). Grounded in the live code: `apps/web/src/routes/+page.svelte`,
+`lib/components/landing/LandingVideoHero.svelte`, `lib/styles/tokens.css`,
+`tests/landing-page.test.ts`. Hard constraints unchanged: **no new
+dependencies**, **no new color values** (token palette unchanged — the
+owner's exact header `rgba(…)` values are the SANCTIONED EXCEPTION,
+recorded in §4.25.D; token/`color-mix` values only everywhere else),
+**no canvas, no animation library**, **routes untouched**, **/income
+surfaces untouched**, the video asset stays. **API endpoints used: none**
+— the landing stays fetch-free (§4.20 preamble). Task: tz12-09
+(`feature/221c49f3-tz12-09-open-state-glass`).
+
+#### 4.25.A The default open state — only Start + BLEAK, vertically centered (item 1)
+
+Owner verbatim (Concept §37.1): when the site opens, only the Start block
+and the Bleak block are displayed, vertically centered; all remaining
+blocks are below the screen space initially and appear on scroll. The
+Start block = the lead (headline + supporting text + Start button); the
+Bleak block = the agent card. **The stat card is content too — it is below
+the fold initially** (the owner's "ALL remaining blocks (steps, footer,
+everything)" reading covers it). This SUPERSEDES the §36 item 4 /
+§4.24.E phone "top 2/3 without blocks" rule — the
+`padding-top: calc(200dvh / 3)` offset on `main.canvas` is **REMOVED**
+(recorded in §4.25.D; no other spacer rule replaces it).
+
+- **Construction — a 100dvh hero region, header out of the flow:** the
+  header becomes `position: fixed` (§4.25.C), which removes it from the
+  flow; the content column therefore starts at the page top, and the
+  first content region can span **exactly the first viewport**:
+  ```css
+  .landing {
+    /* top padding retired — the fixed header contributes no flow height,
+       and the hero region must span the full first viewport from the page
+       top ("100dvh minus nothing"); inline + bottom padding unchanged */
+    padding: 0 var(--space-5) var(--space-5);
+  }
+  @media (min-width: 720px) {
+    .landing { padding: 0 var(--space-7) var(--space-7); }
+  }
+  ```
+  At the scroll origin (scrollY = 0) the hero region is fully visible —
+  the initial scroll position shows it whole, nothing to scroll to reach
+  the centered open state.
+- **Desktop (≥720px) — the §36 thirds, vertically centered:** `.stage`
+  keeps the `repeat(3, 1fr)` thirds grid (lead col 1, BLEAK col 3, the
+  middle third EMPTY — the video + vignette + dots show through; §4.24.D
+  stands) and becomes the hero region:
+  ```css
+  @media (min-width: 720px) {
+    .stage {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      column-gap: var(--space-6);
+      min-height: 100dvh;      /* the hero row = the whole first viewport */
+      align-content: center;   /* the row centers inside the 100dvh region */
+      align-items: center;     /* lead + BLEAK centered relative to each
+                                  other (was `start`, §4.24.D — superseded) */
+    }
+    .area-lead   { grid-column: 1; }
+    .area-agents { grid-column: 3; }
+    /* column 2: NO element — unchanged (§4.24.D) */
+  }
+  ```
+  Result: the lead and the agent card float vertically centered in the
+  first viewport, side-by-side per the §36 thirds, with the middle third
+  pure video. The stat card, the three step blocks and the contact footer
+  flow in normal flow AFTER the hero region (the `.canvas` flex-column
+  `gap: var(--space-6)` rhythm unchanged) — below the screen space
+  initially, revealed on scroll.
+- **Phone (<720px) — the START block centered in the first viewport,
+  BLEAK next:** `.stage` stays the DOM-order flex column (§4.24.D), and
+  the lead's own section becomes the hero region:
+  ```css
+  @media (max-width: 719.98px) {
+    .area-lead {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center; /* the START block centers in screen 1 */
+    }
+  }
+  ```
+  The copy block (transparent, §4.25.B) is centered vertically in the
+  first viewport (it is already horizontally centered on phone,
+  §4.24.C alignment); the BLEAK card is the NEXT block in flow —
+  immediately after the first screen, visible on the first small scroll;
+  stat card → steps → footer follow in the established DOM order.
+- **No other spacer rules remain:** the §4.24.E `@media (max-width:
+  719.98px) { .canvas { padding-top: calc(200dvh / 3) } }` rule is
+  DELETED outright — nothing replaces it; the open state is produced
+  entirely by the two 100dvh constructions above. Negative assertion: the
+  landing sources contain no `calc(200dvh / 3)` and no `padding-top` on
+  `.canvas`/`.landing`.
+- **Very short viewports (landscape phones, e.g. 740×360):** the centered
+  hero content may pass under the fixed glass header; the translucent
+  glass keeps it visible and the page scrolls freely — no scroll-lock, no
+  min-height guard specced (record; §4.25.H flag 3).
+- **Interaction states:** unchanged — the landing fetches nothing, so
+  there are no loading/empty/error states (§4.20.L); the video-error
+  fallback (§4.23.G) shows the same hero region over the static near-black
+  treatment; reduced motion shows it over the static tint + vignette +
+  dots state (§4.25.F).
+
+#### 4.25.B The lead block: TRANSPARENT, no border (item 2)
+
+Owner verbatim (Concept §37.2): the lead is TRANSPARENT and without
+border — no solid panel, no pixel frame; the text and the Start button sit
+directly over the video background. This SUPERSEDES the §36 item 2 /
+§4.24.C "fully opaque `--color-surface` panel + §4.20.G pixel frame +
+square corners" construction FOR THIS BLOCK (recorded in §4.25.D); the
+§4.20.G pixel-frame contract itself stands for the agent/stat/step/footer
+surfaces — the lead is the ONLY transparent surface.
+
+- **Markup:** `.copy` drops the `pixel-corners pixel-frame
+  pixel-frame--strong` classes; `.copy-body` drops its `pixel-corners`
+  class. The section/body elements stay (the flex column with its
+  `gap: var(--space-4)`, centered-phone/left-desktop alignment and the
+  copy structure are §4.20.C verbatim and carry).
+- **CSS:** `.copy-body { background: transparent; }` — NO background
+  fill, NO border, NO `backdrop-filter`, NO translucent `color-mix` fill,
+  NO glass class, NO box-shadow on the lead, NO border-radius. The old
+  20px/28px body padding becomes invisible (transparent) and MAY stay as
+  inert spacing that keeps the copy clear of the thirds edge — it is not
+  a panel. Negative assertions: the lead subtree carries no
+  `pixel-corners`/`pixel-frame` class, `.copy-body` sets no
+  `background` other than `transparent`/`none`, and neither `.copy` nor
+  `.copy-body` declares `border`, `backdrop-filter` or `border-radius`.
+- **Legibility — text treatment ONLY (token colors, exact values):** a
+  soft dark halo lifts the copy off arbitrary bright video frames; the
+  halo is `color-mix` over the existing near-black `--color-surface`
+  token (no new colors):
+  ```css
+  .headline {
+    text-shadow:
+      0 1px 2px color-mix(in srgb, var(--color-surface) 90%, transparent),
+      0 0 14px color-mix(in srgb, var(--color-surface) 55%, transparent);
+  }
+  .sub {
+    text-shadow:
+      0 1px 2px color-mix(in srgb, var(--color-surface) 90%, transparent),
+      0 0 10px color-mix(in srgb, var(--color-surface) 55%, transparent);
+  }
+  ```
+  The accent word keeps its existing violet glow declaration (its own
+  `text-shadow` overrides the inherited halo — accepted: it is large
+  display text in `--color-deepa-4` over the near-black video; recorded
+  as a residual smoke note, not a change). The headline's near-white
+  `--color-text` over the near-black video measures ≈ 15:1 typical
+  (≥ 4.5 AA) and the halo covers the bright-frame edge cases the header
+  tradeoff (§4.25.C) shares.
+- **The Start button keeps its EXISTING style — verified panel-free:**
+  `.cta-main` is an opaque `--color-deepa-4` pill (radius-pill,
+  `--color-text` label, min-height 48px, glow-on-hover, scale(0.98)
+  press) — it NEVER relied on the lead panel (it rendered as a
+  self-contained pill inside it), so nothing changes: over the video it
+  is its own opaque surface, and its label AA is the established
+  `--color-deepa-ink-4` pairing, independent of the backdrop. No ring,
+  no shadow added — the owner's "without border" reading covers the
+  block, and the button's exact current style stands (a violet-video
+  edge case is a residual smoke note, §4.25.H).
+- **Desktop headline size — the clamp STANDS:** §4.24.C's
+  `clamp(22px, 3.5vw, 44px)` at ≥720px (44px at 1280, scaling with the
+  third) is kept unchanged — the constraint behind it was the 288px
+  third's width, which §37 does not touch (the thirds layout stands);
+  transparency removes the panel, not the column. Phone sizes unchanged
+  (36px / 44px ≥ 480px). This RESOLVES §4.24.J flag 1 (recorded).
+
+#### 4.25.C The header: TRUE liquid glassmorphism — the owner's EXACT values (item 3)
+
+Owner verbatim (Concept §37.3), carried VERBATIM into the spec. The
+§4.24.B two-tier fill recipe (92% / 88% `color-mix` + the `@supports`
+tier-2 block) is REPLACED ENTIRELY by the owner's values.
+
+- **Position — `position: fixed`, decided (the owner offered fixed OR
+  sticky top: 0):** fixed, because (1) the §4.25.A hero region must span
+  the full first viewport from the page top — a fixed header contributes
+  zero flow height, so the 100dvh construction is exact and the centered
+  open state is exactly viewport-centered (a sticky in-flow header would
+  push the hero row down by its 52–56px row); (2) fixed pins the header
+  with zero coupling to `.landing`'s layout — **the video scrolls
+  directly underneath it** at every scroll position and the header never
+  moves.
+- **The 80% width rule STANDS (§36 item 1), mechanism re-cut:** a fixed
+  element's containing block is the viewport, not `.landing`, so the
+  §4.24.A container breakout (`calc(100% + 2 * padding)` + negative
+  `margin-inline`) is invalid for it and RETIRES. The header now sizes
+  directly against the viewport with the SAME width expression as the
+  container, so the two stay pixel-identical:
+  ```css
+  .top {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    margin-inline: auto;         /* centers the fixed element */
+    width: max(80%, 280px);      /* == .landing's width, every viewport */
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-4);
+    min-height: 52px;
+    padding: 8px 10px;
+    /* --- the owner's EXACT values, verbatim ------------------------- */
+    background: rgba(20, 20, 30, 0.25);          /* low-opacity dark tint */
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    backdrop-filter: blur(16px) saturate(180%);
+    border-top: 1px solid rgba(255, 255, 255, 0.15);   /* glossy */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15); /* top/bottom
+                                        only — side borders NONE */
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15); /* soft inner
+                                        highlight — the liquid-glass edge */
+    border-radius: var(--radius-lg);   /* §36 rounding STANDS (owner
+                                          silent on corners) */
+  }
+  @media (max-width: 719.98px) {
+    .top { border-radius: var(--radius-md); }  /* the phone chip radius */
+  }
+  @media (min-width: 720px) {
+    .top { min-height: 56px; padding: 10px 16px; }
+  }
+  ```
+  Resulting widths: 1280 → 1024px (80%), 390 → 312px, 320 → 280px (the
+  floor) — identical to §4.24.A's numbers; the keep-list (§4.22.A
+  verbatim: web icon + desktop anchors + switcher; phone icon +
+  switcher), the inner paddings, min-heights and z 10 are unchanged.
+- **The two-tier recipe is DELETED:** the `color-mix(… 92% …)` tier-1
+  declaration, the `@supports (backdrop-filter: blur(1px)) or …`
+  tier-2 block and the violet Deepa hairline
+  (`border: 1px solid color-mix(… --color-deepa-4 22% …)`) are all
+  REMOVED — `saturate(1.1)`/`blur(14px)` become the owner's
+  `saturate(180%)`/`blur(16px)`. The no-backdrop-filter fallback is
+  re-specced as a single higher-opacity tint so text stays readable
+  without blur support:
+  ```css
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .top { background: rgba(20, 20, 30, 0.85); }
+  }
+  ```
+- **Rounded corners — KEPT:** the owner did not mention corners; the
+  §36 rounding stands unless contradicted (radius-lg desktop /
+  radius-md phone chip). Visual note: with `top: 0` the rounded top
+  corners sit flush at the screen edge — intended per the owner's
+  position spec; `top: var(--space-3)` remains the one-line alternative
+  if the smoke dislikes it (§4.25.H flag 2, not a change in this pass).
+- **AA TRADEOFF — recorded explicitly (owner-order exception):** at a
+  0.25 tint + blur, body-text AA (4.5:1) over arbitrary bright video
+  frames is NOT guaranteeable. Numbers (worst case): a white video pixel
+  under the z-1 30% wash reads ≈ 184 luminance; composited with the 0.25
+  tint it lands ≈ rgb(144) — muted nav text `#919397` there is ≈ 1.1:1
+  and even `--color-text` ≈ 2.5:1 (fail). Over the owner's actual
+  near-black video (recorded intent, §4.22.F) the composite stays near
+  rgb(20–25) and the same texts hold ≥ 4.5:1 comfortably. The owner's
+  exact values WIN — recorded as an owner-order exception to the §2.6 AA
+  baseline. Mitigations already in place: near-white text colors (the
+  large pixel headline + nav glyphs), the near-black video, the z-1
+  wash + vignette that darken the backdrop the filter samples, and the
+  §4.25.B lead halo. Residual risk is the owner's real-device smoke over
+  bright frames; if it fails there, the remedies (a higher tint opacity
+  — an owner-value change — or a localized nav text treatment) need the
+  owner's sign-off and are NOT specced (§4.25.H flag 1).
+- **Anchors:** `scroll-margin-top: 80px` on `#agents`/`#tutorial` stands
+  (the fixed header is ≤ 56px tall at top: 0 — 80px still clears it).
+
+#### 4.25.D Supersessions (explicit record)
+
+1. **§36 item 4 / §4.24.E phone open state SUPERSEDED:** the
+   `padding-top: calc(200dvh / 3)` spacer on `main.canvas` is REMOVED;
+   the open state is now "only Start + BLEAK, vertically centered" on
+   BOTH breakpoints (§4.25.A) — phone: the START block centered in the
+   first 100dvh, BLEAK next in flow. No other spacer rule remains.
+2. **§36 item 2 / §4.24.C opaque lead SUPERSEDED for the lead block:**
+   the solid `--color-surface` panel, the §4.20.G pixel-frame
+   construction and the square-corner contract are retired FOR THE LEAD
+   ONLY — the lead is transparent and borderless over the video
+   (§4.25.B). §4.20.G stands for the agent/stat/step/footer surfaces;
+   the header remains the ONLY rounded surface (unchanged — the lead was
+   square anyway).
+3. **§4.24.B two-tier glass fill REPLACED:** the 92%/88% `color-mix`
+   recipe, its `@supports` tier-2 block and the §4.23.B violet Deepa
+   hairline are deleted; the owner's exact values
+   (`rgba(20, 20, 30, 0.25)` + `blur(16px) saturate(180%)` + 1px
+   `rgba(255, 255, 255, 0.15)` top/bottom borders + the inset inner
+   highlight) apply verbatim, with the `rgba(20, 20, 30, 0.85)`
+   no-backdrop-filter fallback (§4.25.C). §4.24.J flag 2 (the 88%/85%
+   band) is MOOT.
+4. **§4.24.F.1 / §4.24.A header breakout mechanism RETIRED:** the
+   `calc(100% + 2 * padding)` + negative `margin-inline` breakout is
+   replaced by the fixed header's viewport-relative
+   `width: max(80%, 280px); margin-inline: auto` (§4.25.C) — the §36 80%
+   width rule itself STANDS, and the header's width still equals the
+   container's at every viewport.
+5. **§4.23.B sticky header position RETIRED:** `position: sticky; top:
+   var(--space-3)` becomes `position: fixed; top: 0` (§4.25.C, owner's
+   spec; justification recorded there).
+6. **§4.24.D `align-items: start` SUPERSEDED on the hero row:** the
+   desktop thirds grid centers its items (`align-items: center`) inside
+   the 100dvh hero region (`align-content: center`) — the thirds
+   columns/gaps/empty-middle stand unchanged.
+7. **Sanctioned palette exception (record):** the four owner `rgba(…)`
+   header values are raw literals outside the token palette — sanctioned
+   by the owner's exact-value spec (§37.3) and recorded here; everywhere
+   else the token/`color-mix` rule (§4.1, §4.24 preamble) stands. Note
+   for the suite: the raw-hex guard (`#[0-9a-fA-F]{3,8}`) does not match
+   `rgba(…)` literals — the existing test stays green without a
+   waiver.
+8. **Superseded-but-carried (unchanged into §4.25):** the §4.23.A fixed
+   layer stack (z 0–10), the decisive video attribute set, the gated
+   one-shot mount `.play()`, the error fallback, the 12-dot mesh, the
+   §4.22.A keep-list, the §4.20.C copy/CTA, the §4.21.E/F/G section
+   contracts, the §4.20.L behavior + deep-link forwarding and the
+   §4.23.G reduced-motion fallback all carry unchanged.
+
+#### 4.25.E RU/EN i18n delta (grep-audited; both dictionaries required)
+
+**Zero delta, verified** — §37 adds, removes and rewords no string: the
+open state, the transparent lead and the header glass are pure
+geometry/CSS. The live dictionaries carry exactly **23 `landing.*` keys
+per dictionary** (`headline.1/2/accent`, `sub`, `cta`, `stat.title`,
+`stat.line1/2/3`, `agent.name/badge/traits/quote/cta`,
+`tutorial.search/chat/share`, `steps.find/chat/share.desc`,
+`footer.contact.email.label`, `footer.contact.github.label`,
+`footer.copyright` — the same set the parity test's `LANDING_KEYS`
+asserts); the parity/dead-key tests pass UNAMENDED. No dead keys touched;
+the header switch re-renders the page without a reload.
+
+#### 4.25.F Reduced motion + media states
+
+Unchanged from §4.23.G in full: under `prefers-reduced-motion` the video
+stays paused at frame 0 and the static near-black tint + vignette + 12
+static dots ARE the fallback state. The transparent lead READS on that
+fallback: `--color-text`/`--color-text-muted` over the near-black static
+backdrop hold ≈ 15:1 / ≈ 5:1, and the §4.25.B halo adds edge definition —
+no additional treatment needed. The header's glass sits over the same
+static backdrop (blur has nothing moving; the 0.85 fallback tint only
+engages where backdrop-filter is unsupported). The 100dvh hero regions
+are motion-free geometry. Video error: the same hero region shows over
+the near-black treatment — no blank screen, no layout shift. No
+loading/empty/error states exist (the landing fetches nothing, §4.20.L).
+
+#### 4.25.G Acceptance criteria (checkable)
+
+**Open state (item 1):**
+1. At the scroll origin, the first viewport contains ONLY the lead block
+   (headline + supporting text + Start button) and the BLEAK agent card
+   (plus the fixed header chrome) — NO stat card, NO step block, NO
+   footer and no other content block is visible in the first viewport;
+   all remaining blocks start below the fold and appear on scroll — at
+   BOTH 1280×800 (desktop) and 390×844 (phone).
+2. Desktop ≥720px: the hero region is a `min-height: 100dvh` thirds grid
+   (`repeat(3, 1fr)`, `--space-6` column gap) with `align-content:
+   center` + `align-items: center` — the lead sits in column 1, the
+   BLEAK card in column 3, the middle third EMPTY (no `grid-column: 2`
+   element), both blocks vertically centered in the first viewport.
+3. Phone <720px: `.area-lead` is `min-height: 100dvh` with the copy
+   vertically centered (`justify-content: center`) in the first
+   viewport; the BLEAK card is the immediately following block in flow
+   (visible on the first small scroll); then stat → steps → footer in
+   the established DOM order.
+4. The §4.24.E spacer is GONE: no `calc(200dvh / 3)` anywhere in the
+   landing sources, no `padding-top` on `.canvas`/`.landing` in any
+   media query; `.landing`'s top padding is 0 (inline + bottom padding
+   per breakpoint unchanged).
+
+**Lead transparent + borderless (item 2):**
+5. `.copy` carries NO `pixel-corners`/`pixel-frame`/`pixel-frame--strong`
+   class and `.copy-body` carries NO `pixel-corners` class; `.copy-body`
+   sets `background: transparent` (or none) — negative assertions: no
+   `background: var(--color-surface)` on the lead, no `border`, no
+   `backdrop-filter`, no `color-mix` fill, no `border-radius` and no
+   `box-shadow` on `.copy`/`.copy-body`.
+6. The lead copy is §4.20.C verbatim: the 3-line headline + accent word
+   + 2 sparkles + the sub + the Start CTA; Start → `/income`; the
+   desktop headline clamp `clamp(22px, 3.5vw, 44px)` STANDS (no 64px
+   returns); phone sizes unchanged (36px / 44px ≥ 480px).
+7. The legibility halo is present and token-only: `.headline` and `.sub`
+   declare the `0 1px 2px color-mix(… --color-surface 90% …)` +
+   soft-ambient `text-shadow` treatment; the accent word keeps its
+   violet glow declaration; no new color values beyond the sanctioned
+   header rgba set.
+8. The Start button keeps its exact current style: opaque
+   `--color-deepa-4` pill, `--color-text` label, `--radius-pill`,
+   min-height 48px, hover glow, press scale(0.98) — unchanged markup,
+   unchanged CSS.
+
+**Header — true liquid glass (item 3):**
+9. `.top` is `position: fixed; top: 0` (NOT sticky), `z-index: 10`, and
+   the video scrolls directly underneath it (the header is out of the
+   content flow — `.landing`'s first in-flow child is `main.canvas`).
+10. The owner's EXACT values verbatim on `.top`: `background:
+    rgba(20, 20, 30, 0.25)`; `backdrop-filter: blur(16px) saturate(180%)`
+    AND `-webkit-backdrop-filter: blur(16px) saturate(180%)`;
+    `border-top: 1px solid rgba(255, 255, 255, 0.15)` and `border-bottom:
+    1px solid rgba(255, 255, 255, 0.15)` with side borders NONE;
+    `box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15)`.
+11. Width/centering: `width: max(80%, 280px)` + `margin-inline: auto`
+    with `left: 0; right: 0` — 1024px at 1280, 312px at 390, 280px (the
+    floor) at 320, pixel-identical to `.landing`'s width; the
+    §4.24.A breakout declarations (`calc(100% + 2 * var(--space-5|
+    --space-7))` + matching negative margins) are GONE.
+12. The two-tier recipe is GONE: no `color-mix(… 92% …)` / 88% tier, no
+    violet Deepa hairline on `.top`; the `@supports not (…)` fallback
+    sets `background: rgba(20, 20, 30, 0.85)`.
+13. Rounded corners KEPT: `border-radius: var(--radius-lg)` desktop /
+    `var(--radius-md)` in the <720px chip rule; keep-list UNCHANGED
+    (§4.22.A verbatim — icon + 2 desktop anchors + switcher; phone icon
+    + switcher); inner padding (8px 10px / 10px 16px) and min-heights
+    (52/56px) unchanged; `scroll-margin-top: 80px` on `#agents`/
+    `#tutorial` unchanged.
+14. The AA tradeoff is RECORDED in this spec (§4.25.C): the owner's
+    exact values intentionally supersede the §2.6 AA guarantee for the
+    header over bright video frames (owner-order exception) — no test
+    asserts header-text contrast over video; the existing glass-recipe
+    assertions are replaced by ACs 10–12.
+
+**i18n + behavior + below-the-fold + suites:**
+15. i18n: **zero delta** — exactly 23 `landing.*` keys in BOTH
+    dictionaries (unchanged count, unchanged copy); the parity/dead-key
+    tests pass UNAMENDED; RU/EN switching re-renders without a reload.
+16. Behavior (§4.20.L/§4.22.A): the entry points are EXACTLY TWO — the
+    lead Start CTA and the agent-card TALK, both → `/income`; the join
+    deep links (`?code=` / `?u=`) still forward to `/income` with the
+    query preserved; the tab bar is absent on `/`; nothing on `/`
+    fetches (**API endpoints used: none**).
+17. Below the fold, intact: the stat card (§4.21.F compact), the three
+    step blocks (§4.21.E: 01→03, equal thirds ~300px min-height desktop,
+    no hover/motion) and the contact footer (§4.21.G) keep their
+    contracts and render as normal-flow rows after the hero region; the
+    BLEAK card keeps its §4.20.G contract (hover lift + glow, press
+    scale, focus rings, TALK → `/income`) at its third's width.
+18. Suites amended and green: `landing-page.test.ts` — the superseded
+    §36/§4.24 assertions REPLACED (the phone-spacer
+    `calc(200dvh / 3)` test, the opaque-lead/pixel-frame test, the
+    sticky+breakout test, the 92%/88% two-tier test and the blur(14px)
+    saturate(1.1) assertions are rewritten to ACs 1–13 above; the
+    `.glass`-absent and raw-hex guards stay green) — plus
+    `i18n.test.ts` / `sweep.test.ts` / `join-flow.test.ts` /
+    `creation-wizard.test.ts` / `mascot.test.ts` untouched and green;
+    `make lint && make test && make build` green.
+19. Constraints: no new dependencies; palette tokens unchanged (the
+    owner's header rgba values are the recorded sanctioned exception);
+    routes untouched; `/income` untouched; the video asset stays; the
+    video layer stack (z 0/1/2 + content z 3 + header z 10) unchanged.
+
+#### 4.25.H Flags for the owner / concept (concept report)
+
+1. **ADVICE NEEDED — header AA residual risk (recorded, not actionable
+   in this pass):** at the owner's exact 0.25 tint, nav/muted text over
+   an unusually bright video frame can fall below AA (derivation in
+   §4.25.C). The owner's values win (owner-order exception recorded);
+   the real-device smoke over bright frames decides. If it fails, the
+   remedies (raise the tint opacity — an owner-value change — or a
+   localized nav text treatment) come back to the owner; nothing is
+   pre-specced.
+2. **Smoke note — fixed `top: 0` + kept rounding:** the glass pill's
+   rounded top corners sit flush at the screen edge. If the owner
+   dislikes the flush look, `top: var(--space-3)` (the old 12px float)
+   is the one-line alternative — owner decision, not a change here.
+3. **Record — very short viewports (landscape phones):** the centered
+   hero content may pass under the fixed glass header; the translucent
+   glass keeps it visible; no scroll-lock or min-height guard is
+   specced.
+4. **Record — §4.24.J statuses:** flag 1 (desktop headline size) is
+   RESOLVED — the `clamp(22px, 3.5vw, 44px)` stands (§4.25.B); flag 2
+   (the 88%/85% glass-visibility band) is MOOT — the two-tier recipe is
+   retired by the owner's exact values; flag 3 (the two-thirds spacer
+   record) is MOOT — the spacer is removed by §37.1.
+
+### 4.26 v3.20 feature design (2026-11-22, owner-approved Concept §38): §38 glass-system polish + 4 new landing sections
+
+The owner reviewed the §37 result and issued the seven-item §38 batch: a
+**floating liquid-glass header** with **smooth-scroll anchor nav** (HOW IT
+WORKS / PRIVACY / USE CASES / JOIN), the stat card becoming a **liquid-glass
+banner** with a live-network sub-badge + pulsing status caption, the three
+step cards going **glass** with hover glow/lift, mini-illustrations and
+micro-pills, a **dark glass footer pill**, and **FOUR new content sections**
+below the steps (Live Agent Simulation / Privacy & Control / Use Cases /
+Final CTA) whose GET EARLY ACCESS form is a **frontend mailto stub**. This
+section amends §4.25 (→ §4.24 → … → §4.20) item by item; **where §4.26 is
+silent, the earlier specs stand** except where §4.26.K explicitly supersedes
+them (the video layer stack §4.23.A, the keep-list §4.22.A, the open-state
+hero regions §4.25.A, the transparent lead §4.25.B, the headline copy +
+Start CTA §4.20.C, behavior §4.20.L, motion/a11y baselines §4.20.L/§4.6 all
+carry over unchanged unless named below). Grounded in the live code:
+`apps/web/src/routes/+page.svelte`,
+`lib/components/landing/{LandingVideoHero,LandingFigure}.svelte`,
+`figures.ts`, `lib/components/personage/bleakFigure.ts`,
+`lib/styles/tokens.css`, `lib/i18n/{en,ru}.ts`,
+`tests/landing-page.test.ts`. Hard constraints unchanged: **no new
+dependencies** (all effects are native CSS; the new art is hand-authored SVG
+rects per §4.3), **no new color values** beyond the sanctioned raw-literal
+glass family (§4.26.K.8 — the owner's exact `rgba(…)` values join the
+§4.25.D.7 precedent; tokens/`color-mix` everywhere else), **no canvas, no
+animation library**, **routes untouched**, **/income surfaces untouched**,
+the video asset stays. **API endpoints used: none** — the landing stays
+fetch-free (§4.20 preamble); the GET EARLY ACCESS control is a `mailto:`
+stub, not a fetch (§4.26.I-2). Task: tz12-10
+(`feature/a729241a-tz12-10-glass-sections`).
+
+#### 4.26.A The header: detached floating glass pill + smooth-scroll anchor nav (item 1)
+
+Owner verbatim (Concept §38.1), carried VERBATIM into the spec. The §4.25.C
+exact values and the §4.24.A/§4.25.C **80% header width** are superseded
+(§4.26.K.1–.2); the keep-list (§4.22.A verbatim: web icon + desktop nav +
+switcher; phone icon + switcher) is UNCHANGED.
+
+- **Position — `position: fixed`, top: 24px, decided (the owner offered
+  fixed OR sticky):** fixed, because (1) the §38 width — **90% of the
+  viewport, max-width 1200px** — cannot come from a sticky header inside
+  `.landing`: the container is `max(80%, 280px)` (§4.24.A stands for the
+  CONTENT column), so a sticky child is ≤ 80% wide and the retired
+  container-breakout hack (§4.24.F.1) cannot reach 90%/1200px either (at
+  1280 it yields 1120px, not the owner's 1152px); (2) `fixed` sizes against
+  the viewport — the same mechanism §4.25.C already uses — with
+  `top: 24px` replacing `top: 0` (detached from the top edge per the
+  owner's spec; the video scrolls through the 24px gap above it).
+  ```css
+  .top {
+    position: fixed;
+    top: 24px;                     /* the owner's exact value */
+    left: 0;
+    right: 0;
+    margin-inline: auto;           /* centers the fixed element */
+    width: 90%;                    /* the owner's exact width */
+    max-width: 1200px;             /* the owner's exact cap */
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-4);
+    min-height: 52px;
+    padding: 8px 10px;             /* inner chrome unchanged */
+    /* --- the owner's EXACT §38.1 values, verbatim ------------------ */
+    background: rgba(18, 15, 28, 0.35);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    backdrop-filter: blur(18px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.2);   /* full border — supersedes
+                                      §4.25.C's top/bottom-only rule */
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35);
+    border-radius: var(--radius-md);   /* resolves to the owner's exact
+                                      20px (token value 20px) */
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .top { background: rgba(18, 15, 28, 0.85); }  /* the §4.25.C fallback
+                                      re-pointed to the new tint */
+  }
+  @media (min-width: 720px) { .top { min-height: 56px; padding: 10px 16px; } }
+  ```
+  The `@media (max-width: 719.98px) { .top { border-radius: … } }` phone
+  chip rule is DELETED — the radius is now 20px at every width (the
+  `--radius-md` token alone). Resulting widths: 1280 → 1152px (90%), 800 →
+  720px, 390 → 351px, 320 → 288px — the header is WIDER than the 80%
+  content column at every viewport ≥ 350px (intended per §38; recorded so
+  nobody "fixes" it — §4.26.O.5). Keep-list, inner paddings, min-heights
+  and z 10 unchanged.
+- **NAV LINKS → SMOOTH-SCROLL ANCHORS (the owner's final directive — the
+  "match the full page" line):** the `.top-nav` anchor set is replaced.
+  The old anchors (the combined `FIND → CHAT → SHARE` link → `#tutorial`
+  and the `BLEAK` link → `#agents`) are SUPERSEDED (§4.26.K.3); the new
+  set is exactly four, in this DOM order:
+  | # | Label (EN, exact) | Label (RU) | Target | Target section |
+  | --- | --- | --- | --- | --- |
+  | 1 | `HOW IT WORKS` | «КАК ЭТО РАБОТАЕТ» | `#how-it-works` | the existing three step cards (§4.21.E) |
+  | 2 | `PRIVACY` | «ПРИВАТНОСТЬ» | `#privacy` | new Section 5 (§4.26.G) |
+  | 3 | `USE CASES` | «СЦЕНАРИИ» | `#use-cases` | new Section 6 (§4.26.H) |
+  | 4 | `JOIN` | «ВСТУПИТЬ» | `#join` | new Section 7 (§4.26.I) |
+  - **IDs:** the step-cards section's id RENAMES `tutorial` →
+    `how-it-works`; Sections 5/6/7 carry `id="privacy"` / `id="use-cases"`
+    / `id="join"`. Section 4 (the simulation) gets its own `id="sim"`
+    (record) — no nav link targets it (§4.26.F). The `#agents` id STAYS on
+    the BLEAK card section (nothing else consumes it) but no nav link
+    points at it anymore.
+  - **RU labels are design inventions** (the owner gave EN only; §38's
+    RU/EN-parity preamble requires keys in both dictionaries) — flagged
+    for owner tone approval (§4.26.O.1).
+  - **Anchor plumbing:** each target gets `scroll-margin-top: 100px` (the
+    24px top gap + ≤ 56px header row + 20px slack — the detached header no
+    longer lets 80px clear it). Smooth scroll via CSS, preferred per the
+    caller's brief, with the reduced-motion auto fallback:
+    ```css
+    @media (prefers-reduced-motion: no-preference) {
+      :global(html) { scroll-behavior: smooth; }
+    }
+    ```
+    (declared once in the landing page's styles — the global rule exists
+    only while `/` is mounted; the default `auto`/instant behavior IS the
+    reduced-motion fallback). The anchors keep the established nav style
+    (Handjet 12px uppercase `--color-text-muted`, hover `--color-deepa-4`,
+    120ms) and stay desktop-only (≥720px; phone = icon + switcher).
+- **AA tradeoff (carried):** the §4.25.C owner-order exception carries —
+  at a 0.35 tint + blur the same derivation applies (the higher tint
+  improves on 0.25's numbers, but over a bright frame the guarantee is
+  still the owner's exact-values exception, not the §2.6 baseline). The
+  new white border + inset highlight are decorative non-text edges (≥3:1
+  not required).
+
+#### 4.26.B The banner: REAL PEOPLE. REAL RESULTS. becomes liquid glass (item 2)
+
+The §4.20.G-a / §4.21.F compact stat card IS this banner — amended **in
+place** (same markup slot, same copy contract, same full-width row atop the
+post-hero flow, §4.25.A). Only the SURFACE and the additions below change
+(§4.26.K.4).
+
+- **Glass surface:** `.stat-body`'s `background: var(--color-surface)` is
+  replaced by the owner's exact values:
+  ```css
+  .stat-body {
+    background: rgba(20, 18, 30, 0.55);          /* dark liquid glass */
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+  ```
+  The pixel-corners/pixel-frame construction (`pixel-corners
+  pixel-frame--strong` outer + `pixel-corners` body) is KEPT over the
+  glass — the stepped frame lines are the 8-bit identity (the same
+  decision as the step cards, §4.26.C); the padding/typography contract
+  (§4.21.F: 12px 14px / 16px 20px, 17px title) is unchanged. The pixel
+  cityscape of the video blurs right through the fill.
+- **Pixel sub-badge above the title** (rendered as the first child of
+  `.stat-copy`, above `.stat-title`): `[ LIVE NETWORK // IRL ]` — the
+  exact string, key `landing.banner.badge` (RU «[ ЖИВАЯ СЕТЬ // IRL ]» —
+  invention flagged, §4.26.O.1). Style — the pixel-badge technique at chip
+  scale (the §4.5 two-layer stepped-corner simulated border): an outer
+  `<span class="stat-badge pixel-corners">` whose background IS the frame
+  color `color-mix(in srgb, var(--color-deepa-4) 60%, transparent)`, with
+  an inner `<span class="pixel-corners">` (transparent fill, `padding:
+  2px 8px`), text Handjet 11px uppercase, `letter-spacing: 0.08em`,
+  `color: var(--color-deepa-4)`; `margin: 0 0 var(--space-2)`.
+- **Glowing status caption + pulsing green pixel dot** on the right, next
+  to the BLOOM flower: `.stat-glyph` becomes a small right column (flex,
+  `align-items: center`, `gap: 6px`): BLOOM unchanged (44px mobile /
+  48px desktop, §4.21.F) on top; below it the status row — a **pulsing
+  green pixel dot** + the caption `AI Agents active nearby` (key
+  `landing.banner.status`; RU «Рядом активны ИИ-агенты»), Handjet 11px
+  uppercase `--color-text` with a green glow text-shadow
+  (`0 0 8px color-mix(in srgb, var(--color-deepa-1) 45%, transparent)`).
+  The dot:
+  ```css
+  .status-dot {
+    width: 6px; height: 6px; flex: none;      /* square — the pixel read */
+    background: var(--color-deepa-1);          /* the palette's green */
+    box-shadow: 0 0 6px color-mix(in srgb, var(--color-deepa-1) 70%, transparent);
+    animation: status-pulse 1.6s steps(2) infinite alternate; /* §4.6 live-dot family */
+  }
+  @keyframes status-pulse { from { opacity: 1; } to { opacity: 0.4; } }
+  ```
+  Reduced motion: the base.css catch-all collapses the pulse — the dot is
+  static at full opacity. `aria-hidden` on the dot (the caption text
+  carries the meaning).
+
+#### 4.26.C The step cards: glass fill + hover glow/lift + mini-illustrations + micro-pills (item 3)
+
+The §4.21.E step blocks (01 FIND / 02 CHAT / 03 SHARE) keep their content
+contract VERBATIM — the pixel step number (01/02/03, 40px deepa-4 glow),
+the pixel-font title (`landing.tutorial.*`), the step icon
+(search / dialog-lines / contact-share, 32px) and the one-line description
+(`landing.steps.*.desc`) all stay; the layout (desktop equal thirds
+~300px min-height, phone stacked) stays. Amended:
+
+- **Glass surface:** `.step-body`'s `background: var(--color-surface)` is
+  replaced:
+  ```css
+  .step-body {
+    background: rgba(15, 14, 22, 0.65);          /* the owner's exact value */
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  ```
+- **§4.20.G frame fate — DECIDED: KEEP the pixel frame over glass.** The
+  `pixel-corners pixel-frame pixel-frame--strong` outer + `pixel-corners`
+  inner construction stays exactly as shipped: the stepped corner lines
+  and frame strokes are the page's 8-bit neon signature, and glass only
+  replaces the flat fill. `.step-body` therefore still sets NO
+  `border-radius` (the existing "stays square" test assertion stays
+  green). Dropping the frame was considered and rejected — frameless
+  rounded glass cards would erase the pixel language exactly where it is
+  most visible.
+- **Hover — purple outer glow + slight lift:** the §4.21.E
+  "non-interactive, no hover" rule is AMENDED by the owner's batch (the
+  steps gain a hover state; they remain non-navigating display blocks —
+  no click handler, no cursor change):
+  ```css
+  .step-block {
+    transition: transform 160ms ease-out, filter 160ms ease-out;
+  }
+  .step-block:hover {
+    transform: translateY(-4px);   /* the slight lift */
+    filter:
+      drop-shadow(0 0 12px color-mix(in srgb, var(--color-deepa-4) 45%, transparent))
+      drop-shadow(0 0 36px color-mix(in srgb, var(--color-deepa-4) 20%, transparent));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .step-block { transition-duration: 0s; }
+    .step-block:hover { transform: none; }   /* glow applies instantly, no lift */
+  }
+  ```
+  (No press state — the blocks are not buttons.)
+- **Custom pixel mini-illustration, top-right of each card:** an
+  absolutely-positioned decorative SVG (top 12px, right 12px, 48×48px,
+  `aria-hidden`, `shape-rendering="crispEdges"`, `viewBox="0 0 24 24"`,
+  token fills only, transparent background — NO plates, per §4.3;
+  original art, no figure reuses another's parts). Each card renders one
+  of these three 24×24 constructions (fill / rects `[x, y, w, h]`):
+  - **01 FIND — the radar character** (a pixel figure holding a glowing
+    radar/scanner):
+
+    | Part | Fill | Rects |
+    | --- | --- | --- |
+    | Hair | `--color-surface` | `[5,2,10,2]`, `[4,4,2,3]`, `[16,4,2,3]` |
+    | Face | `--color-art-skin-1` | `[6,4,10,7]` |
+    | Dot eyes | `--color-surface` | `[8,7,2,2]`, `[13,7,2,2]` |
+    | Body | `--color-surface-elevated` | `[4,12,12,8]` |
+    | Arms | `--color-surface-elevated` | `[2,13,2,5]`, `[16,13,2,4]` |
+    | Legs | `--color-surface-elevated` | `[5,20,4,3]`, `[11,20,4,3]` |
+    | Radar body | `--color-surface` | `[18,10,5,7]` |
+    | Radar ring | `--color-deepa-4` | `[19,11,3,1]`, `[19,15,3,1]`, `[18,12,1,3]`, `[22,12,1,3]` |
+    | Radar blip | `--color-deepa-1` | `[20,13,1,1]` |
+
+    the radar group carries the accent glow
+    (`filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-deepa-4)
+    60%, transparent))`).
+  - **02 CHAT — two avatars + speech bubble** (facing each other):
+
+    | Part | Fill | Rects |
+    | --- | --- | --- |
+    | Avatar L hair | `--color-surface` | `[1,6,8,3]`, `[1,9,2,4]` |
+    | Avatar L face | `--color-art-skin-1` | `[2,8,6,6]` |
+    | Avatar L body | `--color-surface-elevated` | `[2,15,6,5]` |
+    | Avatar R hair | `--color-deepa-4` | `[15,6,8,3]`, `[21,9,2,4]` |
+    | Avatar R face | `--color-art-skin-3` | `[16,8,6,6]` |
+    | Avatar R body | `--color-surface-elevated` | `[16,15,6,5]` |
+    | Bubble frame | `--color-deepa-4` | `[9,2,7,1]`, `[9,6,7,1]`, `[8,3,1,3]`, `[16,3,1,3]` |
+    | Bubble tail | `--color-deepa-4` | `[11,7,2,1]`, `[12,8,1,1]` |
+    | Bubble dots | `--color-deepa-4` | `[11,4,1,1]`, `[13,4,1,1]`, `[15,4,1,1]` |
+
+  - **03 SHARE — fist-bump + sparkles** (two arms meeting):
+
+    | Part | Fill | Rects |
+    | --- | --- | --- |
+    | Arm L | `--color-surface-elevated` | `[1,9,7,4]` |
+    | Fist L | `--color-art-skin-2` | `[8,8,5,5]` |
+    | Arm R | `--color-surface-elevated` | `[16,9,7,4]` |
+    | Fist R | `--color-art-skin-4` | `[11,8,5,5]` |
+    | Impact star | `--color-deepa-4` | `[12,3,2,2]`, `[11,5,1,1]`, `[14,5,1,1]` |
+    | Sparkle a | `--color-deepa-4` | `[4,3,2,2]` |
+    | Sparkle b | `--color-deepa-2` | `[19,4,2,2]` |
+    | Sparkle c | `--color-text` | `[12,14,2,1]` |
+
+  (data lives beside the step definitions in `+page.svelte` or a small
+  `landing/stepArt.ts` — worker's choice; token fills only.)
+- **Bottom micro-pills — EXACT strings** (pixel font, chip style), one per
+  card, rendered last in `.step-body` (pushed to the bottom on desktop via
+  `margin-top: auto` inside the flex column):
+  | Card | EN (exact) | RU |
+  | --- | --- | --- |
+  | 01 FIND | `RANGE: 50M • REAL-TIME GPS` | «ДАЛЬНОСТЬ: 50М • GPS В РЕАЛЬНОМ ВРЕМЕНИ» |
+  | 02 CHAT | `AUTO-INTRO • ZERO AWKWARDNESS` | «АВТО-ЗНАКОМСТВО • НОЛЬ НЕЛОВКОСТИ» |
+  | 03 SHARE | `INSTANT SYNC • MUTUAL OPT-IN` | «МГНОВЕННАЯ СИНХРОНИЗАЦИЯ • ВЗАИМНОЕ СОГЛАСИЕ» |
+  Style — a chip pill (§4.5: pills are NOT pixel-corners): inline-flex,
+  `border: 1px solid color-mix(in srgb, var(--color-deepa-4) 40%,
+  transparent)`, `border-radius: var(--radius-pill)`, `color:
+  var(--color-deepa-4)`, transparent fill, Handjet 10px (11px ≥720px),
+  `letter-spacing: 0.08em`, uppercase, `padding: 4px 10px`,
+  `margin-top: var(--space-3)` (phone) / `auto` (desktop).
+
+#### 4.26.D The footer: dark glass pill (item 4)
+
+The §4.21.G contact footer's CONTENT contract carries verbatim — the
+copyright row (logo glyph + brand + year) and the EMAIL
+(`mailto:extube@proton.me`) / GITHUB (`github.com/extube`,
+`rel="noopener noreferrer"`) links with their keys and hover/focus
+behavior; the white/purple pixel text is what the footer already renders
+(`--color-text` values, `--color-deepa-4` hovers). The SURFACE is
+replaced (§4.26.K.6): the `pixel-corners pixel-frame pixel-frame--strong`
+outer + `pixel-corners` body construction is retired from the footer and
+the block becomes a **dark liquid-glass pill matching the header family**:
+
+```css
+.foot-body {
+  background: rgba(18, 15, 28, 0.5);        /* the owner's exact value */
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.2);         /* the header family */
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35); /* the family highlight */
+  border-radius: var(--radius-md);          /* 20px — the glass-surface rounding */
+  padding: 16px 20px;
+}
+```
+The footer markup drops all `pixel-corners`/`pixel-frame` classes;
+`max-width: 560px` + centered (§4.21.G) stand. The white border + inset
+highlight are additions beyond the owner's three named values (the family
+recipe, §4.26.E) — recorded. The existing `.foot-body`-stays-square test
+assertion retires (§4.26.N-18).
+
+#### 4.26.E The four new sections — shared glass recipe, placement & ids (item 5)
+
+**Placement:** four new sections inside `main.canvas`, in this DOM order
+AFTER the step-cards section and BEFORE the footer: **sim → privacy →
+use-cases → join**. The `.canvas` flex column's `gap: var(--space-6)`
+rhythm spaces them automatically; the phone stack is the DOM order
+(no exceptions — one order for both breakpoints).
+
+**Shared surface recipe** (the owner's §38.5 values, applied to each
+section's own class — `sim-card`, `privacy-card`, `usecase-pill`,
+`join-card` — NOT a shared `.glass` class, which stays retired):
+
+```css
+.sim-card, .privacy-card, .usecase-pill, .join-card {
+  background: rgba(18, 15, 28, 0.45);        /* the owner's exact fill */
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.2);              /* thin white glossy */
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35);   /* the inset highlight */
+  border-radius: var(--radius-md);           /* 20px — glass surfaces are rounded */
+}
+```
+
+- **Rounded-corner scope amended:** glass surfaces (header, footer, these
+  four sections, the join input) are the rounded family; every
+  pixel-frame surface (agent card, stat/banner, step cards, sim chat
+  window) stays square/stepped (§4.26.K.7).
+- **Section titles:** each of the four sections opens with a centered
+  Handjet 20px uppercase title, `--color-text`, with the §4.20.A deepa-4
+  glow (the 8-bit neon read); keys per section below. Section headings
+  are `<h2>`-level (the sections sit below the hero's `h1`); privacy/use
+  case card titles are `<h3>`.
+- **Inner cards of the privacy section** are NOT glass-stacked: they are
+  transparent (`background: transparent`) with a hairline
+  `border: 1px solid color-mix(in srgb, var(--color-text) 12%,
+  transparent)` and `padding: var(--space-4)` — one backdrop-filter per
+  section, no nested blur cost.
+- **Neon accents:** titles/icons carry the deepa-4 (or per-icon deepa-N)
+  glow recipe; the green (`--color-deepa-1`), yellow (`--color-deepa-2`),
+  cyan (`--color-deepa-5`) hues are reserved to the roles specced below
+  (status dot / button / scout avatar).
+
+#### 4.26.F Section 4 — LIVE AGENT SIMULATION ("HOW YOUR AGENTS BREAK THE ICE")
+
+`id="sim"` (own id; **no nav anchor targets it** — how-it-works is the
+step cards, §4.26.A). One wide glass container (the shared recipe,
+full-width row). Contents:
+
+- **Title:** `HOW YOUR AGENTS BREAK THE ICE` (key `landing.sim.title`;
+  RU «КАК ВАШИ АГЕНТЫ ЗАВОДЯТ РАЗГОВОР») — the shared title style,
+  centered, top of the container.
+- **Body grid (≥720px):** `display: grid; grid-template-columns: 1fr auto
+  1fr; gap: var(--space-5); align-items: center` — left agent block /
+  center chat window / right agent block. **Phone (<720px):** the two
+  agent blocks share a 2-col row (`grid-template-columns: 1fr 1fr`) above
+  the full-width chat window (a flex column, gap `var(--space-4)`).
+- **Left — YOUR AGENT:** the BLEAK personage rendered via
+  `LandingFigure kind="bleak" size={64}` (the shared figure — reuse, no
+  new art) with the established purple portrait glow (the
+  `.agent-portrait` drop-shadow recipe); label `YOUR AGENT` (key
+  `landing.sim.you`; RU «ВАШ АГЕНТ»), Handjet 14px uppercase
+  `--color-text`; status line `Status: Scanning...` (key
+  `landing.sim.you.status`; RU «Статус: Сканирование...»), Handjet 12px
+  `--color-deepa-4`. **Decided: static label + blinking pixel cursor** —
+  a `6×2px` `--color-deepa-4` block appended after the status text
+  (`aria-hidden`), `animation: cursor-blink 1s steps(2) infinite` (opacity
+  1↔0); reduced motion → the cursor is statically visible. The label is
+  static text (no simulated progress).
+- **Right — NEARBY AGENT:** a NEW figure `scout` (cyan/yellow agent) —
+  added to `figures.ts` as a third `FigureName` (`'bleak' | 'bloom' |
+  'scout' | 'bleakWave'`), rendered via `LandingFigure kind="scout"
+  size={64}` with a cyan glow (the drop-shadow recipe re-pointed to
+  `--color-deepa-5`); label `NEARBY AGENT` (key `landing.sim.nearby`; RU
+  «АГЕНТ РЯДОМ»); status `Distance: 15m` (key
+  `landing.sim.nearby.status`; RU «Дистанция: 15м»), Handjet 12px
+  `--color-deepa-5`. **SCOUT construction (24×24 grid, `viewW: 24`,
+  `viewH: 24`, original art, token fills):**
+
+  | Part | Fill | Rects |
+  | --- | --- | --- |
+  | Antenna | `--color-deepa-2` | `[11,1,2,3]` |
+  | Head | `--color-art-skin-1` | `[8,4,8,6]` |
+  | Visor | `--color-deepa-5` | `[7,6,10,2]` |
+  | Visor glint | `--color-text` | `[8,6,2,1]` |
+  | Body | `--color-surface-elevated` | `[7,11,10,8]` |
+  | Chest stripe | `--color-deepa-2` | `[10,13,4,2]` |
+  | Legs | `--color-surface-elevated` | `[8,19,3,4]`, `[13,19,3,4]` |
+
+- **Center — the dark pixel chat window:** the established card pattern —
+  outer `pixel-corners pixel-frame pixel-frame--strong` + inner
+  `pixel-corners` body with `background: var(--color-surface)` (opaque —
+  the chat is the "screen", it does not blur), `width: min(100%, 420px)`,
+  `padding: 12px 16px`. **EXACTLY 3 rows**, top to bottom:
+  1. message from `Agent 01` (key `landing.sim.who1`; RU «Агент 01») —
+     text `Shared interests detected: AI, Pixel Art, Coffee.` (key
+     `landing.sim.msg1`; RU «Обнаружены общие интересы: ИИ, пиксель-арт,
+     кофе.»), left-aligned;
+  2. message from `Agent 02` (key `landing.sim.who2`; RU «Агент 02») —
+     text `High compatibility (96%). Suggesting IRL intro.` (key
+     `landing.sim.msg2`; RU «Совместимость высокая (96%). Рекомендую
+     знакомство вживую.»), right-aligned;
+  3. the glowing green system badge `[ ICE BROKEN — SAY HELLO ]` (key
+     `landing.sim.badge`; RU «[ ЛЁД РАЗБИТ — СКАЖИТЕ ПРИВЕТ ]»),
+     centered.
+  Row anatomy: speaker label Handjet 10px uppercase
+  `--color-text-muted`, message text Inter 13px `--color-text`; rows gap
+  `var(--space-2)`. The badge: inline chip, Handjet 12px uppercase,
+  `color: var(--color-deepa-1)`, `border: 1px solid color-mix(in srgb,
+  var(--color-deepa-1) 50%, transparent)`, glow text-shadow
+  `0 0 8px color-mix(in srgb, var(--color-deepa-1) 60%, transparent)`,
+  `animation: badge-pulse 1.6s steps(2) infinite alternate` (opacity
+  1↔0.7 — the §4.26.B pattern); reduced motion → static. The three
+  strings are static (no typewriter, no loop — this is a preview still,
+  not the retired §4.20.F strip; nothing animates except the badge pulse
+  and the cursor blink).
+
+#### 4.26.G Section 5 — PRIVACY & CONTROL ("BUILT FOR REAL LIFE, NOT STALKERS")
+
+`id="privacy"` (nav target). One glass container (the shared recipe,
+full-width row): title `BUILT FOR REAL LIFE, NOT STALKERS` (key
+`landing.privacy.title`; RU «СОЗДАНО ДЛЯ РЕАЛЬНОЙ ЖИЗНИ, А НЕ ДЛЯ
+СТЕЛКЕРОВ»), then a **3-column grid** (`repeat(3, 1fr)`, gap
+`var(--space-5)`, ≥720px) — **phone: a stack** (full-width cards). Each
+card: transparent + hairline (§4.26.E), centered column, gap
+`var(--space-2)` — pixel icon (48px, `aria-hidden`, 16×16 grid,
+`crispEdges`, token fills, original art) → title Handjet 14px uppercase
+`--color-text` → desc Inter 13px `--color-text-muted`. The three cards
+and icon constructions:
+
+| # | Title (EN, exact) / RU | Desc (EN, exact) / RU | Icon |
+| --- | --- | --- | --- |
+| A | `GHOST MODE` / «РЕЖИМ ПРИЗРАКА» | `Go invisible on the radar with one tap.` / «Одно касание — и вы исчезаете с радара.» | pixel ghost/hoodie character |
+| B | `MUTUAL OPT-IN` / «ВЗАИМНОЕ СОГЛАСИЕ» | `Zero cold DMs. Contacts unlock only after a mutual handshake.` / «Никаких холодных сообщений. Контакты открываются только после взаимного рукопожатия.» | pixel padlock & key |
+| C | `EPHEMERAL GPS` / «GPS БЕЗ СЛЕДОВ» | `Your location is processed live and never stored.` / «Ваша геопозиция обрабатывается в реальном времени и никогда не сохраняется.» | pixel shield + radar |
+
+**Icon constructions (16×16; fill / rects `[x, y, w, h]`):**
+
+- **A — ghost/hoodie** (a white ghost with a hood):
+  | Part | Fill | Rects |
+  | --- | --- | --- |
+  | Hood | `--color-text` | `[4,2,8,2]`, `[3,4,2,5]`, `[11,4,2,5]` |
+  | Body | `--color-text` | `[4,6,8,6]` |
+  | Hem notches | `--color-surface` (cutouts) | `[5,12,1,1]`, `[7,12,1,1]`, `[9,12,1,1]` |
+  | Eyes | `--color-surface` | `[6,7,1,2]`, `[9,7,1,2]` |
+  | Hood shade | `color-mix(in srgb, var(--color-text) 72%, var(--color-surface))` | `[3,9,2,2]`, `[11,9,2,2]` |
+- **B — padlock & key**:
+  | Part | Fill | Rects |
+  | --- | --- | --- |
+  | Shackle | `--color-text-muted` | `[5,2,6,1]`, `[4,3,2,3]`, `[10,3,2,3]` |
+  | Lock body | `--color-deepa-4` | `[4,6,8,6]` |
+  | Keyhole | `--color-surface` | `[7,8,2,3]` |
+  | Key | `--color-accent` | `[11,11,4,1]`, `[14,12,1,2]`, `[12,12,1,1]` |
+- **C — shield + radar**:
+  | Part | Fill | Rects |
+  | --- | --- | --- |
+  | Shield outline | `--color-deepa-1` | `[4,2,8,1]`, `[3,3,1,5]`, `[12,3,1,5]`, `[4,8,8,1]`, `[6,9,4,1]`, `[7,10,2,1]` |
+  | Radar arcs | `--color-deepa-4` | `[6,4,1,1]`, `[9,4,1,1]`, `[5,5,1,1]`, `[10,5,1,1]`, `[7,6,2,1]` |
+  | Radar blip | `--color-deepa-1` | `[8,5,1,1]` |
+
+(RU card titles/descs are inventions flagged in §4.26.O.1; «GPS БЕЗ
+СЛЕДОВ» renders the "ephemeral" idea idiomatically.)
+
+#### 4.26.H Section 6 — USE CASES ("WHERE BLEAK SHINES")
+
+`id="use-cases"` (nav target). **Decided structure:** a plain section
+(no outer glass container — the glass lives on the pills themselves, per
+§38.5's "a 4-column row of glass pills/mini-cards"): centered title
+`WHERE BLEAK SHINES` (key `landing.usecases.title`; RU «ГДЕ БЛИК
+РАСКРЫВАЕТСЯ»), then a **4-column row** of glass pills
+(`repeat(4, 1fr)`, gap `var(--space-4)`, ≥720px). **Phone: a stack**
+(full-width pills; a 2×2 of ~140px cells cannot hold «ВЕЧЕРИНКИ И
+БАРЫ» without wrapping — the stack is the safe reading; a 2×2 grid is a
+one-line change if the owner prefers). Each pill: the shared glass
+recipe + `padding: var(--space-4)`, centered column, gap
+`var(--space-2)`, `min-height: 112px`: pixel icon (40px, `aria-hidden`,
+16×16 grid, token fills) → label Handjet 14px uppercase `--color-text`.
+
+| # | Label (EN, exact) / RU | Icon |
+| --- | --- | --- |
+| 1 | `CONFERENCES` / «КОНФЕРЕНЦИИ» | pixel badge (id-card on a lanyard) |
+| 2 | `PARTIES & BARS` / «ВЕЧЕРИНКИ И БАРЫ» | pixel neon glasses |
+| 3 | `COWORKINGS` / «КОУОРКИНГИ» | pixel laptop |
+| 4 | `FESTIVALS` / «ФЕСТИВАЛИ» | pixel headphones |
+
+**Icon constructions (16×16; fill / rects):**
+
+- **Badge:** lanyard `--color-text-muted` `[7,1,2,3]`, `[6,3,1,1]`,
+  `[9,3,1,1]`; card body `--color-text` `[4,4,8,8]`; photo chip
+  `--color-deepa-4` `[6,6,3,3]`; lines `--color-surface` `[10,6,1,1]`,
+  `[10,8,1,3]`.
+- **Neon glasses:** frame `--color-text` `[2,6,5,1]`, `[9,6,5,1]`,
+  `[7,7,2,1]`, `[2,7,1,3]`, `[6,7,1,3]`, `[9,7,1,3]`, `[13,7,1,3]`;
+  lenses `--color-deepa-5` `[3,7,3,3]`, `[10,7,3,3]` with the deepa-4
+  glow drop-shadow (the neon read).
+- **Laptop:** screen `--color-surface` `[3,3,10,7]`; glow rows
+  `--color-deepa-4` `[5,5,3,1]`, `[5,7,2,1]`; base `--color-text`
+  `[2,10,12,2]`.
+- **Headphones:** band `--color-text` `[3,3,10,2]`, `[2,4,2,3]`,
+  `[12,4,2,3]`; cups `--color-deepa-2` `[3,7,3,5]`, `[10,7,3,5]`;
+  pad glints `--color-deepa-4` `[4,8,1,1]`, `[11,8,1,1]`.
+
+#### 4.26.I Section 7 — FINAL CTA ("JOIN THE NETWORK") + the GET EARLY ACCESS stub (items 5–6)
+
+`id="join"` (nav target). One **centered glass card** (the shared recipe)
++ the **vibrant purple neon glow behind it**:
+
+```css
+.join-card {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.35),
+    0 0 32px color-mix(in srgb, var(--color-deepa-4) 45%, transparent),
+    0 0 96px color-mix(in srgb, var(--color-deepa-4) 22%, transparent);
+}
+```
+
+Contents (centered column, gap `var(--space-4)`):
+
+1. **The waving mascot** — `LandingFigure kind="bleakWave" size={96}`:
+   the BLEAK personage art REUSED as the base, extended in
+   `personage/bleakFigure.ts` with a new exported variant
+   `BLEAK_WAVE_FIGURE` (also re-exported through `figures.ts` as the
+   `bleakWave` entry so `LandingFigure` renders it — one source of truth,
+   zero duplication). **Byte-table (36×32 grid; `viewW: 36`, `viewH:
+   32`; the BLEAK parts carry over at identical coordinates except the
+   two deltas below):**
+
+   | Part | Fill | Rects |
+   | --- | --- | --- |
+   | Hair | `--color-surface` | `[9,3,14,3]`, `[9,6,2,3]`, `[21,6,2,3]` |
+   | Face | `--color-art-skin-1` | `[10,6,12,10]` |
+   | Mouth | `--color-surface` | `[14,13,4,1]` |
+   | **Cyber-glasses frame** (replaces the monocle) | `--color-surface` | `[9,9,15,1]`, `[9,10,1,2]`, `[23,10,1,2]` |
+   | **Cyber-glasses lenses** | `--color-deepa-5` | `[10,10,5,2]`, `[17,10,5,2]` |
+   | Lens glints | `--color-text` | `[10,10,2,1]`, `[17,10,2,1]` |
+   | Shoulders / torso / lapels | `--color-surface-elevated` | `[7,18,18,2]`, `[8,20,16,8]`, `[12,20,2,6]`, `[18,20,2,6]` |
+   | Shirt collar + front | `--color-text` | `[14,18,4,2]`, `[15,20,2,3]` |
+   | Tie | `--color-deepa-4` | `[15,21,2,5]` |
+   | **Wave arm** (raised, right side) | `--color-surface-elevated` | `[24,16,3,3]`, `[25,12,3,4]` |
+   | **Wave hand** | `--color-art-skin-1` | `[25,9,3,3]` |
+   | Wave sparkles | `--color-deepa-4` | `[29,7,1,1]`, `[30,10,1,1]` |
+
+   Deltas vs `BLEAK_FIGURE` exactly: (a) the monocle visor group AND the
+   left dot eye are replaced by the cyber-glasses frame + lenses +
+   glints; (b) the wave arm/hand/sparkle groups are added. Every other
+   rect is byte-identical. Decorative (`aria-hidden` — no label prop).
+2. **Headline:** `THE RIGHT CONNECTIONS ARE ALREADY NEARBY.` (key
+   `landing.join.headline`; RU «НУЖНЫЕ ЗНАКОМСТВА УЖЕ РЯДОМ.») — Handjet
+   20px mobile / 24px ≥720px, uppercase, `--color-text`, centered, the
+   §4.20.A deepa-4 glow.
+3. **Inline row (≥720px): input + button side-by-side** (input flex 1);
+   **phone: stacked** (input full-width, button full-width, gap
+   `var(--space-3)`).
+   - **Input:** `<input type="text" inputmode="email" autocomplete="email">`
+     with `placeholder` = `Enter your email or @telegram...` (key
+     `landing.join.input.placeholder`; RU «Введите почту или
+     @telegram...») and `aria-label` = the same key (no visible label;
+     recorded a11y note). Style — dark glass: `background: rgba(15, 14,
+     22, 0.65)`, `border: 1px solid rgba(255, 255, 255, 0.2)`,
+     `border-radius: var(--radius-pill)`, `padding: 12px 20px`,
+     `min-height: var(--touch-target)`, Inter 14px `--color-text`;
+     `:focus-visible` ring per §2.6 (`2px solid var(--color-deepa-4)`,
+     offset 2).
+   - **Button — GET EARLY ACCESS:** DECIDED **neon yellow** — the
+     §4.1 interactive-accent rule reserves `--color-accent` for exactly
+     this kind of active element (purple is the ambient glow; the
+     yellow pops against it): `background: var(--color-accent)`, `color:
+     var(--color-accent-ink)`, Handjet 16px uppercase
+     `letter-spacing: 0.08em`, `border-radius: var(--radius-pill)`,
+     `padding: 12px 24px`, `min-height: var(--touch-target)`, hover
+     glow (drop-shadow accent mixes), press `scale(0.98)`, focus ring.
+     (One value flips it to purple if the owner prefers — §4.26.O.3.)
+4. **The GET EARLY ACCESS frontend stub (§38.6) — RECORD:**
+   - **No backend endpoint exists.** The control is a plain
+     `<a class="cta-access">` (a link, not a form — no form element, no
+     form library, no fetch, no new env vars) whose `href` is derived
+     from the input value:
+     `mailto:extube@proton.me?subject=BLEAK%20EARLY%20ACCESS` plus
+     `&body=<encodeURIComponent(value)>` **only when the input is
+     non-empty**; an empty input opens the bare mailto (empty body).
+     The subject literal `BLEAK EARLY ACCESS` is locale-invariant.
+   - **Client validation: NONE (lean decision).** `type="email"` would
+     natively block `@telegram` handles; `type="text"` +
+     `inputmode="email"` passes any handle straight into the mailto
+     body. The stub sends whatever was typed, unvalidated, to the
+     owner's inbox — exactly the §38.6 default.
+   - **What changes when the owner wires a real endpoint:** the anchor
+     becomes a `<button type="button">` with one `fetch POST` handler
+     to the endpoint (loading/disabled/error states added then); the
+     input, both keys, the markup and this section's layout are
+     unchanged. No other surface moves.
+   - The button's accessible name = `landing.join.button` (`GET EARLY
+     ACCESS` / «ПОЛУЧИТЬ РАННИЙ ДОСТУП»); it navigates via the
+     `mailto:` link (native behavior — no JS handler in this pass).
+
+#### 4.26.J The open-state rule, layer stack & page-growth audit (item 7)
+
+- **§37's open-state rule STAYS untouched (§4.25.A carries):** the first
+  viewport still contains ONLY the lead block and the BLEAK agent card
+  (plus the fixed header chrome), vertically centered — desktop: the
+  `.stage` 100dvh thirds hero; phone: `.area-lead` as the 100dvh hero.
+  ALL new content (the glass banner, the hover-glass steps, the FOUR new
+  sections, the glass footer) lives in the normal flow AFTER `.stage` —
+  below the fold at open, revealed on scroll. The new DOM appends
+  strictly after the hero region; no spacer, no scroll-lock, no
+  scroll-hijack is added. Verified geometry: at 1280×800 and 390×844 the
+  hero region still occupies exactly the first viewport and the banner
+  begins below it.
+- **The z-order still holds as the page grows:** the new sections are
+  plain z-3 content (children of `.landing`, which carries
+  `position: relative; z-index: 3`) — they scroll over the fixed video
+  (z 0) + vignette/30% tint (z 1) + dots (z 2), under the fixed header
+  (z 10). No new stacking context escapes the content column (the
+  sections use no `position: fixed/absolute` except the step-cards'
+  internal illustration, which is inside its own card). The blur
+  backdrops sample the fixed video through the z-1 wash — the intended
+  "pixel cityscape glows behind the glass" read.
+- **The video layer is untouched:** the same committed asset, the same
+  attribute set, the same gated one-shot mount `.play()`, the same
+  error fallback (§4.23.A/§4.23.G); the 12-dot mesh keeps twinkling in
+  the gaps between the new sections (the ambient "sky").
+- **Reduced motion — static fallbacks for ALL new pulse/hover/glow:**
+  the banner status dot, the sim badge pulse and the cursor blink
+  collapse via the established base.css catch-all (static, full
+  opacity / cursor visible); the step hover lift is suppressed
+  (`transform: none`) with the glow applying instantly; the hover
+  glows of existing cards/CTAs are unchanged state colors. The
+  scroll-behavior smooth rule is scoped under
+  `prefers-reduced-motion: no-preference` (default instant otherwise).
+  The video fallback itself is unchanged (§4.25.F verbatim).
+- **Interaction states:** unchanged in kind — the landing still fetches
+  nothing (no loading/empty/error data states, §4.20.L); the video
+  media states are §4.23.G verbatim; the only new interactive element
+  is the mailto stub (a native link — no JS states).
+
+#### 4.26.K Supersessions (explicit record)
+
+1. **§4.25.C header exact values SUPERSEDED by §38.1's:** `rgba(20, 20,
+   30, 0.25)` → `rgba(18, 15, 28, 0.35)`; `blur(16px) saturate(180%)` →
+   `blur(18px) saturate(180%)`; the top/bottom-only
+   `1px rgba(255, 255, 255, 0.15)` borders + `inset 0 1px 0 rgba(255,
+   255, 255, 0.15)` → the full `1px rgba(255, 255, 255, 0.2)` border +
+   `inset 0 1px 1px rgba(255, 255, 255, 0.35)`; `top: 0` → `top: 24px`.
+   Position stays FIXED (the owner's "fixed or sticky" resolved for
+   fixed — §4.26.A; §4.25.C's justification carries).
+2. **§4.24.A/§4.25.C 80% HEADER width SUPERSEDED:** the header now spans
+   `width: 90%; max-width: 1200px` (viewport-relative, `margin-inline:
+   auto`). The CONTENT container `.landing` KEEPS `max(80%, 280px)`
+   (§38 is silent on it — the §36/§4.24.A container rule stands; the
+   header is deliberately wider than the content, §4.26.O.5).
+3. **§4.20.B/§4.22.A/§4.25.C nav anchor set SUPERSEDED:** the two old
+   anchors (→ `#tutorial`, → `#agents`) are replaced by the four
+   smooth-scroll anchors (HOW IT WORKS / PRIVACY / USE CASES / JOIN);
+   the step section's id renames `tutorial` → `how-it-works`; `#agents`
+   remains as an id with no nav link. The `landing.tutorial.*` keys
+   survive as the step titles (their nav-anchor reuse dies).
+4. **§4.20.G-a/§4.21.F banner surface SUPERSEDED:** the stat card's
+   opaque `--color-surface` body fill becomes glass
+   (`rgba(20, 18, 30, 0.55)` + blur 12px); the §4.20.G pixel frame is
+   KEPT over the glass; the §4.21.F padding/typography contract stands.
+5. **§4.21.E step blocks amended:** the opaque fill becomes glass
+   (`rgba(15, 14, 22, 0.65)` + blur 10px); the "non-interactive, no
+   hover/motion" rule gains the owner's hover glow + lift (the blocks
+   still navigate nowhere); the §4.20.G frame is KEPT over the glass
+   (the §4.24.F.4 "pixel frames stay square" reading holds — the test
+   assertion stays green).
+6. **§4.21.G footer surface SUPERSEDED:** the pixel-framed
+   `--color-surface` block becomes the dark glass pill
+   (`rgba(18, 15, 28, 0.5)` + blur 14px + the white border + the inset
+   highlight, radius 20px); the content keys, links and centered
+   max-width 560px stand.
+7. **§4.24.F.4 rounded-corner scope amended:** glass surfaces (header,
+   footer, the four new sections, the join input) are the rounded
+   family (radius-md 20px); pixel-frame surfaces (agent card, banner,
+   steps, sim chat window) stay square/stepped. The `.foot-body`
+   stays-square test assertion retires; `.step-body` keeps its
+   square assertion.
+8. **Sanctioned palette exception (record, extends §4.25.D.7):** the
+   owner's §38 `rgba(…)` literals (header 0.35/0.2/0.35, banner 0.55,
+   steps 0.65, footer 0.5, sections 0.45 + the shared white
+   border/highlight pair, the join input's `rgba(15, 14, 22, 0.65)`,
+   the fallback `rgba(18, 15, 28, 0.85)`) are raw literals outside the
+   token palette — sanctioned by the owner's exact-value spec (§38) and
+   recorded here; everywhere else the token/`color-mix` rule stands.
+   Suite note: the raw-hex guard (`#[0-9a-fA-F]{3,8}`) cannot match
+   `rgba(…)` literals — the sweep stays green without a waiver; and no
+   `.glass` class is introduced (the retired-class assertion stays
+   green — per-section class names only).
+9. **Superseded-but-carried (unchanged into §4.26):** the §4.23.A fixed
+   layer stack (z 0–10), the decisive video attribute set, the gated
+   one-shot mount `.play()`, the error fallback, the 12-dot mesh, the
+   §4.22.A keep-list, the §4.25.A/B open state + transparent lead, the
+   §4.20.C copy/CTA, the §4.20.L behavior + deep-link forwarding, the
+   §4.20.G agent-card contract and the §4.23.G reduced-motion fallback
+   all carry unchanged.
+
+#### 4.26.L RU/EN i18n delta (35 new keys; grep-audited; both dictionaries required)
+
+**35 new keys** — every string §38 speaks, EN verbatim from Concept §38.5,
+RU as specced above (inventions flagged in §4.26.O.1). The existing 23
+`landing.*` keys are unchanged; **new parity total: 58 keys per
+dictionary** (`LANDING_KEYS` extends 23 → 58; `DEAD_KEYS` unchanged).
+
+| Δ | Key | RU | EN |
+| --- | --- | --- | --- |
+| + | `landing.nav.how` | КАК ЭТО РАБОТАЕТ | HOW IT WORKS |
+| + | `landing.nav.privacy` | ПРИВАТНОСТЬ | PRIVACY |
+| + | `landing.nav.usecases` | СЦЕНАРИИ | USE CASES |
+| + | `landing.nav.join` | ВСТУПИТЬ | JOIN |
+| + | `landing.banner.badge` | [ ЖИВАЯ СЕТЬ // IRL ] | [ LIVE NETWORK // IRL ] |
+| + | `landing.banner.status` | Рядом активны ИИ-агенты | AI Agents active nearby |
+| + | `landing.steps.find.pill` | ДАЛЬНОСТЬ: 50М • GPS В РЕАЛЬНОМ ВРЕМЕНИ | RANGE: 50M • REAL-TIME GPS |
+| + | `landing.steps.chat.pill` | АВТО-ЗНАКОМСТВО • НОЛЬ НЕЛОВКОСТИ | AUTO-INTRO • ZERO AWKWARDNESS |
+| + | `landing.steps.share.pill` | МГНОВЕННАЯ СИНХРОНИЗАЦИЯ • ВЗАИМНОЕ СОГЛАСИЕ | INSTANT SYNC • MUTUAL OPT-IN |
+| + | `landing.sim.title` | КАК ВАШИ АГЕНТЫ ЗАВОДЯТ РАЗГОВОР | HOW YOUR AGENTS BREAK THE ICE |
+| + | `landing.sim.you` | ВАШ АГЕНТ | YOUR AGENT |
+| + | `landing.sim.you.status` | Статус: Сканирование... | Status: Scanning... |
+| + | `landing.sim.nearby` | АГЕНТ РЯДОМ | NEARBY AGENT |
+| + | `landing.sim.nearby.status` | Дистанция: 15м | Distance: 15m |
+| + | `landing.sim.who1` | Агент 01 | Agent 01 |
+| + | `landing.sim.who2` | Агент 02 | Agent 02 |
+| + | `landing.sim.msg1` | Обнаружены общие интересы: ИИ, пиксель-арт, кофе. | Shared interests detected: AI, Pixel Art, Coffee. |
+| + | `landing.sim.msg2` | Совместимость высокая (96%). Рекомендую знакомство вживую. | High compatibility (96%). Suggesting IRL intro. |
+| + | `landing.sim.badge` | [ ЛЁД РАЗБИТ — СКАЖИТЕ ПРИВЕТ ] | [ ICE BROKEN — SAY HELLO ] |
+| + | `landing.privacy.title` | СОЗДАНО ДЛЯ РЕАЛЬНОЙ ЖИЗНИ, А НЕ ДЛЯ СТЕЛКЕРОВ | BUILT FOR REAL LIFE, NOT STALKERS |
+| + | `landing.privacy.ghost.title` | РЕЖИМ ПРИЗРАКА | GHOST MODE |
+| + | `landing.privacy.ghost.desc` | Одно касание — и вы исчезаете с радара. | Go invisible on the radar with one tap. |
+| + | `landing.privacy.mutual.title` | ВЗАИМНОЕ СОГЛАСИЕ | MUTUAL OPT-IN |
+| + | `landing.privacy.mutual.desc` | Никаких холодных сообщений. Контакты открываются только после взаимного рукопожатия. | Zero cold DMs. Contacts unlock only after a mutual handshake. |
+| + | `landing.privacy.gps.title` | GPS БЕЗ СЛЕДОВ | EPHEMERAL GPS |
+| + | `landing.privacy.gps.desc` | Ваша геопозиция обрабатывается в реальном времени и никогда не сохраняется. | Your location is processed live and never stored. |
+| + | `landing.usecases.title` | ГДЕ БЛИК РАСКРЫВАЕТСЯ | WHERE BLEAK SHINES |
+| + | `landing.usecases.conferences` | КОНФЕРЕНЦИИ | CONFERENCES |
+| + | `landing.usecases.parties` | ВЕЧЕРИНКИ И БАРЫ | PARTIES & BARS |
+| + | `landing.usecases.coworkings` | КОУОРКИНГИ | COWORKINGS |
+| + | `landing.usecases.festivals` | ФЕСТИВАЛИ | FESTIVALS |
+| + | `landing.join.title` | ВСТУПАЙТЕ В СЕТЬ | JOIN THE NETWORK |
+| + | `landing.join.headline` | НУЖНЫЕ ЗНАКОМСТВА УЖЕ РЯДОМ. | THE RIGHT CONNECTIONS ARE ALREADY NEARBY. |
+| + | `landing.join.input.placeholder` | Введите почту или @telegram... | Enter your email or @telegram... |
+| + | `landing.join.button` | ПОЛУЧИТЬ РАННИЙ ДОСТУП | GET EARLY ACCESS |
+
+Grep-audit instructions (worker): after landing, `landing.nav.` /
+`landing.banner.` / `landing.sim.` / `landing.privacy.` /
+`landing.usecases.` / `landing.join.` appear ONLY in `en.ts`, `ru.ts`,
+`+page.svelte` (or their section components) and the tests — no other
+route or component consumes them; the three `.pill` keys render beside
+the step descriptions; `landing.join.title` renders above the
+`join-card` (it doubles as the section's `<h2>`). The RU/EN switch
+re-renders every new string without a reload (the parity + re-render
+test pattern extends to the new keys).
+
+#### 4.26.M Reduced motion + media states
+
+Unchanged in kind from §4.23.G/§4.25.F: the video stays paused at frame 0
+with the tint + vignette + dots as the static state; the dot mesh is
+static. New elements' static fallbacks (§4.26.J): the banner status dot
+static at full opacity, the sim badge static, the cursor statically
+visible, hover lifts suppressed with instant glow, smooth-scroll scoped
+to `no-preference`. All new keyframes (`status-pulse`, `badge-pulse`,
+`cursor-blink`) are transform/opacity-only (§4.6). No loading/empty/error
+data states exist (the landing fetches nothing); the video error
+fallback shows every new section over the near-black treatment (the
+glass still reads — blur over the static tint). No layout shift: the new
+sections are normal-flow blocks; the glass surfaces have no media-load
+dependency.
+
+#### 4.26.N Acceptance criteria (checkable)
+
+**Header (item 1):**
+1. `.top` computes the owner's EXACT §38.1 values verbatim:
+   `position: fixed; top: 24px`, `left/right: 0` + `margin-inline: auto`,
+   `width: 90%; max-width: 1200px`, `border-radius` 20px (token),
+   `background: rgba(18, 15, 28, 0.35)`, `backdrop-filter: blur(18px)
+   saturate(180%)` AND `-webkit-backdrop-filter: blur(18px)
+   saturate(180%)`, `border: 1px solid rgba(255, 255, 255, 0.2)` (all
+   four sides — the §4.25.C top/bottom-only rule is gone),
+   `box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35)`; the
+   `@supports not (…)` fallback sets `rgba(18, 15, 28, 0.85)`; z-index
+   10; the keep-list is UNCHANGED (§4.22.A: icon + desktop nav +
+   switcher; phone icon + switcher) and the video scrolls beneath the
+   24px gap and through the glass.
+2. Widths: 1152px at 1280, 720px at 800, 351px at 390, 288px at 320 —
+   wider than the 80% content column (which still measures 1024/312/280
+   per §4.24.A); the content container rule is unchanged.
+3. The nav renders EXACTLY four desktop-only anchors in order — HOW IT
+   WORKS → `#how-it-works`, PRIVACY → `#privacy`, USE CASES →
+   `#use-cases`, JOIN → `#join` (EN labels verbatim; RU «КАК ЭТО
+   РАБОТАЕТ» / «ПРИВАТНОСТЬ» / «СЦЕНАРИИ» / «ВСТУПИТЬ») — and the old
+   `#tutorial`/`#agents` nav links are gone (no `href="#tutorial"`, no
+   `href="#agents"` anywhere on `/`).
+4. The anchor targets exist and clear the header: the step-cards section
+   carries `id="how-it-works"` (the `tutorial` id is gone), Sections
+   5/6/7 carry `id="privacy"` / `id="use-cases"` / `id="join"`; each
+   target sets `scroll-margin-top: 100px`; clicking an anchor smooth-
+   scrolls (CSS `scroll-behavior: smooth` under
+   `prefers-reduced-motion: no-preference`) and lands with the section
+   title below the glass header at 1280×800 and 390×844.
+
+**Banner (item 2):**
+5. The stat card's body is glass: `background: rgba(20, 18, 30, 0.55)` +
+   `backdrop-filter`/`-webkit-backdrop-filter: blur(12px)`; the
+   pixel-corners/pixel-frame construction is KEPT (the outer
+   `.stat-card` still carries `pixel-corners pixel-frame
+   pixel-frame--strong`); the §4.21.F compact padding/typography and the
+   stat copy (`landing.stat.*`) are unchanged.
+6. The sub-badge `[ LIVE NETWORK // IRL ]` (RU «[ ЖИВАЯ СЕТЬ // IRL ]»)
+   renders above the title as a pixel-badge chip (stepped-corner two-
+   layer construction, deepa-4 frame at 60%, Handjet 11px uppercase).
+7. The status caption `AI Agents active nearby` (RU «Рядом активны
+   ИИ-агенты») renders on the right next to the BLOOM glyph with a
+   square 6px `--color-deepa-1` pixel dot pulsing `steps(2)` 1.6s
+   (opacity 1↔0.4, green glow); reduced motion → the dot is static at
+   full opacity.
+
+**Step cards (item 3):**
+8. Each step body is glass: `background: rgba(15, 14, 22, 0.65)` +
+   blur(10px) (both prefixes); `.step-body` still sets NO
+   `border-radius` (the pixel frame stays square/stepped over the
+   glass); the 01/02/03 numbers, pixel titles, step icons and
+   descriptions are unchanged (§4.21.E content contract).
+9. Hover: `translateY(-4px)` + the purple double drop-shadow glow over a
+   160ms ease-out transition; under reduced motion the lift is
+   suppressed (`transform: none`) and the glow applies instantly; no
+   press/click state exists.
+10. Each card carries a 48×48px decorative pixel-art SVG top-right
+    (`aria-hidden`, `crispEdges`, 24×24 grid, token fills only): 01 =
+    the radar character, 02 = two avatars + bubble, 03 = fist-bump +
+    sparkles — original rect art per the §4.26.C tables, no background
+    plates, no figure reusing another's parts.
+11. The bottom micro-pills render EXACTLY `RANGE: 50M • REAL-TIME GPS` /
+    `AUTO-INTRO • ZERO AWKWARDNESS` / `INSTANT SYNC • MUTUAL OPT-IN`
+    (RU per §4.26.L) as pill chips (Handjet 10/11px uppercase, deepa-4
+    text + 40% border, radius-pill), pinned to the card bottom on
+    desktop (`margin-top: auto`).
+
+**Footer (item 4):**
+12. The footer is a dark glass pill: `rgba(18, 15, 28, 0.5)` +
+    blur(14px) (both prefixes) + `border: 1px solid rgba(255, 255, 255,
+    0.2)` + `box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35)` +
+    `border-radius: var(--radius-md)`; NO `pixel-corners`/`pixel-frame`
+    class remains on it; max-width 560px centered; the copyright row +
+    EMAIL (`mailto:extube@proton.me`) / GITHUB links and their keys/
+    hover/focus contracts are unchanged.
+
+**The four new sections (item 5):**
+13. DOM order after the step cards and before the footer: sim → privacy
+    → use-cases → join, each as a normal-flow row of the 80% container
+    (the `--space-6` gap rhythm); phone stacks in the same order; no
+    horizontal scroll at 320/760/1280.
+14. Each glass surface (`.sim-card`, `.privacy-card`, `.usecase-pill`,
+    `.join-card`) carries the shared recipe verbatim: `rgba(18, 15, 28,
+    0.45)` + blur(16px) (both prefixes) + `border: 1px solid rgba(255,
+    255, 255, 0.2)` + `box-shadow: inset 0 1px 1px rgba(255, 255, 255,
+    0.35)` + `border-radius: var(--radius-md)`; NO `.glass` class
+    exists in the landing sources.
+15. Section 4 (`#sim`): wide glass container; left block = the BLEAK
+    personage (64px, purple glow) + `YOUR AGENT` + `Status:
+    Scanning...` with the blinking 6×2px deepa-4 cursor (reduced motion
+    → cursor statically visible); right block = the SCOUT figure (new
+    cyan/yellow 24×24 art per the §4.26.F table, cyan glow) + `NEARBY
+    AGENT` + `Distance: 15m`; ≥720px = 1fr/auto/1fr grid, phone =
+    2-col avatar row + full-width chat window.
+16. The sim chat window is the dark opaque pixel-frame card
+    (`--color-surface` body, `pixel-corners` construction) with
+    EXACTLY 3 rows: `Agent 01` — `Shared interests detected: AI, Pixel
+    Art, Coffee.` (left), `Agent 02` — `High compatibility (96%).
+    Suggesting IRL intro.` (right), and the centered glowing green
+    badge `[ ICE BROKEN — SAY HELLO ]` (deepa-1, pulse 1.6s steps(2);
+    reduced motion → static); no fourth row, no typewriter loop.
+17. Section 5 (`#privacy`): glass container titled `BUILT FOR REAL
+    LIFE, NOT STALKERS`; a 3-col grid ≥720px / a stack on phone; the
+    three cards carry the ghost / padlock+key / shield+radar 48px pixel
+    icons and the exact titles/descs (`GHOST MODE` / `MUTUAL OPT-IN` /
+    `EPHEMERAL GPS` + their sentences, RU per §4.26.L).
+18. Section 6 (`#use-cases`): title `WHERE BLEAK SHINES`; a 4-col pill
+    row ≥720px / a stack on phone; the pills carry the badge /
+    neon-glasses / laptop / headphones 40px pixel icons and the exact
+    labels `CONFERENCES` / `PARTIES & BARS` / `COWORKINGS` /
+    `FESTIVALS`.
+19. Section 7 (`#join`): a centered glass card (max-width 640px) with
+    the purple outer glow (`0 0 32px … 45%` + `0 0 96px … 22%` over the
+    inset highlight); the waving BLEAK-WAVE mascot (96px, the wave arm
+    + cyber-glasses deltas; every other rect byte-identical to
+    `BLEAK_FIGURE`); the headline `THE RIGHT CONNECTIONS ARE ALREADY
+    NEARBY.` (RU «НУЖНЫЕ ЗНАКОМСТВА УЖЕ РЯДОМ.»); the dark glass input
+    (`rgba(15, 14, 22, 0.65)`, radius-pill, `aria-label` = placeholder
+    key) with the exact placeholder; the GET EARLY ACCESS button
+    (`--color-accent` bg, `--color-accent-ink` text).
+
+**The GET EARLY ACCESS stub (item 6):**
+20. Submitting = opening `mailto:extube@proton.me` with subject `BLEAK
+    EARLY ACCESS` and — only when the input is non-empty — a
+    URL-encoded body equal to the input value (empty input → no body
+    param); it is a native `<a>` link (no form element, no fetch, no
+    new env, no form library, NO client validation — `type="text"` +
+    `inputmode="email"`); the mailto address matches the footer's
+    published contact.
+
+**Open state, layers, i18n, suites (item 7 + carry):**
+21. Open state intact: at the scroll origin the first viewport contains
+    ONLY the lead block and the BLEAK agent card (plus the fixed
+    header chrome) at BOTH 1280×800 and 390×844; the banner, steps,
+    the four new sections and the footer begin below the fold; no
+    spacer returns (`calc(200dvh / 3)` stays absent).
+22. The layer stack holds with the grown page: video z 0 / vignette +
+    tint z 1 / dots z 2 / content z 3 / header z 10 — the new sections
+    are z-3 content scrolling over the video; the 12-dot mesh stays
+    below the content; the video attributes and gated playback are
+    untouched.
+23. i18n: exactly **58** `landing.*` keys in BOTH dictionaries (23
+    existing + the 35 new keys above, EN strings verbatim); the
+    dead-key list is unchanged; the RU/EN switch re-renders every new
+    string without a reload; the parity/dead-key tests pass amended.
+24. Reduced motion: the status dot, sim badge, cursor blink, step
+    hover-lift and smooth-scroll all have static/instant fallbacks;
+    the video fallback is unchanged (§4.25.F).
+25. Suites amended and green: `landing-page.test.ts` — the §4.25.C
+    header-value assertions REPLACED by ACs 1–4 (top 24px, 90%/1200px,
+    radius 20px, the 0.35/0.2/0.35 glass set, the full border, the
+    fallback), the `.foot-body` square assertion RETIRED, the
+    `.step-body` square assertion KEPT, new banner/step/footer/section/
+    stub assertions per ACs 5–20, `LANDING_KEYS` extended to 58 — plus
+    `i18n.test.ts` (58-key parity), `sweep.test.ts` (token discipline;
+    the rgba literals stay unmatched and unwaivered), `mascot.test.ts`
+    (the two new figures render — scout + bleakWave — with the base
+    BLEAK art unchanged), `join-flow.test.ts` /
+    `creation-wizard.test.ts` untouched and green;
+    `make lint && make test && make build` green.
+26. Constraints: no new dependencies; routes untouched; `/income`
+    untouched; the video asset stays; the mailto stub is frontend-only
+    (no fetch on `/` — "API endpoints used: none" stands); no canvas,
+    no animation library; palette tokens + the sanctioned rgba family
+    only.
+
+#### 4.26.O Flags for the owner / concept (concept report)
+
+1. **ADVICE NEEDED — RU strings for the new copy are design
+   inventions:** the owner's §38.5 gives EN only; this spec supplies RU
+   for all 35 keys (nav labels, the `[ ЖИВАЯ СЕТЬ // IRL ]` badge, the
+   statuses, the simulation messages, the section titles/descs, the
+   placeholder, the button) per the RU/EN-parity preamble. Owner tone
+   approval requested with the batch (the §4.20.O-2 precedent).
+2. **Record — the nav RU label «ВСТУПИТЬ»** renders "JOIN" as a call to
+   the final CTA section; if the owner prefers «ПРИСОЕДИНИТЬСЯ» or
+   another form it is a one-value change.
+3. **Record — GET EARLY ACCESS is neon YELLOW** (`--color-accent`, the
+   §4.1 interactive-accent rule); §38.5 offered "bright neon yellow or
+   purple pixel button" — yellow was decided so the button pops against
+   the purple glow; a one-value flip to `--color-deepa-4` (+ ink swap)
+   if the owner prefers purple.
+4. **Record — the GET EARLY ACCESS stub:** mailto to
+   `extube@proton.me` (the footer's published contact) with subject
+   `BLEAK EARLY ACCESS` and the raw input value as the body; no
+   validation by design (so `@telegram` handles pass through). When a
+   real endpoint lands: anchor → button + one fetch handler; everything
+   else stays.
+5. **Record — the header is deliberately wider than the content:** 90%
+   (max 1200px) vs the 80% content container — both are owner specs
+   (§38.1 header; §36/§4.24.A container); do not "harmonize" them.
+6. **Record — Section 4 has no nav anchor** (`id="sim"` only): the
+   owner's anchor map names four targets; how-it-works is the step
+   cards, not the simulation.
+
+### 4.27 v3.21 feature design (2026-11-22, owner-approved Concept §39): §39 font bumps + compatibility circle + ping-pong video
+
+The owner issued the four-item §39 follow-up batch: bigger header-nav
+titles (the language switcher keeps its size), bigger block
+descriptions, Section 4's center reworked to ONLY the 96% compatibility
+display — an animated count-up inside a circle, reusing the /chats
+summary-sheet indicator pattern — with the ICE BROKEN badge below it and
+the two flanking agent avatars kept, and the background video playing
+ping-pong (forward → reverse → forward, continuously) instead of
+looping. This section amends §4.26 (→ §4.25 → … → §4.20) item by item;
+**where §4.27 is silent, the earlier specs stand** except where
+§4.27.F explicitly supersedes them. Grounded in the live code:
+`apps/web/src/routes/+page.svelte`,
+`lib/components/landing/LandingVideoHero.svelte`,
+`lib/components/landing/{sectionArt,figures}.ts`,
+`lib/components/personage/bleakFigure.ts`,
+`lib/components/SummarySheet.svelte` + `lib/chats/summary.ts` (the
+pattern source), `lib/i18n/{en,ru}.ts`, `tests/landing-page.test.ts`.
+Hard constraints unchanged: **no new dependencies** (the ring helpers
+and the ping-pong stepper are imports + hand-rolled native code; the
+stepper's pure unit is a tiny local module per the `sectionArt.ts`
+precedent), **no new color values** (token/`color-mix` only — the
+sanctioned §38 rgba family is untouched and nothing is added to it),
+**no canvas, no animation library**, **routes untouched**, **/income
+surfaces untouched**, the video asset stays, all reduced-motion
+fallbacks preserved. **API endpoints used: none** — the landing stays
+fetch-free (§4.20 preamble); the round is presentational. Task:
+tz12-11 (`feature/43e60f70-tz12-11-fonts-compat-pingpong`).
+
+#### 4.27.A Nav font bump — the four anchor links (item 1)
+
+The §4.26.A nav anchor set (HOW IT WORKS / PRIVACY / USE CASES / JOIN,
+smooth-scroll, desktop-only ≥720px) is unchanged in every respect
+except SIZE: `.top-nav a` goes **font-size: 12px → 14px** (a +2px bump
+in the owner's "+2–4px" band; Handjet is condensed so 14px still reads
+as chrome, not as a headline). Everything else about the anchors is
+UNCHANGED and stays verbatim: `font-family: var(--font-pixel)`,
+`font-weight: 600`, `letter-spacing: 0.08em`, uppercase,
+`color: var(--color-text-muted)`, hover `--color-deepa-4` over 120ms,
+the desktop-only `display: none → flex` media rule, and the header's
+min-heights/paddings (52px/56px rows — 14px labels fit; at the 720px
+viewport the four labels + icon + switcher hold one line each, no
+wrap). **The language switcher size is UNCHANGED — explicit negative:**
+`LocaleControl.svelte` and `SegmentedControl.svelte` are untouched
+files, the switcher's buttons stay at their 14px, and NO landing style
+overrides sizes inside `.locale` (the test suite asserts this
+negatively — the switcher is not dragged along by the bump).
+
+#### 4.27.B Description font bumps — one consistent +2px across blocks (item 2)
+
+The owner leaves the exact size to the design ("a clearly visible
+bump, consistent across blocks", §39.2). Decided: **every card
+mini-description goes Inter 13px → 15px** — ONE value, the same
+everywhere, on the four description classes that play the
+"mini description inside a content block" role:
+
+| Class | Block | From → To |
+| --- | --- | --- |
+| `.step-desc` | the three step cards (§4.26.C) | 13px → 15px |
+| `.privacy-desc` | the three privacy cards (§4.26.G) | 13px → 15px |
+| `.stat-line` | the banner's mini-lines (§4.26.B) | 13px → 15px |
+| `.agent-quote` | the BLEAK agent card quote (§4.20.G) | 13px → 15px |
+
+(`.stat-line` and `.agent-quote` are the "etc." reading — they are the
+remaining card-body mini-texts at 13px; including them keeps the bump
+consistent across ALL blocks, which is the owner's stated intent.
+Excluding either is a one-line change — §4.27.J flag 2.) Family
+(`var(--font-body)`), colors (`--color-text-muted`, `--color-text`)
+and existing line-height declarations are otherwise unchanged — only
+the `font-size` value moves. **Wrap sanity at the 288px desktop
+thirds:** at 15px the longest RU desc («Никаких холодных сообщений.
+Контакты открываются только после взаимного рукопожатия.») wraps to
+~3 lines in a ~248px card interior — the privacy cards and step cards
+grow naturally (normal-flow blocks), the step cards keep their
+min-height 300px with the pill pinned via `margin-top: auto`
+(whitespace shrinks, nothing overflows at 320/760/1280), and the
+banner's three lines still fit the compact flex row. **Explicit
+negatives — NOT card descriptions, unchanged:** the lead `.sub`
+(stays 14px/16px ≥720px) and the join input (stays 14px); the removed
+`.sim-msg` (13px) dies with the chat window (§4.27.C).
+
+#### 4.27.C Section 4 center rework — deletions (item 3)
+
+`#sim` keeps its title (`landing.sim.title`), its glass container and
+its TWO FLANKING AGENT BLOCKS verbatim (§4.26.F, unchanged down to the
+blinking cursor and the purple/cyan glows). The CENTER changes:
+
+- **DELETED — the 3-message chat window:** the entire
+  `.sim-chat` / `.sim-chat-body` / `.sim-row*` / `.sim-who` /
+  `.sim-msg` markup and CSS (the opaque pixel-frame "screen", the
+  Agent 01 / Agent 02 rows, the left/right alignment classes) goes
+  away. The orphaned keys — grep-audited live: `landing.sim.who1`,
+  `landing.sim.who2`, `landing.sim.msg1`, `landing.sim.msg2` appear
+  ONLY in `en.ts`/`ru.ts` (~456–459), the sim rows of
+  `+page.svelte`, and `landing-page.test.ts` (the `LANDING_KEYS` list
+  + the §4.26.N-16 assertions) — are removed from BOTH dictionaries
+  (§4.27.G).
+- **KEPT — the badge, relocated:** the glowing green
+  `[ ICE BROKEN — SAY HELLO ]` chip (`landing.sim.badge`; RU
+  «[ ЛЁД РАЗБИТ — СКАЖИТЕ ПРИВЕТ ]») STAYS, now **BELOW the
+  compatibility circle** in the center column. All badge styles are
+  unchanged (Handjet 12px uppercase deepa-1, the 50% deepa-1 border,
+  the glow text-shadow, `badge-pulse` 1.6s steps(2) infinite
+  alternate; reduced motion → static at full opacity).
+- **New center column `.sim-center`:** a flex column
+  (`align-items: center`, gap `var(--space-3)`) holding exactly two
+  children, top → bottom: (1) the compatibility circle (§4.27.D),
+  (2) the badge. Grid: ≥720px keeps `grid-template-columns: 1fr auto
+  1fr` with areas `'you center nearby'` (the `auto` middle column is
+  the 160px ring box — the retired chat window was the previous
+  `auto` occupant); phone keeps the 2-col avatar row above a
+  full-width center (`'you nearby'` / `'center center'`).
+
+#### 4.27.D The compatibility circle — the /chats summary pattern, reused (item 3)
+
+**Pattern source (groundwork record).** The owner names "the
+compatibility indicator in the summary chat on the chats page". That
+implementation is:
+
+- `apps/web/src/lib/components/SummarySheet.svelte` — the score-stage
+  ring: markup (`.ring` SVG: track + arc + `<text class="score">`,
+  §4.15.C-5) and CSS (`.ring`/`.track`/`.arc`/`.score` +
+  `@keyframes ring-fill`), plus the tally `$effect` (the one-shot rAF
+  count-up with the explicit reduced-motion guard);
+- `apps/web/src/lib/chats/summary.ts` — the pure, framework-free
+  home of the geometry and timing: `RING_RADIUS` (66, viewBox
+  160×160), `ringCircumference`, `ringScoreOffset(score, radius)`,
+  `summaryScoreDisplay`, `TALLY_MS` (700), `tallyEase` (cubic
+  ease-out), `tallyValue(elapsedMs, score)` (ceil integer steps,
+  lands exactly on the target);
+- spec of record: DESIGN §4.15.C-5.
+
+**What transfers VERBATIM (construction + behavior):**
+
+- **Ring geometry:** SVG `viewBox="0 0 160 160"` rendered at
+  **160×160px**; circle `r = 66` (`RING_RADIUS`); **stroke-width 12**;
+  **`stroke-linecap: butt`** (square ends — the pixel aesthetic);
+  **`shape-rendering: crispEdges`** on the SVG; track circle at 25%
+  ink (`color-mix(in srgb, var(--color-text) 25%, transparent)` — the
+  sheet's 25%-white role remapped, see ink below); the arc carries
+  `stroke-dasharray: var(--ring-c) var(--ring-c)` (full circumference,
+  the same `--ring-c` custom-property technique) and `rotate(-90deg)`
+  (transform-origin 80px 80px) so the fill **starts at 12 o'clock and
+  sweeps clockwise**.
+- **Arc fill animation:** `@keyframes ring-fill` from
+  `stroke-dashoffset: var(--ring-c)` (empty) to
+  `stroke-dashoffset: var(--ring-target)` where
+  `--ring-target = ringScoreOffset(96)` — over **900ms ease-out both**
+  (the sheet's exact duration/easing; the stroke-geometry animation is
+  the sanctioned §4.13.5/§4.15.C-5 exception to §4.6, carried by the
+  pattern).
+- **Tally count-up:** a one-shot rAF loop 0 → 96 over **`TALLY_MS`
+  = 700ms** stepping through `tallyValue(elapsedMs, 96)` — cubic
+  ease-out, `Math.ceil` integer steps, landing EXACTLY on 96 — a
+  direct port of the sheet's tally `$effect` (same structure, same
+  reset-to-0 start, same `cancelAnimationFrame` cleanup, same
+  "land exactly on the final integer" branch).
+- **Reduced motion (both layers):** the explicit
+  `matchMedia('(prefers-reduced-motion: reduce)')` guard inside the
+  effect jumps the tally straight to 96 (the base.css catch-all only
+  intercepts CSS); the CSS `ring-fill` collapses via the catch-all
+  (0.01ms + `both` fill) so the arc snaps to its final offset — the
+  static state is the ring AT 96% with the numeral 96.
+- **Accessibility shape:** `role="img"` on the SVG with an aria-label
+  that embeds the final value (the sheet's `scoreAria` pattern); the
+  count-up never announces intermediate values (static label, no
+  aria-live). The landing's label key is new — §4.27.G.
+
+**What adapts (landing-local):**
+
+- **The value — a constant, not a Summary:** `COMPAT_SCORE = 96`
+  (the 96 from the retired §4.26.F msg2 becomes the display value)
+  declared in the landing page component. The numeral renders the
+  count-up integer followed by a literal `%` in the same `<text>`
+  (the sheet shows a bare integer; the owner asks for "the 96%
+  compatibility") — at rest the ring reads **`96%`**.
+- **Ink mapping (no `--sheet-*` scope here):** the sheet's whites map
+  to the landing text ink — arc + numeral **`var(--color-text)`**,
+  track at 25% of `--color-text`. The arc stays white/ink
+  (structural per the pattern); the tier accent is NOT carried —
+  `summaryTier(96)` = GREAT, and the sheet itself retired the yellow
+  GREAT label to common ink (§4.15.6.2), so a standalone GREAT-96
+  display carries no yellow: the green stays reserved to the badge
+  below (the §4.26.E hue-role discipline), the numeral/arc stay ink.
+- **Numeral face/size:** `var(--font-pixel)` (Handjet) weight 600,
+  **40px**, `letter-spacing: 0` (the sheet's 28px Press Start 2P
+  equivalent — PS2P runs large, Handjet is narrow; 40px fills the
+  132px ring interior comparably), `text-anchor: middle` +
+  `dominant-baseline: central` at x 80 / y 80 (the sheet's technique).
+- **Start trigger — DECIDED scroll-into-view, one-shot:** the sheet
+  animates on open; the landing ring sits BELOW THE FOLD, so a
+  mount-triggered animation would be spent before anyone sees it. On
+  mount the component sets an IntersectionObserver (threshold 0.4)
+  on the ring; the FIRST intersection flips a `started` flag and the
+  observer disconnects; the tally `$effect` runs off `started` exactly
+  like the sheet's runs off `open`. Fallback: when
+  `IntersectionObserver` is unavailable (old browsers/test DOM),
+  `started` flips immediately on mount. Reduced motion needs no
+  observer — the static final state renders from the start.
+- **Home:** the ring markup + tally effect live in `+page.svelte`
+  (the landing already owns the section markup) — or a tiny
+  `landing/compatRing` module if the worker prefers; EITHER WAY the
+  geometry/count-up comes from `#lib/chats/summary` by IMPORT —
+  **reuse, do not copy**: no local `66`, no local 700ms constant, no
+  re-derived dash math in the landing sources (the tests assert the
+  import by source-scan, the suite's established technique).
+- **No tier machinery, no sparkles, no avatar motion:** the sheet's
+  GREAT-tier reactions (approach/hop, sparkle poppers, spark burst)
+  are NOT ported — the owner asked for the count-up + circle only;
+  the flanking avatars keep their static §4.26.F treatment (glow +
+  status lines + cursor), which is the landing's own idle language.
+
+#### 4.27.E Video ping-pong playback (item 4)
+
+The §4.23.A fixed background layer keeps its z-stack, attributes (minus
+one — below), gated start and error fallback; the PLAYBACK MODEL
+changes from plain loop to a continuous yo-yo:
+
+- **The `loop` attribute is REMOVED** from the `<video>` (the decisive
+  set becomes `muted playsinline preload="metadata"
+  disablepictureinpicture aria-hidden` — everything else verbatim; no
+  autoplay attribute, no native controls, still aria-hidden
+  decorative scenery).
+- **State machine (owner's seek-stepping note, not a contract —
+  negative `playbackRate` is browser-unreliable, so none is used):**
+  a `direction: 1 | -1` state starting at `1`.
+  1. **Mount:** the gated ONE-SHOT `.play()` stays exactly as shipped
+     (§4.23.A — no call under reduced motion; a rejection is
+     swallowed → the static tint state, and no stepper runs). When
+     `.play()` RESOLVES, the component immediately calls
+     `video.pause()` and takes over: the whole yo-yo — forward
+     included — is driven by ONE rAF seek-stepper on the PAUSED
+     element (a uniform path: no native-play vs stepping races; the
+     muted + playsinline `.play()` call is what satisfies the
+     autoplay policy, and pausing right after does not unsatisfy it).
+  2. **Stepping:** each rAF tick computes
+     `delta = (now − last) / 1000` (wall-clock, frame-rate independent
+     — the smooth equivalent of the owner's per-frame delta with
+     seconds-per-pass = the clip's duration, i.e. the reverse pass
+     takes the SAME wall time as the forward one at 1× speed) and
+     advances the candidate time `t + direction × delta`.
+  3. **End handling (the pure seam):** at `t ≥ duration` → clamp
+     `t = duration`, flip `direction = −1`; at `t ≤ 0` → clamp
+     `t = 0`, flip `direction = +1`; write `video.currentTime = t`
+     every tick. Net behavior: forward → (ended) → reverse stepping →
+     (t = 0) → forward → … continuously, no dwell at the ends.
+  4. **Pure/testable unit:** a tiny new module
+     `apps/web/src/lib/components/landing/videoPingPong.ts` exporting
+     `type PlayDirection = 1 | -1` and
+     `stepTime(t, dir, delta, duration): { time, dir }` — pure, total,
+     clamps and flips at both ends. Unit tests cover: forward at the
+     end flips to reverse and clamps to `duration`; reverse at 0
+     flips to forward; mid-range calls pass through unchanged; steady
+     stepping produces a monotonic yo-yo. (Hand-rolled, zero
+     dependencies — the `sectionArt.ts` local-module precedent.)
+  5. **Guards:** the stepper idles until `duration` is finite and
+     > 0 (`loadedmetadata`; `preload="metadata"` provides it — until
+     then the element is paused at frame 0, the established pre-state);
+     if the video `error` event fires (`failed`), the stepper tears
+     down and the §4.23.G fallback shows unchanged (element hidden —
+     tint + vignette + dots).
+  6. **Teardown:** the mount effect's cleanup cancels the rAF and
+     disconnects any listeners on unmount (no leak across HMR/tests).
+- **Reduced motion: unchanged** — the gate wraps BOTH the `.play()`
+  and the stepper: no play, no stepping, the video stays paused at
+  frame 0 with the tint + vignette + dots (§4.23.G verbatim; the
+  static fallback is not re-derived here).
+
+#### 4.27.F Supersessions (explicit record)
+
+1. **§4.26.F's center 3-message chat window SUPERSEDED** by the
+   compatibility circle (§4.27.C/§4.27.D): the pixel-frame "screen",
+   its exactly-3-rows anatomy, the left/right message alignment and
+   the `.sim-chat*`/`.sim-row*`/`.sim-who`/`.sim-msg` CSS all cease;
+   the §4.26.N-16 chat-window test assertions retire (replaced by
+   §4.27.I). The badge survives (relocated below the circle) and the
+   two flanking agent blocks stand verbatim.
+2. **`landing.sim.who1/who2/msg1/msg2` keys SUPERSEDED** (removed from
+   both dictionaries — §4.27.G).
+3. **The `loop` attribute SUPERSEDED** (§4.23.A.1's decisive
+   attribute set, carried through §4.26.K.9): the video no longer
+   loops — ping-pong seek-stepping replaces it (§4.27.E); the
+   `video?.loop).toBe(true)` + source-regex assertions retire.
+4. **§4.26.B/§4.26.C/§4.20.G description typography AMENDED** (not
+   superseded): the four description classes' 13px → 15px
+   (§4.27.B); every other landing font size stands.
+5. **Superseded-but-carried (unchanged into §4.27):** the §4.23.A
+   fixed layer stack and gated one-shot `.play()`, the §4.23.G
+   reduced-motion + error fallbacks, the §4.22.A keep-list, the
+   §4.26.A–E header/banner/steps/footer/sections contracts (except
+   the size bumps above), the §4.26.J open state + layer audit, the
+   §4.20.C copy/CTA and the §4.20.L behavior + deep-link forwarding.
+
+#### 4.27.G RU/EN i18n delta (grep-audited; both dictionaries required)
+
+Net **−4 +1 = 55 keys per dictionary** (was 58): the four orphaned sim
+message keys are removed, one accessibility key is added for the
+ring's `role="img"` label (the sheet pattern requires an aria-label
+embedding the value). `landing.sim.badge` STAYS in both dictionaries,
+byte-unchanged.
+
+| Δ | Key | RU | EN |
+| --- | --- | --- | --- |
+| − | `landing.sim.who1` | Агент 01 | Agent 01 |
+| − | `landing.sim.who2` | Агент 02 | Agent 02 |
+| − | `landing.sim.msg1` | Обнаружены общие интересы: ИИ, пиксель-арт, кофе. | Shared interests detected: AI, Pixel Art, Coffee. |
+| − | `landing.sim.msg2` | Совместимость высокая (96%). Рекомендую знакомство вживую. | High compatibility (96%). Suggesting IRL intro. |
+| + | `landing.sim.compat.aria` | Совместимость агентов: 96% | Agent compatibility: 96% |
+
+(`landing.sim.compat.aria`'s RU is a design invention — flagged in
+§4.27.J.1.) Grep-audit instructions (worker): after landing, no
+`landing.sim.who*`/`landing.sim.msg*` match remains in either
+dictionary, any route, any component or any test; `landing.sim.compat.aria`
+appears only in `en.ts`, `ru.ts`, `+page.svelte` (the ring's
+aria-label) and the tests; `LANDING_KEYS` extends/retires to the 55-key
+list and `DEAD_KEYS` gains the four removed keys. The RU/EN switch
+re-renders every string without a reload (the parity + re-render test
+pattern extends to the new key).
+
+#### 4.27.H Reduced motion + media states
+
+Unchanged in kind from §4.23.G/§4.26.M, plus the two new motion
+systems' static fallbacks:
+
+- **Compatibility circle:** reduced motion → the tally renders 96
+  immediately (the explicit matchMedia guard) and the arc sits at its
+  final offset (the catch-all completes `ring-fill` instantly with
+  `both` fill); no observer is needed and scrolling never replays
+  anything.
+- **Video:** reduced motion → no `.play()`, no stepper — paused at
+  frame 0 with the tint + vignette + dots (§4.23.G verbatim);
+  ping-pong adds no reduced-motion surface of its own (the stepper
+  only exists downstream of the gated play).
+- **Everything else:** the badge pulse, cursor blink, dot twinkle,
+  hover glows/lifts and smooth-scroll fallbacks are unchanged
+  (§4.26.M). Media states: the landing still fetches nothing — no
+  loading/empty/error data states; the video media states are
+  §4.23.G verbatim (the stepper bails on error); the ring has no
+  data states (a constant). No layout shift: the ring is a fixed
+  160×160 box replacing the chat window's slot; the font bumps grow
+  normal-flow cards only.
+
+#### 4.27.I Acceptance criteria (checkable)
+
+**Nav font bump (item 1):**
+1. `.top-nav a` computes `font-size: 14px` (was 12px); font-family
+   `var(--font-pixel)`, weight 600, letter-spacing 0.08em, uppercase,
+   color `--color-text-muted`, hover `--color-deepa-4` 120ms, and the
+   desktop-only ≥720px visibility are ALL unchanged (source +
+   computed-style assertions).
+2. The language switcher is UNCHANGED: `LocaleControl.svelte` and
+   `SegmentedControl.svelte` are untouched files; the switcher buttons
+   stay 14px; no `.locale`-scoped size override exists in the landing
+   sources (negative assertion).
+
+**Description bumps (item 2):**
+3. One consistent bump: `.step-desc`, `.privacy-desc`, `.stat-line`,
+   `.agent-quote` ALL compute `font-size: 15px` (was 13px), with
+   family/color/line-height declarations otherwise unchanged — the
+   same value in all four (source-scan + computed assertions).
+4. Negatives: the lead `.sub` stays 14px (16px ≥720px) and the join
+   input stays 14px; no other landing font size changed.
+
+**Section 4 center (item 3):**
+5. Negative + cleanup: `.sim-chat`, `.sim-chat-body`, `.sim-row`,
+   `.sim-who`, `.sim-msg` are ABSENT from markup and CSS; no
+   `landing.sim.who1/who2/msg1/msg2` key exists in either dictionary,
+   any route, any component or any test (grep-audited; DEAD_KEYS
+   extended; the §4.26.N-16 chat-window assertions retired).
+6. The center column `.sim-center` holds EXACTLY two children, top →
+   bottom: the compatibility ring and the badge — the badge renders
+   `[ ICE BROKEN — SAY HELLO ]` (RU «[ ЛЁД РАЗБИТ — СКАЖИТЕ ПРИВЕТ ]»)
+   BELOW the ring with its unchanged deepa-1 chip styles + `badge-pulse`
+   (reduced motion → static at full opacity).
+7. Pattern reuse vs the /chats summary implementation (source-scan):
+   the landing imports `RING_RADIUS`, `ringScoreOffset`, `TALLY_MS`
+   and `tallyValue` from `#lib/chats/summary`; NO duplicated geometry
+   or timing constants exist in the landing sources (no local radius
+   66, no local 700ms count-up constant, no re-derived dash math).
+8. Ring construction (§4.27.D verbatim): SVG viewBox 0 0 160 160 at
+   160×160px, `r = 66`, stroke-width 12, `stroke-linecap: butt`,
+   `crispEdges`, track at 25% `--color-text` mix, arc dasharray =
+   full circumference + `ring-fill` 900ms ease-out from full C to
+   `ringScoreOffset(96)`, `rotate(-90deg)` 12-o'clock clockwise start;
+   the numeral renders `96%` at rest — `var(--font-pixel)` 600 40px,
+   centered (x 80 / y 80, middle/central), fill `--color-text`; arc +
+   numeral `--color-text` (no yellow, no new colors).
+9. Count-up behavior: a one-shot 700ms rAF loop stepping through
+   `tallyValue(elapsedMs, 96)` — integer steps, landing EXACTLY on
+   96; triggered ONCE by the scroll-into-view IntersectionObserver
+   (threshold 0.4, disconnects after firing; mount fallback when the
+   API is missing); scrolling away and back does NOT replay; under
+   reduced motion the tally is 96 and the arc is at its final offset
+   with no observer and no rAF.
+10. The flanking agent blocks are verbatim (§4.26.F): BLEAK 64px +
+    purple glow + YOUR AGENT + `Status: Scanning...` + blinking
+    cursor; SCOUT 64px + cyan glow + NEARBY AGENT + `Distance: 15m`;
+    ≥720px grid `1fr auto 1fr` (areas you/center/nearby), phone =
+    2-col avatar row above the full-width center; no horizontal
+    scroll at 320/760/1280.
+11. Accessibility: the ring SVG is `role="img"` with
+    `aria-label = landing.sim.compat.aria` ('Agent compatibility:
+    96%' / «Совместимость агентов: 96%»); the count-up announces
+    nothing (no aria-live on the numeral).
+
+**Video ping-pong (item 4):**
+12. The `loop` attribute is GONE: `video.loop === false` and no `loop`
+    token in `LandingVideoHero.svelte`; `muted`, `playsinline`,
+    `preload="metadata"`, `disablepictureinpicture`, `aria-hidden`
+    remain verbatim; no autoplay attribute, no native controls.
+13. Ping-pong: the pure unit `landing/videoPingPong.ts` `stepTime`
+    flips direction at BOTH ends with clamping (forward at `duration`
+    → reverse at `duration`; reverse at 0 → forward at 0) — unit
+    tests green; the component drives the PAUSED element via rAF
+    seek-stepping (wall-clock delta × direction, 1× speed — the
+    reverse pass takes the same wall time as the forward one) after
+    the gated one-shot `.play()` resolves (then `pause()`); the
+    stepper idles until `duration` is finite, bails on the video
+    `error` event (the §4.23.G fallback unchanged) and its rAF is
+    cancelled on unmount (teardown).
+14. Reduced motion: no `.play()`, no stepper — the video stays paused
+    at frame 0 with the tint + vignette + dots (§4.23.G verbatim);
+    the ring renders the static final state (96% + final arc offset)
+    and every §4.26 static fallback is unchanged.
+
+**i18n + suites (carry):**
+15. i18n: exactly **55** `landing.*` keys in BOTH dictionaries (58 − 4
+    + 1); `landing.sim.compat.aria` present in both; the four removed
+    keys exist NOWHERE (grep-audited); the RU/EN switch re-renders
+    every string without a reload.
+16. Suites amended and green: `landing-page.test.ts` (the 3-row chat
+    window + `loop` assertions retired; ACs 1–14 asserted),
+    `i18n.test.ts` (55-key parity + dead keys), new `videoPingPong`
+    unit tests, `sweep.test.ts` (token discipline — no new color
+    values, the sanctioned rgba family unchanged), `mascot.test.ts`
+    untouched green, `summary-sheet.test.ts` untouched green (the
+    pattern source is NOT modified), `join-flow.test.ts` /
+    `creation-wizard.test.ts` untouched green; `make lint && make
+    test && make build` green.
+17. Constraints: no new dependencies; palette tokens unchanged (no
+    new values anywhere); routes untouched; `/income` untouched; the
+    video asset stays; no canvas, no animation library; API endpoints
+    used: none (the landing stays fetch-free).
+
+#### 4.27.J Flags for the owner / concept (concept report)
+
+1. **ADVICE NEEDED — RU for `landing.sim.compat.aria` is a design
+   invention** («Совместимость агентов: 96%»): the owner's §39 gives
+   no copy for the ring's accessible label; the key is required by
+   the sheet pattern's `role="img"` + value-bearing label. Owner tone
+   approval requested with the batch (the §4.26.O.1 precedent).
+2. **Record — the font sizes are this design's calls** (§39.1–.2
+   leave them to the design): nav 12→14px (+2px, Handjet stays
+   chrome-scale at 14px), descriptions 13→15px. The descriptions
+   scope includes `.stat-line` + `.agent-quote` under the owner's
+   "etc." for cross-block consistency; excluding either is a one-line
+   change if the owner wants strictly steps + privacy.
+3. **Record — the arc is ink/white** (`--color-text`, the summary
+   pattern's structural white; the GREAT tier's yellow label was
+   already retired in the sheet itself, §4.15.6.2). A one-value flip
+   of the arc + numeral to `--color-deepa-4` gives the violet neon
+   read if the owner prefers it.
+4. **Record — reverse speed = 1×**: the reverse pass takes the same
+   wall time as the forward one (the owner's per-frame-delta note
+   with seconds-per-pass = the clip duration). A faster yo-yo is one
+   speed-multiplier constant.
+5. **Record — the count-up trigger is scroll-into-view** (one-shot
+   IntersectionObserver, mount fallback): a below-the-fold
+   mount-triggered animation would finish before the section is ever
+   seen. Reduced motion renders the final state without any observer.
+6. **Record — `.play()`-then-pause:** the gated one-shot `.play()`
+   stays as the autoplay-policy entry (muted + playsinline), then the
+   stepper drives the paused element uniformly — no negative
+   `playbackRate`, no native/stepping double-driving races; the
+   reduced-motion and error fallbacks are untouched.
+
+### 4.27.1 owner amendment (2026-11-22, Concept §39.4 record): native-loop swap
+
+The owner exported the yo-yo clip PRE-STITCHED (forward + reverse) as
+`background-video-loop.mp4` and picked Option A of the §39.4 amendment: the
+ping-pong is the FILE itself, so this design retires the §4.27.E seek-stepper
+wholesale — `landing/videoPingPong.ts` (`stepTime`/`PlayDirection`) is deleted
+with its tests and all of the hero's rAF/direction/currentTime wiring — and
+NATIVE playback is restored: the decisive §34 attribute set is back verbatim
+(`muted loop playsinline preload="metadata" disablepictureinpicture
+aria-hidden` — no autoplay, no native controls) with the clip committed as the
+app asset `apps/web/src/lib/assets/landing/background-video-loop.mp4`
+(superseding and deleting the old `background-video.mp4`). The gated one-shot
+`.play()` remains the whole playback wiring (no call under
+prefers-reduced-motion — the static tint + vignette + dots fallback is
+untouched; a rejected `.play()` is still swallowed), and the error fallback,
+black bg, dissolve vignette and dot mesh are unchanged (the new clip keeps the
+near-black background). §4.27.E's stepper record (and flags 4/6's
+stepper-related notes) are SUPERSEDED by this paragraph; every other §4.27
+contract (nav/description bumps, compatibility circle, 55-key RU/EN parity,
+glass sections) stands.
+
+### 4.28 v3.22 feature design (2026-11-22, owner-approved Concept §40): §40 bigger titles/descriptions/badges + phone widths
+
+The owner issued the two-item §40 follow-up batch: (1) another clearly
+visible font bump across the landing — section/block titles, description
+texts AND the badge/pill elements (the micro-caption pills,
+`[ LIVE NETWORK // IRL ]`, `[ICE BROKEN — SAY HELLO]`, status captions),
+exact values left to the design under one rule — consistent hierarchy,
+everything reads bigger; (2) on phone viewports the content blocks' width
+equals the header's width (90%) so their edges align visually — desktop
+stays as-is (content 80%, header 90%, §38). This is a **SIZING-ONLY
+pass**: no copy changes, no structural/marking changes, no new
+dependencies, palette tokens unchanged, routes untouched, `/income`
+untouched. This section amends §4.27 (→ §4.26 → … → §4.20) item by item;
+**where §4.28 is silent, the earlier specs stand** except where §4.28.G
+explicitly supersedes them. Grounded in the live code:
+`apps/web/src/routes/+page.svelte` (all current font sizes + the
+container/header width rules), `lib/styles/tokens.css`,
+`tests/landing-page.test.ts`. **API endpoints used: none** — the landing
+stays fetch-free (§4.20 preamble); the round is presentational CSS-value
+work. Task: tz12-12
+(`feature/05423c53-tz12-12-font-scale-phone-widths`).
+
+The bump ladder (the design's call, §40.1): **+4px on the display
+titles, +2–4px on the block titles, +2px on every description, +2px on
+every caption/badge/pill** — one consistent step per tier, so every
+element reads bigger while every superiority relation (headline > block
+titles > card captions > micro-captions) is preserved. Only
+`font-size` values move; **every `font-family`, `font-weight`,
+`letter-spacing`, `text-transform`, `line-height` and color declaration
+is byte-unchanged**.
+
+#### 4.28.A Titles — the master table (item 1a)
+
+| Class (role) | Current → New | Notes |
+| --- | --- | --- |
+| `.headline` (the lead headline, 3 `hl-line`s) | 36px → **40px** (base/phone); ≥480px: 44px → **48px**; ≥720px: `clamp(22px, 3.5vw, 44px)` → **`clamp(28px, 4vw, 48px)`** | see the open-state re-check below |
+| `.agent-name` (the BLEAK card title, §4.20.G) | 24px → **28px** | stays the largest block title |
+| `.stat-title` (the banner title REAL PEOPLE. REAL RESULTS., §4.26.B) | 17px → **21px** | the compact banner row keeps its contract otherwise |
+| `.step-title` (FIND / CHAT / SHARE, §4.26.C) | 20px → **24px** | |
+| `.section-title` (the shared sim/privacy/use-cases/join title, §4.26.E–I) | 20px → **24px** | one class, four sections |
+| `.join-headline` (the join card's inner headline, §4.26.I) | 20px → **24px**; ≥720px: 24px → **28px** | |
+| `.privacy-title` (GHOST MODE / MUTUAL OPT-IN / EPHEMERAL GPS, §4.26.G) | 14px → **16px** | inner card titles sit one tier under `.section-title` |
+| `.sim-agent-name` (YOUR AGENT / NEARBY AGENT, §4.26.F) | 14px → **16px** | |
+
+**The lead-headline clamp WAS adjusted — the bump forces it** (record):
+with block titles grown to 24–28px, the old `clamp(22px, 3.5vw, 44px)`
+would let the 28px `.agent-name` overtake the lead at narrow desktop
+widths (at 720px the old clamp computes 25.2px < 28px). The new
+`clamp(28px, 4vw, 48px)` keeps the lead the dominant title at every
+≥720px width — at 720px it computes 28.8px > 28px and grows from there,
+capping at 48px from 1200px up (the same cap as the ≥480px phone rule —
+one consistent maximum). The 28px clamp floor is inert on ≥720px (4vw ≥
+28.8px there); it is a defensive minimum only.
+
+**§37 open-state re-check (explicit):** the open-state geometry is
+UNTOUCHED — no §4.28 rule modifies `.stage`, `.area-lead`, `.copy-body`
+positioning or any grid/`100dvh` construction. Phone: `.area-lead` stays
+`min-height: 100dvh` + `justify-content: center` — the lead grows by
+≈ +4px per headline line (×3) + the `.sub` bump (§4.28.B, +2px) + the CTA
+bump (§4.28.D, +2px) ≈ +20px total, comfortably inside the 100dvh hero
+at every phone height ≥ 640px; the first viewport is still EXACTLY lead
++ BLEAK, vertically centered. Desktop: the thirds grid stays
+`min-height: 100dvh` + `align-content/align-items: center`; the lead
+third's interior at 720px is unchanged (≈ 139px column — identical to
+today) and the headline there computes 28.8px (was 25.2px) with
+`overflow-wrap: anywhere` carrying mid-word breaks (§4.24.C) — wrap
+sanity verified at 720/760/1280, no horizontal scroll.
+
+**Wrap sanity (desktop thirds ≈ 288px):** `.step-title`/`.section-title`
+at 24px Handjet ≈ 10.8px/char → ~22 chars per ~248px card interior; the
+longest RU titles («ПРИВАТНОСТЬ И КОНТРОЛЬ», «ПОДЕЛИСЬ КОНТАКТОМ»)
+wrap normally in normal-flow cards (nothing overflows at 320/760/1280).
+`.stat-title` at 21px in the compact banner flex row wraps to a second
+line on narrow phones — the banner is a normal-flow block, the glyph
+column is `flex: none`, no overflow.
+
+#### 4.28.B Descriptions (item 1b)
+
+One consistent +2px on every Inter body description (superseding the
+§4.27.B 15px values — the SAME four classes, one tier further):
+
+| Class | Block | From → To |
+| --- | --- | --- |
+| `.step-desc` | the three step cards (§4.26.C) | 15px → **17px** |
+| `.privacy-desc` | the three privacy cards (§4.26.G) | 15px → **17px** |
+| `.stat-line` | the banner's mini-lines (§4.26.B) | 15px → **17px** |
+| `.agent-quote` | the BLEAK agent card quote (§4.20.G) | 15px → **17px** |
+| `.sub` | the lead's supporting line (§4.20.C) | 14px → **16px**; ≥720px: 16px → **18px** |
+
+`.sub` is INCLUDED this round (record: it supersedes §4.27.B's explicit
+"the lead `.sub` stays 14px/16px" negative — §40.1 says ALL descriptions
+bigger, and the lead's supporting line is a description text; at 16px it
+still reads one tier under the 17px card descriptions' information
+density because it sits alone in the transparent lead, and under the
+headline at every width). The §4.27.B wrap-sanity analysis carries with
++2px: the longest RU privacy desc wraps to ~4 lines in a ~248px card
+interior — normal-flow growth, the step cards keep `min-height: 300px`
+with the pill pinned via `margin-top: auto`, the banner's three lines
+still fit the compact row at desktop width.
+
+#### 4.28.C Status captions (item 1c)
+
+| Class | Caption | From → To |
+| --- | --- | --- |
+| `.stat-status` | the glowing `AI Agents active nearby` caption (§4.26.B) | 11px → **13px** |
+| `.sim-status` | `Status: Scanning...` / `Distance: 15m` (§4.26.F) | 12px → **14px** |
+| `.agent-traits` | the BLEAK card's pixel traits line (§4.20.G) | 11px → **13px** |
+
+`.agent-traits` is included under the owner's "everything reads bigger"
+(§40.1): it is a micro-caption in the same band as `.stat-status`; the
+one-class +2px keeps the caption tier uniform. The `.sim-cursor` (6×2px
+block) and `.status-dot` (6×6px) decorations are UNCHANGED.
+
+#### 4.28.D Badges / pills (item 1d)
+
+| Class | Badge / pill | From → To |
+| --- | --- | --- |
+| `.stat-badge > span` | `[ LIVE NETWORK // IRL ]` (§4.26.B) | 11px → **13px** |
+| `.agent-badge` | the agent card's pixel badge (§4.20.G/§4.22.D) | 11px → **13px** |
+| `.step-pill` | the three step micro-pills (§4.26.L) | 10px → **12px**; ≥720px: 11px → **13px** |
+| `.sim-badge` | `[ICE BROKEN — SAY HELLO]` (§4.26.F/§4.27.C) | 12px → **14px** |
+| `.usecase-label` | CONFERENCES / PARTIES & BARS / COWORKINGS / FESTIVALS (§4.26.H) | 14px → **16px** |
+| `.cta-access` | GET EARLY ACCESS (§4.26.I-2) | 16px → **18px** |
+| `.cta-main` / `.talk` | START / TALK (§4.20.C/G) | 16px → **18px** |
+
+The CTA pill family moves TOGETHER (record): GET EARLY ACCESS is
+explicitly in the owner's §40 list, and START / TALK are the same
+pill-button family — leaving them at 16px while their sibling grows to
+18px would break the family's consistency, so all three labels take the
+same +2px. Chip geometry is otherwise unchanged: the `.stat-badge` 2px
+pixel-frame padding, the pill borders, `min-height: 24px` on
+`.agent-badge` (13px Handjet still fits), the `padding: 4px 10px` /
+`margin-top` mechanics of `.step-pill`, the touch-target 48px minimums
+and every hover/active treatment stand. The `badge-pulse` /
+`status-pulse` / cursor-blink / sparkle animations are untouched.
+
+#### 4.28.E Explicit negatives — UNCHANGED sizes
+
+1. **The header nav stays 14px** (`.top-nav a`): §39.1 just set 12px →
+   14px; the nav is chrome, not a section/block title, and 14px already
+   sits above the micro-caption band — the §40 ladder does not require
+   it to grow. NOT superseded (§4.27.A carries verbatim).
+2. **The language switcher is UNCHANGED** (the §39 rule, restated):
+   `LocaleControl.svelte` and `SegmentedControl.svelte` are untouched
+   files, the switcher buttons stay 14px, and NO landing style may add a
+   `.locale`-scoped size override (the negative assertion stays).
+3. **The join input stays 14px** (`.join-input`) — a form control, not a
+   description display (the §4.27.B negative carries).
+4. **The footer contact block is UNCHANGED**: `.brand-name` 14px,
+   `.foot-year` 11px, `.link-label` 12px, `.link-value` 13px — chrome-
+   level contact info, outside the §40 title/description/badge scope.
+5. **`.step-num` stays 40px** — a decorative `aria-hidden` pixel numeral,
+   not a title/description/badge.
+6. **`.compat-ring .compat-score` stays 40px** — the numeral is bound to
+   the ring's 132px interior (§4.27.D verbatim); growing it would
+   overflow the circle. The ring geometry (160×160, r 66, stroke 12) is
+   UNTOUCHED.
+7. No other landing `font-size` changed: the §4.28.A–D tables are the
+   complete list of moved values.
+
+#### 4.28.F Phone widths — the blocks match the header (item 2)
+
+**Decision: one shared width expression, `max(90%, 280px)`, for BOTH the
+content container and the header at phone; the container's phone inline
+padding is dropped so the blocks' edges == the container's edges == the
+header's edges (no mixed insets).** A shared token was considered and
+rejected — the value is used in exactly two rules with no third consumer;
+a raw shared expression is simpler and keeps the §4.24.A idiom.
+
+**Base (phone, mobile-first) rules — CHANGED:**
+
+```css
+.landing {
+  position: relative;
+  z-index: 3;
+  width: max(90%, 280px);       /* WAS max(80%, 280px) — the §40.2 match */
+  margin-inline: auto;
+  padding: 0 0 var(--space-5);  /* WAS 0 var(--space-5) var(--space-5) —
+                                   the phone INLINE padding is DROPPED: the
+                                   blocks (width: 100%) now span the
+                                   container edge-to-edge, so their edges
+                                   align EXACTLY with the header's outer
+                                   edges; the bottom padding stays */
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.top {
+  /* …every §4.26.A declaration unchanged… */
+  width: max(90%, 280px);       /* WAS 90% — the SAME expression as
+                                   .landing: the shared floor */
+  max-width: 1200px;            /* unchanged (inert on phone) */
+}
+```
+
+**Desktop ≥720px — the `.landing` override RESTORES the §38 values
+(everything else about the desktop container unchanged):**
+
+```css
+@media (min-width: 720px) {
+  .landing {
+    width: max(80%, 280px);                    /* UNCHANGED (§4.24.A) */
+    padding: 0 var(--space-7) var(--space-7);  /* UNCHANGED */
+  }
+  /* .top needs NO desktop override: at ≥720px the 280px floor is inert
+     (90% of any ≥720px viewport ≥ 648px > 280px), so .top computes 90%
+     capped at 1200px exactly as §4.26.A — the desktop 80/90 split and
+     §4.26.O.5's "deliberately wider" stand verbatim. */
+}
+```
+
+**Why the edges line up EXACTLY at every phone width:** both columns
+carry the identical `width: max(90%, 280px)` + `margin-inline: auto`
+against the same containing block (the viewport) → identical computed
+boxes: **390px → both 351px; 320px → both 288px; below ~311px → both
+floored at 280px** (the floor engages only where 90% < 280px, keeping
+the two columns equal even on sub-320 screens). No per-element width
+rules change: the cards, `.copy`, `.sim-card`, `.privacy-card`,
+`.usecase-pill`, step blocks and `.stat-card` are `width: 100%` of the
+container, so they align edge-to-edge with the header automatically;
+`.contact` (`max-width: 560px`) and `.join-card` (`max-width: 640px`)
+never bind on phone (<560px viewports) — they compute 100% of the
+container too. The transparent lead's TEXT keeps its inset: `.copy-body`
+retains its own 20px phone padding, so the copy floats 20px inside the
+block edge even as the block edge itself aligns with the header.
+
+**Wrap/overflow sanity:** at 320px the content column grows 280px →
+288px — the gutters shrink 20px → 16px per side; the no-horizontal-scroll
+invariant holds (288 < 320), and the phone header keep-list (icon +
+switcher, ≈160px) fits 288px with slack. Desktop is byte-identical to
+§4.24.A/§4.26.A behavior.
+
+#### 4.28.G Supersessions (explicit record)
+
+1. **§4.27.B's description values SUPERSEDED**: the four classes' 15px →
+   17px (§4.28.B); §4.27.B's "the lead `.sub` stays 14px/16px" negative
+   SUPERSEDED (`.sub` → 16px/18px, §4.28.B); §4.27.B's "the join input
+   stays 14px" negative CARRIES (§4.28.E.3).
+2. **§4.27.A NOT superseded**: the nav stays 14px (§4.28.E.1 — an
+   explicit decision, not an omission).
+3. **§4.26.B's banner compact-typography contract AMENDED**: the 17px
+   title → 21px and the 11px `.stat-badge`/`.stat-status` → 13px; the
+   padding contract (12px 14px / 16px 20px), the 44/48px BLOOM sizes,
+   the glass fill and every other banner value stand.
+4. **§4.20.G/§4.22.D agent-card typography AMENDED**: `.agent-name`
+   24 → 28px, `.agent-badge` 11 → 13px, `.agent-traits` 11 → 13px,
+   `.agent-quote` 15 → 17px; the card's structure, frame, portrait and
+   TALK handler untouched.
+5. **§4.26.C/§4.21.E step cards AMENDED**: title 20 → 24px, desc
+   15 → 17px, pill 10/11 → 12/13px; glass fill, art, hover, min-height
+   300px untouched.
+6. **§4.26.E–I section typography AMENDED**: `.section-title` 20 → 24px
+   (four sections), `.privacy-title` 14 → 16px, `.usecase-label`
+   14 → 16px, `.join-headline` 20/24 → 24/28px; the shared glass recipe,
+   grids, icons and the mailto stub untouched.
+7. **§4.26.F sim section AMENDED**: `.sim-agent-name` 14 → 16px,
+   `.sim-status` 12 → 14px, `.sim-badge` 12 → 14px; the ring (§4.27.D)
+   and its 40px numeral are UNTOUCHED.
+8. **§4.24.A / §4.26.O.5 phone-width reading SUPERSEDED on phone only**:
+   at <720px the content column and the header share
+   `max(90%, 280px)` (§4.28.F) — the header is no longer "deliberately
+   wider" on phone; **the desktop 80% / 90% split STANDS** (§4.26.O.5
+   carries for ≥720px verbatim). §4.24.A's phone "20px gutters at 320px"
+   note → 16px gutters at 288px. The `.landing` phone INLINE padding
+   (`--space-5`) is RETIRED (the blocks align edge-to-edge with the
+   header); the bottom padding and the desktop `--space-7` padding
+   stand.
+9. **§4.26.A's header width expression AMENDED**: `width: 90%` →
+   `width: max(90%, 280px)` (the shared floor; the desktop computed
+   value is unchanged — the floor is inert at ≥720px, and `max-width:
+   1200px` + centering + `top: 24px` + the glass recipe stand verbatim).
+10. **Superseded-but-carried (unchanged into §4.28):** the §4.23.A fixed
+    video layer + native-loop playback (§4.27.1), the §4.22.A keep-list,
+    the §4.25.A/B open state + transparent lead, the §4.27.C/D
+    compatibility circle construction, the §4.20.C copy/CTA (the STRINGS
+    are byte-identical — sizes only), the §4.20.L behavior + deep-link
+    forwarding, the §4.23.G/§4.26.M/§4.27.H reduced-motion and error
+    fallbacks.
+
+#### 4.28.H i18n: ZERO delta
+
+This is a sizing-only pass: **no key is added, removed or edited** —
+both dictionaries stay **byte-identical at 55 `landing.*` keys per
+dictionary** (the §4.27.G net count; the caller's "23…" paraphrase
+resolved: the real parity count is 55). Every rendered string —
+REAL PEOPLE. REAL RESULTS., the step descriptions, all badges and
+captions — is byte-unchanged in RU and EN; only the CSS boxes around
+them grow. The RU/EN switch re-renders every string without a reload
+(the parity + re-render pattern extends nowhere — nothing new to
+assert). `i18n.test.ts` is untouched and stays green.
+
+#### 4.28.I Reduced motion + media states
+
+**No animated sizes — nothing motion-related changes in this pass:**
+`font-size` and the width rules are static declarations; no transition,
+animation or keyframe touches them. Every existing reduced-motion
+fallback stands verbatim (§4.23.G video, §4.26.M hover/badge/cursor/
+dot/smooth-scroll fallbacks, §4.27.H ring tally + arc). Media states:
+the landing still fetches nothing — no loading/empty/error data states;
+the video media states are §4.23.G verbatim; the ring has no data
+states. No layout shift beyond the intended size growth: all bumped
+elements are normal-flow blocks (the ring's fixed 160×160 box and the
+header's fixed position are untouched).
+
+#### 4.28.J Acceptance criteria (checkable)
+
+**Font ladder (item 1):**
+1. Titles compute: `.stat-title` 21px, `.step-title` 24px,
+   `.section-title` 24px, `.privacy-title` 16px, `.join-headline` 24px
+   (28px ≥720px), `.agent-name` 28px, `.sim-agent-name` 16px — with
+   each class's `font-family`/`font-weight`/`letter-spacing`/
+   `text-transform`/color declarations unchanged (source + computed
+   assertions).
+2. The lead headline computes 40px (base), 48px (≥480px) and
+   `clamp(28px, 4vw, 48px)` (≥720px — 28.8px at a 720px viewport, 48px
+   at ≥1200px); the open-state geometry holds unchanged: phone
+   `.area-lead` is `min-height: 100dvh` + `justify-content: center`,
+   desktop `.stage` is the 100dvh thirds grid with
+   `align-content/align-items: center` (the existing §4.25/§4.27
+   assertions stay green verbatim).
+3. Descriptions compute 17px on ALL FOUR of `.step-desc`,
+   `.privacy-desc`, `.stat-line`, `.agent-quote` (the same value in all
+   four), and `.sub` computes 16px (18px ≥720px); family
+   (`var(--font-body)`), colors and existing line-heights unchanged.
+4. Captions compute: `.stat-status` 13px, `.sim-status` 14px,
+   `.agent-traits` 13px.
+5. Badges/pills compute: `.stat-badge > span` 13px, `.agent-badge`
+   13px, `.step-pill` 12px (13px ≥720px), `.sim-badge` 14px,
+   `.usecase-label` 16px, `.cta-access`/`.cta-main`/`.talk` 18px; chip
+   geometry (paddings, borders, min-heights, pulse animations)
+   unchanged.
+6. Negatives: `.top-nav a` stays 14px; the switcher files are untouched
+   with no `.locale`-scoped size override in the landing sources;
+   `.join-input` stays 14px; the footer classes stay 14/11/12/13px;
+   `.step-num` stays 40px; `.compat-ring .compat-score` stays 40px; no
+   landing `font-size` outside the §4.28.A–D tables changed (grep-audit
+   of the `<style>` block against the tables).
+
+**Phone widths (item 2):**
+7. At <720px, `.landing` and `.top` BOTH carry
+   `width: max(90%, 280px)` — their computed widths are EQUAL at a
+   320px viewport (288px) and at a 390px viewport (351px), and the
+   content blocks' outer edges align with the header's outer edges
+   (identical expression + identical `margin-inline: auto`; the
+   `.landing` phone rule has NO inline horizontal padding).
+8. The shared floor: below ~311px viewport both columns compute
+   280px and stay equal (the identical `max(…)` expression — no
+   mixed insets at any phone width).
+9. Desktop ≥720px UNCHANGED: `.landing` computes `max(80%, 280px)` with
+   `padding: 0 var(--space-7) var(--space-7)` and `.top` computes 90%
+   capped at `max-width: 1200px` (the 80/90 split stands; the header
+   floor is inert).
+10. No horizontal scroll at 320/390/760/1280; at 320px the gutters are
+    16px per side; `.contact`/`.join-card` compute 100% of the
+    container on phone (their max-widths do not bind).
+
+**Carry:**
+11. Open-state green: the §4.25/§4.27 open-state assertions (phone 100dvh
+    centered lead; desktop thirds grid; first viewport = lead + BLEAK
+    only) pass unmodified.
+12. i18n: exactly **55** `landing.*` keys in BOTH dictionaries,
+    byte-unchanged (ZERO delta — no key added, removed or edited); the
+    RU/EN switch re-renders every string without a reload.
+13. Reduced motion: nothing motion-related changed — no transition,
+    animation or keyframe references `font-size` or the width rules;
+    every §4.23.G/§4.26.M/§4.27.H static fallback passes unmodified.
+14. Suites amended and green: `landing-page.test.ts` updated — the
+    superseded §4.27.A/B font assertions rewritten to the §4.28 values
+    (nav 14px stays; the four descriptions 15→17px; `.sub` 16/18px;
+    `.top` width → `max(90%, 280px)`; the `.landing` phone-width rule →
+    `max(90%, 280px)` + no inline padding; the desktop 80% container
+    assertions stay), `i18n.test.ts` untouched green (55-key parity),
+    `sweep.test.ts` green (no new color values, the sanctioned rgba
+    family unchanged), all other suites untouched green;
+    `make lint && make test && make build` green.
+15. Constraints: no new dependencies; no copy changes (every string
+    byte-identical in both dictionaries); palette tokens unchanged (no
+    new color values anywhere); routes untouched; `/income` untouched;
+    the §37 open-state geometry holds; API endpoints used: none.
+
+#### 4.28.K Flags for the owner / concept (concept report)
+
+1. **Record — the ladder is this design's call** (§40.1 delegates the
+   exact values): +4px display titles / +2–4px block titles / +2px
+   descriptions / +2px captions-badges-pills, per the §4.28.A–D tables.
+2. **Record — the lead-headline clamp WAS adjusted** (the bump forces
+   it): `clamp(22px, 3.5vw, 44px)` → `clamp(28px, 4vw, 48px)` so the
+   lead stays dominant over the grown 28px `.agent-name` at every
+   ≥720px width (at 720px: 28.8px > 28px). The §37 open-state
+   geometry is untouched and re-verified (§4.28.A).
+3. **Record — the nav stays 14px** (§4.28.E.1): §39 just set it; the
+   chrome band is outside the §40 ladder. Growing it later is a
+   one-value change.
+4. **Record — `.sub` and the CTA pill family are INCLUDED** (they
+   supersede §4.27.B/§4.20.C size standstills): the owner's "ALL
+   descriptions / badges bigger" reading; excluding `.sub` or any CTA
+   is a one-line change each.
+5. **Record — the footer, `.step-num` and the ring numeral are
+   EXCLUDED** (§4.28.E): chrome / decorative numeral / geometry-bound,
+   respectively — none is a §40 title/description/badge.
+6. **Record — the shared floor is `max(90%, 280px)` in BOTH rules**
+   (§4.28.F), not a new token: two consumers, no third; the phone
+   inline padding drop is the alignment mechanism (the blocks'
+   edge-to-edge span). A `.copy-body`-internal 20px inset keeps the
+   transparent lead's text off the screen edge.
+
+### 4.28.1 owner amendment (2026-11-22, Concept §41 record): lead text color + copy
+
+The owner's small §41 batch (copy + one color, no design instance)
+amends the lead block only; §4.28 stands otherwise byte-unchanged.
+(1) **`.sub` reads white:** the lead description's color moves from
+`var(--color-text-muted)` to the white/text-primary token
+`var(--color-text)` — the muted token is retired **for this element
+only** (every other muted consumer in the file keeps it); the headline
+treatment (clamp(28px, 4vw, 48px) + the token-only glow + the accent
+word) is unchanged. (2) **Title copy** — EN "The right connections
+you" → **"The right connections beside you"**, RU «Нужные знакомства
+вас» → **«Нужные знакомства рядом»**: the 3-line pixel-headline
+structure is kept, the accent highlight stays on the final line
+(`landing.headline.accent` = 'BESIDE YOU' / «РЯДОМ»; `headline.1`/
+`headline.2` unchanged in both dictionaries). (3) **RU description
+verbatim:** "Нетворкинг - это работа. Здесь ИИ-двойники работают за
+Вас. Собирайте контакты, проверяйте совместимость и вдохновляйтесь
+общими идеями!" (exact text incl. the hyphen — do not "fix"
+punctuation); the EN description stays as-is (§41.3's EN translation
+proposal is pending owner approval). No key additions/removals — RU/EN
+parity stays 55/55, values only. Task: tz12-12a
+(`feature/42ce1dbc-tz12-12a-lead-copy-color`).
+
+### 4.29 v3.23 feature design (2026-11-22, owner-approved Concept §42): profile redesign — `/profile` + `/profile/settings` + new `/profile/edit`
+
+The owner-approved §42 redesign rebuilds the profile surface on the
+reference `docs/refs/profile-design.png` (three mobile screens: My profile /
+Settings / Edit Profile). ADOPTION RULES (Concept §42.1, binding): the
+reference contributes **layout, structure and component patterns only** —
+header with QR icon + gear, centered avatar, username row, stats row, pill
+tabs, settings list blocks with chevron rows, key-value edit rows, full-width
+save button — rendered entirely on the app's EXISTING tokens (charcoal
+`#1a1c20`/`#101213`, accent `#fedc5c`; `tokens.css` values only, §2.4). NO
+lime accent, no global theme change, no new tokens. The circular avatars of
+the reference are NOT followed (Concept §42.4: the owner's sharp-edged-square
+text wins). `docs/refs/profile-design-2.png` and the stale
+`/workspace/profile-design.png` copy are IGNORED. Content = real bleak-node
+API entities only; streak counter, badges, social post card, followers and
+the reference's toggles/FAQ rows are DROPPED — no placeholder or mock
+elements (Concept §42.2).
+
+This rev amends §3.6 (the /profile page), §4.9.3 (the settings route), and
+§4.11.4 (the editing-location contract); the full supersession list is G.
+Sitemap: the §1.1 `/profile` row is rewritten and `/profile/settings` +
+`/profile/edit` rows are ADDED (marked there). **Where this rev is silent,
+the superseded sections' specs stand** except where G explicitly retires
+them. Grounded in the live code: `routes/profile/+page.svelte`,
+`routes/profile/settings/+page.svelte`,
+`lib/components/profile/{ProfileBadge,QrCodeBadge,PersonaEditor,GreetingEditor,ContactCardEditor}.svelte`,
+`lib/components/{PixelAvatar,StatTile,Chip}.svelte`,
+`lib/components/icons/registry.ts`, `lib/stores/{interests,contactCard,mutualCode,identity}.ts`,
+`lib/styles/tokens.css`, `lib/i18n/{ru,en}.ts`.
+Task: `feature/f6ab8db7-profile-redesign`.
+
+**API endpoints used** (all credentialed calls carry the persona Bearer,
+auto-injected per ARCHITECTURE §10.8; endpoints per
+`/mount/bleak-node/docs/swagger.json`):
+
+| Endpoint (client method) | Screen / use |
+| --- | --- |
+| `GET /api/room/{room}/user/{address}` (`getRoomUser`) — persona Bearer | `/profile`: 4 s badge poll for the derived `mutual_code_live` (§6.3); `/profile/edit`: mount prefill (no poller) |
+| `GET /api/handshake/user/{address}` (`listHandshakesOfUser`) — gated read | `/profile` stats: sent count + added-you (mount + after mutations, §2.2) |
+| `GET /api/user/{address}/chat` (`listChatsOfUser`) — gated read | `/profile` stats: dialogs count |
+| `POST /api/room/{room}/user/{address}/mutual-code` (`registerMutualCode`) — persona Bearer; body = the code's SHA-256 hash, never the raw code | `/profile` live-QR registration (§6.3) |
+| `PUT /api/room/{room}/user/{address}` (`updateRoomUser`) — persona Bearer | `/profile/edit`: save name / public_bio / private_bio (all three fields, omitted-field semantics) |
+| `GET /api/room/{room}/user/{address}/greeting` (`getUserGreeting`) — persona Bearer | `/profile/edit`: canonical greeting prefill |
+| `PUT /api/room/{room}/user/{address}/greeting` (`putUserGreeting`) — persona Bearer | `/profile/edit`: save the greeting |
+| `POST /api/room/{room}/user/{address}/greeting/regenerate` (`regenerateGreeting`) — persona Bearer | `/profile/edit`: regenerate into the editor (not saved until Save) |
+| `POST /api/room/{room}/user/{address}/token` (`rotateUserToken`) — Bearer = current persona token, body = new raw token | `/profile/settings`: token rotation (§8.1.3) |
+| `DELETE /api/room/{room}/user/{address}` (`deleteRoomUser`) | NOT used on these screens — leave-room is purely local (§4.12.1); the endpoint stays for host drill-down |
+
+#### 4.29.A `/profile` — the "My profile" screen (read-only)
+
+**Purpose.** The attendee's own persona card, restyled to the reference's
+first screen: identity header, stats, and three pill tabs over the real
+content. The page stays READ-ONLY (§10.1.4's read-only half, carried through
+Concept §42.3); no edit affordance exists on it (I-rec 3).
+
+**A.1 Header.** One row: the h1 left (32px, as today) =
+`profile.title` — VALUE AMENDED to «Мой профиль» / "My profile" (E.2,
+matching the reference's screen title); the top-right cluster holds two
+icon-only buttons (48px `--touch-target` each, muted glyph, hover/active →
+`--color-text`):
+
+1. **QR affordance** — glyph `scan` (D.3), `aria-label` =
+   `profile.header.qr` (new, E.1).
+2. **Settings gear** — glyph `gear` (D.2), `aria-label` = `profile.settings.title`
+   («Настройки» / "Settings") → navigates to `/profile/settings` (a real link
+   styled as an icon button, §2.6). This carries §4.10.2's top-right corner
+   entry (amended: labeled button → icon button, G.5).
+
+**A.2 Header QR affordance behavior — tab-switch, NOT a second QR.** The
+live badge QR block lives EXACTLY ONCE on the page — inside the QR tab
+panel (A.6). Tapping the header QR icon: if the active tab is not QR →
+activates the QR tab; if it already is → scrolls the QR block into view
+(instant under `prefers-reduced-motion`). A header sheet/modal hosting a
+second `QrCodeBadge` was REJECTED: it would duplicate the QR render and the
+`aria-live` rotation note, and split the §6.3 contract across two mounts
+(I-rec 2).
+
+**A.3 The §6.3 rotation flash note.** The transient «QR обновлён» note
+(existing `qrRefreshed`, auto-hide 2 s, `aria-live="polite"`) renders inside
+the QR panel under the QR, as today. **When the rotation fires while another
+tab is active, the app switches to the QR tab first** — the rotation is
+visible by design (§3.6: the swap teaches the one-time mechanic); the note
+then shows in place. The underlying contract is UNTOUCHED: the 4 s Poller on
+the token-gated `getRoomUser` watches `mutual_code_live`; flag false →
+`decideBadgeAction` → generate a fresh code, register ONLY its hash via
+`registerMutualCode`, update the `mutualCode` store, re-render with the
+rotation micro-animation; a registration failure keeps the last QR and
+retries on the next tick (§3.6 AC 14 verbatim).
+
+**A.4 Identity block.** Centered column under the header:
+`PixelAvatar` 96px (own persona → accent backdrop; SQUARE treatment, D.1) →
+`User.name` centered (Handjet 28px, `overflow-wrap: anywhere`) → the
+read-only language meta (`profile.language.meta`, muted 14px). The
+reference's verified-check mark is DROPPED (no API backing).
+
+**A.5 Stats row.** The existing 3-stat contract (§2.2, §4.9.5) as THREE
+`StatTile`s in one row (grid `repeat(3, 1fr)`, gap `--space-3`), placed
+under the identity block and ABOVE the pill tabs (the reference's stats
+position): **Sent** (`handshakes.length`) / **Added you** (the
+`to_address === me` filter) / **Chatting** (`chats.length`) — computed with
+the persona Bearer on mount + after mutations, exactly as today.
+**Decision: keep the StatTile component** (surface-elevated tiles, Handjet
+numerals, existing `aria-label` pattern) rather than restyling to the
+reference's inline "10.2k · 142" text row — the tiles are the established
+app pattern and Concept §42.2 names the EXISTING stats contract (I-rec 1).
+
+**A.6 Pill tabs — final naming + content mapping.** Three tabs over real
+content (Concept §42.2); every existing `/profile` content block is mapped,
+nothing is invented:
+
+| Tab (key) | RU / EN | Panel content (all existing, re-hosted from the §3.6 badge card) |
+| --- | --- | --- |
+| `profile.tab.about` | «Обо мне» / "About" | The **greeting block** (accent 3px left bar, italic muted, caption `profile.greeting.caption`) + the **public bio** («О себе» / `profile.badge.about`) + the **private bio** (`profile.badge.for_agent` + the muted-red `profile.private_bio.caption` above it, §4.10.3/§4.11.3 carried) — one `--color-surface` card (`.pixel-corners`, radius-lg) |
+| `profile.tab.interests` | «Интересы» / "Interests" | The local mirror chips (`stores/interests.ts` → `displayInterests`; `Chip variant="outline-muted"`, emoji + title) — **DISPLAY-ONLY**: no editor, no add affordance (I-rec 12); empty state `profile.interests.empty` — one surface card |
+| `profile.tab.qr` | «QR-код» / "QR code" | The **live QR block**: `QrCodeBadge` (or the badge skeleton while no code exists) + both caption lines (`profile.qr.caption`, `profile.qr.onetime`) + the rotation note (A.3) — one surface card; the QR keeps the light `--color-qr-frame` frame and issues no network request (§3.6 carried) |
+
+Nothing real is lost: greeting, both bios, interests, the QR block and the
+stats are all mapped; identity lives in the header block (A.4).
+**Handshake rows are NOT listed in a tab**: the already-fetched handshake
+list feeds the stats counts only (A.5) — a handshake-row list would be a NEW
+surface the reference's one-card-per-tab pattern does not require (I-rec 1).
+Streak counter, badges, social post card: dropped per §42.2.
+
+**A.7 Pill-tab component spec (on tokens).** Real `<button>`s reusing the
+Chip vocabulary (§4.2): **active** tab = `fill-accent` (accent background,
+`--color-accent-ink` text), **inactive** = `outline-muted` (1px
+`--color-text-disabled-strong` border, `--color-text-muted` text); min-height
+48px, padding `0 var(--space-4)`, `--radius-pill`, `--font-body` 14px/600;
+NEVER `.pixel-corners` (§4.5: pills stay smooth). Active-state morph: 120 ms
+background/color transition (§4.6). Semantics: a `role="tablist"` wrapping
+`role="tab"` buttons with `aria-selected` + `aria-controls`, panels as
+`role="tabpanel"` labelled by their tab; the tabs are plain tabbable buttons
+in DOM order (no roving-tabindex requirement for AA). Default tab on mount:
+**About** (first).
+
+**A.8 States.** Loading: the existing skeleton adapted to the new shape
+(centered avatar block + name bar + 3 stat-tile skeletons + the tab row).
+Error: `ErrorBanner` + retry (existing `refresh()` carried). Persona 404:
+the existing not-found card verbatim (`profile.not_found` + `profile.exit`
+→ clears identity → `/`). QR: the badge skeleton until a code exists
+(never a broken payload). Mutation-pending: n/a (read-only page).
+
+**A.9 Responsive.** `<720px`: the §4.12.1 phone full-screen treatment
+CARRIED verbatim from the current implementation (container drops side
+padding; cards go radius 0; header keeps its own gutter; tab-bar clearance
+stays). `≥720px`: content column max-width 560px centered.
+
+**A.10 Accessibility.** Carried from §3.6: stat tiles announce
+"«Отправлено»: 7"-style full pairs; the QR `<figure>` has `role="img"` with
+`profile.qr.aria`; focus-visible outline never removed; icon-only header
+buttons labeled (A.1). New: the tab semantics (A.7).
+
+#### 4.29.B `/profile/settings` — the "Settings" screen (list-block pattern)
+
+**Purpose.** App-level settings only, restyled to the reference's second
+screen (grouped list blocks with icon/chevron rows). Persona editing LEAVES
+this page for `/profile/edit` (C); §4.11.4 item 4's "all persona editing
+lives here" is SUPERSEDED (G.3).
+
+**B.1 Chrome (carried + one amendment).** No tab bar (the scoped-style
+pattern, §4.9.3); back control top-left (history back with a `/profile`
+fallback, §1.3). The h1 is **centered** per the reference: grid
+`[48px 1fr 48px]`, title = `profile.settings.title` — VALUE AMENDED to
+«Настройки» / "Settings" (E.2; the old value «Мой профиль» now belongs to
+`/profile`'s title, A.1).
+
+**B.2 List-block pattern.** Grouped `--color-surface` cards (`.pixel-corners`,
+radius-lg, padding `--space-4`/`--space-5`) of full-width rows. Row anatomy:
+min-height 48px; leading 16px `PixelIcon` (muted) when a suitable glyph
+exists; label left (`--font-body` 15px/600, `--color-text`); trailing
+element right — the `arrow-right` chevron (`aria-hidden`) for navigational
+rows, an inline control or a spinner for actionable rows; 1px
+`--color-surface-elevated` divider between rows within a block.
+**No toggle rows and no FAQ/Terms/policy rows**: the app has no
+toggle-backed setting and no such content — the reference's toggles/FAQ are
+NOT invented (I-rec 4/7).
+
+**B.3 Row mapping (the real rows only).**
+
+1. **Block 1 — profile entry row** → `/profile/edit`: mini `PixelAvatar`
+   40px (own, square) + `User.name` (15px/600) + the muted
+   `User.address` line (single-line ellipsis) + chevron. Rendered as a real
+   link; `aria-label` = `profile.edit.title`. This ONE row REPLACES the
+   three persona-edit rows (persona / greeting / contact) that §4.11.4
+   moved here — their content moves to `/profile/edit` (C.3, G.3).
+2. **Block 2 — app settings:**
+   - **Language row**: label `common.locale` + the existing `LocaleControl`
+     (RU|EN segmented control) inline as the trailing control. The
+     reference's "Language ›" sub-page pattern is REJECTED: the control is
+     inline today and a sub-page for a two-option switch adds a route for
+     nothing (I-rec 8).
+   - **Token-rotation row**: `key` glyph + `profile.rotate.row` + trailing
+     chevron → the existing `ConfirmDialog` (title/body/CTA copy unchanged,
+     §3.6/§8.1.3). Pending: the spinner replaces the chevron. The
+     `rotatedFlash` («Ключ обновлён») and `rotateError` lines render under
+     the row (`aria-live="polite"` / `role="alert"`), carried verbatim.
+3. **Leave room** — the reference's bottom full-width button slot: a
+   STANDALONE full-width button BELOW the blocks at the page bottom,
+   **outline red** per §7.1.6/§4.9.3 (carried roles verbatim): 1px border
+   `--color-danger`, font `--color-danger-text`, TRANSPARENT background —
+   never a filled red block; `--radius-pill`; min-height 48px. The existing
+   `ConfirmDialog` carries (copy per §4.12.1's purely-local semantics:
+   confirm → clear identity + mutual code, KEEP `bleak.tokenVault`, → `/`).
+
+**B.4 Removed from settings.** The persona/greeting/contact edit rows
+(their keys retire or move per E.3); the received-contacts list stays
+removed (§4.14.2 carried); the internal `view = rows|persona|greeting|contact`
+state machine collapses to a static page (implementation note — the editor
+components re-host on `/profile/edit`).
+
+**B.5 States.** Mount `getRoomUser` fetch (no poller, §2.2): error →
+`ErrorBanner` + retry (carried); `savedFlash` carried (still fired by
+nothing until /profile/edit's flow replaces it — see C.5: the flash moves
+with the editors). Rotation pending/error/flash per B.3.2.
+
+**B.6 Responsive.** `<720px`: the same phone full-screen list treatment as
+A.9 (container drops side padding; blocks radius 0). `≥720px`: blocks
+max-width 560px centered (carried §4.9.3).
+
+**B.7 Accessibility.** Rows are real buttons/links (§2.6); chevrons and
+icons `aria-hidden` (labeled glyphs) or decorative; the entry row's
+accessible name = `profile.edit.title`; everything else carried from the
+current implementation.
+
+#### 4.29.C `/profile/edit` — the "Edit profile" screen (new route)
+
+**Purpose.** Persona editing (name/public bio/private bio via
+`updateRoomUser`; greeting incl. regenerate via the greeting endpoints; the
+LOCAL contact card), moved here per the reference's third screen:
+key-value rows + one full-width primary Save Changes. NO interests editor —
+I-rec 12 (flagged for owner ratification).
+
+**C.1 Chrome.** Sub-page: no tab bar (B.1 pattern); back control top-left
+(history back with a `/profile` fallback); h1 CENTERED = `profile.edit.title`
+(new, E.1) «Редактировать профиль» / "Edit profile". Record: §4.12.3's
+drop-"Edit" copy sweep applied to editor FORM titles; this is a SCREEN title
+the owner's reference names explicitly — superseded for this one title
+(I-rec 9).
+
+**C.2 Avatar.** Centered `PixelAvatar` 96px, square (D.1), DISPLAY-ONLY.
+**No camera badge**: the bleak-node contract has no avatar-upload endpoint —
+the reference's camera affordance is NOT invented (I-rec 6).
+
+**C.3 Field groups (the editors surface here; the reference's key-value
+rows).** The three existing editors (`PersonaEditor`, `GreetingEditor`,
+`ContactCardEditor`) re-host as sections of ONE form; their individual
+Save/Cancel CTAs are retired here (the route owns the single Save, C.4);
+their fields, labels, validators and helper copy carry verbatim:
+
+| Group | Rows / fields | Saved via |
+| --- | --- | --- |
+| **Persona** | **Name** (`profile.edit.row.name`, new) — single-line input, maxlength 64, required (empty → `join.error.name_required`, reused) · **Public bio** (`profile.edit.row.public_bio`, new) · **Private bio** (`profile.edit.row.private_bio`, new) + the muted-red `profile.private_bio.caption` under its label | `PUT updateRoomUser` — ALL THREE fields sent (omitted-field semantics, §3.6) |
+| **Greeting** | Label-above block: `profile.greeting.label`; textarea max 255 + counter `profile.greeting.counter`; helper rule `profile.greeting.rule`; inline **Regenerate** outline button (`profile.greeting.regenerate`) — fills the textarea WITHOUT saving (carried §3.6) | `PUT putUserGreeting` |
+| **Contact card** | Single-line row: label `profile.contact.edit` (reused — same string/role) + value input ≤255 + helper `profile.contact.note` | LOCAL ONLY — `bleak.contactCard`, no API call on save (§4.13.3) |
+
+**Row anatomy (reference key-value pattern):** single-line fields render as
+label (muted 14px) left + right-aligned borderless input (`--color-text`)
+in a `--color-surface` row; 1px `--color-surface-elevated` dividers between
+rows. **Recorded deviation (I-rec 10):** the multi-line fields (both bios,
+the greeting) use label-ABOVE borderless input blocks — a one-line
+key-value row cannot hold multi-line text; the greeting keeps its textarea,
+counter and validation block.
+
+**C.4 Save model — DECISION: ONE full-width primary Save Changes.** The
+reference shows a single Save Changes button and Concept §42.3 says "Save
+Changes primary button"; per-editor saves are retired on this screen
+(I-rec 3). Spec: full-width button, min-height 48px, `--radius-pill`,
+accent background + `--color-accent-ink` text, `--font-body` 16px/600;
+pending → spinner in the button; double-submit prevented. Submit sequence:
+(1) `updateRoomUser` (name + public_bio + private_bio), (2) `putUserGreeting`,
+(3) the local `contactCard` save. **First failure aborts the sequence** —
+the failing group shows the inline error (server text; network →
+`common.error.network`; greeting 400 → `profile.greeting.no_questions`),
+the already-applied steps stand, and a retry re-saves idempotently (both
+PUTs send full values). The greeting question-mark rule blocks the WHOLE
+save client-side: any `?`/`？` disables Save (`aria-disabled`) with the
+reason inline at the greeting field (existing `GreetingEditor` validation,
+carried).
+
+**C.5 Success.** Transient «Сохранено» flash (`profile.saved`, reused,
+`aria-live="polite"`, 2 s) — the page STAYS on `/profile/edit` (today's
+settings flash pattern); the back control returns to `/profile`, which
+re-fetches on mount so the updated values render immediately.
+
+**C.6 Back / unsaved changes.** The back control and any navigation discard
+unsaved input WITHOUT a confirm dialog — the same semantics as today's
+editors' Cancel (I-rec 11).
+
+**C.7 Mount.** Prefill from one `getRoomUser` fetch; the greeting field
+additionally re-fetches the canonical greeting via `getUserGreeting`
+(carried settings behavior; the `getRoomUser` value is the loading
+fallback). Load error → `ErrorBanner` + retry. **No poller** — the §6.3
+live-QR contract stays bound to `/profile` only (§2.2 cadence table).
+
+**C.8 Responsive.** `<720px`: §4.12.1 phone full-screen form — the form
+fills the viewport, no floating card chrome, tab bar hidden, all content in
+bounds at 320/360/390px; the Save button sits in the normal flow after the
+field groups. `≥720px`: centered column max-width 560px (consistent with
+the other profile screens).
+
+#### 4.29.D Square avatar treatment + icons
+
+**D.1 Square avatars (Concept §42.4 — owner text wins over the reference's
+circular avatars).** `PixelAvatar` already renders a sharp-edged square
+frame. Spec for all three screens: the bare square frame — NO border-radius,
+no ring, no `.pixel-corners` (§4.5 excludes avatars); the own-persona accent
+backdrop stays (§4.3's "you are here" mark); the 1px same-color padding
+(§4.8.2) carries. Sizes: 96px on `/profile` (A.4) and `/profile/edit`
+(C.2); 40px in the settings entry row (B.3.1).
+
+**D.2 Gear glyph (the one new glyph).** The §4.4 registry has NO gear; the
+reference's settings gear is load-bearing (A.1). Spec: ONE new glyph `gear`
+added to the existing `icons/registry.ts` as a trivially inline 16×16
+single-color (`currentColor`) 2px-weight pixel-art SVG — consistent with
+§4.4, no new file type, no dependency. Fallback if the owner rejects a new
+glyph: reuse `edit` (pencil) for the settings entry (closest existing
+semantic). Flagged (I-rec 13).
+
+**D.3 Header QR glyph:** reuse the existing `scan` (viewfinder brackets) —
+the scanner-set glyph reads as "show my QR". No new glyph.
+
+**D.4 Other glyphs:** chevron = existing `arrow-right`; token-rotation =
+existing `key`; no other new glyphs anywhere in this rev.
+
+#### 4.29.E i18n delta (both dictionaries; RU/EN parity CI-enforced)
+
+**New keys (9).** RU strings are design inventions for tone ratification
+(standing precedent — flagged in I-rec 14):
+
+| Key | RU (proposed) | EN |
+| --- | --- | --- |
+| `profile.header.qr` | «Показать QR-код» | "Show QR code" |
+| `profile.tab.about` | «Обо мне» | "About" |
+| `profile.tab.interests` | «Интересы» | "Interests" |
+| `profile.tab.qr` | «QR-код» | "QR code" |
+| `profile.edit.title` | «Редактировать профиль» | "Edit profile" |
+| `profile.edit.row.name` | «Имя» | "Name" |
+| `profile.edit.row.public_bio` | «О себе» | "About you" |
+| `profile.edit.row.private_bio` | «Для агента» | "For your agent" |
+| `profile.edit.save` | «Сохранить изменения» | "Save changes" |
+
+**Value edits (2):** `profile.title` «Профиль» → **«Мой профиль»** /
+"Profile" → **"My profile"**; `profile.settings.title` «Мой профиль» →
+**«Настройки»** / "My profile" → **"Settings"**.
+
+**Retired (3 — usages leave with this rev):** `profile.settings.persona`
+(the settings persona-block title; the block becomes the entry row),
+`profile.persona.edit` and `profile.greeting.edit` (the editors' h2s are
+replaced by the field labels of C.3). Reused unchanged: `profile.contact.edit`
+as the contact row's label, `profile.saved`, `profile.greeting.*`,
+`profile.badge.*`, `profile.private_bio.caption`, `profile.interests.*`,
+`profile.qr.*`, `profile.stats.*`, `profile.language.meta`,
+`profile.rotate.*`, `profile.leave*`, `profile.not_found`, `profile.exit`,
+`common.locale`, `common.back`.
+
+Net per dictionary: +9 − 3, 2 value edits; parity maintained (the
+`i18n.test.ts` per-dictionary count assertions update to the new count).
+
+#### 4.29.F Motion, accessibility, responsive, polling
+
+**F.1 Motion (§2.5/§4.6 — minimal, performance-first).** Tab active-state
+morph 120 ms (background/color); **tab panel switch = instant content swap**
+(no animation — recorded; nothing scrolls or slides); the QR rotation
+micro-animation and the flash notes are UNCHANGED (§3.6). No new
+transform/opacity animations; `prefers-reduced-motion: reduce` → the tab
+morph and the QR swap become instant (the notes still show).
+
+**F.2 Accessibility (§2.6 AA).** Carried: touch targets ≥ 48px, visible
+focus, semantic landmarks, `aria-live` success/error lines, stat-tile and
+QR accessible names, contrast on tokens. New: the A.7 tab semantics;
+icon-only buttons carry `aria-label`s (A.1); Save's validation-disabled
+state is `aria-disabled` with the reason inline (C.4).
+
+**F.3 Responsive (720px breakpoint, §4.12.1).** All three screens: phone
+(<720px) full-screen treatments per A.9/B.6/C.8; ≥720px centered 560px
+columns; no horizontal scroll at 320/390/760/1280.
+
+**F.4 Polling (§2.2 — cadences unchanged).** `/profile`: the 4 s
+token-gated `getRoomUser` badge poll (liveness flag) + stats on mount and
+after mutations. `/profile/settings` and `/profile/edit`: mount fetches
+only, no pollers. The §6.3 rotation contract (Poller 4 s, `decideBadgeAction`,
+register-fresh-on-scan, hash-only registration) stays intact on `/profile`.
+
+#### 4.29.G Supersessions (explicit record)
+
+1. **§3.6 layout (blocks 1–4) SUPERSEDED** by the three-screen structure:
+   the single badge card is decomposed — identity + stats become the
+   header/identity block (A.4/A.5), greeting + bios + interests
+   redistribute into the pill tabs (A.6), the QR block moves into the QR
+   tab, the settings block lives restyled on its own route. §3.6's API
+   table, live-QR mechanics, rotation micro-animation, not-found and error
+   states CARRY where not restated.
+2. **§3.6 block 3 (inline editors on `/profile`) SUPERSEDED**: `/profile`
+   is READ-ONLY (§10.1.4's read-only half carried through Concept §42.3);
+   editing moves to `/profile/edit` (C).
+3. **§4.11.4 item 4 ("no profile edit button; all persona editing lives in
+   `/profile/settings`") SUPERSEDED**: persona editing lives in
+   `/profile/edit`; it is entered from the `/profile/settings` entry row —
+   `/profile` itself stays edit-button-free (the reference's first screen
+   has none either). §4.11.4's other items carry.
+4. **§4.9.3 item 3 AMENDED**: the leave-room outline-red rule CARRIES
+   verbatim (border `--color-danger` / font `--color-danger-text`,
+   B.3.3), but the settings page composition (plain column of pill
+   buttons) is SUPERSEDED by the list-block pattern (B.2–B.3).
+5. **§4.10.2 (settings corner entry) AMENDED**: position top-right
+   unchanged; the labeled compact button becomes the gear ICON button
+   (A.1).
+6. **§4.12.1 item 5 CARRIED and extended**: the phone full-screen treatment
+   now explicitly covers `/profile`, `/profile/settings` and
+   `/profile/edit`.
+7. **§3.6 acceptance criteria redistributed**: AC 1 (badge contents) →
+   A.4–A.6; AC 2–4 (persona/greeting editors) → C (restated in H);
+   AC 5 (interests editor) SUPERSEDED — no interests editor exists anywhere
+   (§23.2 5.6; the tab is display-only); AC 6 (locale) → B.3.2; AC 7
+   (leave) → B.3.3; AC 8–15 carry where not restated (404 state, stat
+   arias, tokens, live QR, scannability, code-split, live rotation, token
+   rotation).
+8. **§4.12.3's drop-"Edit" sweep AMENDED for one title**: the
+   `/profile/edit` screen title keeps "Edit" (C.1, the owner's reference
+   names the screen).
+9. **§1.1 sitemap AMENDED** (the table rows marked there).
+
+#### 4.29.H Acceptance criteria (checkable)
+
+`/profile`:
+
+1. The header shows «Мой профиль»/"My profile" with two icon-only buttons
+   top-right: QR (`aria-label` «Показать QR-код»/"Show QR code") and gear
+   (`aria-label` «Настройки»/"Settings"); the gear navigates to
+   `/profile/settings`.
+2. Tapping the header QR button activates the QR tab (or scrolls the QR
+   block into view when it is already active); EXACTLY ONE `QrCodeBadge`
+   instance exists on the page.
+3. The identity block is centered: a 96px sharp-edged SQUARE `PixelAvatar`
+   (no border-radius, accent backdrop), the centered name (Handjet), and
+   the muted read-only «Язык агента: {language}» line.
+4. The stats row renders three `StatTile`s — Sent (`handshakes.length`),
+   Added you (`to_address` filter), Chatting (`chats.length`) — every fetch
+   carrying the persona Bearer, on mount + after mutations.
+5. Three pill tabs with the final naming (About / Interests / QR code);
+   active = fill-accent, inactive = outline-muted; `tablist`/`tab`/
+   `tabpanel` semantics with `aria-selected`; the default tab on mount is
+   About; the active-state morph is a 120 ms color transition and the
+   panel switch is instant.
+6. The About tab shows the greeting block (accent bar), the public bio and
+   the private bio with its muted-red caption — and the PAGE has no edit
+   affordance anywhere (read-only).
+7. The Interests tab renders the mirror chips display-only (no editor, no
+   add control; empty state «Интересы не выбраны»/"No interests yet"); no
+   network request is issued for interests.
+8. The QR tab shows the live QR block: the badge skeleton until a code
+   exists; the payload `{INVITE_URL_BASE}?u={userAddress}&m={mutualCode}`;
+   both caption lines; the QR is not interactive and issues no network
+   request; the `uqr` encoder stays code-split into the `/profile` chunk
+   only.
+9. Live rotation: the 4 s token-gated `getRoomUser` poll; flag false → a
+   fresh code is generated, ONLY its hash registered via
+   `registerMutualCode`, the store updated, and the QR re-rendered with the
+   rotation micro-animation plus the transient «QR обновлён» note
+   (`aria-live`); a registration failure keeps the last QR and retries next
+   tick; if another tab is active when the rotation fires, the app switches
+   to the QR tab first.
+10. Persona 404 → the not-found card with the working exit path; network/API
+    errors → `ErrorBanner` with retry.
+11. No hardcoded colors anywhere on the three screens; every surface, text
+    and border derives from `tokens.css`.
+
+`/profile/settings`:
+
+12. Sub-page chrome: no tab bar; back control (history back with a
+    `/profile` fallback); CENTERED h1 «Настройки»/"Settings".
+13. The entry row (40px own avatar + name + muted address + chevron)
+    navigates to `/profile/edit`; the three old persona-edit rows are gone.
+14. The Language row keeps the RU|EN `LocaleControl` inline; switching
+    persists and re-renders the app without a reload.
+15. The token-rotation row opens the ConfirmDialog with the other-device
+    lockout copy; confirming calls `rotateUserToken` (current Bearer, new
+    raw token in the body) and updates `identity.token` + the matching
+    `bleak.tokenVault` entry only after a 2xx; 401 → the §2.8 global gate;
+    403 → inline server text with the identity kept.
+16. Leave room renders as the full-width BOTTOM outline-red button — border
+    `--color-danger`, font `--color-danger-text`, transparent background
+    (never filled); its ConfirmDialog copy matches §4.12.1 (purely local:
+    clears identity + mutual code, keeps the vault, navigates `/`).
+17. Settings contains NO persona-edit rows and NO toggle rows.
+
+`/profile/edit`:
+
+18. Sub-page chrome: no tab bar; back control; centered h1
+    «Редактировать профиль»/"Edit profile"; centered 96px square avatar,
+    display-only (no camera badge).
+19. All field groups render: name (required, maxlength 64), public bio,
+    private bio (muted-red caption), greeting (textarea ≤255 + counter +
+    rule helper + Regenerate that fills WITHOUT saving), contact card
+    (≤255, local only).
+20. Save Changes is ONE full-width accent button: a question mark in the
+    greeting disables it (`aria-disabled` + the inline reason); the submit
+    sequence is `updateRoomUser` → `putUserGreeting` → the local contact
+    save; the first failure aborts with the inline error at the failing
+    group and already-applied steps stand; a retry re-saves idempotently;
+    double-submit is prevented; success shows the «Сохранено» flash
+    (`aria-live`) and stays on the page.
+21. Mount prefill comes from `getRoomUser` (+ the canonical `getUserGreeting`
+    for the greeting); a load error shows `ErrorBanner` + retry; NO poller
+    runs on this page.
+22. Back discards unsaved input without a confirm; on phone (<720px) the
+    form is full-screen with no floating card chrome and no horizontal
+    scroll at 320/360/390px; at ≥720px it is a centered 560px column.
+
+Cross-cutting:
+
+23. i18n: exactly the E-table delta — 9 new keys, 2 value edits, 3 retired
+    keys — present in BOTH dictionaries with parity green; the RU/EN switch
+    re-renders every string without a reload.
+24. Tests asserting the superseded §3.6/§4.9.3 layouts are updated to this
+    rev; `make lint && make test && make build` stays green.
+
+#### 4.29.I Decision records (numbered) + flagged items
+
+1. **Tab naming + content mapping final** (A.6): About («Обо мне») /
+   Interests («Интересы») / QR code («QR-код»); stats live above the tabs;
+   identity in the header block. Handshake rows are NOT listed in a tab —
+   the fetched list feeds the stats counts only (no invented surface).
+2. **Header QR affordance = tab-switch** (A.2), not a second QR instance
+   or a sheet: one live-QR mount, one `aria-live` region, the §6.3
+   contract undivided.
+3. **Save model on `/profile/edit` = ONE full-width Save Changes** over the
+   three groups, sequential with abort-on-first-failure (C.4); per-editor
+   Save/Cancel CTAs are retired on that screen (their validators and copy
+   carry into the sections).
+4. **Settings grouping** (B.3): two blocks (profile entry; app settings)
+   + the bottom leave-room button; Language stays an INLINE control (no
+   sub-page); no toggle rows and no FAQ/Terms rows (nothing invented).
+5. **Leave-room placement** (B.3.3): it STAYS on `/profile/settings` as the
+   bottom full-width outline-red button (§7.1.6 roles verbatim); the
+   reference edit-screen's "Delete Account" is NOT reproduced on
+   `/profile/edit` — one destructive surface (Concept §42.3 defers
+   placement to this rev).
+6. **No avatar upload / camera badge** (C.2): the API has no avatar field.
+7. **No toggle rows** (B.2): no real toggle-backed setting exists.
+8. **Language inline** (B.3.2): no `/profile/settings/language` route.
+9. **The screen title "Edit profile"** keeps "Edit" despite §4.12.3's
+   sweep (the owner's reference names the screen; G.8).
+10. **Multi-line fields use label-above blocks** (C.3); the key-value
+    one-line row is reserved for single-line fields (name, contact card).
+11. **Unsaved-changes back = discard without confirm** (C.6), matching
+    today's editors' Cancel semantics.
+12. **FLAGGED for owner ratification (process decision, not
+    owner-approved): NO interests editor on `/profile/edit`.** Concept
+    §23.2 5.6 removed the interests editor ("set at creation only") and
+    the picker component no longer exists; §42.3's parenthetical listing
+    of "interests" is inherited §10.1.4 phrasing, not an explicit
+    overturn. The interests TAB on `/profile` is display-only over the
+    local mirror chips (`stores/interests.ts`). If the owner overturns,
+    the editor returns as a fourth group on `/profile/edit` — a contained
+    addition.
+13. **The new `gear` glyph** (D.2, trivial inline SVG per §4.4) is flagged
+    alongside item 12; the fallback is the existing `edit` glyph.
+14. **RU copy in the E table is a design invention for tone ratification**
+    (standing precedent): «Показать QR-код», «Обо мне», «QR-код»,
+    «Редактировать профиль», «Имя», «О себе», «Для агента», «Сохранить
+    изменения», and the two amended values («Мой профиль», «Настройки»).
+
+### 4.30 v3.24 feature design (2026-11-23, owner-approved Concept §42): §42 scroll-triggered animations + card/width/icon tweaks
+
+The owner issued the five-item §42 batch (2026-11-23): (1) scroll-triggered
+reveal animations for the landing blocks, (2) a narrower Bleak agent card in
+the computer view, (3) icons +50% in every block below the first screen, (4)
+the 01/02/03 step cards repainted to the Bleak card's dark background, (5) on
+phone the banner's flower icon + status caption stack ABOVE the text block.
+This section amends §4.28 (→ §4.27 → §4.26 → … → §4.20) item by item;
+**where §4.30 is silent, the earlier specs stand** except where §4.30.G
+explicitly supersedes them. The parallel §4.29 profile redesign (Concept §42
+profile section, task 131) is scope-disjoint — it owns `routes/profile*`;
+this rev touches ONLY the landing (`/`) — and the earlier-dated §4.29 text is
+not amended here. Grounded in the live code (read-only audit, 2026-11-23):
+`apps/web/src/routes/+page.svelte` (the glass header, the fixed video layer,
+the thirds grid, banner, step cards, sim, privacy, use-cases, join, footer),
+`lib/components/landing/{LandingVideoHero,LandingFigure}.svelte`,
+`landing/{sectionArt,figures}.ts`, `lib/components/icons/PixelIcon.svelte`,
+`lib/styles/{tokens,base}.css`, `tests/landing-page.test.ts`. Hard
+constraints unchanged: **no new dependencies** (IntersectionObserver is
+native — the §4.27.D compat-circle observer is the in-repo precedent), **no
+copy changes** (i18n ZERO delta, §4.30.H), **palette tokens unchanged** (the
+step-card repaint reuses the existing `--color-surface` token; no new color
+values anywhere), **no canvas, no animation library**, **routes untouched**,
+**/income untouched**, **the §37 open-state geometry holds** (no layout rule
+of §4.25.A/§4.28 is touched), **the video layer and its attribute set are
+untouched** (§4.23.A/§4.27.1 verbatim). **API endpoints used: none** — the
+landing stays fetch-free (§4.20 preamble); the round is presentational. Task:
+tz12-13 (`feature/9626632b-tz12-13-scroll-reveal-tweaks`).
+
+#### 4.30.A The shared scroll-reveal system (item 1)
+
+Blocks below the fold reveal as they enter the viewport. The treatment is
+the pixel-aesthetic-consistent **fade + rise**: `opacity 0 → 1` with a
+**stepped** fade and `translateY(16px) → 0` with an eased settle —
+transform/opacity only (the §4.6 rule).
+
+- **The hidden-state application pattern — never permanently hidden.** The
+  stylesheet hides NOTHING by default: a bare `[data-reveal]` marker
+  attribute (present in the markup of every reveal unit, zero visual
+  effect) carries no styles. The hidden state exists ONLY under
+  `[data-reveal='armed']` — a state the JS utility applies at mount, so it
+  exists only when (a) JS ran and (b) the utility decided animation is
+  possible. No-JS, a utility crash, or a missing IntersectionObserver ⇒ no
+  arming ⇒ every block fully visible. CSS:
+  ```css
+  /* base: [data-reveal] carries NO styles — the no-JS default is visible */
+  [data-reveal='armed'] {
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 320ms steps(4, end),   /* the stepped pixel fade */
+      transform 320ms ease-out;      /* the eased settle */
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+  [data-reveal='armed'].is-revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  ```
+  (The transition lives on the armed state so it runs when `.is-revealed`
+  lands; both values are `var(--reveal-delay)`-delayed.)
+- **The utility — one module, one observer, one-shot:** new
+  `apps/web/src/lib/components/landing/reveal.ts` exporting
+  `setupReveals(root: ParentNode): () => void` (returns the teardown). On
+  mount (a `$effect` in `+page.svelte`) it:
+  1. returns immediately (arming nothing) when
+     `matchMedia('(prefers-reduced-motion: reduce)').matches` — the
+     established `reducedMotion()` check, §4.27.D precedent — reduced
+     motion = NO animation, every block visible immediately;
+  2. returns immediately when `typeof IntersectionObserver !== 'function'`
+     (old browsers/test DOM) — the §4.27.D mount-fallback reading;
+  3. otherwise queries `root.querySelectorAll('[data-reveal]')`, creates
+     ONE shared `IntersectionObserver` (`threshold: 0.15`,
+     `rootMargin: '0px 0px -48px 0px'` — a block fires once ≈ 48px of it
+     is inside the viewport; the values are this design's call, §42.1
+     delegates the treatment), and for each unit: sets
+     `data-reveal='armed'` (the ONLY moment anything hides), observes it;
+  4. on the FIRST intersection of a unit: adds `.is-revealed`, calls
+     `observer.unobserve(unit)` — one-shot, scrolling away and back does
+     NOT replay (the compat-circle precedent, §4.27.D) — and schedules the
+     **cleanup**: after the reveal completes (`transitionend` on the unit,
+     with a 720 ms fallback timer for transition-less DOMs) BOTH the
+     `is-revealed` class and the `data-reveal` attribute are REMOVED. The
+     block ends in its natural state, so the hover CSS
+     (`.step-block:hover`'s `translateY(-4px)`) can never fight a leftover
+     attribute-selector transform (specificity tie otherwise);
+  5. the teardown disconnects the shared observer (the `$effect` cleanup —
+     no leak across HMR/tests).
+- **Stagger:** within a sibling GROUP the units reveal with a per-index
+  `--reveal-delay` (inline style): the three `.step-block`s at
+  0/60/120 ms, the four `.usecase-pill`s at 0/60/120/180 ms (60 ms per
+  sibling, capped at 180). Single-unit sections get no delay.
+- **The §4.27.D compat ring is INDEPENDENT:** the sim section reveals as a
+  block via this system; the ring's own one-shot count-up observer
+  (threshold 0.4, §4.27.D) is UNTOUCHED — two one-shot observers on
+  adjacent subtrees, no shared state. Both being one-shot, the count-up
+  never replays either.
+- **§4.6 record:** the closing line "No scroll-triggered or
+  layout-triggered animation anywhere" is SUPERSEDED **for the landing
+  page only** (the owner's §42.1 mandate); it stands verbatim for every
+  other page. The reveal's 320 ms/16 px values are a landing-scoped
+  §42.1 design call; the §4.6 transform/opacity-only and reduced-motion
+  rules carry.
+
+#### 4.30.B Which blocks reveal + the first-viewport decision (item 1, enumeration)
+
+**Scroll-reveal units (everything below the fold), in DOM order:**
+`.area-stat` (the banner) → `.step-block` ×3 (staggered) → `.area-sim` →
+`.area-privacy` → `.usecase-pill` ×4 (staggered) → `.area-join` →
+`.area-foot` (the footer pill). The banner, sim, privacy and join sections
+reveal as ONE unit each (their glass containers are single surfaces; inner
+cards need no separate reveal). The step blocks and use-case pills reveal
+individually (they are separate glass surfaces in a row) with the 60 ms
+stagger.
+
+**The §37 open-state pair — DECIDED: animate on LOAD, not on scroll.** The
+lead (`.copy`/`.area-lead`) and the BLEAK card (`.area-agents`) are in the
+first viewport at open (§4.25.A); a scroll observer would fire immediately
+anyway, so they are NOT `[data-reveal]` units. Instead the utility performs
+one **load reveal**: it arms both hero sections with the same
+`data-reveal='armed'` hidden state, then one animation frame later
+(`requestAnimationFrame` — the initial styles must commit first) adds
+`.is-revealed`, then cleans up exactly like a scroll reveal. Net: one
+fade+rise on page open, then the §37 centered open state stands
+permanently. The 16 px rise is transient (transform-only, no layout shift)
+and settles into the exact §4.25.A geometry. Under reduced motion or
+without JS/IO the hero pair is simply visible from the first paint (no
+load animation). **Negative:** the hero pair's ICONS are untouched by item
+3 (§4.30.D) — only the §4.28 headline/sub/CTA sizes stand there.
+
+#### 4.30.C The Bleak card narrower on desktop (item 2)
+
+The §4.24.D thirds grid STAYS (col 1 lead / col 2 empty / col 3 agent;
+`repeat(3, 1fr)`, `--space-6` gap, `align-content/align-items: center` —
+§4.25.A hero construction verbatim). The card gets a **max-width cap inside
+its own column** (NOT a grid change): at 1280 the third is ≈ 288px wide
+(§4.24.C math); the owner wants the card narrower.
+
+```css
+@media (min-width: 720px) {
+  .agent-card {
+    max-width: 240px;          /* down from the 288px full-third width */
+    margin-inline: auto;       /* centered inside the third */
+  }
+}
+```
+
+- **The value — 240px, decided (the caller's 232–240 band):** the card
+  interior after its 20px body padding is 200px — the 96px portrait,
+  the 28px BLEAK name, the 13px badge/traits and the 17px quote all fit
+  (the quote wraps to ~3 lines at 17px in 200px — normal-flow growth,
+  `align-items: center` keeps the card balanced in the 100dvh hero row).
+  240px keeps ≥ 200px of text column (readability) and is an even pixel
+  value (crisp-frame alignment).
+- **Phone (<720px): UNCHANGED** — the card is 100% of the container width
+  (§4.28.F); the cap is desktop-only. The `#agents` id, the §4.20.G
+  hover/press/focus contract and TALK → `/income` are untouched.
+- **No horizontal-scroll risk:** the cap shrinks the card inside its
+  column; nothing paints wider than before.
+
+#### 4.30.D Icons +50% in all blocks below the first screen (item 3)
+
+One rule everywhere below the fold: every icon/pixel-icon element grows
+**+50%**, the pixel mini-illustrations scale proportionally with them.
+Even pixel values (crispEdges alignment); the exact table, current → new:
+
+| # | Element | Selector / prop | Current | New (+50%) |
+| --- | --- | --- | --- | --- |
+| 1 | Banner flower (BLOOM) | `.stat-glyph :global(svg)` | 44px phone / 48px ≥720px | **66px phone / 72px ≥720px** (the markup `size={48}` updated to 72 for consistency; the CSS override rules) |
+| 2 | Banner status dot | `.status-dot` | 6×6px | **9×9px** — exact +50% (a DOM `<span>`, no crispEdges constraint; even-rounding applies to SVG art only). Its glow scales too: `box-shadow: 0 0 9px …` |
+| 3 | Step-card icons | `PixelIcon size={32}` inside `.step-icon` | icon 32px, wrapper 48×48 | icon **48px**, wrapper **72×72** |
+| 4 | Step mini-illustrations | `.step-art` (24×24 grid) | 48px | **72px** (integer 3× unit scale — perfectly crisp) |
+| 5 | Privacy icons | `.privacy-icon` (16×16 grid) | 48px | **72px** |
+| 6 | Use-case icons | `.usecase-icon` (16×16 grid) | 40px | **60px** |
+| 7 | Simulation avatars | `LandingFigure size={64}` (`.sim-you` BLEAK + `.sim-nearby` SCOUT) | 64px | **96px** (the §4.26.F 64 → the §4.20.G portrait register) |
+
+- **crispEdges note (record):** the 16-grid icons at 72px (4.5×) and 60px
+  (3.75×) scale by a non-integer unit factor; with
+  `shape-rendering="crispEdges"` every unit rect still snaps to whole
+  device pixels (no blur); a possible 1px wobble on shared rect edges is
+  accepted. Integer-scale alternatives (80px / 5× and 64px / 4×) would
+  break the exact +50% — the owner's number wins (§4.30.K flag 1).
+- **Layout-fit re-check:** sim avatars 96px — phone the 2-col avatar row
+  gives ≈ 128px columns at a 320px viewport (96px portrait + the 16px
+  name fit), desktop the 1fr side columns hold ≈ 360px; the use-case
+  pills' content grows past the 112px `min-height` to ≈ 124px (content
+  growth, `min-height` UNCHANGED); privacy items and step bodies grow
+  naturally (normal flow). No overflow at 320/760/1280 (§4.20.K holds).
+- **Explicit negatives — UNCHANGED (the first-viewport pair + chrome):**
+  the lead sparkles (8px) and everything in `.copy`; the BLEAK agent-card
+  portrait (`size={96}`, §4.20.G); the join card's BLEAK-WAVE mascot
+  (`size={96}` — NOT in the owner's §42.3 enumeration, §4.30.K flag 2);
+  the footer's 16px brand glyph (chrome); `.step-num` (40px decorative
+  text, §4.28.E.5); the `.compat-ring` (geometry-bound, §4.28.E.6);
+  `.sim-cursor` (6×2px). No other landing size changed.
+
+#### 4.30.E Step cards → the Bleak-matching dark background (item 4)
+
+Inspected in the live code: the BLEAK agent card's surface is the
+§4.20.G pixel-frame OPAQUE construction — the outer
+`pixel-corners pixel-frame pixel-frame--strong` ring + the inner
+`pixel-corners` body whose fill comes from the base.css card rule
+(`.card { background: var(--color-surface) }`, `#101213`) — while the
+step cards carry the §4.26.C glass (`rgba(15, 14, 22, 0.65)` +
+`backdrop-filter: blur(10px)`). Decision: the three step cards get the
+SAME material as the agent card:
+
+```css
+.step-body {
+  background: var(--color-surface);   /* WAS rgba(15, 14, 22, 0.65) */
+  /* the two backdrop-filter / -webkit-backdrop-filter: blur(10px)
+     declarations are REMOVED — an opaque surface needs no blur, and the
+     per-card GPU filter cost goes with it */
+  position: relative;   /* unchanged */
+  padding: 16px;        /* unchanged (20px ≥720px via the existing rule) */
+  /* the flex column / gap / align-items declarations unchanged */
+}
+```
+
+- **What remains on the step cards (everything else of §4.26.C/§4.28):**
+  the pixel-frame construction (outer strong ring + stepped body — the
+  cards stay square/stepped, §4.26.K.7), the hover purple glow + 4px lift
+  (§4.26.C, reduced-motion guarded), the 48px mini-illustrations (now
+  72px, §4.30.D), the micro-pills (§4.26.L, 12/13px §4.28.D), the 01/02/03
+  numerals, titles and descriptions (§4.21.E/§4.28.A–B), and the
+  `min-height: 300px` desktop rule.
+- **The shared-token assertion (the testable form of "matching"):** the
+  step bodies and the agent card surface are the SAME TOKEN —
+  `.step-body`'s `background` declaration is literally
+  `var(--color-surface)`, byte-equal to the agent card's
+  (`.card`) fill; the suite asserts the declaration equality + the ABSENCE
+  of `backdrop-filter` in the `.step-body` rule. No new token, no new
+  color value (palette unchanged).
+- **Scope — ONLY the step cards:** the banner, sim/privacy/use-case/join
+  sections, footer, header and join input keep their §4.26 glass values
+  verbatim (this is not a de-glass pass).
+
+#### 4.30.F "Real people. Real results." on phone — icon stacked on top (item 5)
+
+The banner (`.stat-body`, currently a text-left / glyph-right ROW at every
+width) stacks on phone: the flower icon + its status caption move ABOVE
+the text block.
+
+```css
+/* phone (<720px) — base rule CHANGED: */
+.stat-body {
+  display: flex;
+  flex-direction: column;     /* WAS the row */
+  align-items: flex-start;    /* the stack is left-aligned */
+  gap: var(--space-3);
+  padding: 12px 14px;         /* unchanged */
+  background: rgba(20, 18, 30, 0.55);          /* §4.26.B verbatim */
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+}
+.stat-glyph {
+  order: -1;                  /* the icon+caption block FIRST */
+  flex-direction: row;        /* flower left, caption beside it */
+  align-items: center;
+  gap: 6px;
+}
+@media (min-width: 720px) {
+  /* desktop: the §4.21.F/§4.26.B compact row, UNCHANGED */
+  .stat-body {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: 16px 20px;
+  }
+  .stat-glyph { order: 0; flex-direction: column; align-items: center; gap: 6px; }
+}
+```
+
+- **The exact phone order:** (1) the icon+caption row — the 66px BLOOM
+  flower left, the pulsing 9px green dot + the `AI Agents active nearby`
+  caption to its right, vertically centered against the flower; (2) the
+  `[ LIVE NETWORK // IRL ]` pixel sub-badge (stays the first child of
+  `.stat-copy`, glued above the title in BOTH layouts — the owner's item
+  5 names only the flower+caption move); (3) the title
+  `REAL PEOPLE. REAL RESULTS.` (21px, §4.28.A); (4) the three stat lines
+  (17px, §4.28.B).
+- **Desktop ≥720px: UNCHANGED** — the text-left / glyph-right compact row
+  (the §4.26.B contract verbatim, with the §4.30.D 72px flower).
+
+#### 4.30.G Supersessions (explicit record)
+
+1. **§4.26.C step-card glass fill SUPERSEDED (item 4):** `.step-body`'s
+   `rgba(15, 14, 22, 0.65)` + `backdrop-filter`/`-webkit-backdrop-filter:
+   blur(10px)` retire for the step cards; the fill is the agent card's
+   opaque `var(--color-surface)` (§4.30.E). The glass recipe survives on
+   the banner, the four sections, the footer and the join input
+   (unchanged). §4.28.G.5's "glass fill … untouched" clause is amended
+   accordingly (hover, art, min-height 300px carry).
+2. **§4.6 "No scroll-triggered or layout-triggered animation anywhere"
+   SUPERSEDED for the landing page only** (§4.30.A record): §42.1
+   mandates the scroll reveals; the rule stands for every other page,
+   and the §4.6 transform/opacity-only + reduced-motion rules carry.
+3. **§4.24.D/§4.25.A agent-card width AMENDED (item 2):** the desktop
+   card fills its third no longer — `max-width: 240px` +
+   `margin-inline: auto` inside the unchanged thirds grid (§4.30.C);
+   phone stays 100%.
+4. **§4.26.B/§4.28 banner phone layout AMENDED (item 5):** the
+   text-left/glyph-right row is the ≥720px rule; the phone base becomes
+   the stacked column with the glyph block first (§4.30.F). The banner's
+   glass fill, badge, padding and typography contracts stand.
+5. **§4.21.F/§4.26.B/§4.26.F/§4.26.G/§4.26.H icon sizes AMENDED (item 3):**
+   the §4.30.D table's current values are superseded (+50%); every other
+   size value (fonts, the ring, `.step-num`, the join mascot, the footer
+   glyph) is byte-unchanged.
+6. **Superseded-but-carried (unchanged into §4.30):** the §4.23.A/§4.27.1
+   fixed video layer + native-loop playback + attribute set, the
+   §4.22.A keep-list, the §4.25.A/B open state + transparent lead (the
+   hero pair's LOAD reveal is an addition, not a geometry change),
+   §4.26.A header, §4.27.C/D compatibility circle (its own observer
+   untouched), §4.28.A–F type ladder + phone widths, §4.28.1 lead copy/
+   color, the §4.20.L behavior + deep-link forwarding, the
+   §4.23.G/§4.26.M/§4.27.H/§4.28.I reduced-motion + error fallbacks.
+
+#### 4.30.H i18n: ZERO delta
+
+No key is added, removed or edited — both dictionaries stay **byte-identical
+at 55 `landing.*` keys per dictionary** (the §4.27.G count, restated green
+in §4.28.H/§4.28.J-12). Every rendered string — REAL PEOPLE. REAL RESULTS.,
+the status caption, the pills, the badges — is byte-unchanged in RU and EN;
+§42 changes geometry, color and motion only. `i18n.test.ts` and the
+`LANDING_KEYS`/parity/dead-key assertions are UNTOUCHED and stay green
+(55/55); the RU/EN switch re-renders every string without a reload.
+
+#### 4.30.I Reduced motion + media states
+
+- **Reveal (all units + the hero load pair):** reduced motion → the
+  utility arms NOTHING — every block, including the lead + BLEAK pair, is
+  fully visible from the first paint; no observer is created, no class is
+  ever applied. Belt-and-braces: the base.css catch-all collapses any
+  transition to 0.01 ms. The one-shot rule means no replay on re-scroll
+  for motion-full users either.
+- **Everything already guarded stands verbatim:** the banner status dot,
+  sim badge pulse, cursor blink, sparkle, dot twinkle, hover lifts/glows,
+  smooth-scroll (§4.26.M/§4.27.H); the video fallback (paused frame 0 +
+  tint + vignette + dots, §4.23.G); the ping-pong file plays via native
+  `loop` (§4.27.1). The reveal transitions are transform/opacity-only
+  (§4.6).
+- **Media states:** the landing still fetches nothing — no
+  loading/empty/error data states (§4.20.L); the reveal adds no data
+  states and no layout shift (transform-only; the +50% icon growth is
+  below-the-fold normal-flow growth; the narrower agent card shrinks
+  inside its column). Video error → the §4.23.G near-black treatment with
+  every block visible (the reveal fires over the static backdrop the same
+  way).
+
+#### 4.30.J Acceptance criteria (checkable)
+
+**Scroll reveal (item 1):**
+1. Every below-the-fold unit — `.area-stat`, the three `.step-block`s,
+   `.area-sim`, `.area-privacy`, the four `.usecase-pill`s, `.area-join`,
+   `.area-foot` — carries the `[data-reveal]` marker in the markup, and
+   the stylesheet declares NO hiding outside `[data-reveal='armed']`
+   (negative: no `opacity: 0`/`visibility: hidden` on a bare
+   `[data-reveal]` or any landing block class) — with JS off, every block
+   renders fully visible.
+2. The shared utility `landing/reveal.ts` exists and is wired once in
+   `+page.svelte`: ONE IntersectionObserver instance, `threshold: 0.15`,
+   `rootMargin: '0px 0px -48px 0px'`, per-unit `unobserve` after the
+   first intersection, observer disconnected on unmount; scrolling a
+   revealed block away and back does NOT replay (one-shot).
+3. The armed → revealed sequence: `data-reveal='armed'` (hidden:
+   `opacity: 0`, `translateY(16px)`) → `.is-revealed` (visible) with
+   `transition: opacity 320ms steps(4, end), transform 320ms ease-out`
+   and the group stagger (`--reveal-delay`: step blocks 0/60/120 ms,
+   use-case pills 0/60/120/180 ms); after completion BOTH the class and
+   the attribute are removed (the cleanup — no leftover transform to
+   fight `.step-block:hover`'s lift).
+4. The hero pair (`.area-lead`, `.area-agents`) animates ON LOAD — armed
+   at mount, `.is-revealed` one frame later, same treatment — and is NOT
+   a scroll unit; the §37 open-state geometry holds (the first viewport
+   at the scroll origin contains ONLY lead + BLEAK, vertically centered,
+   at 1280×800 and 390×844 — the §4.25/§4.28 assertions stay green).
+5. Reduced motion: `prefers-reduced-motion: reduce` → NO arming, NO
+   observer — every block including the hero pair is visible immediately;
+   with IntersectionObserver unavailable everything reveals immediately
+   (the mount fallback); no block can ever remain permanently hidden.
+
+**Bleak card narrower (item 2):**
+6. At ≥720px the agent card computes `max-width: 240px` centered in its
+   third (≈ 288px column at 1280 — the card is narrower than the column);
+   the thirds grid (`repeat(3, 1fr)`, col 2 EMPTY) is UNCHANGED; on phone
+   (<720px) the card is 100% of the container width (no cap).
+7. The §4.20.G contract holds: pixel frame, hover lift + glow, press
+   scale, focus rings, TALK → `/income`; no horizontal scroll at
+   320/760/1280.
+
+**Icons +50% (item 3):**
+8. The table holds (computed/source assertions): `.stat-glyph :global(svg)`
+   66px (72px ≥720px); `.status-dot` 9×9px with its glow at 9px; the step
+   `PixelIcon` renders 48px inside a 72×72 `.step-icon`; `.step-art`
+   72px; `.privacy-icon` 72px; `.usecase-icon` 60px; both sim figures
+   render at 96px (BLEAK + SCOUT via `size={96}`).
+9. Negatives: the lead + BLEAK pair's art is unchanged (sparkles 8px, the
+   agent portrait 96px); the join BLEAK-WAVE mascot stays 96px; the
+   footer glyph stays 16px; `.step-num` stays 40px; the compat ring stays
+   160×160/40px numeral; no other landing size changed (grep-audit).
+
+**Step-card background (item 4):**
+10. `.step-body` computes/declares `background: var(--color-surface)` —
+    byte-equal to the agent card's surface token — with NO
+    `backdrop-filter`/`-webkit-backdrop-filter` in the rule (the
+    rgba(15,14,22,0.65)+blur(10px) assertions are REPLACED); `.step-body`
+    still sets NO `border-radius` (the pixel frame stays square/stepped);
+    hover glow + lift, mini-illustrations, micro-pills, numerals/titles/
+    descs and `min-height: 300px` (≥720px) are unchanged. The banner,
+    sim/privacy/use-case/join, footer, header and join input keep their
+    glass values verbatim (negative: those rules untouched).
+
+**Phone banner stacking (item 5):**
+11. At <720px `.stat-body` is a left-aligned flex COLUMN with
+    `.stat-glyph` at `order: -1` laid out as a ROW (66px flower left, the
+    dot + caption beside it): visual order = icon+caption block →
+    `[ LIVE NETWORK // IRL ]` badge → title → the three stat lines.
+12. At ≥720px the banner is the UNCHANGED compact row — text left, glyph
+    column right (bloom above the caption), `justify-content:
+    space-between`, padding 16px 20px; nothing else about the banner
+    changed (glass fill, badge, copy).
+
+**i18n + suites (carry):**
+13. i18n: exactly **55** `landing.*` keys in BOTH dictionaries,
+    byte-unchanged (ZERO delta); the RU/EN switch re-renders without a
+    reload; `i18n.test.ts` passes UNAMENDED.
+14. Suites amended and green: `landing-page.test.ts` — the superseded
+    §4.26.C step-glass assertions (rgba(15,14,22,0.65) + blur(10px))
+    rewritten to AC 10, the `.stat-glyph` 44/48 assertions rewritten to
+    66/72, the 55-key `LANDING_KEYS` list stays; new assertions per
+    ACs 1–12 (the reveal utility, marker/armed/revealed classes, reduced-
+    motion no-arm, the icon table, `.agent-card` max-width 240px desktop
+    only, the banner stacking rules); `sweep.test.ts` green (no new color
+    values — the step repaint is the existing `--color-surface` token);
+    `videoPingPong`/`mascot`/`summary-sheet`/`join-flow`/
+    `creation-wizard` suites untouched green; `make lint && make test &&
+    make build` green.
+15. Constraints: no new dependencies (native IntersectionObserver); no
+    copy changes (55/55 byte-identical); palette tokens unchanged (no new
+    values anywhere); routes untouched; `/income` untouched; the §37
+    open-state geometry holds; the video layer + attribute set untouched;
+    API endpoints used: none.
+
+#### 4.30.K Flags for the owner / concept (concept report)
+
+1. **Record — the 16-grid icon scale is non-integer at the exact +50%:**
+   privacy 72px (4.5×16) and use-case 60px (3.75×16) scale unit rects by a
+   fractional factor; `crispEdges` keeps every edge snapped (no blur, a
+   possible 1px wobble accepted). Integer-scale alternatives (80px/64px)
+   would deviate from +50% — the owner's number wins; a one-value swap
+   each if the smoke dislikes it.
+2. **Record — the join card's BLEAK-WAVE mascot is NOT in the +50% sweep:**
+   the owner's §42.3 enumeration (banner flower, step icons,
+   privacy/use-case icons, sim avatars) omits it and it already renders at
+   the 96px register; if the owner wants it at 144px it is a one-prop
+   change.
+3. **Record — the hero pair animates on LOAD** (§4.30.B decision): the
+   owner's §42.1 offered load-animation for the first-viewport pair; the
+   transient 16px rise settles into the exact §37 centered open state.
+   Zero-animation on load (skip the hero reveal entirely) is a one-line
+   utility change if the owner prefers.
+4. **Record — the reveal timing values are this design's call** (§42.1
+   delegates the treatment): threshold 0.15 / rootMargin −48px / 320ms /
+   16px / 60ms stagger / stepped(4) fade + eased rise. All five are
+   single-value tweaks.
+5. **ADVICE NEEDED — none blocking:** no RU copy was invented (zero-delta
+   round), no palette value added, no route touched; the five items are
+   fully specified above.
+
+### 4.31 v3.25 feature design (2026-11-23, owner-approved Concept §44): §44 wider lead + unified card borders + route param rename
+
+The owner issued the three-item §44 batch (2026-11-23): (1) the lead block
+("The right connections beside you") **wider on desktop**, and **below 960px
+the hero becomes a single centered column** — the lead centered with the
+BLEAK agent card stacked below it; (2) the **01/02/03 step-card borders
+unified** — remove the thick white bottom border / bottom white block /
+shadow from cards 01 and 03 and apply the exact same border width, radius
+and subtle light border color across all three; (3) the **route param
+rename** `income/<address>/create` → `income/<income_code>/create`
+(aligning with the backend's income-code terminology; resolution behavior
+unchanged). This section amends §4.30 (→ §4.28 → §4.27 → §4.26 → … → §4.20)
+item by item; **where §4.31 is silent, the earlier specs stand** except
+where §4.31.E explicitly supersedes them. The parallel §4.29 profile
+redesign (task 131) is scope-disjoint — this rev touches ONLY the landing
+(`/`) and the `/income/[income_code]/create` route; it does not touch or
+reference the profile files. Grounded in the live code (read-only audit,
+2026-11-23): `apps/web/src/routes/+page.svelte` (the hero `.stage`
+constructions, the lead/agent grid, the three step cards — rendered by ONE
+`{#each tutorialSteps}` loop with byte-identical class strings),
+`src/routes/income/[room]/create/+page.svelte` (the param access),
+`src/lib/components/join/JoinFlow.svelte` (the seeded-entry prop + the
+create-route `resolve` call), `src/routes/{income,+layout}.svelte`
+(comment references), `lib/styles/{tokens,base}.css` (the pixel-frame
+ladder, the spacing scale),
+`tests/{landing-page,join-flow,sweep}.test.ts` (the hero/thirds-grid,
+step-card and route-resolution assertions). Hard constraints unchanged:
+**no new dependencies**, **no copy changes** (i18n ZERO delta, §4.31.F),
+**palette tokens unchanged** (the border unification reuses the existing
+`--color-surface-elevated` token; no new color values), **resolution
+behavior unchanged** (the rename is the route dir + references only — the
+deep-link semantics are byte-identical), **/income surfaces untouched**
+(the `/income` entry page's logic is not modified; only its stale comment
+line is corrected), **the §37 open-state holds** (the first viewport
+contains ONLY lead + BLEAK at every width — vertically centered, §4.31.A/B).
+**API endpoints used: none** — the landing stays fetch-free (§4.20
+preamble) and the create route's API behavior (invite resolution,
+`POST /h/rooms` seeding via JoinFlow) is untouched by the rename; the round
+is presentational + a route-dir rename. Task: tz12-14
+(`feature/bbf8e50d-tz12-14-wider-lead-borders-param`).
+
+#### 4.31.A The widened lead — the ≥960px two-column hero (item 1, desktop)
+
+**Live-code finding (what "wider" widens):** today at ≥720px `.stage` is the
+§4.24.D THIRDS grid — `grid-template-columns: repeat(3, 1fr)`,
+`column-gap: var(--space-6)`, col 1 = the lead, col 2 = EMPTY, col 3 = the
+agent card (§4.30.C `max-width: 240px` centered). The container at 1280 is
+`.landing` = `max(80%, 280px)` = 1024px with `padding: 0 var(--space-7)
+var(--space-7)` (48px sides) → **content 928px**; thirds with the 32px gap →
+the lead column is ≈ **288px** at 1280 (the §4.24.C number). With the
+§4.28.A headline capped at 48px, the lead's text column (288px − 2×28px
+`.copy-body` padding = 232px) is cramped: the 40ch `.sub` (~355px at 18px)
+wraps hard and the 48px Handjet headline lines are tight.
+
+**Decision — the hero row becomes TWO asymmetric columns at ≥960px:** the
+middle-empty third is retired; the lead takes the `1.2fr` share, the agent
+track the `1fr` share:
+
+```css
+@media (min-width: 960px) {
+  .stage {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;   /* WAS repeat(3, 1fr) + empty col 2 */
+    column-gap: var(--space-6);          /* unchanged 32px */
+    align-content: center;               /* unchanged (§4.25.A) */
+    align-items: center;                 /* unchanged */
+    /* min-height: 100dvh carries from the new base rule (§4.31.B) */
+  }
+  .area-lead   { grid-column: 1; }       /* WAS grid-column: 1 (unchanged) */
+  .area-agents { grid-column: 2; }       /* WAS grid-column: 3 */
+  /* §4.30.C carries verbatim, moved into the 960px media: */
+  .agent-card  { max-width: 240px; margin-inline: auto; }
+}
+```
+
+- **Resulting px:** at **1280** the lead track is
+  (928 − 32) × 1.2/2.2 ≈ **489px** (the agent track ≈ 407px, the 240px card
+  centered inside it — more symmetric air around the card, nothing paints
+  wider than its track). At **960** (the breakpoint edge) the lead is
+  (672 − 32) × 1.2/2.2 ≈ **348px**. The lead is wider than the retired
+  288px third at EVERY ≥960 width (the `1.2fr` share grows faster than a
+  third), never narrower.
+- **Readability rationale (per the §4.28 font ladder):** the 489px track
+  minus the 2×28px `.copy-body` padding leaves a ≈ 433px text column — the
+  40ch/18px `.sub` (~355px) fits on its natural measure and the 48px
+  headline lines get full-word room (`overflow-wrap: anywhere` stays as the
+  emergency valve, not the norm). The agent card is width-capped at 240px,
+  so giving the leftover width to the lead is the only reading of
+  "wider" that adds readable measure rather than dead air.
+- **Type ladder moves WITH the composition (hero-scoped):** the desktop
+  headline clamp and the lead's left alignment belong to the side-by-side
+  composition, so their media queries move 720 → 960:
+  `.headline { font-size: clamp(28px, 4vw, 48px) }` now applies at ≥960
+  (38.4px at 960 → capped 48px from 1200px up); below 960 the lead keeps
+  the ≥480px ladder value 48px (40px base). `.copy-body`'s
+  `align-items: flex-start; text-align: left` (and its 28px padding rule's
+  ALIGNMENT half) applies at ≥960; below 960 the lead is centered
+  (§4.31.B). The §4.28.B/C/D sizes are untouched.
+
+#### 4.31.B The <960px centered hero stack (item 1, the new intermediate breakpoint)
+
+Below 960px the hero is ONE CENTERED COLUMN — the lead centered, the BLEAK
+card below it — superseding BOTH earlier hero constructions (the ≥720px
+thirds grid for the 720–959 band, and the <719.98px `.area-lead` 100dvh
+phone hero):
+
+```css
+/* base rule — <960px (and the fallback at every width the media does not
+   cover): the centered hero stack */
+.stage {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;   /* the pair centers vertically as a group */
+  align-items: center;
+  gap: var(--space-6);
+  min-height: 100dvh;        /* the hero row = the first viewport */
+  min-width: 0;
+}
+```
+
+- **The <719.98px `.area-lead { min-height: 100dvh; … }` rule is DELETED** —
+  the lead no longer owns a full viewport on phone; the `.stage` owns the
+  100dvh at every width. The phone DOM order (lead → agents → stat → …)
+  is unchanged — it IS the stack.
+- **The §37 open-state holds at every width:** at the scroll origin the
+  first viewport contains ONLY the lead + the BLEAK card (plus the fixed
+  header chrome), vertically centered — at ≥960 side-by-side, at <960
+  stacked. **"Both still in the initial viewport if they fit":** at <960
+  the pair is centered as a group inside the `min-height: 100dvh` stage;
+  when the combined height fits the viewport (e.g. 800×800: the lead ≈
+  300px + the BLEAK card ≈ 380px + the 32px gap ≈ 712px < 800) BOTH are
+  visible in the initial viewport; when it does not (short viewports) the
+  stage grows and BLEAK scrolls into view — no clipping, no overflow.
+- **Re-verified at 800px:** the vertically-centered behavior is the SAME
+  mechanism as before (the 100dvh hero row min-height + centering), now on
+  `.stage` at <960 instead of on `.area-lead` at <720 — at 800×800 the
+  centered pair sits in the first screen with the banner below the fold.
+- **Other blocks' 720px rules STAND:** the banner stacking (§4.30.F), the
+  steps grid (≥720 thirds), the sim grid, privacy/use-case grids, the join
+  row, the header nav (`.top-nav` ≥720) and the §4.28.F container widths
+  (`.landing`/`.top` max(90%, 280px) phone / max(80%, 280px) ≥720) keep
+  their 720px breakpoints UNCHANGED — only the HERO's breakpoint moves to
+  960.
+
+#### 4.31.C The three step cards' borders unified (item 2)
+
+**Live-code finding (the divergence, and where it really lives):** the three
+step cards are rendered by one `{#each tutorialSteps}` loop — their class
+strings are byte-identical (`step-block pixel-corners pixel-frame
+pixel-frame--strong` + `step-body pixel-corners`) and NO per-card CSS
+exists (no `:nth-child`, no `border-bottom`, no per-card shadow anywhere in
+`+page.svelte`/`base.css`). The owner's "thick white bottom border /
+bottom white block / shadow on cards 01 and 03" is produced by a LAYOUT
+leak, not a class difference: on desktop `.steps` is the
+`repeat(3, 1fr)` grid whose items stretch to the tallest sibling's height,
+but `.step-body` (`min-height: 300px` + content, `height: auto`) does NOT
+stretch — on the shorter cards the outer `.pixel-frame--strong` layer's
+background (`--color-text`, #f0f0f0 — near-WHITE) is exposed as a solid
+white block BELOW the dark body (and reads as a thick white bottom edge).
+Card 02 (CHAT) is the tallest card in the RU render, so only 01 and 03
+show the block — exactly the owner's observation.
+
+**Fix — two declarations, all three cards:**
+
+1. **The body fills its card:** `.step-body` gains `height: 100%` — the
+   dark body consumes the stretched `li`'s full content box, so the frame
+   ring is a uniform 2px on all four sides on EVERY card and no frame fill
+   can ever show below the body. (On phone the `.steps` are an
+   auto-height flex column: a percentage height against an auto-height
+   parent resolves to auto — the declaration is inert there, no regression.)
+2. **The frame color drops to the SUBTLE light border:** all three step
+   `li`s drop `pixel-frame--strong` → plain `pixel-frame` — the frame
+   background is `var(--color-surface-elevated)` (#292c2d, the §4.5
+   default frame color — the "subtle light border color") instead of the
+   bright `--color-text` white ring. The bright-white reading (including
+   the thicker-looking ring at the stepped corners) disappears entirely.
+
+**The unified border values (stated from the live construction):**
+border **width = 2px** (the `.pixel-frame` padding ring — the pixel-frame
+construction has no CSS `border` property; unchanged), border **radius =
+none** — square/stepped, the shared 8px `.pixel-corners` ladder; NO
+`border-radius` (the "stays square" test assertion carries), border
+**color = `var(--color-surface-elevated)`**. All three cards carry these
+byte-identically ("completely consistent outlines").
+
+- **Scope — the step cards ONLY:** the BLEAK agent card and the banner
+  card KEEP `pixel-frame--strong` (their §4.20.G/§4.30.C/§4.30.E contracts
+  stand; §4.30.E's shared-token claim was about the body FILL
+  `var(--color-surface)`, which is unchanged here). The glass surfaces
+  (header/banner/footer/four sections) are untouched.
+- Everything else on the step cards carries verbatim: the hover glow +
+  4px lift (reduced-motion guarded), the 72px art, the micro-pills, the
+  numerals/titles/descs, `min-height: 300px` (≥720px), the
+  `var(--color-surface)` body fill.
+
+#### 4.31.D The route param rename `[room]` → `[income_code]` (item 3)
+
+The creation route directory
+`apps/web/src/routes/income/[room]/create/` is renamed to
+`apps/web/src/routes/income/[income_code]/create/` and every reference to
+the param on THAT route follows. **Resolution behavior is byte-identical:**
+seeded = a non-empty `income_code` param + a valid `?code=` query → the
+wizard opens seeded; anything else → `goto(resolve('/income'),
+{ replaceState: true })`. The rename touches names only.
+
+**The complete rename surface (grep-audited, 2026-11-23):**
+
+1. `src/routes/income/[room]/create/+page.svelte` → the dir becomes
+   `[income_code]/`; `const roomParam = $derived(page.params.room ?? null)`
+   → `page.params.income_code` (the local + the JoinFlow prop rename
+   together — see 2); the header comment's route paths.
+2. `src/lib/components/join/JoinFlow.svelte`:
+   - the navigation —
+     `goto(\`${resolve('/income/[room]/create', { room: room.address })}?code=${flow.code}\`)`
+     → `resolve('/income/[income_code]/create', { income_code:
+     room.address })` (the VALUE carried is still the room address — only
+     the param NAME changes);
+   - the seeded-entry prop `roomParam` → `incomeCodeParam` (the Props
+     type, the `$props()` destructure, the `seeded` derivation and the
+     `address: roomParam ?? ''` seed all follow; the JSDoc blocks at
+     lines ~6/41/43/86/99/225 update to the new route path + prop name).
+3. Comment-only corrections (prose, no behavior):
+   `src/routes/income/+page.svelte` line ~21 ("The creation wizard itself
+   lives under /income/[room]/create") and `src/routes/+layout.svelte`
+   line ~44 (the layout's isJoin route comment).
+4. Tests:
+   - `tests/landing-page.test.ts` — the `$app/paths` `resolve` mock
+     (`params?: { room?: string }` / `route.replace('[room]',
+     params.room)` → `income_code`), the `CreatePage` import path, and the
+     `/income/[room]/create` describe block (both tests:
+     `mockPage.params = { room: '0xroom123' }` → `{ income_code:
+     '0xroom123' }`, the mock URLs, the describe title; the two assertions
+     — seeded wizard opens / no code → `/income` replaceState — are
+     semantically unchanged).
+   - `tests/join-flow.test.ts` — its resolve mock (same shape as the
+     landing mock) and the goto-string assertion
+     `'/income/[room]/create?code=…'` → the `income_code` spelling; the
+     comment-only `[room]` mentions follow.
+   - `tests/sweep.test.ts` — the route path string
+     `'src/routes/income/[room]/create/+page.svelte'` in the poller sweep
+     → the new path.
+- **SvelteKit typed helpers:** none exist in-repo (no `.d.ts`/hand-written
+  route types reference the param; `.svelte-kit` types are generated) —
+  the rename is the dir + the references above.
+- **Out of scope (verified untouched):** the `/room` radar route and
+  `lib/room/*` (a different "room" concept), the `/income` entry page's
+  LOGIC (its `goto(resolve('/room'))` and the `join.resume.title`
+  i18n interpolation `{ room: … }` are the room NAME/address domain, not
+  this route param), `chats/[address]`, the API payloads' `room:` keys
+  (`host-console`, `api-contexts`, `lib/api/*` — request-body fields, not
+  route params), and all other suites.
+
+#### 4.31.E Supersessions (explicit record)
+
+1. **§4.24.D/§4.25.A/§4.30.C hero grid SUPERSEDED where changed (item 1):**
+   the thirds grid (`repeat(3, 1fr)`, col 2 EMPTY, agent col 3) retires for
+   the hero at ≥960 → the 2-col `1.2fr 1fr` grid (lead col 1, agent col 2);
+   the ≥720px hero media becomes ≥960px; the §4.30.C 240px agent cap
+   carries verbatim inside the new media; the lead is ≈ 489px at 1280 (the
+   §4.24.C "fills its thirds column, ≈ 288px at 1280" superseded — the
+   `.copy { width: 100% }` rule stands, now filling the 1.2fr track).
+2. **The <719.98px `.area-lead` 100dvh phone hero SUPERSEDED (item 1):**
+   the <960px hero is the centered `.stage` stack (lead + BLEAK, both in
+   the first viewport when they fit); §4.25.A's "PHONE: .area-lead is the
+   100dvh hero region" is retired. The §4.25.A/§37 open-state RULE (only
+   lead + BLEAK in the first viewport, vertically centered) CARRIES at
+   every width.
+3. **§4.28.A hero-scoped media moves (item 1):** the `.headline` clamp and
+   the `.copy-body` left-alignment media move 720 → 960; every other
+   §4.28 value (including the ≥480px 48px step, the descriptions,
+   captions, pills and the §4.28.F container widths) is byte-unchanged.
+4. **§4.26.C/§4.30.E step-card frame SUPERSEDED (item 2):** the "KEEP the
+   pixel frame … `pixel-frame--strong`" clause (§4.26.C) and §4.30.E's
+   "outer strong ring" retire FOR THE STEP CARDS ONLY — the three li's
+   carry plain `pixel-frame` (subtle `--color-surface-elevated` ring) +
+   `.step-body { height: 100% }`; the §4.30.E shared-token body fill
+   (`var(--color-surface)`) and everything else carry. The "cards 01/03 vs
+   02 differ" premise is recorded as a layout leak (§4.31.C), not a class
+   divergence.
+5. **Superseded-but-carried (unchanged into §4.31):** the §4.30.A/B
+   reveal system (the hero pair's LOAD reveal works identically over the
+   new stack/grid — the `[data-reveal-load]` markers and the utility are
+   untouched), §4.30.D icon sizes, §4.30.F banner stacking, §4.26.A
+   header, §4.23.A/§4.27.1 video layer, §4.25.B transparent lead, the
+   §4.20.L behavior + deep-link forwarding, §4.22.A keep-list, the
+   §4.23.G/§4.28.I reduced-motion + fallbacks, and the §31–§33 route/entry
+   contracts (Start/TALK → `/income`, the 6-digit input — §44's
+   "All other §31–§33 contracts stay in force").
+
+#### 4.31.F i18n: ZERO delta
+
+No key is added, removed or edited — both dictionaries stay **byte-identical
+at 55 `landing.*` keys per dictionary** (§4.27.G/§4.30.H carry); the route
+rename touches no user-visible string (route params are never rendered).
+The RU/EN switch re-renders without a reload; `i18n.test.ts` and the
+`LANDING_KEYS`/parity/dead-key assertions are UNTOUCHED and stay green
+(55/55).
+
+#### 4.31.G Reduced motion + media states
+
+- **Nothing new:** the batch adds no animation, no transition and no new
+  motion-sensitive element — the widened lead, the 960px stack and the
+  border unification are static geometry/color; the existing guards
+  (§4.26.M/§4.27.H/§4.28.I/§4.30.I) stand verbatim. The base.css catch-all
+  needs no change.
+- **Media states:** the landing still fetches nothing and the create route's
+  states are unchanged (the rename is not behavioral) — no loading/empty/
+  error deltas. No layout shift beyond the intended breakpoint changes; no
+  horizontal scroll at 320/800/960/1280 (the `1.2fr` tracks are
+  fr-proportional; the centered stack is width: 100%-based).
+
+#### 4.31.H Acceptance criteria (checkable)
+
+**Lead width + the 960px hero (item 1):**
+1. At ≥960px `.stage` declares `grid-template-columns: 1.2fr 1fr` with
+   `column-gap: var(--space-6)`, `min-height: 100dvh`,
+   `align-content: center`, `align-items: center`; `.area-lead` is
+   grid-column 1 and `.area-agents` grid-column 2; NO empty middle column
+   exists (the old `grid-column: 3` rule and the `repeat(3, 1fr)` hero
+   grid are gone from the hero rules; the §4.30.C `max-width: 240px` +
+   `margin-inline: auto` agent cap applies at ≥960).
+2. At 1280 the lead track computes ≈ 489px (container 1024 − 2×48 padding
+   = 928; (928 − 32) × 1.2/2.2) — wider than the retired ≈ 288px third;
+   at 960 it computes ≈ 348px; the lead is never narrower than a retired
+   third at any ≥960 width.
+3. `.headline`'s `clamp(28px, 4vw, 48px)` applies at ≥960 (38.4px at 960,
+   48px from 1200px up) and NOT between 720–959 (those widths keep the
+   ≥480px 48px value); `.copy-body` is centered below 960 and
+   left-aligned at ≥960.
+
+**The <960px centered stack (item 1):**
+4. Below 960px the hero is ONE centered column: `.stage` is a flex column
+   with `justify-content: center`, `align-items: center`,
+   `gap: var(--space-6)`, `min-height: 100dvh`; the BLEAK card renders
+   BELOW the lead in DOM order; the old `@media (max-width: 719.98px)`
+   `.area-lead { min-height: 100dvh … }` rule does not exist (negative).
+5. At an 800×800 viewport the initial viewport shows the centered lead
+   with BLEAK below it (both fit); at 800×600 (short) BLEAK may scroll —
+   no clipping, no horizontal scroll; at exactly 960 and above the
+   side-by-side grid applies (the `min-width: 960` boundary is exact).
+6. The §37 open-state holds at 800/960/1280: the first viewport contains
+   ONLY the lead + BLEAK (plus the fixed header) — the banner, steps, sim,
+   privacy, use-cases, join and footer flow after the hero region; the
+   vertically-centered mechanism (the 100dvh hero row min-height +
+   centering) is verified at 800px.
+
+**Step-card borders unified (item 2):**
+7. All three `.step-block` `li` class lists are byte-identical and contain
+   `pixel-corners pixel-frame` WITHOUT `pixel-frame--strong` (negative on
+   `--strong` for every step card); `.step-body` declares
+   `height: 100%` (the stretch leak is fixed — no frame fill can show
+   below any body) and still sets NO `border-radius`.
+8. The unified border values across all three cards: width = the 2px
+   `.pixel-frame` padding ring, radius = none (the stepped
+   `.pixel-corners` ladder), color = `var(--color-surface-elevated)` —
+   asserted as the `.pixel-frame` rule's background in `base.css`
+   (unchanged file) with the `--strong` upgrade absent from the step
+   markup; the BLEAK agent card and the banner card STILL carry
+   `pixel-frame--strong` (negative: those two cards' class lists
+   unchanged); the `.step-body` fill stays `var(--color-surface)` and the
+   hover/lift/art/pill contracts are unchanged.
+
+**Route param rename (item 3):**
+9. The route directory is `src/routes/income/[income_code]/create/` (the
+   `[room]` dir is gone); the create page reads `page.params.income_code`;
+   JoinFlow navigates via
+   `resolve('/income/[income_code]/create', { income_code: … })`; the
+   prop feeding JoinFlow is renamed (`incomeCodeParam`) with the seed
+   logic unchanged.
+10. Resolution behavior is unchanged: with
+    `mockPage.params = { income_code: '0xroom123' }` + a valid `?code=`
+    the route renders the seeded wizard (the intro → name step flow);
+    without a valid code it redirects to `/income` with
+    `{ replaceState: true }` — the two existing route-resolution tests
+    pass with the renamed param.
+11. Grep-audit: no stale `[room]`-param reference remains on the rename
+    surface (`routes/income/[room]/**` gone; `JoinFlow.svelte`,
+    `income/+page.svelte` + `+layout.svelte` comment lines,
+    `landing-page.test.ts`, `join-flow.test.ts`, `sweep.test.ts` all
+    updated); the out-of-scope `room` usages (`/room` route,
+    `lib/room/*`, API `room:` payload keys, the resume-title i18n
+    interpolation) are byte-untouched (negative).
+
+**i18n + suites (carry):**
+12. i18n: exactly **55** `landing.*` keys in BOTH dictionaries,
+    byte-unchanged (RU/EN parity 55/55); `i18n.test.ts` passes UNAMENDED.
+13. Suites amended and green: `landing-page.test.ts` — the thirds-grid /
+    phone-hero / lead-narrower assertions (§4.24.C/§4.25.A/§4.30.C form)
+    rewritten to ACs 1–6 (including the retired
+    `expect(css).not.toMatch(/grid-column:\s*2/)` negative — the agent is
+    now legitimately grid-column 2), the step-card `pixel-frame--strong`
+    assertions rewritten to ACs 7–8, the route tests per ACs 9–10;
+    `join-flow.test.ts` + `sweep.test.ts` route strings per AC 11; ALL
+    other suites untouched green; `make lint && make test && make build`
+    green.
+14. Constraints: no new dependencies; no copy changes (55/55
+    byte-identical); palette tokens unchanged (no new values anywhere —
+    the unified frame color is the existing `--color-surface-elevated`);
+    `/income` surfaces untouched (comment correction only); the §37
+    open-state holds; the video layer + attribute set untouched; the
+    profile redesign files (task 131) untouched; API endpoints used:
+    none.
+
+#### 4.31.I Flags for the owner / concept (concept report)
+
+1. **Record — the border-color decision:** §44 names card 02 as the
+   reference, but the live code has all three step cards byte-identical —
+   the visible 01/03 divergence is the grid-stretch leak (§4.31.C), and
+   card 02's live frame color is the bright `--color-text` white. §44's
+   target wording "subtle light border color" was honored by unifying all
+   three on `--color-surface-elevated` (the §4.5 default frame color) —
+   which also retires the bright-white ring from card 02. If the owner's
+   intent was width/radius-only (keep the white ring, just kill the
+   bottom block), the revert is one class: `pixel-frame--strong` back on
+   the three step `li`s (`height: 100%` stays).
+2. **Record — the headline clamp breakpoint moved 720 → 960** (hero-
+   scoped, §4.31.A): at the 960 boundary the headline steps 48px → 38.4px,
+   mirroring the retired 720px step (48 → 28.8px). A single-value tweak
+   (e.g. clamping from a higher floor) if the smoke dislikes the step.
+3. **Record — the phone hero behavior changes by design (§44.1 applies
+   below 960 wholesale):** the lead no longer owns a full 100dvh screen on
+   phone; BLEAK shares the first viewport whenever it fits. §4.25.A's
+   phone geometry is superseded for the hero (§4.31.E.2); the open-state
+   RULE carries.
+4. **ADVICE NEEDED — none blocking:** no copy invented (zero-delta round),
+   no palette value added, resolution behavior unchanged; the three items
+   are fully specified above.
+
+### 4.31.1 owner amendment (2026-11-23, Concept §44.4 record): mobile keyboard viewport fix
+
+**Mobile keyboard viewport (creation flow, esp. Safari/iOS):** on
+`/income/[income_code]/create` the page is NOT pushed upward off-screen
+when the on-screen keyboard opens — the creation wrapper's height binds
+to the remaining VISIBLE viewport, keeping BOTH fixed areas (the top
+messages area and the bottom input block) visible at the same time
+(the §24–§30 contracts' "visible viewport" binding becomes the dynamic
+visualViewport height; the two-fixed-areas, main-block-never-scrolls and
+messenger-only-scroll rules all hold unchanged). The mechanism is
+CREATION-SCOPED — the persona step IS the creation wizard, so the
+behavior runs only while the creation chat is mounted; /chats never
+mounts JoinFlow and is behavior-neutral (negative-tested). (1) §44.4.1 —
+the wrapper/shell height gates in JoinFlow keep the fallback-then-dvh
+pair (`height: 100vh; height: 100dvh;`) and consume the dynamic height
+as a THIRD, later-supported declaration:
+`height: var(--app-height, 100dvh)` — the geometry is otherwise
+unchanged (unset variable → the dvh fallback stands). (2) §44.4.2 — a
+`window.visualViewport` RESIZE listener, wired inside the creation
+wrapper's mount effect (SSR-safe: no window access at module init),
+writes every `visualViewport.height` change (keyboard opens/closes)
+into the `--app-height` custom property on the document root, and the
+DOCUMENT scroll is locked (body overflow hidden) while the creation
+flow runs so the browser can never scroll the page upward; the
+listener, the lock and the variable are fully restored on teardown (no
+leaks). The §30 forms on the creation path (enter/room-intro/intro)
+share the same dynamic height — their §30 contracts stay green. RU/EN:
+zero delta (no copy changes).
+
+#### 4.31.2 iOS correction (2026-11-23, bug round, owner-reported)
+
+The §4.31.1 fix did not work on iOS Safari (iPhone/iPad): the keyboard
+did NOT shrink the screen — the whole page panned up (sometimes stayed
+panned after the keyboard closed). Deterministic root cause:
+`routes/+layout.svelte` declares `.app-shell { min-height: 100dvh }`,
+and the two §44.4.2 shell gates set `height: var(--app-height, 100dvh)`
+but never overrode the min-height — CSS computes height =
+max(min-height, height), and iOS does NOT resize the layout viewport on
+keyboard (unlike Chrome/Android), so `100dvh` stayed full-height while
+the listener correctly wrote a shrunk `--app-height`; the min-height
+pin kept the shell un-shrunk, the composer stayed behind the keyboard
+and iOS panned the document up. The fix (bug round task 136,
+`feature/5de72e33-ios-keyboard-viewport`): (1) `min-height: 0` on BOTH
+`.app-shell` gates (the persona-step and form-step shell gates — the
+wrapper gates already carried it); (2) in the same persona-step effect
+the documentElement overflow is locked TOO (the body-only lock does not
+stop iOS keyboard panning) and the window is pinned during the pan — a
+`visualViewport` SCROLL listener calls `window.scrollTo(0, 0)`; both
+are restored on teardown (the same no-leaks contract as the resize
+listener — remove/add pairs asserted). Everything else of §4.31.1 is
+untouched: the `--app-height` write/restore, the
+`100vh → 100dvh → var(--app-height, 100dvh)` fallback chain, the
+§24–§29 two-fixed-areas layout, every other join step/surface
+(behavior-neutral outside the persona step; negatives stay green).
+Suites: `tests/keyboard-viewport.test.ts` updated (min-height on both
+gates; the documentElement lock added/restored; the scroll-pin listener
+added/restored; the dvh + var assertions unchanged). Owner verifies
+manually on iOS Safari (iPhone + iPad). RU/EN: zero delta.
+
+### 4.32 v3.26 feature design (2026-11-23, owner-approved Concept §45): §45 hero breakpoint/width/headline + Bleak margins
+
+The owner issued the three-item §45 follow-up batch (2026-11-23):
+(1) **below 960px the landing shows ONLY "The right connections beside
+you" centered on the screen — the Bleak block sits BELOW THE FOLD**,
+reached by scrolling (supersedes the §44.1/§4.31.B <960px stack that
+showed both in the first viewport); (2) **the Bleak block is wider on
+computer** — its margin from the right side of the screen EQUALS the left
+margin of the lead block (symmetric edges — the card stretches toward the
+content container's right edge instead of a small centered card,
+superseding the §4.30.C 240px cap as carried into §4.31.A); (3) **the
+headline is bigger for computer view** (design's value; keep the
+open-state fit). All other §31–§33 contracts stay in force (routes,
+Start → `/income` with the 6-digit input, RU/EN parity, reminder-box
+retirement, three step blocks, existing suites green). This section
+amends §4.31 (→ §4.30 → §4.28 → §4.27 → §4.26 → … → §4.20) item by item;
+**where §4.32 is silent, the earlier specs stand** except where §4.32.D
+explicitly supersedes them. Grounded in the live code (read-only audit,
+2026-11-23): `apps/web/src/routes/+page.svelte` (the §4.31 hero — base
+`.stage` flex stack with `min-height: 100dvh` + `justify-content:
+center`, the ≥960 `1.2fr 1fr` grid, `.agent-card { max-width: 240px;
+margin-inline: auto }` inside the ≥960 media, `.headline` clamp(28px,
+4vw, 48px) inside the ≥960 media, the `max(80%, 280px)` container with
+`padding: 0 var(--space-7)` at ≥720, and the reveal wiring —
+`data-reveal-load` on BOTH `.area-lead` and `.area-agents`),
+`src/lib/styles/tokens.css` (the spacing/palette tokens — untouched),
+`tests/landing-page.test.ts` (the §4.31 hero/stack/clamp/reveal
+assertions — amended per §4.32.G). Hard constraints unchanged: **no new
+dependencies**, **no copy changes** (i18n ZERO delta, §4.32.E),
+**palette tokens unchanged** (geometry/typography only — no new color
+values anywhere), **routes untouched** (no route dir, param or resolution
+change — §4.31.D's rename stands as delivered), **/income untouched
+INCLUDING the §44.4 keyboard-viewport mechanism** (JoinFlow's
+`--app-height` / `visualViewport` wiring and the document-scroll lock are
+not modified — this round touches the landing page's hero CSS + reveal
+markers only), **the scroll-reveal system itself is unchanged**
+(`landing/reveal.ts`, the base.css armed state, the one-shot observer,
+thresholds, stagger and reduced-motion guards all carry verbatim — only
+ONE element's unit class changes, §4.32.A). **API endpoints used: none**
+— the landing stays fetch-free (§4.20 preamble). Task: tz12-15
+(`feature/1c622991-tz12-15-hero-breakpoint-bleak`).
+
+#### 4.32.A The <960px open state — the lead ALONE owns the first viewport (item 1)
+
+**Live-code finding:** §4.31.B made the <960px hero ONE centered stack —
+the base `.stage` rule (`display: flex; flex-direction: column;
+justify-content: center; align-items: center; gap: var(--space-6);
+min-height: 100dvh`) puts the lead AND the BLEAK card in the first
+viewport together whenever they fit (e.g. both visible at 800×800). The
+owner now corrects this: **below 960px the first screen shows ONLY the
+lead block, centered; the BLEAK card sits below the fold** — next in the
+scroll flow. The §37 open-state RULE ("first viewport = lead + Bleak,
+vertically centered") now applies **at ≥960px ONLY**.
+
+**Construction — the lead's own region owns the 100dvh; the DOM does NOT
+move (decision, recorded).** The agent card stays INSIDE `.stage` in the
+markup (`.stage > .area-lead + .area-agents`, byte-unchanged markup) —
+moving it out of `.stage` would make it unreachable by the ≥960px
+two-column hero grid (§4.31.A) and break the ≥960 open-state. Instead the
+<960px geometry is re-cut in CSS only: `.stage` stops being the 100dvh
+centered region, and `.area-lead` becomes the 100dvh hero region holding
+the lead ALONE — the card flows AFTER that region in the normal scroll
+flow (inside `.stage`, before the banner — the visual scroll order at
+<960 is: lead-100dvh region → BLEAK card → banner), exactly the owner's
+"behind the screen — below the fold, reached by scrolling":
+
+```css
+/* BASE = <960px: the lead is the 100dvh hero region — centered ALONE;
+ * the BLEAK card follows in the normal scroll flow (below the fold). */
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);   /* the 32px between the lead region and the card */
+  min-width: 0;
+  /* min-height + justify-content REMOVED from the base rule —
+     the stage is no longer the first-viewport region at <960 */
+}
+@media (max-width: 959.98px) {
+  /* §4.25.A's phone-hero geometry RESTORED and extended to the whole
+   * <960 band — but now as a deliberate §45.1 rule: the lead centered
+   * ALONE (the card is out of this region, in the scroll flow after it) */
+  .area-lead {
+    min-height: 100dvh;        /* the lead region = the first viewport */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;   /* the lead centers vertically, alone */
+  }
+}
+@media (min-width: 960px) {
+  .stage {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;   /* §4.31.A carries verbatim */
+    column-gap: var(--space-6);
+    min-height: 100dvh;        /* MOVED here from the base rule */
+    align-content: center;
+    align-items: center;
+  }
+  /* .area-lead grid-column 1 / .area-agents grid-column 2 — unchanged */
+}
+```
+
+- **Why the offset is guaranteed:** at <960 the lead region is
+  `min-height: 100dvh` and it is `.stage`'s FIRST child; the card follows
+  after the stage's `var(--space-6)` gap → the `.agent-card`'s top edge at
+  the scroll origin is ≥ `100dvh + 32px` > any viewport height → **the
+  card is strictly below the fold at EVERY <960 width and every viewport
+  height** (when the viewport is shorter than the lead's content the
+  region grows — min-height — and the card is further down still; no
+  clipping either way, the flex container grows with its content).
+- **The negative (supersedes §4.31.B in the first viewport):** at <960
+  the first viewport contains ONLY the lead (plus the fixed glass header
+  chrome, §4.26.A) — the BLEAK card, the banner, the steps and everything
+  else are below the fold. The §4.31.B "both visible at 800×800" reading
+  is retired; §4.31.H's ACs 4–6 are superseded by §4.32.G's ACs 1–3.
+- **The §37 open-state rule re-scoped:** "the first viewport contains
+  ONLY lead + BLEAK, vertically centered" holds at **≥960px only**
+  (side-by-side, §4.31.A construction byte-unchanged); at <960 the rule's
+  first-viewport set is the lead ALONE. The ≥960 construction (the
+  `1.2fr 1fr` grid, the 100dvh min-height — now declared inside the ≥960
+  media — and both centerings) carries verbatim from §4.31.A.
+- **The scroll-reveal interaction (the card becomes a scroll unit):**
+  `.area-agents` drops `data-reveal-load` → carries the bare
+  `[data-reveal]` marker (the 13th scroll unit; the lead alone keeps
+  `data-reveal-load`). The §4.30.A utility arms it at mount like every
+  scroll unit and reveals it on its FIRST viewport intersection
+  (threshold 0.15, rootMargin −48px, one-shot, cleanup — all verbatim).
+  At **<960** that intersection happens only when the user scrolls the
+  card into view — the owner's "reached by scrolling" is animated by the
+  established fade+rise. At **≥960** the card sits in the first viewport,
+  so its observer fires on the first observation callback at the scroll
+  origin — the net on-open appearance is the same fade+rise one tick
+  after load as the retired load-reveal produced (record; the utility
+  needs NO change — the geometry decides when the reveal fires).
+- **Unchanged:** the card's content contract (§4.20.G-b), the `#agents`
+  id (no nav link) + its `scroll-margin-top: 100px`, TALK → `/income`,
+  the hover/press treatments, and the load-reveal + cleanup of the lead.
+
+#### 4.32.B The Bleak card wide on desktop — the symmetric edges rule (item 2)
+
+**Live-code finding:** at ≥960 the card is capped at `max-width: 240px;
+margin-inline: auto` (§4.30.C as carried into §4.31.A's ≥960 media) — a
+small centered card inside a ≈ 407px track at 1280, its right edge
+≈ 550px from the viewport's right edge, while the lead's left edge sits
+only `10% + 48px` from the viewport's left. The owner wants the card to
+stretch toward the content container's right edge so **the card's right
+margin from the screen edge EQUALS the lead's left margin**.
+
+**The exact measurement rule (decided — tests assert THIS):** the content
+container `.landing` at ≥720px is `width: max(80%, 280px);
+margin-inline: auto; padding: 0 var(--space-7) var(--space-7)` — at ≥960
+always the 80% (280px floor inert), centered → its box spans
+[10%, 90%] of the viewport, and its 48px inline padding sits INSIDE the
+80% symmetrically on both sides. The lead fills grid column 1 from the
+container's CONTENT-box left edge; the card, filling column 2, ends at
+the container's CONTENT-box right edge. Therefore:
+
+> **Both margins measure `calc(10% + 48px)` at every ≥960px width** —
+> the container's centered 10% gutter PLUS the container's own 48px
+> inline padding, which is included in BOTH margins (the padding is
+> symmetric, so including it on both sides PRESERVES the symmetry).
+
+The card stretches to the container's content-box right edge — the
+padding is NOT pierced (extending the card into the padding would make
+the card's right margin bare 10% while the lead's left margin stays
+10% + 48px, BREAKING the symmetry). The asserted rule: **`viewport right
+edge − card right edge == lead left edge − viewport left edge`**, each
+equal to `10% of the viewport + 48px` at ≥960. The construction that
+produces it (and what the string-level suite asserts):
+
+- the ≥960 media declares NO `.agent-card` max-width and NO
+  `margin-inline: auto` (the §4.30.C cap is DELETED — negative);
+- `.agent-card { width: 100% }` (the existing shared
+  `.agent-card, .stat-card` rule) fills its `1fr` track edge-to-edge,
+  exactly as `.copy { width: 100% }` fills the `1.2fr` track;
+- `.landing` keeps `width: max(80%, 280px); margin-inline: auto;
+  padding: 0 var(--space-7) var(--space-7)` byte-unchanged (the symmetric
+  gutter + padding is what makes the two margins equal by construction).
+
+**Resulting px:** at **1280** the card is ≈ **407px** wide
+(content 928 − 32 gap = 896; × 1/2.2), its right edge 128px
+(10% of 1280 = 128... precisely `calc(10% + 48px)` = 176px) from the
+viewport's right edge — mirroring the lead's 176px left margin (was:
+240px card centered → ≈ 550px right margin). At **960** the card is
+≈ **288px**; at **1920** ≈ **640px** (content 1440 − 32 = 1408; × 1/2.2).
+The wide card is the owner's explicit symmetric request; readability
+holds at every width because `.agent-body` centers its content
+(`align-items: center; text-align: center`) — the 17px quote wraps LESS
+as the card widens (1 line from ≈ 1100px up), and nothing paints outside
+its track (no horizontal-scroll risk; the cap's removal only WIDENS
+inside the grid).
+
+#### 4.32.C The desktop headline bigger — clamp(32px, 4.5vw, 64px) (item 3)
+
+The ≥960px `.headline` clamp is raised from §4.28.A's
+`clamp(28px, 4vw, 48px)` (as moved to ≥960 by §4.31.A) to
+**`clamp(32px, 4.5vw, 64px)`** — declared in the SAME ≥960 media,
+replacing the old declaration (the <960 ladder is UNTOUCHED: 40px base,
+48px at ≥480px):
+
+```css
+@media (min-width: 960px) {
+  .headline {
+    font-size: clamp(32px, 4.5vw, 64px); /* WAS clamp(28px, 4vw, 48px) */
+  }
+}
+```
+
+- **Resulting px:** 43.2px at 960 → 57.6px at 1280 → capped **64px from
+  ≈1422px up** (64 / 0.045). The 32px floor is inert on ≥960 (4.5vw ≥
+  43.2px there) — a defensive minimum, same pattern as §4.28.A.
+- **The §4.28 ladder hierarchy holds:** the lead stays the dominant
+  title at every ≥960 width — 43.2px at 960 vs the 28px `.agent-name`
+  (was 38.4 vs 28); the accent word + agent-name stay subordinate with a
+  WIDER margin than before. The rest of the §4.28.A–D table is
+  byte-unchanged.
+- **Line-fit math (no mid-word breaks; the Handjet measure ≈ 0.45em/char
+  per the §4.28 audit, checked to 0.55em for safety):** the lead's text
+  column is track − 2×28px `.copy-body` padding. At **960**: column
+  ≈ 292px; longest line EN "CONNECTIONS" (11ch) ≈ 214–262px ✓. At
+  **1280**: column ≈ 433px; "CONNECTIONS" ≈ 285–349px ✓ (RU
+  "ЗНАКОМСТВА", 10ch, narrower). At **1920**: column ≈ 711px; at the
+  64px cap "CONNECTIONS" ≈ 317–387px ✓. `overflow-wrap: anywhere` stays
+  as the emergency valve, not the norm.
+- **Open-state fit re-verification (lead + Bleak BOTH in the first
+  viewport at ≥960, vertically centered) — the math at the three
+  widths:** lead `.copy-body` height = padding 2×28 (56) + headline
+  3 × 1.05 × fs + gaps 2×16 (32) + `.sub` 18px budget 2 lines (54) + CTA
+  min-height 48. Card `.agent-body` height = padding 40 + portrait 96 +
+  5 gaps × 12 (60) + name ≈ 34 + badge 24 + traits ≈ 16 + quote
+  17px × 1–2 lines (26–52) + TALK 48.
+  - **960** (fs 43.2): lead ≈ 326px; card (interior ≈ 248px, quote
+    2 lines) ≈ 370px → row max ≈ **370px** — fits any realistic desktop
+    viewport height (≥ 480px); typical 960-wide windows are 600px+.
+  - **1280** (fs 57.6): lead ≈ 371px; card (interior ≈ 367px, quote
+    1–2 lines) ≈ 344–370px → row max ≈ **371px** ✓.
+  - **1920** (fs 64 cap): lead ≈ 392px; card (interior ≈ 600px, quote
+    1 line) ≈ 344px → row max ≈ **392px** ✓.
+  - vs the OLD sizes (48px cap): the lead grows ≈ +30px at 1280 — the
+    first-viewport fit is unchanged in kind, with large vertical air.
+- **DECISION — the hero row keeps `min-height: 100dvh` (grow allowed),
+  it does NOT lock exactly:** a fixed `height: 100dvh` would CLIP the
+  centered pair on short viewports (the §4.31.B clipping concern
+  carries); `min-height` lets the stage grow and scroll when the combined
+  height exceeds the viewport — the established §4.25/§4.31 mechanism,
+  now declared inside the ≥960 media (§4.32.A construction). At <960 the
+  lead-alone region uses the same min-height semantics (grow allowed).
+
+#### 4.32.D Supersessions (explicit record)
+
+1. **§4.31.B (<960 centered stack) SUPERSEDED (item 1):** the <960 hero
+   is no longer a two-block centered stack in the first viewport — the
+   lead ALONE owns it (the `.area-lead` 100dvh region, §4.32.A); the BLEAK
+   card is below the fold in the scroll flow. The base `.stage` rule
+   loses `min-height: 100dvh` + `justify-content: center`.
+2. **§4.31.E.2's open-state scoping AMENDED (item 1):** the §37 open-state
+   RULE ("first viewport = lead + BLEAK") applies **≥960px only**; the
+   §4.25.A phone-hero geometry (the lead's own 100dvh region) is
+   RESTORED for <960 — but as §45.1's lead-ALONE rule (the §44.1 stack it
+   was superseded by is itself superseded).
+3. **§4.30.C (as carried into §4.31.A's ≥960 media) SUPERSEDED (item 2):**
+   the `max-width: 240px; margin-inline: auto` agent-card cap is DELETED
+   at ≥960 — the card fills its `1fr` track (symmetric
+   `calc(10% + 48px)` edges, §4.32.B). The 240px value survives nowhere
+   in the hero.
+4. **§4.28.A's desktop headline clamp SUPERSEDED (item 3):**
+   `clamp(28px, 4vw, 48px)` → `clamp(32px, 4.5vw, 64px)` at ≥960 (the
+   §4.31.A media move 720 → 960 stands; the <960 ladder values stand).
+5. **§4.30.B's hero-pair enumeration PARTIALLY SUPERSEDED (item 1):** the
+   load-reveal pair becomes the lead ALONE; `.area-agents` joins the
+   scroll-reveal units as their FIRST member in DOM order (before
+   `.area-stat`) — the reveal system's mechanics are untouched.
+6. **Superseded-but-carried (unchanged into §4.32):** the §4.31.A ≥960
+   grid construction, §4.30.A's utility/base.css armed-state mechanics,
+   §4.30.D icon sizes, §4.30.F banner stacking, §4.31.C unified
+   step-card borders, §4.26.A header, §4.23.A/§4.27.1 video layer,
+   §4.25.B transparent lead, §4.20.L behavior + deep-link forwarding,
+   §4.31.D's `[income_code]` rename as delivered, and all §31–§33
+   route/entry contracts.
+
+#### 4.32.E i18n: ZERO delta
+
+No key is added, removed or edited — both dictionaries stay
+**byte-identical at 55 `landing.*` keys per dictionary**
+(§4.27.G/§4.30.H/§4.31.F carry); the batch touches geometry, one clamp
+value and two reveal markers — no user-visible string changes. The RU/EN
+switch re-renders without a reload; `i18n.test.ts` and the
+`LANDING_KEYS`/parity/dead-key assertions are UNTOUCHED and stay green
+(RU/EN 55/55).
+
+#### 4.32.F Reduced motion + the reveal-system delta
+
+- **Reduced motion: UNCHANGED.** Under
+  `prefers-reduced-motion: reduce` the §4.30.A utility arms NOTHING —
+  every block (the lead AND the below-fold BLEAK card) is fully visible
+  from the first paint; the card below the fold simply sits there visible
+  until scrolled (no reveal animation). The base.css catch-all, the
+  `reducedMotion()` checks and §4.26.M/§4.27.H/§4.28.I/§4.30.I/§4.31.G
+  carry verbatim. The batch adds no new animation, no transition, no new
+  motion-sensitive element.
+- **No-JS / missing-IO fallbacks: UNCHANGED** — nothing armed ⇒
+  everything visible, including the below-fold card (the bare
+  `[data-reveal]` marker still carries no styles).
+- **The one delta is the card's unit class** (`data-reveal-load` → bare
+  `data-reveal`, §4.32.A): the armed count at mount stays **14** (13
+  scroll units + 1 load unit); the stagger groups (steps 0/60/120, pills
+  0/60/120/180) are untouched; the card is a single unit — no
+  `--reveal-delay`.
+- **Media states:** the landing still fetches nothing — no loading/
+  empty/error deltas. No horizontal scroll at 320/800/960/1280/1920 (the
+  tracks are fr-proportional; the card is width-bound inside its track).
+
+#### 4.32.G Acceptance criteria (checkable)
+
+**<960px open state — lead ALONE (item 1):**
+1. The base `.stage` rule declares `display: flex; flex-direction:
+   column; align-items: center; gap: var(--space-6); min-width: 0` and
+   does NOT declare `min-height: 100dvh` nor `justify-content: center`
+   (negative on both — the §4.31.B stack construction is gone from the
+   base rule).
+2. A `@media (max-width: 959.98px)` block declares `.area-lead {
+   min-height: 100dvh; display: flex; flex-direction: column;
+   justify-content: center }` — at an 800px-wide viewport the lead is
+   centered ALONE in the first viewport (the negative: the first viewport
+   does NOT contain the BLEAK card at <960 — superseding §4.31.H AC 5's
+   "both fit at 800×800").
+3. The BLEAK card is BELOW THE FOLD at <960: the markup keeps `.stage >
+   .area-lead + .area-agents` (DOM byte-unchanged; the card is the
+   stage's second child, the banner follows `.stage`), and the
+   construction guarantees the offset — the card's top edge at the
+   scroll origin is ≥ `100dvh + var(--space-6)`. Where layout is
+   available (browser/visual pass), assert
+   `card.getBoundingClientRect().top > window.innerHeight` at
+   `scrollY = 0` at an 800×800 viewport; in the string-level suite the
+   equivalent assertions are AC 1 + AC 2 + the DOM order (the lead region
+   owns the 100dvh, the card follows the stage gap).
+4. The `<719.98px` band keeps NO separate hero rule of its own beyond
+   AC 2's media (the whole <960 band is ONE construction; no
+   `.area-lead { min-height: 100dvh }` outside the 959.98px media —
+   negative).
+
+**≥960px open state — lead + Bleak BOTH (carry, re-asserted):**
+5. The ≥960 media declares `.stage { display: grid;
+   grid-template-columns: 1.2fr 1fr; column-gap: var(--space-6);
+   min-height: 100dvh; align-content: center; align-items: center }` —
+   `min-height: 100dvh` is declared INSIDE the ≥960 media (it moved from
+   the base rule; negative: the base `.stage` rule has no min-height) —
+   with `.area-lead` grid-column 1 and `.area-agents` grid-column 2.
+   At 960/1280/1920 the first viewport contains ONLY the lead + the
+   BLEAK card (plus the fixed header), vertically centered; the hero row
+   GROWS on short viewports (min-height, never `height: 100dvh` —
+   negative on a fixed height).
+6. The reveal markers: `<section class="copy area-lead"
+   data-reveal-load>` (the lead alone animates ON LOAD) and
+   `<section class="area-agents" id="agents" data-reveal>` (the bare
+   scroll marker — negative on `data-reveal-load` for the agents card);
+   the armed count at mount is 14 (13 scroll units: `.area-agents` first,
+   then banner + 3 steps + sim + privacy + 4 pills + join + footer; 1
+   load unit: the lead). The card's reveal fires on its first viewport
+   intersection — at <960 only after the user scrolls it into view (the
+   one-shot + cleanup mechanics unchanged).
+
+**The Bleak card wide on desktop — symmetric edges (item 2):**
+7. The ≥960 media contains NO `.agent-card` max-width declaration and NO
+   `.agent-card` `margin-inline: auto` (negative — the §4.30.C cap
+   `max-width: 240px` is GONE from the hero; grep: no `240px` agent-card
+   rule remains anywhere in `+page.svelte`); `.agent-card` fills its
+   track via the existing `width: 100%` shared rule.
+8. The symmetry construction: `.landing` keeps `width: max(80%, 280px);
+   margin-inline: auto; padding: 0 var(--space-7) var(--space-7)` at
+   ≥720 byte-unchanged, `.copy { width: 100% }` and
+   `.agent-card { width: 100% }` both fill their tracks — therefore the
+   card's right margin from the viewport equals the lead's left margin,
+   each `calc(10% + 48px)` at every ≥960 width (asserted as this
+   construction; where layout is available: the two margins measure
+   equal at 960/1280/1920, and the card's right edge aligns with the
+   container's content-box right edge — the 48px padding NOT pierced).
+   Resulting widths: ≈ 288px at 960, ≈ 407px at 1280, ≈ 640px at 1920.
+
+**The desktop headline bigger (item 3):**
+9. The ≥960 media declares `.headline { font-size: clamp(32px, 4.5vw,
+   64px) }` (43.2px at 960, 57.6px at 1280, capped 64px from ≈1422px up);
+   the old `clamp(28px, 4vw, 48px)` is GONE from the stylesheet
+   (negative — including every stale test reference); the <960 ladder is
+   byte-unchanged (40px base / 48px at ≥480px) and NO headline clamp
+   exists outside the ≥960 media.
+10. The ladder hierarchy holds at every ≥960 width: the headline
+    (≥ 43.2px) stays dominant over the 28px `.agent-name` and the
+    accent word's treatment is unchanged (violet + its glow, the
+    sparkles); the open-state fit math holds — the row max stays ≤
+    ≈ 392px across 960/1280/1920 (§4.32.C), inside any realistic desktop
+    viewport height.
+
+**i18n + suites (carry):**
+11. i18n: exactly **55** `landing.*` keys in BOTH dictionaries,
+    byte-unchanged (RU/EN parity 55/55); `i18n.test.ts` passes UNAMENDED.
+12. Suites amended and green: `landing-page.test.ts` — the §4.31 <960
+    stack assertions (ACs 4–6 there: the centered stack, the 800×800
+    both-fit reading, the §37-at-every-width scoping) rewritten to
+    §4.32.G ACs 1–4; the §4.30.C 240px-cap assertions rewritten to ACs
+    7–8 (the cap negative inverted); the headline clamp assertions
+    (including the stale 720px-media clamp reference) updated to the new
+    value per AC 9; the reveal enumerations updated per AC 6 (the AC-4
+    hero-pair test becomes the lead-only load reveal + the agents scroll
+    unit; the 12-units comment becomes 13; the armed count stays 14); ALL
+    other suites untouched green; `make lint && make test && make build`
+    green.
+13. Constraints: no new dependencies; no copy changes (55/55
+    byte-identical); palette tokens unchanged (no new color values —
+    geometry/typography only); routes untouched (the §4.31.D rename
+    stands as delivered; no route dir/param/resolution change); /income
+    untouched INCLUDING the §44.4 keyboard-viewport mechanism (JoinFlow's
+    `--app-height`/visualViewport wiring byte-untouched); the
+    scroll-reveal + reduced-motion mechanics unchanged (only the agents
+    card's unit class changes); the profile files (task 131) untouched;
+    API endpoints used: none.
+
+#### 4.32.H Flags for the owner / concept (concept report)
+
+1. **Record — the DOM does NOT move (item 1):** the card stays inside
+   `.stage` in the markup; the <960 first-viewport isolation is produced
+   by CSS (the `.area-lead` 100dvh region, §4.32.A) because a literal DOM
+   move out of `.stage` would make the card unreachable by the ≥960
+   two-column hero grid and break the ≥960 open-state. The visual scroll
+   order at <960 is exactly the owner's: lead (first viewport) → BLEAK
+   card → banner.
+2. **Record — the symmetry includes the container's 48px padding
+   (item 2):** both margins measure `calc(10% + 48px)` at ≥960, not bare
+   10% — the padding sits INSIDE the 80% symmetrically and is included
+   on both sides, preserving the equality the owner asked for; piercing
+   the padding on the card side only would have BROKEN the symmetry
+   (§4.32.B).
+3. **Record — the ≥960 card reveal fires at the scroll origin (item 1):**
+   with the card a scroll unit at ≥960, its IntersectionObserver fires
+   on the first observation callback (the card is in view) — net: the
+   same on-open fade+rise as the retired load-reveal, one IO tick instead
+   of one rAF. No utility change needed.
+4. **Record — the clamp value is design's call per §45.3:**
+   `clamp(32px, 4.5vw, 64px)` (43.2px at 960 → 64px from ≈1422px) —
+   picked to keep the §4.28 ladder margin WIDER than before while the
+   line-fit and open-state fit math stay comfortable (§4.32.C). A
+   single-value tweak (cap 56–72px) is a one-literal revert if the smoke
+   dislikes the 1920 scale.
+5. **ADVICE NEEDED — none blocking:** no copy invented (zero-delta
+   round), no palette value added, no route or /income change, no
+   dependency; the three items are fully specified above.
+
+### 4.33 v3.27 feature design (2026-11-23, owner-approved Concept §46): §46 Bleak block per-breakpoint structure + 960 step-stack + staggered text reveal
+
+The owner issued the five-item §46 follow-up batch (2026-11-23):
+(1) **screen >960px — the Bleak block as narrow as possible with its
+height EQUAL to "The right connections beside you"** (the two hero
+blocks end on the same bottom line; no taller, no wider than needed);
+(2) **screen 720–960px — the Bleak block adopts the SAME STRUCTURE as
+the "Real people. Real results." banner** (the wide banner-style glass
+card — text side, mascot/icon side with the status treatment) and stays
+BELOW THE FOLD (per §45.1); (3) **screen <720px — no change**;
+(4) **the 01/02/03 step cards stack vertically at <960px** (the 960
+boundary, not 720); (5) **the §42/§4.30 reveal system extends to the
+TITLE and DESCRIPTION elements themselves** — staggered title →
+description within each block, reduced-motion = visible immediately.
+This section amends §4.32 (→ §4.31 → §4.30 → §4.28 → §4.27 → §4.26 →
+… → §4.20) item by item; **where §4.33 is silent, the earlier specs
+stand** except where §4.33.F explicitly supersedes them. All other
+§31–§33 contracts stay in force (routes, Start → `/income` with the
+6-digit input, RU/EN parity, three step blocks, existing suites green).
+Grounded in the live code (read-only audit, 2026-11-23):
+`apps/web/src/routes/+page.svelte` (the hero `.stage` — base flex stack
+with the `@media (max-width: 959.98px)` `.area-lead { min-height: 100dvh }
+… justify-content: center` lead-alone region and the `@media
+(min-width: 960px)` `grid-template-columns: 1.2fr 1fr; min-height:
+100dvh; align-content: center; align-items: center` grid; `.agent-card`
+filling its track via the shared `width: 100%` rule (the §4.30.C 240px
+cap deleted, §4.32.B); the banner `.stat-body` (glass
+rgba(20, 18, 30, 0.55) + blur(12px), the §4.30.F phone icon-top stacking
+— `order: -1` glyph row, desktop row ≥720); the step cards `.step-body`
+(`background: var(--color-surface)`, `height: 100%`, §4.30.E/§4.31.C)
+with `.steps` a base flex-column stack and the `repeat(3, 1fr)` grid
+inside the `@media (min-width: 720px)` block; the reveal wiring —
+`data-reveal-load` on `.area-lead` only, bare `data-reveal` on
+`.area-agents` + banner + 3 step blocks + sim + privacy + 4 use-case
+pills + join + footer),
+`src/lib/components/landing/reveal.ts` (the armed-only hidden state —
+`[data-reveal='armed']` in base.css — ONE shared IntersectionObserver
+threshold 0.15 / rootMargin −48px, one-shot per unit with the
+transitionend + 720ms-fallback cleanup, the 60ms sibling stagger
+`--reveal-delay` inline on `.steps`/`.usecase-row` members capped at
+180, the `data-reveal-load` rAF load reveal),
+`src/lib/components/landing/sectionArt.ts` (untouched),
+`src/lib/styles/tokens.css` (untouched — `--space-*`, `--color-surface`,
+the glass literals are the sanctioned raw-literal family),
+`src/lib/styles/base.css` (the armed-state rules — untouched, the
+markers extend onto them), `tests/landing-page.test.ts` (the §4.30/
+§4.31/§4.32 hero, steps, banner and reveal assertions — amended per
+§4.33.I). Hard constraints unchanged: **no new dependencies**, **no copy
+changes** (i18n ZERO delta, §4.33.G), **palette tokens unchanged** (the
+720–960 glass reuses the banner's EXISTING rgba(20, 18, 30, 0.55) +
+blur(12px) literals — no new color values anywhere), **routes
+untouched**, **/income untouched INCLUDING the §44.4
+keyboard-viewport mechanism**, **the §37 open-state and the reveal
+mechanics EXTEND, not replaced** (the armed-only hidden state, the
+one-shot observer, the thresholds, the cleanup and the load reveal all
+carry verbatim; only the marker set and the utility's unit/part split
+grow, §4.33.E). **API endpoints used: none** — the landing stays
+fetch-free (§4.20 preamble). Task: tz12-16
+(`feature/eda902cb-tz12-16-bleak-breakpoints`).
+
+#### 4.33.A >960px — the Bleak card as narrow as possible with EQUAL heights (item 1)
+
+**Live-code finding:** at ≥960 the card fills its `1fr` track
+(≈ 288px at 960, ≈ 407px at 1280, ≈ 640px at 1920 — §4.32.B) and the
+hero grid centers both blocks (`align-items: center`), so the two
+blocks' BOTTOM edges align only when their content heights happen to
+coincide (§4.32.C: lead ≈ 326/371/392px vs card ≈ 344–370px at
+960/1280/1920 — at 1280 the card is ≈ 7–27px SHORTER than the lead and
+floats centered, its bottom line ABOVE the lead's). The owner now wants
+the card **as narrow as possible such that its height equals the
+lead's** — the two hero blocks ending on the same bottom line.
+
+**The heights-equal rule (decided — tests assert THIS construction):**
+
+> The two hero blocks STRETCH to the same rendered height: the ≥960
+> grid switches `align-items: center` → **`align-items: stretch`**, the
+> lead and the card both fill the row track (`height: 100%` chains),
+> and the row height = the TALLER natural content height (the lead's at
+> 1280/1920, the card's content floor at 960). The card is capped at
+> **`max-width: 240px`** — the narrowest width whose content stack
+> stays within the lead's natural height — and is **RIGHT-ALIGNED in
+> its track** (`margin-left: auto`), keeping the §45.2 symmetric-edge
+> rule (the card's right edge at the container's content-box right
+> edge). TALK pins to the card's bottom line via `margin-top: auto`.
+
+The exact construction (all inside the existing `@media
+(min-width: 960px)` block):
+
+```css
+@media (min-width: 960px) {
+  .stage {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;   /* byte-unchanged (§4.31.A) */
+    column-gap: var(--space-6);
+    min-height: 100dvh;
+    align-content: center;              /* byte-unchanged — §37 centering */
+    align-items: stretch;               /* WAS center — the equal-height rule */
+  }
+  .copy          { height: 100%; }      /* the stretched section's child fills it */
+  .copy-body     { height: 100%; justify-content: center; } /* the lead's
+                     content stays VISUALLY centered (§37) inside the
+                     stretched box — the centering is preserved by
+                     construction, not by measurement */
+  .agent-card    { max-width: 240px;    /* the heights-equal narrow width */
+                   margin-left: auto;   /* right-aligned in its track —
+                                           NOT margin-inline: auto */
+                   height: 100%; }      /* fills the stretched section */
+  .agent-body    { height: 100%; }      /* the §4.31.C step-body construction:
+                     the body FILLS the stretched card */
+  .talk          { margin-top: auto; }  /* TALK pins to the card's bottom
+                                           line (the §4.26.C step-pill
+                                           margin-top:auto precedent) */
+}
+```
+
+- **The width value — 240px, decided (the caller's 200–220px options
+  evaluated and REJECTED on the wrap math):** the card's interior after
+  its 20px body padding is ≈ 200px at 240px. The quote is the only
+  wrapping element; the RU string «Я начинаю разговор. Вы сохраняете
+  контакт.» (44 chars, ≈ 9px/char Inter ≈ 396px) wraps to **2 lines**
+  at a 200px interior (396/200 = 1.98) — the binding case over the EN
+  string ("I break the ice. You keep the contact.", 41 chars ≈ 336px,
+  2 lines at ≈ 168px interior). The stack height at a 2-line quote:
+  body padding 40 + portrait 96 + 5 gaps × 12 (60) + name ≈ 34 + badge
+  24 + traits ≈ 16 + quote 2 × 23 (46) + TALK 48 ≈ **364px** — at
+  1280 that is ≤ the lead's natural ≈ 371px (the LEAD dictates the row
+  — the card is "no taller than the lead" ✓) and at 1920 ≤ ≈ 392px ✓.
+  At **220px** (interior ≈ 180px) the RU quote wraps to **3 lines** →
+  stack ≈ 387px > the lead's 371px at 1280 — the card would dictate the
+  row and read taller-than-the-lead: rejected. At **200px** it is worse
+  (3 lines, ≈ 387px+, and the EN quote risks 3 lines too). Container-
+  query / aspect-ratio tricks (option c) are REJECTED as overkill — a
+  fixed max-width + the stretch construction is the simplest robust
+  rule, needs no new at-rule support and degrades to plain CSS.
+  **Estimate at 1280 (the number the caller asked for): the
+  name + badge + quote + TALK stack (with the portrait) reaches the
+  lead's ≈ 371px height at a card width of ≈ 240px; the rendered slack
+  (≈ 7px) sits between the quote and TALK.**
+- **The fit check at the three widths (stretch + cap, both locales):**
+  - **960** — lead natural ≈ 326px; card content floor ≈ 364px (the
+    RU 2-line quote is the card's irreducible minimum: narrower wraps
+    it to 3 lines and grows the card TALLER, worse on both counts) →
+    the row ≈ 364px is card-dictated; the lead's content (326px)
+    centers inside its stretched 364px box via `justify-content:
+    center`; both boxes are 364px → **the bottom lines align
+    structurally**; the pair stays vertically centered in the 100dvh
+    stage (`align-content: center`). Recorded as the band's physical
+    floor (§4.33.J flag 1).
+  - **1280** — lead ≈ 371px ≥ card 364px → row = 371px (lead-dictated);
+    card stretched, ≈ 7px slack above TALK; bottom lines align.
+  - **1920** — lead ≈ 392px ≥ 364px → row = 392px; ≈ 28px slack above
+    TALK; the content cluster hugs the card's top, TALK anchors the
+    bottom line; bottom lines align.
+- **The bottom line is the two BLOCKS' container edges** (the lead's
+  stretched `.copy` box and the card's frame bottom edge) — not the CTA
+  baselines (the lead's Start button floats centered in its box; TALK
+  sits 20px above the card's bottom padding edge). The owner's "the two
+  hero blocks end on the same bottom line" is satisfied by the stretch
+  construction at EVERY ≥960 width and every viewport height — by
+  construction, not by per-width measurement.
+- **The §45.2 margin symmetry CARRIES:** the card is right-aligned in
+  its track (`margin-left: auto; margin-right: 0` — the §4.30.C-era
+  `margin-inline: auto` centering is NOT reinstated), so the card's
+  right edge stays at the container's content-box right edge and both
+  margins still measure `calc(10% + 48px)` (§4.32.B's asserted rule —
+  the right-edge equality — is untouched; what changes is the card's
+  LEFT edge, which moves inward to the 240px width).
+- **The grid is byte-unchanged:** `1.2fr 1fr` stands (the lead keeps
+  its asserted ≈ 489px track at 1280, §4.31.A); the narrowing happens
+  INSIDE the card's track via the max-width (a `1fr auto` re-cut was
+  evaluated and rejected — it would change the lead's asserted width
+  and re-open §4.31.A's assertions for no benefit).
+- **Resulting rendered widths:** the card is **240px at every ≥960px
+  width** (the track floor at 960 is ≈ 288px > 240 — the cap binds
+  everywhere in the band); the §4.32.G AC 8's ≈ 288/407/640px track
+  widths remain the TRACK sizes, not the card's.
+- **Unchanged:** the card's content contract (§4.20.G-b: portrait 96,
+  name, badge, traits, quote, TALK → `/income`), the hover/press
+  treatments, the `#agents` id + scroll-margin, the pixel-frame--strong
+  frame, the opaque `--color-surface` surface at ≥960, and the
+  centered-content reading of the card (`align-items: center;
+  text-align: center` on `.agent-body` carry).
+
+#### 4.33.B 720–959.98px — the Bleak card becomes a banner-structure block (item 2)
+
+**Live-code finding:** at 720–959.98px the card currently renders as
+the §4.25-A-era flat centered column (portrait / name / badge / traits
+/ quote / TALK stacked, opaque `--color-surface` body, 100% of the
+container width) sitting below the fold (§4.32.A). The owner wants it
+to adopt the **same structure as the "Real people. Real results."
+banner** (§4.26.B as amended by §4.30.F): a WIDE GLASS card — text side
++ icon/mascot side with a status treatment — still below the fold.
+
+**The banner-structure mapping (decided):**
+
+| Banner element | Bleak-card counterpart | Placement |
+| --- | --- | --- |
+| `.stat-copy` (the text side) | name + traits + quote + TALK | the RIGHT column (`1fr`) |
+| `.stat-glyph` (the icon side) | the BLEAK personage (`.agent-portrait`, 96px) | the LEFT column (`auto`) |
+| the status treatment (`.stat-status` dot + caption) | **the class badge** (`.agent-badge`) acts as the status chip | UNDER the portrait, on the icon side |
+
+- **The status-chip decision:** the class badge IS the status
+  treatment — it moves (visually, via grid placement) under the
+  portrait, anchoring the icon side's bottom row (mirroring TALK's
+  row on the text side). Duplicating the banner's pulsing dot +
+  caption pair was evaluated and REJECTED: a caption needs a new
+  string (copy invention — the zero-delta constraint) and a second
+  `.status-dot` animated element; the badge chip + the portrait's
+  existing purple glow carry the "live agent" read without either.
+- **The glass recipe — the banner's EXACT values (decided per
+  consistency):** `rgba(20, 18, 30, 0.55)` + `backdrop-filter:
+  blur(12px)` (+ `-webkit-`), byte-equal to `.stat-body`'s — the block
+  IS the banner-structured sibling; the §4.26.E section recipe
+  (rgba(18, 15, 28, 0.45) + blur(16px)) stays with the four NEW
+  sections only. No new color value (the literal already exists —
+  `sweep.test.ts` stays green). The construction parity is already in
+  the class list: the card carries `pixel-corners pixel-frame
+  pixel-frame--strong` — the banner card's EXACT frame (§4.31.C kept
+  it strong on the agent + banner cards).
+- **The construction (a NEW band media — the DOM does NOT move; the
+  existing children are re-placed with named grid areas):**
+
+```css
+@media (min-width: 720px) and (max-width: 959.98px) {
+  .agent-body {
+    /* the banner's glass fill + padding, byte-equal to .stat-body ≥720 */
+    background: rgba(20, 18, 30, 0.55);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    padding: 16px 20px;
+    /* the banner's text-side / icon-side split, CSS-only */
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'portrait name'
+      'portrait traits'
+      'portrait quote'
+      'status   talk';
+    column-gap: var(--space-4);
+    row-gap: var(--space-2);
+    text-align: left;                  /* banner text-side parity */
+  }
+  .agent-portrait { grid-area: portrait; }  /* spans rows 1–3, LEFT */
+  .agent-badge    { grid-area: status;      /* the status chip — row 4,
+                                              under the portrait, mirroring
+                                              TALK's row */
+                    justify-self: start; }
+  .agent-name     { grid-area: name; }
+  .agent-traits   { grid-area: traits; }
+  .agent-quote    { grid-area: quote; align-self: start; }
+  .talk           { grid-area: talk; justify-self: start; }
+}
+```
+
+- **The internal split:** the icon side is the `auto` column (the
+  96px portrait, grown to the badge chip's width where the chip is
+  wider — ≈ 110–130px); the text side takes the remainder
+  (`minmax(0, 1fr)`) — at an 800px viewport (container ≈ 640px, content
+  ≈ 600px after the 16/20px padding) the split lands ≈ **78% text /
+  22% icon**; at 720 ≈ 75/25. The quote row is `minmax(0, 1fr)` — the
+  card grows with its content, no fixed height in the band.
+- **The personage size:** the portrait stays **96px** (`size={96}`,
+  the §4.20.G register — markup byte-unchanged). It ALREADY sits above
+  the banner flower's 72px register (the §4.30.D +50% family); no size
+  change is needed or made.
+- **The below-fold position:** UNCHANGED mechanism — the §4.32.A
+  construction carries byte-verbatim (the base `.stage` flex stack +
+  the 959.98px `.area-lead` 100dvh lead-alone region): the
+  banner-structured card is **the first block after the hero region**
+  (its top edge ≥ `100dvh + var(--space-6)` at the scroll origin),
+  followed by the real banner. The §45.1 lead-alone open state is
+  UNTOUCHED.
+- **The reveal:** the card stays a SINGLE scroll unit (bare
+  `data-reveal`, the 13th-units enumeration's first member) — it is NOT
+  in §46.5's title/description enumeration (§4.33.E), so no part
+  markers are added inside it; the whole banner-structured card fades
+  + rises as one unit, exactly as today.
+- **Band boundaries:** the band media's guards keep <720px and ≥960px
+  byte-untouched (§4.33.C/§4.33.A); the ≥960 media's narrow-card rules
+  and the band's banner rules never co-apply ( disjoint ranges,
+  959.98px boundary shared with the hero media).
+
+#### 4.33.C <720px — carried verbatim (item 3)
+
+**No change.** The current behavior stands, restated for the record
+(carried from §4.25.A → §4.28.F → §4.30.F → §4.32.A): the phone hero is
+the §4.32.A lead-ALONE 100dvh region (the whole <960 band is ONE
+construction — no separate <719.98px hero rule), the lead centered
+vertically with the §4.28 40px/48px headline ladder, the lead
+transparent + halo (§4.25.B); the BLEAK card is the next block in the
+scroll flow (below the fold), rendering as TODAY: the flat centered
+`.agent-body` flex column (portrait 96 / name 28 / badge / traits /
+quote 17 / TALK), the opaque `--color-surface` surface, the
+`pixel-frame--strong` frame, 100% of the container width, the bare
+`data-reveal` scroll unit, TALK → `/income`. The banner's §4.30.F
+phone stacking (glyph row first) stands; the steps are the base
+flex-column stack (now formally the <960 rule, §4.33.D). The
+720–959.98px band media's `min-width: 720px` guard guarantees nothing
+of §4.33.B applies here; the ≥960 media's `min-width: 960px` guard
+keeps §4.33.A out. Every <720px assertion in the suite carries
+UNAMENDED.
+
+#### 4.33.D The step cards stack at <960px — the 960 boundary (item 4)
+
+**Live-code finding:** the `.steps` row collapses at 720px today (the
+`repeat(3, 1fr)` grid lives inside the `@media (min-width: 720px)`
+block, lines ~1460 of `+page.svelte`); the owner moves the boundary to
+960 for THESE cards. The re-cut is ONE media move:
+
+```css
+/* BASE = <960px: the vertical top-to-bottom stack (unchanged values) */
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+@media (min-width: 720px) {
+  /* the card SIZING stays ≥720 (orthogonal to the row/stack question) */
+  .step-block .step-body { min-height: 300px; padding: 20px; }
+}
+@media (min-width: 960px) {
+  /* MOVED here from the ≥720 media — the row exists ≥960 ONLY */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-6);
+  }
+}
+```
+
+- **At 800px (the checkable case):** the three cards are a
+  full-width vertical stack (flex column, `--space-5` gaps), each with
+  the ≥720 card sizing (20px padding, 300px min-height) and the
+  §4.31.C unified frame; **at ≥960:** the equal-thirds row. The
+  720–959.98px band therefore shows DESKTOP-SIZED cards STACKED — the
+  owner's item 4 changes only the stack boundary, not the card sizing.
+- **ALL other 720px rules STAND** (explicit enumeration): the
+  container `max(80%, 280px)` + inline padding, the header nav reveal +
+  56px row, the banner's desktop row + 72px flower, the `.sub` 18px,
+  the copy-body 28px padding + left alignment (≥960), the
+  sim/privacy/use-case/join section grids (`1fr auto 1fr`,
+  `repeat(3, 1fr)`, `repeat(4, 1fr)`, the join row), the footer links
+  row, the join-headline 28px, the step-pill 13px + `margin-top: auto`,
+  the `.steps` gap var(--space-6) (it moves WITH the grid into the ≥960
+  media — the base stack keeps var(--space-5)), and the ≥480px headline
+  48px. **Only the steps row/stack boundary moves.**
+
+#### 4.33.E The reveal extension — titles + descriptions animate (item 5)
+
+**Live-code finding:** the §4.30.A system reveals each below-fold block
+as ONE unit; the text inside appears with the block's single fade. The
+owner extends the animation to the title and description ELEMENTS
+themselves — title first, description following, per-block one-shot.
+
+**The marker changes (the SAME armed-only mechanics — no new
+hidden-state rule):** the title and description elements inside the
+below-fold units get the SAME bare `data-reveal` marker in the markup
+(a bare marker still carries NO styles — the no-JS default stays fully
+visible; the hidden state still exists ONLY under
+`[data-reveal='armed']`, applied by the utility — base.css is
+byte-unchanged). The utility splits the marker set:
+
+- **A UNIT** is a `[data-reveal]` element with NO `[data-reveal]`
+  ancestor — observed by the shared IO exactly as today (one-shot,
+  threshold 0.15, rootMargin −48px, cleanup).
+- **A PART** is a `[data-reveal]` element INSIDE a unit — armed with
+  the same `data-reveal='armed'` + an inline `--reveal-delay`, but
+  NEVER observed: its reveal is slaved to its unit's IO entry (the
+  unit's `.is-revealed` tick adds `.is-revealed` to its armed parts in
+  the same frame) — **per-block one-shot** by construction. Cleanup
+  strips each part independently (its own transitionend + the 720ms
+  fallback; the deepest chain — the privacy block's last part at
+  +360ms + the 320ms transition = 680ms — stays under the 720ms
+  fallback).
+
+**The stagger table (exact ms; the unit delay + 60ms × the part's
+index within the unit, DOM order — the title is always the first part
+in DOM, so "title first, description follows" falls out of the DOM
+order; parts have NO cap — the deepest cascade tops at +360ms, the
+180ms cap stays on the SIBLING groups only):**
+
+| Unit (block) | Unit delay | Parts (DOM order → delay) |
+| --- | --- | --- |
+| `.area-stat` (banner) | 0 | `.stat-title` → 0; `.stat-line` ×3 → 60 / 120 / 180 |
+| `.step-block` 01 | 0 | `.step-title` → 0; `.step-desc` → 60 |
+| `.step-block` 02 | 60 | `.step-title` → 60; `.step-desc` → 120 |
+| `.step-block` 03 | 120 | `.step-title` → 120; `.step-desc` → 180 |
+| `.area-sim` | 0 | `.section-title` → 0 (no description paragraph — negative, recorded) |
+| `.area-privacy` | 0 | `.section-title` → 0; `.privacy-title`/`.privacy-desc` ×3 → 60 / 120 / 180 / 240 / 300 / 360 |
+| `.section-title` (use-cases) | 0 | — it becomes a UNIT (below) |
+| `.usecase-pill` ×4 | 0 / 60 / 120 / 180 (unchanged) | — no title/desc children (negative, recorded) |
+| `.area-join` | 0 | `.section-title` → 0; `.join-headline` → 60 |
+| `.area-foot` (footer) | 0 | — no title/desc elements (negative, recorded) |
+| `.area-lead` (LOAD) | rAF | **NO parts — decision below** |
+| `.area-agents` (the BLEAK card) | its IO entry | **NO parts — not in §46.5's enumeration (negative, recorded)** |
+
+- **The use-cases section title** ("WHERE BLEAK SHINES") sits OUTSIDE
+  the pills and its section carries no marker today — it gets its OWN
+  bare `data-reveal` marker and becomes the **14th scroll unit**,
+  revealing on its own IO entry (it enters the viewport before the
+  pills); the pills keep their independent units + 0/60/120/180
+  stagger (making the SECTION a unit was evaluated and rejected — on
+  phone the tall section would hide the below-fold pills until 15% of
+  the whole section was visible, killing their individual reveal
+  moments).
+- **The lead keeps its single load-reveal — DECIDED, no parts:** the
+  §4.30.B load reveal is ONE opening beat (§4.30.K flag 3); splitting
+  the headline/sub into a load cascade would read as lag on the first
+  paint, and the §37 geometry + the one-beat contract stand. The lead
+  carries NO part markers (negative).
+- **The compound rise (record):** a part rises its own 16px INSIDE the
+  block's 16px rise → titles/descs travel ≈ 32px total, transform-only
+  (§4.6), no layout shift; the block's other content (badges, icons,
+  pills) travels 16px as today.
+- **The armed count at mount changes:** **15 units** (14 scroll units
+  — the agents card FIRST, then banner + 3 steps + sim + privacy + the
+  use-cases title + 4 pills + join + footer — plus the lead load unit)
+  **+ 20 parts** (banner 4 + steps 6 + sim 1 + privacy 7 + join 2) =
+  **35 `[data-reveal='armed']` nodes** (the §4.32.G AC 6 count of 14
+  is superseded). The utility's `reducedMotion()` / missing-IO
+  early-returns, the ONE observer, the one-shot ledger and the teardown
+  carry verbatim; the only logic additions are the unit/part
+  classification and the part arming/reveal/cleanup.
+- **No new CSS:** the parts reuse the base.css `[data-reveal='armed']`
+  rules and the `--reveal-delay` mechanism verbatim — the stylesheet
+  gains nothing; the stylesheet-level negative ("no hiding outside
+  `[data-reveal='armed']`", §4.30.J AC 1) carries UNCHANGED.
+
+#### 4.33.F Supersessions (explicit record)
+
+1. **§4.32.B (>960 the card fills its 1fr track) SUPERSEDED (item 1):**
+   the card is capped at `max-width: 240px`, right-aligned in its track
+   (`margin-left: auto`) — the ≈ 288/407/640px rendered card widths are
+   retired (they remain the TRACK sizes); the §45.2 symmetric
+   RIGHT-edge rule + the `calc(10% + 48px)` margins CARRY; the
+   `align-items: center` hero centering becomes `align-items: stretch`
+   (the §37 vertical centering is preserved via `align-content: center`
+   + the lead's `justify-content: center` — the rendered open state is
+   unchanged).
+2. **§4.30.C's 240px cap — the VALUE returns under a DIFFERENT rule
+   (record, no confusion):** §4.32.B deleted the §4.30.C
+   `max-width: 240px; margin-inline: auto` centered cap; §4.33.A
+   reinstates a 240px max-width as the heights-equal narrow width with
+   `margin-left: auto` right alignment. The centered cap stays deleted;
+   no `margin-inline: auto` exists on `.agent-card` anywhere.
+3. **§4.31.B's <960 two-block stack — superseded twice over (record):**
+   §4.32.A already superseded it (lead-alone first viewport); §4.33.B
+   additionally supersedes the 720–959.98px card PRESENTATION (the flat
+   centered column → the banner-structure glass card). The <960
+   below-fold position mechanism (§4.32.A) is untouched.
+4. **§4.28/§4.31's 720px step stacking SUPERSEDED to 960 (item 4):**
+   the `.steps` `repeat(3, 1fr)` grid moves from the ≥720 media to a
+   new ≥960 media; the base flex-column stack formally covers <960.
+   ALL other 720px rules stand (§4.33.D enumeration).
+5. **§4.30.B's reveal enumeration EXTENDED (item 5):** the units gain
+   the use-cases section title (14 scroll units); title/description
+   elements become parts (20 of them) with the §4.33.E stagger table;
+   the armed count 14 → 35. The §4.32.G AC 6 count and the §4.30.J AC
+   1–4 enumerations are amended accordingly.
+6. **Superseded-but-carried (unchanged into §4.33):** the §4.32.A
+   <960 lead-alone construction + the agents-card scroll-unit class,
+   §4.31.A's 1.2fr/1fr grid + the lead's ≈489px track, §4.32.C's
+   headline clamp, §4.31.C's unified step borders + `.step-body`
+   height:100%, §4.30.D icon sizes, §4.30.E step surface, §4.30.F
+   banner stacking, §4.26.A header, §4.23.A/§4.27.1 video layer,
+   §4.25.B transparent lead, §4.20.L behavior + deep-link forwarding,
+   §4.31.D's `[income_code]` rename as delivered, §4.30.A's armed-only
+   mechanics/one-shot/stagger-cap, and all §31–§33 route/entry
+   contracts.
+
+#### 4.33.G i18n: ZERO delta
+
+No key is added, removed or edited — both dictionaries stay
+**byte-identical at 55 `landing.*` keys per dictionary**
+(§4.27.G/§4.30.H/§4.31.F/§4.32.E carry); the batch touches geometry,
+one band's card structure, one media boundary and the reveal marker
+set — no user-visible string changes. The RU/EN switch re-renders
+without a reload; `i18n.test.ts` and the `LANDING_KEYS`/parity/dead-key
+assertions are UNTOUCHED and stay green (RU/EN 55/55).
+
+#### 4.33.H Reduced motion + media states
+
+- **Reduced motion: UNCHANGED and static-safe for every new element.**
+  Under `prefers-reduced-motion: reduce` the utility arms NOTHING —
+  the units AND the new parts are never armed, every block (including
+  every title/description) is fully visible from the first paint; no
+  observer is created. The base.css catch-all collapses any stray
+  transition. §4.33 adds no new animation, no new keyframe, no new
+  transition (the band card's glass is static; the 960 stack boundary
+  is geometry; the parts ride the EXISTING armed transition).
+- **No-JS / missing-IO fallbacks: UNCHANGED** — nothing armed ⇒
+  everything visible; the bare part markers carry no styles exactly
+  like the bare unit markers.
+- **Media states:** the landing still fetches nothing — no loading/
+  empty/error deltas. No horizontal scroll at 320/800/960/1280/1920
+  (the 240px card sits inside its fr track; the band grid's
+  `minmax(0, 1fr)` text column cannot overflow; the stacked steps are
+  full-width blocks). Video error → the §4.23.G static treatment, the
+  reveal firing over it the same way.
+
+#### 4.33.I Acceptance criteria (checkable)
+
+**>960px — the heights-equal narrow card (item 1):**
+1. The ≥960 media declares `.stage { … align-items: stretch }` (the
+   negative: `align-items: center` is GONE from the ≥960 `.stage`
+   rule; `align-content: center` + `min-height: 100dvh` +
+   `grid-template-columns: 1.2fr 1fr` carry byte-unchanged) — the two
+   hero blocks render at EQUAL heights at every ≥960 width (where
+   layout is available: `lead.getBoundingClientRect().height ===
+   card.getBoundingClientRect().height` at 960/1280/1920; in the
+   string-level suite the stretch + height-chain construction is the
+   assertion).
+2. The ≥960 media declares `.copy { height: 100% }`,
+   `.copy-body { height: 100%; justify-content: center }`,
+   `.agent-card { max-width: 240px; margin-left: auto; height: 100% }`,
+   `.agent-body { height: 100% }` and `.talk { margin-top: auto }` —
+   the lead's content stays VISUALLY centered (§37 open state
+   preserved), TALK pins to the card's bottom line, and the card is
+   narrower than its track (the negative: NO `margin-inline: auto` on
+   `.agent-card` anywhere; the §4.32.G AC 8's card-width values
+   ≈ 288/407/640px are retired — the card renders 240px at 960/1280/
+   1920).
+3. The width value is 240px with the recorded wrap math: at 220px the
+   RU quote wraps to 3 lines (stack ≈ 387px > the lead's ≈ 371px at
+   1280) — the suite asserts the 240px literal and the §4.33.A
+   construction; at 1280 the card's content stack (≈ 364px, 2-line
+   RU quote) stays ≤ the lead's natural height (≈ 371px) — the LEAD
+   dictates the row at 1280/1920 ("no taller than the lead"); at 960
+   the row is card-dictated (≈ 364px vs the lead's ≈ 326px natural —
+   the recorded floor, §4.33.J flag 1), with the bottom lines still
+   aligned by the stretch.
+4. The §45.2 symmetry carries: the card's right edge at the container's
+   content-box right edge; both margins `calc(10% + 48px)` (the
+   §4.32.B right-edge assertion stands UNAMENDED; only the left edge
+   moved).
+
+**720–959.98px — the banner-structure card (item 2):**
+5. A `@media (min-width: 720px) and (max-width: 959.98px)` block
+   declares `.agent-body` with the banner's EXACT glass values
+   (`rgba(20, 18, 30, 0.55)` + `backdrop-filter: blur(12px)` +
+   `-webkit-`, byte-equal to `.stat-body`) + `padding: 16px 20px` +
+   the grid construction (`grid-template-columns: auto minmax(0, 1fr)`;
+   the four-row `grid-template-areas` with 'portrait' spanning rows
+   1–3 LEFT and 'status' in row 4; `text-align: left`) and the five
+   grid-area assignments (`.agent-portrait` → portrait,
+   `.agent-badge` → status, `.agent-name` → name, `.agent-traits` →
+   traits, `.agent-quote` → quote, `.talk` → talk). The card article's
+   class list is UNCHANGED (`pixel-corners pixel-frame
+   pixel-frame--strong` — the banner's frame, structural parity) and
+   the DOM is byte-unchanged (no wrappers added).
+6. In the band the card sits BELOW THE FOLD: the §4.32.A construction
+   carries (the base `.stage` + the 959.98px `.area-lead` 100dvh
+   region byte-unchanged); where layout is available, the card's
+   `getBoundingClientRect().top > window.innerHeight` at
+   `scrollY = 0` at an 800×800 viewport — the banner-structured card
+   is the first block after the hero region, followed by the real
+   banner.
+7. The mapping holds: the text side = name + traits + quote + TALK
+   (left-aligned), the icon side = the 96px BLEAK personage + the
+   class badge as the status chip under it; the portrait markup stays
+   `size={96}` byte-unchanged; NO new dot/caption element exists in
+   the agent card (negative — no copy invention).
+
+**<720px — unchanged (item 3):**
+8. The <720px band is byte-untouched: the base `.agent-body` flex
+   column (centered), the opaque `--color-surface` surface, the card
+   at 100% container width, the §4.30.F banner stacking, the §4.32.A
+   lead-alone hero — every pre-existing <720 assertion passes
+   UNAMENDED; the band media's `min-width: 720px` guard and the ≥960
+   media's `min-width: 960px` guard keep both neighbors out
+   (negatives: no `.agent-body` grid/glass declaration outside the
+   band media; no `.agent-card` max-width below 960).
+
+**Step cards stack at 960 (item 4):**
+9. The `.steps` base rule is the flex-column stack (`flex-direction:
+   column; gap: var(--space-5)`); the `repeat(3, 1fr)` grid +
+   `gap: var(--space-6)` live in a `@media (min-width: 960px)` block
+   (the negative: NO `.steps` grid declaration inside any
+   `min-width: 720px` block); at an 800px viewport the three cards
+   render stacked full-width (each with the ≥720 sizing: 20px padding,
+   300px min-height, the §4.31.C unified frame); at ≥960 the
+   equal-thirds row. ALL other 720px rules stand (the §4.33.D
+   enumeration — grep-audited).
+
+**The staggered title/description reveal (item 5):**
+10. The bare `data-reveal` marker extends onto exactly the §4.33.E
+    set: banner `.stat-title` + 3 `.stat-line`; per step block
+    `.step-title` + `.step-desc`; sim `.section-title`; privacy
+    `.section-title` + 3× (`.privacy-title` + `.privacy-desc`); the
+    use-cases `.section-title` (an independent UNIT); join
+    `.section-title` + `.join-headline` — and onto NOTHING else (the
+    negatives: the lead, the BLEAK card, the footer, the badges/pills/
+    icons carry no new markers).
+11. The utility classifies `[data-reveal]` elements: no
+    `[data-reveal]` ancestor ⇒ an observed UNIT (the shared IO,
+    one-shot, unchanged); otherwise a PART of its nearest unit
+    ancestor — armed with `data-reveal='armed'` + an inline
+    `--reveal-delay` = the unit's delay + 60ms × the part's DOM-order
+    index (no cap), never observed itself, revealed in the same tick
+    as its unit, cleaned up independently (transitionend + the 720ms
+    fallback). Per-block one-shot: re-scrolling never replays either
+    the unit or its parts.
+12. The stagger table holds (source + behavior assertions): banner
+    0/60/120/180; steps (0,60)/(60,120)/(120,180); sim 0; privacy
+    0/60/120/180/240/300/360; join 0/60; the pills 0/60/120/180
+    unchanged; the title is always the first part (delay = the
+    block's own delay) and the description follows (+60ms after it).
+13. Reduced motion: `prefers-reduced-motion: reduce` → NO arming at
+    all (units AND parts) — every title/description visible
+    immediately; with IO unavailable everything reveals immediately;
+    no element can remain permanently hidden (the armed-only
+    mechanics carry — the stylesheet gains NO new hidden-state rule;
+    base.css byte-unchanged).
+14. The armed count at mount is **35**: 15 units (14 scroll units in
+    DOM order — the agents card, banner, 3 steps, sim, privacy, the
+    use-cases title, 4 pills, join, footer — + the lead load unit) +
+    20 parts; the lead alone carries `data-reveal-load` (negative on
+    the agents card).
+
+**i18n + suites (carry):**
+15. i18n: exactly **55** `landing.*` keys in BOTH dictionaries,
+    byte-unchanged (RU/EN parity 55/55); `i18n.test.ts` passes
+    UNAMENDED.
+16. Suites amended and green: `landing-page.test.ts` — the steps-layout
+    test's ≥720 grid assertion rewritten to ≥960 (AC 9); the ≥960
+    hero-grid test's `align-items: center` assertion rewritten to
+    `stretch` + the §4.33.A declarations (ACs 1–2); the §4.32.G AC
+    7–8 card-width assertions rewritten to the 240px right-aligned cap
+    (AC 2/AC 4); the §4.30/§4.32 reveal enumerations (13 units / 14
+    armed) rewritten to 14 units / 35 armed with the part assertions
+    (ACs 10–14); the <720 and §4.32.A assertions carry UNAMENDED;
+    `sweep.test.ts` green (the band glass reuses the banner's existing
+    literal — no new color values); all other suites untouched green;
+    `make lint && make test && make build` green.
+17. Constraints: no new dependencies; no copy changes (55/55
+    byte-identical); palette tokens unchanged (no new color values —
+    the band glass is the banner's existing literal family); routes
+    untouched; /income untouched INCLUDING the §44.4
+    keyboard-viewport mechanism; the §37 open-state geometry preserved
+    (the lead's content stays centered; the stretch changes the BOX
+    heights only); the reveal mechanics extend, not replaced (one
+    observer, armed-only, one-shot, the 60ms stagger — the marker set
+    and the unit/part split grow); the profile files (task 131)
+    untouched; API endpoints used: none.
+
+#### 4.33.J Flags for the owner / concept (concept report)
+
+1. **Record — the 960-boundary floor (item 1):** at exactly ≥960–1279
+   the lead's natural height (≈ 326px at 960) is BELOW the card's
+   content floor (≈ 364px: the RU quote's 2-line wrap is irreducible —
+   narrower wraps it to 3 lines and grows the card TALLER), so the ROW
+   is card-dictated there and the lead's content centers inside its
+   stretched box. The bottom lines align at EVERY ≥960 width by the
+   stretch construction; "no taller than the lead" holds strictly at
+   1280/1920 and is physically impossible below ≈ 1150px without
+   shrinking the card's content (a copy or portrait change — out of
+   scope). If the owner wants the lead to dictate everywhere, the
+   one-value lever is the headline clamp's 960 floor (§4.32.C) — a
+   design decision, not taken here.
+2. **Record — the 240px value is design's call per §46.1 ("as narrow
+   as that allows"):** the caller's 200–220px suggestion was computed
+   and rejected (the RU 3-line quote makes the card taller than the
+   lead at 1280); 240px is the narrowest width whose 2-line RU quote
+   keeps the stack ≤ the lead's natural height at 1280/1920. A
+   one-literal tweak (230–260px) re-balances if the smoke disagrees;
+   the construction (stretch + right-align + TALK pin) is independent
+   of the literal.
+3. **Record — the status-chip mapping (item 2):** the class badge
+   moves (visually, via grid areas) under the portrait as the icon
+   side's status chip; the banner's pulsing dot + caption pair was
+   rejected (a caption string would be copy invention). If the owner
+   wants the literal dot+caption on the Bleak card, it needs one new
+   key per dictionary (a §4.7-format i18n round, NOT this zero-delta
+   batch).
+4. **Record — the lead gets NO title/description parts (item 5):**
+   the load reveal stays one beat (§4.30.B/§4.30.K flag 3); splitting
+   it would read as first-paint lag. The BLEAK card also carries no
+   parts (not in §46.5's enumeration) — its banner-structured band
+   variant reveals as one unit.
+5. **Record — the use-cases section title becomes a scroll unit
+   (item 5):** it was never hidden before (no marker, visible
+   immediately); it now reveals on its own IO entry before the pills.
+   Making the whole `.area-usecases` section a unit was rejected (it
+   would delay the below-fold pills' individual reveals on phone).
+6. **Record — the parts' compound rise:** a part travels ≈ 32px total
+   (its 16px inside the block's 16px), transform-only; the privacy
+   cascade's last part starts at +360ms and finishes ≈ 680ms after the
+   block's reveal — inside the 720ms cleanup fallback. A flatter
+   cascade (cap parts at 180ms) is a one-constant change if the smoke
+   finds the tail long.
+7. **ADVICE NEEDED — none blocking:** no copy invented (zero-delta
+   round), no palette value added, no route or /income change, no
+   dependency; the five items are fully specified above (§4.33.A–E).
+
+### 4.34 owner bug-batch amendment (2026-11-23, owner-approved Concept §48): entry flow — 6-digit auto-advance + room intro route + clean create redirect
+
+Owner bug batch (Concept §48, 2026-11-23), three entry-flow changes: (1)
+auto-advance on the 6-digit code, (2) the room intro gets its own route
+`/income/<income-code>`, (3) the create-profile redirect is clean (no query
+string). All other §31–§33 contracts stay in force (§48 binding). This
+section amends §3.1 (the join page, now the `/income` entry surface),
+§4.31.D (the param rename) and §4.31.H where they collide; everything not
+named below carries verbatim. No code shape is mandated here — the
+ARCHITECTURE pass owns the implementation plan; this section owns the UX
+contract.
+
+#### 4.34.A The entry-flow route map
+
+The pre-room flow is three routes; the income code (the 6-digit invite code)
+travels in the **path param only** on both parametrized routes — never in a
+query string:
+
+| Route | Page | Role | Source of the room context |
+| --- | --- | --- | --- |
+| `/income` | 6-digit entry (`CodeEntry` in the §30 FormShell) | the entry surface — §31/§47 contract intact: the default 6-digit form ALWAYS shows (no resume variant) | none — the user types / pastes / scans / deep-links the code here |
+| `/income/[income_code]` | room intro (`RoomPreview` in the §30 FormShell) — **NEW route** `src/routes/income/[income_code]/+page.svelte` | the create-user / change-code choice page | the param IS the 6-digit invite code; resolved on mount (§4.34.C) |
+| `/income/[income_code]/create` | creation wizard (`JoinFlow` seeded into the persona step) | the persona creation interview | the param IS the 6-digit invite code; resolved on mount (§4.34.D) — **NO query params, ever** |
+
+Flow: `/income` (6 digits complete → auto-resolve) → `/income/[income_code]`
+(intro: create profile / change code) → `/income/[income_code]/create`
+(wizard) → `/room`. "Change code" anywhere goes back to `/income` (§3.1
+Step-1 affordance; on the intro route it is one of the two footer actions —
+§4.19/§4.22.E carry). The layout comment in §3.1 that the room-preview
+"card content swaps" in place after resolution is superseded by this map:
+on `/income` a successful resolve NAVIGATES to `/income/[income_code]`
+(§4.34.B); the §3.1 Step-2 region relocates verbatim to the intro route.
+
+#### 4.34.B Auto-advance on the 6-digit code (`CodeEntry`)
+
+After the **6th digit is entered** — typed, backspace-refilled, pasted as a
+6-digit string, or filled by the scanner/`?code=` deep link (§3.1, §3.8) —
+the entry form **automatically performs the resolve** (exactly what the
+submit button does today: the `JoinFlow.submitCode` → `resolveInviteCode`
+seam, ARCHITECTURE §10.6, endpoint `GET /api/invite/{code}` — public read,
+no token) and either **proceeds to the intro route** or **shows the error**
+— it never waits for the submit button.
+
+- **Trigger discipline (no double-submit):** the auto-resolve fires ONCE per
+  completion. While a resolve is in flight the form is `busy`: further
+  digit edits do not re-trigger, a submit-button press is a no-op, and the
+  CTA shows the §3.1 inline spinner, disabled. A resolve that FAILS
+  re-enables the form; it does NOT auto-retry — the next attempt is the
+  user's (edit a digit, or tap submit). No debounce timing is introduced;
+  the trigger is the completion event itself.
+- **Error mapping — exactly the existing `codeErrorOf` treatments** (§3.1
+  state table carries): malformed (400) → inline field error + 120ms shake
+  (§2.6 reduced-motion aware); `NetworkError` / API error → `ErrorBanner`
+  (§2.1); unknown/dead code (404) → the code-not-found inline treatment
+  («Код не найден — уточните его у организатора.»). On every error the
+  **entered digits survive** in the cells (the existing preservation rule),
+  the CTA re-enables, and focus stays in the digit field.
+- **Success:** on resolve, navigate to `/income/[income_code]` with the
+  resolved code as the path param (§4.34.A). The 6-digit string resolved
+  remains the `invite_code` carried into `CreateUserRequestV2` at persona
+  creation (§3.1 unchanged on this point — the code itself, not the room
+  address, is what creation consumes).
+- **The submit button STAYS** as a redundant affordance, unchanged (disabled
+  until 6 digits; pressing it with a fresh/edited code re-runs the resolve).
+- **Reconciliation with §3.1 deep-link auto-submit:** the `?code=NNNNNN`
+  prefill-and-auto-submit behavior on `/income` **stays untouched** — it is
+  the invite-deep-link mechanism (§3.8 invite QR; the host share kit's
+  `{INVITE_URL_BASE}?code=NNNNNN`), NOT the create-route seed, and it now
+  shares the same completion→resolve→navigate path as typed entry. The §3.8
+  scanner context (a) is likewise untouched: a scanned code enters Step 1
+  exactly as if typed and then auto-advances by the same rule.
+
+#### 4.34.C The room intro route `/income/[income_code]`
+
+New SvelteKit route `src/routes/income/[income_code]/+page.svelte`
+mounting the existing `RoomPreview` component (create profile / change
+code) inside the §30 FormShell instantiation it has today (§4.22.E table:
+`BleakMascot` 96 idle at top; the multi-button footer — create profile +
+change code). The route param is the 6-digit invite code.
+
+- **Resolve on mount:** the intro page resolves the param code with the
+  existing resolve logic (`GET /api/invite/{income_code}` → room address →
+  `GET /api/room/{address}` public read for name/description/language/
+  max_user, and the member count via `GET /api/room/{room}/user` length —
+  the §3.1 Step-2 data set). The resolve runs on mount and on re-entry;
+  it is public (no token), rate-limited per source (swagger).
+- **Resolving treatment:** consistent with the §30 shell and §3.1's
+  "Resolving code" state — the shell renders normally (header/locale +
+  mascot + title) and the content region shows a small inline spinner
+  with no new copy (no skeleton — §3.1's "skeleton not used" rule). The
+  footer actions are disabled until the room context is present.
+- **Dead/invalid param:** the SAME treatments as §3.1's code errors,
+  relocated to this route: unknown/dead code (404) → the code-not-found
+  inline treatment (the «Код не найден…» copy — no shake, since there is
+  no field here); malformed-looking param → same state; `NetworkError` /
+  API error → `ErrorBanner` with a retry affordance. In all error states
+  the **Change code action remains available** (or is the sole action) and
+  goes back to `/income`.
+- **Actions (unchanged contracts):** create profile →
+  `goto(resolve('/income/[income_code]/create', { income_code }))` with
+  NO query string (§4.34.D); change code → `/income`.
+
+#### 4.34.D The clean create redirect — path-param-only create contract
+
+`/income/[income_code]/create` takes **no query parameters, ever**. The
+`?code=` append dies: `JoinFlow.chooseCreate` navigates with the income
+code in the path only —
+`goto(resolve('/income/[income_code]/create', { income_code: flow.code }))`.
+
+- **Seeding (supersedes today's shortcut):** the create route can no longer
+  build a `Room` directly from the path param (a 6-digit code is not a room
+  address). On mount it **resolves the code with the existing resolve
+  logic** — `GET /api/invite/{income_code}` → room address →
+  `GET /api/room/{address}` for the `Room` object the persona submit needs
+  (`room.address` in `POST /api/room/{room}/user`) — then opens the wizard
+  at its step exactly as the seeded path does today (§4.31.D's resolution
+  skeleton otherwise unchanged). Resolve failures route as today: anything
+  that cannot resolve → `goto(resolve('/income'), { replaceState: true })`
+  (the §4.31.D rule; the network case MAY show the `ErrorBanner` with
+  retry instead of silently redirecting — worker's call per §2.1, but no
+  dead-end blank shell).
+- **Reconciliation — §3.8 deep-link handling vs the param-only create
+  route:** `?code=` deep links (`{INVITE_URL_BASE}?code=NNNNNN`, scanned or
+  opened) target **`/income` only** (forwarded there per §4.20.L/§4.23.G
+  behavior). The create route ignores/strips no deep link — it simply never
+  receives one; the §3.8 handshake deep links (`?u=`, `?u=…&m=…`) are
+  room-internal and untouched. §3.1's deep-link clause is thereby SCOPED:
+  `?code=` belongs to the entry surface, never to the create route.
+- **Grep-audited consumers to re-wire (worker surface, not exhaustive
+  code-spec):** `JoinFlow.chooseCreate` (the navigation above),
+  `JoinFlow.wizardBack` — which today round-trips `/income?code=…` —
+  becomes the param-only round-trip `resolve('/income/[income_code]',
+  { income_code })` (back to the intro route), and the seeded-`?code=`
+  assertions in `tests/landing-page.test.ts` + `tests/join-flow.test.ts`
+  (and any resolve-mock shapes carrying `?code=`) follow the new contract.
+  §4.31.D's item-4 test list is the baseline; the `?code=` spellings die
+  from it.
+
+#### 4.34.E Reconciliation notes
+
+1. **§30 FormShell contracts stay:** the intro route keeps its shell
+   instantiation (§4.19's multi-button footer), the 6-digit form keeps its
+   shell, the wizard keeps its shell — the §4.31.1/§4.31.2 keyboard-
+   viewport mechanism covers the creation path as shipped and the intro
+   route rides the same shell geometry. The auto-advance changes NO shell
+   geometry (the CTA spinner and the disabled state are §3.1 states).
+2. **§3.1 carries with two scoping amendments:** the Step-2 in-card swap
+   becomes the §4.34.A navigation; the auto-advance adds the completion
+   trigger to the existing DigitInput contract ("when 6 digits present the
+   CTA enables" now also means: the resolve fires). Everything else in
+   §3.1 — i18n, vault, scan entry, error table, RU/EN — carries.
+3. **Rate-limit note:** `GET /api/invite/{code}` is rate-limited per source
+   (swagger 429). The one-shot trigger discipline (§4.34.B) keeps a single
+   resolve per completion; a 429 surfaces as the banner treatment (retry by
+   user action), matching the honest-error rule.
+
+#### 4.34.F Supersessions (explicit record)
+
+1. **§4.31.D's "the VALUE carried is still the room address" clause
+   SUPERSEDED:** the `[income_code]` param now carries the **6-digit invite
+   code itself** on BOTH parametrized routes; the room address is only ever
+   a resolved value inside the page, never a route value.
+2. **§4.31.D's seeded contract ("seeded = non-empty `income_code` param + a
+   valid `?code=` query") SUPERSEDED:** the create route takes NO query
+   string; seeding = param + resolve on mount (§4.34.D). Its
+   "anything else → `/income` replaceState" rule carries.
+3. **§4.31.D's `JoinFlow` navigation clause** (`…create` with `?code=`)
+   SUPERSEDED by §4.34.D's clean redirect; `wizardBack`'s `/income?code=…`
+   round-trip dies with it.
+4. **§3.1's Step-2 in-card swap SUPERSEDED** by the intro route (§4.34.A);
+   §3.1's `?code=` deep-link clause re-scoped to `/income` (§4.34.D).
+5. **The seeded-`?code=` test assertions** (§4.31.D item 4's spellings)
+   SUPERSEDED by path-param assertions.
+6. Carried unchanged: §3.1's error-state table, vault flow, scan entry,
+   RU/EN; §3.8 both scanner contexts; §4.19–§4.22.E FormShell/mascot
+   contracts; §4.31.1/§4.31.2 keyboard-viewport mechanism; Start/TALK →
+   `/income`; the §44.4 mechanism; §47's "default form always shows".
+
+#### 4.34.G i18n: ZERO delta
+
+No key is added, removed or edited — both dictionaries stay byte-identical
+(55 `landing.*` keys per dictionary, §4.31.F carries). Route params are
+never rendered; the intro route reuses the existing Step-2/RoomPreview copy
+and the existing error keys («Код не найден…», the §2.1 banner keys); the
+resolving treatment adds no text (spinner only).
+
+#### 4.34.H Acceptance criteria (checkable)
+
+1. Typing (or pasting, or scanner-filling) the 6th digit on `/income`
+   triggers the resolve automatically — no submit press is needed.
+2. A successful auto-resolve navigates to `/income/<the-entered-code>` (the
+   code in the path, nothing in the query).
+3. On resolve error the entered digits remain in the cells, the CTA
+   re-enables, and the error shows the §3.1-mapped treatment (malformed →
+   inline+shake; network/API → banner; 404 → code-not-found).
+4. No double resolve: while in flight, digit edits and submit presses do
+   not re-trigger; after an error, no auto-retry until user action.
+5. The submit button is still present and functional (disabled until 6
+   digits; pressing it resolves).
+6. `?code=NNNNNN` on `/income` still prefills + auto-submits (§3.1
+   deep-link mechanism unchanged, including after a scan).
+7. `/income` always shows the default 6-digit form (§47) — no resume
+   variant, with or without an existing identity.
+8. `/income/<code>` exists, shows the room intro (create-profile +
+   change-code actions) in the §30 FormShell, resolved from the param.
+9. While resolving on the intro route: shell renders, spinner only, footer
+   actions disabled; no skeleton.
+10. A dead/invalid param code on the intro route shows the code-not-found
+    treatment (or banner on network error) and Change code returns to
+    `/income`.
+11. "Create profile" navigates to `/income/<code>/create` with an EMPTY
+    query string — no `?code=` anywhere in the URL.
+12. `/income/<code>/create` resolves the param code on mount and opens the
+    wizard with a valid `Room`; an unresolvable param redirects to
+    `/income` (replaceState).
+13. Wizard back returns to `/income/<code>` (param-only), never
+    `/income?code=…`.
+14. `?code=`, `?u=`, `?u=…&m=` deep links never target the create route;
+    `?code=` forwarding lands on `/income` (§4.20.L behavior).
+15. Both dictionaries byte-identical (i18n suite green); all touched
+    suites (`landing-page.test.ts`, `join-flow.test.ts`, sweep) green;
+    `make lint && make test && make build` green.
+16. `/chats`, `/room`, the profile routes, and all §31–§33/§47 contracts
+    outside the three changes are behavior-neutral.
+
+#### 4.34.I Flags for the owner / concept (design report)
+
+1. **DESIGN NOTE — wizardBack destination (§4.34.D):** the owner contract
+   says only that `wizardBack` "currently round-trips /income?code=…"
+   without naming the new target. Interpreted as the param-only
+   `/income/<code>` (the intro route) since the wizard was entered from
+   there; a straight `/income` would force re-entering the code. Reversible
+   one-liner if the owner wants `/income` instead.
+2. **DESIGN NOTE — resolve-success on /income navigates (§4.34.A):** the
+   route map makes a successful auto-resolve NAVIGATE to the intro route
+   rather than swap the preview card in place (the owner contract places
+   the intro page on its own route, which leaves nothing for the in-card
+   Step-2 to do). Recorded as the faithful reading of §48 item 2.
+3. **DESIGN NOTE — create-route seeding adds one resolve round-trip
+   (§4.34.D):** today the seeded shortcut builds the `Room` from the param
+   without a call; the param is now a 6-digit code, so the resolve is
+   unavoidable (the owner contract says so explicitly). The resolving
+   treatment on the create route is the §4.34.C spinner contract applied
+   to the create shell — flagged so the worker does not invent a skeleton.
+4. **ADVICE NEEDED — none blocking:** no copy invented (zero-delta round),
+   no new palette value, no new dependency; the three items are fully
+   specified in §4.34.A–E.
+
+### 4.35 feature amendment (2026-11-23, owner-approved Concept §49): auto-handshake opt-out (`active` flag) — `/profile` indicator + `/profile/settings` toggle
+
+bleak-node's v2 backend added the persona field **`active`** (boolean,
+`true` by default) — the server-side auto-matchmaking opt-out (backend
+feature #36). Swagger facts this section reconciles against (read-only,
+2026-11-23): `model.User.active` — *"Active users are matched by the
+auto-matchmaking worker; the flag is true by default and togglable via the
+user update endpoint."* and `server.UpdateUserRequest.active` — *"Active
+opts the persona in/out of the auto-matchmaking worker (feature #36);
+omitted keeps the current flag."*; the endpoint is the existing
+**PUT `/api/room/{room}/user/{address}`** ("Updates name, bios and the
+active flag … Omitted fields keep their value."). bleak-web exposes it as
+(1) a read-only **indicator** on `/profile` and (2) the **first real
+toggle-backed setting** on `/profile/settings`, labeled (adopted wording,
+verbatim): EN **"Automatically send handshake"** / RU **«Отправлять
+рукопожатия автоматически»**. Binding scope notes: default is `true`
+(opt-out model — existing personas need NO migration), **no mocks** (real
+reads and real writes through the real field only), RU/EN parity, no new
+dependencies, all other §43/§4.29 contracts stay in force. Grounded in the
+live code (read-only audit, 2026-11-23):
+`packages/api-client/src/types.ts` (`User` lines 24–43 lacks `active`;
+`UpdateUserRequest` lines 122–127 lacks `active`); the client method
+`updateRoomUser` already exists; `apps/web/src/routes/profile/+page.svelte`
++ the badge component (identity block); `apps/web/src/routes/profile/settings/+page.svelte`
+(Block 2 renders regardless of the entry-row load state).
+
+#### 4.35.A api-client type reconciliation (FIRST)
+
+1. **`User` gains `active: boolean` — REQUIRED** (no `?`), reconciled
+   against swagger `model.User` (which always serializes it; `example:
+   true`), positioned in the interface's field order among
+   `address`/`created_at`/… (alphabetical, as generated). Doc comment
+   verbatim from swagger: *"Active users are matched by the
+   auto-matchmaking worker; the flag is true by default and togglable via
+   the user update endpoint."* **Recorded divergence from the
+   `mutual_code_live` precedent:** that flag was typed optional ONLY so
+   existing web fixtures stayed source-compatible (types.ts lines 36–42);
+   `active` is typed REQUIRED per this deliverable set, which makes every
+   existing `User` fixture in the test suites gain `active: true` — a
+   mechanical, compile-enforced sweep, and the honest shape (the server
+   never omits it). No fallback "treat missing as active" client logic is
+   written anywhere.
+2. **`UpdateUserRequest` gains `active?: boolean`** — optional, comment
+   verbatim from swagger: *"Active opts the persona in/out of the
+   auto-matchmaking worker (feature #36); omitted keeps the current
+   flag."* The interface's "omitted fields keep their value" contract
+   (types.ts line 122) carries — this is exactly why a toggle can send
+   `{ active }` alone.
+3. **No client-shape changes beyond the two types.** The write path is the
+   EXISTING `updateRoomUser` client method → PUT
+   `/api/room/{room}/user/{address}` (Bearer auto-injected, §2.8 gate on
+   401); no new method, no URL/serializer change, no version bump, no new
+   dependency. Reads come from the existing `getRoomUser` (token-gated
+   where the flag semantics require it — the indicator and the toggle both
+   read the token-gated persona fetch).
+4. **Default `true`, opt-out model, no migration:** the server defaults
+   new and existing personas to active; the web app writes the flag only
+   on an explicit user toggle and never "repairs" it.
+
+#### 4.35.B `/profile` — the auto-handshake indicator (§4.29.A amendment)
+
+**Placement — DECIDED: a muted status line in the identity block (A.4),
+directly under the read-only language-meta line.** Rejected
+alternatives (recorded): a fourth StatTile (the §2.2/§4.9.5 3-stat
+contract is not extended by a behavior flag), and a tab-panel block (the
+flag belongs to the identity, not to About/Interests/QR content). It is
+an **indicator, NOT a control** — no interactive element, no edit
+affordance (the page stays READ-ONLY, §4.29.A; the control lives on
+`/profile/settings`, §4.35.C).
+
+- **Component spec:** plain text line inside the existing identity column
+  (the badge component's identity section) — no new component. 14px
+  `--font-body` regular, `--color-text-muted`, centered with the column,
+  `gap: var(--space-1)` under the meta line, `overflow-wrap: anywhere`
+  (same wrap rule as the name, A.4). Leading inline `PixelIcon`
+  **`status-active`** (existing glyph — NO new glyph, §4.29.D record
+  stands), 16px, muted, `aria-hidden`. Copy: the composed pair
+  `profile.auto_handshake.label` + ": " + `profile.auto_handshake.on|off`
+  — EN "Auto-handshake: on"/"Auto-handshake: off", RU «Авто-рукопожатия:
+  вкл.»/«Авто-рукопожатия: выкл.». Accent discipline (§4.3): the line is
+  muted in BOTH states — the state word carries the meaning; no accent
+  fill (the identity block's only accent stays the avatar backdrop).
+- **Data source — server state only:** the line renders from the
+  server-provided `user.active` of the EXISTING token-gated `getRoomUser`
+  persona fetch (the §6.3 4 s poll already re-fetches the persona; the
+  indicator re-renders with it). **Both `true` and `false` must render**
+  — the line is present whenever `user` is present; there is NO
+  local-only/optimistic state on this page, and no write path exists
+  here. NO new fetch and NO new poller are introduced (§4.29.F.4 cadences
+  unchanged).
+- **States:** loading → the line is absent (the existing identity
+  skeleton shape covers it; no separate skeleton node is added — the
+  skeleton stays as-is); load/API error → the existing `ErrorBanner` +
+  retry path (line absent); persona 404 → the existing not-found card
+  verbatim.
+- **Accessibility:** the line is plain readable text (both words in one
+  text node order — it announces as a full pair, the stat-tile reading
+  pattern); the glyph is `aria-hidden`; no live region is added (it is
+  not an async status; rotation notes and the existing live regions
+  carry). Focus is never involved (non-interactive).
+- **Contract guards:** the A.4 identity-block composition becomes
+  avatar → name → language meta → **auto-handshake line** (last); A.1
+  header buttons, A.5 stats row, A.6 pill tabs, A.7 tab semantics, A.8
+  states, A.9 responsive (the line wraps within the centered column at
+  320/360/390px) and the §6.3 live-QR mechanics are UNTOUCHED.
+
+#### 4.35.C `/profile/settings` — the auto-handshake toggle row (§4.29.B amendment)
+
+**Placement — DECIDED: the FIRST row of Block 2 (app settings), above the
+Language row.** Rationale: the token-rotation row stays LAST in the block
+so its `rotatedFlash`/`rotateError` lines remain directly under their row
+(§4.29.B.3.2) — appending the toggle after rotation would interleave a
+row between the rotation row and its messages. Block 2 row order after
+this rev: **(1) auto-handshake toggle, (2) Language (inline
+`LocaleControl`), (3) token-rotation.** Blocks 1/3 (entry row; leave
+button) untouched.
+
+**Row anatomy (B.2 carried):** min-height 48px; leading 16px `PixelIcon`
+**`status-active`** (muted — a suitable glyph exists; no new glyph);
+label left (`--font-body` 15px/600, `--color-text`) =
+`profile.auto_handshake.row` — EN **"Automatically send handshake"** /
+RU **«Отправлять рукопожатия автоматически»** (adopted wording, verbatim
+— Concept §49); trailing control = the switch; 1px
+`--color-surface-elevated` divider between rows; `.pixel-corners` stays
+on the Block card, never on the row's control.
+
+**Switch control spec (the design system has no switch component —
+recorded):**
+
+- A real native **`<input type="checkbox" role="switch">`** (never a
+  div-toggle — §2.6 "real buttons/controls"), visually styled as a
+  ~40×24px pill track centered in a `--touch-target` (48×48px) hit area.
+  Tokens only: **ON** = track `--color-accent`, knob `--color-accent-ink`;
+  **OFF** = track transparent with a 1px `--color-text-disabled-strong`
+  border, knob `--color-text-muted`. No new palette value, no new token;
+  the pill is smooth (§4.5 — pills never `.pixel-corners`).
+- The visible label is the row label, associated via `label[for]` —
+  activating the label toggles too; the row itself is not a giant button
+  (the divider grid and the icon stay non-interactive).
+- **Keyboard & a11y (§2.6):** space toggles the focused switch (native
+  checkbox behavior); `aria-checked` always mirrors the CURRENT state;
+  the `:focus-visible` accent outline is never removed; hit target ≥
+  48px.
+- **Mount state:** seeded from the EXISTING §4.29.B.5 `getRoomUser`
+  mount fetch (`user.active`) — no extra fetch, no poller. While the
+  persona record loads, the control renders **disabled** (no fake
+  default — the server truth is unknown until the fetch); a load error
+  keeps it disabled behind the existing `ErrorBanner` + retry, and a
+  successful retry seeds it.
+- **Toggle semantics — optimistic update + revert-on-error (the
+  acceptable pattern; no optimistic-only fake state):** on change, flip
+  the visible state immediately and call
+  `updateRoomUser(id.roomAddress, id.userAddress, { active: next })` —
+  the body carries **ONLY `active`** (name/public_bio/private_bio
+  omitted; omitted fields keep their value per the PUT contract). While
+  in flight the control is disabled (double-toggle impossible; one
+  toggle at a time). **Success:** the state stands and now matches the
+  server — the control IS the feedback, so NO «Сохранено» flash fires
+  for this row (recorded; differs from the editor flow's flash, C.5).
+  **Error:** an inline error line renders UNDER the row —
+  `role="alert"` (the rotation-row pattern, §4.29.B.3.2) — with the
+  server text via the existing `serverText` mapping; `NetworkError` →
+  the existing `common.error.network`; **401 → the §2.8 global gate**
+  (never handled locally); and the switch **REVERTS to the last
+  server-truth value** (the mount value, or the last successfully
+  applied toggle). No silent failure, no stale fake state; a re-toggle
+  after a failure re-issues the PUT.
+- **Reduced motion:** the knob/track transition is the 120 ms
+  color/transform pattern (§2.5/§4.6) and is INSTANT under
+  `prefers-reduced-motion: reduce`.
+- **Contract guards:** B.1 chrome, B.2's FAQ/Terms clause (still nothing
+  invented), B.3.1 entry row, B.3.2 language + rotation rows (copy,
+  dialog, vault writes), B.3.3 leave button, B.5 (the mount fetch IS the
+  seed source), B.6 responsive, B.7 accessibility all carry; only B.2's
+  toggle clause and B.3's Block 2 row list change (below).
+
+#### 4.35.D Supersessions (explicit record) — dated 2026-11-23
+
+1. **§4.29.B.2's "No toggle rows" clause SUPERSEDED** (owner-approved
+   Concept §49): the app now HAS its first real toggle-backed setting —
+   the §4.35.C row. The SAME sentence's "no FAQ/Terms/policy rows"
+   clause CARRIES unchanged (still nothing invented there).
+2. **§4.29.H item 17 ("Settings contains NO persona-edit rows and NO
+   toggle rows") AMENDED:** persona-edit rows remain absent; the
+   no-toggle half is superseded by the §4.35.C row.
+3. **§4.29.I decision 4 — partially superseded:** the grouping record
+   (two blocks + bottom leave button; Language inline, no sub-page)
+   carries; its "no toggle rows" parenthetical is superseded.
+4. **§4.29.I decision 7 ("No toggle rows: no real toggle-backed setting
+   exists") SUPERSEDED** — it described the pre-§49 state truthfully and
+   is now historical.
+5. **§4.29.A.4 AMENDED:** the identity block gains the auto-handshake
+   status line as its final element (§4.35.B). A.1/A.5/A.6/A.7–A.10
+   carry.
+6. Carried unchanged: §4.29.B otherwise, §4.29.C (/profile/edit), D–I
+   otherwise; §4.29.F.4 polling cadences; §43 scope (all §43 profile
+   contracts stay in force outside this flag); §2.2, §2.6, §2.8.
+
+#### 4.35.E i18n delta (both dictionaries; RU/EN parity CI-enforced)
+
+**New keys (4).** The row label is the ADOPTED wording (Concept §49 —
+owner-owned, not a design invention); the other three are design
+inventions for tone ratification (standing precedent, §4.29.I-14):
+
+| Key | RU | EN |
+| --- | --- | --- |
+| `profile.auto_handshake.row` | «Отправлять рукопожатия автоматически» | "Automatically send handshake" |
+| `profile.auto_handshake.label` | «Авто-рукопожатия» | "Auto-handshake" |
+| `profile.auto_handshake.on` | «вкл.» | "on" |
+| `profile.auto_handshake.off` | «выкл.» | "off" |
+
+Composed strings (assembled in markup, keys above): the `/profile`
+indicator reads "Auto-handshake: on" / «Авто-рукопожатия: вкл.» (and the
+off pair); the settings row renders `profile.auto_handshake.row`
+verbatim in both locales. **No value edits, no retired keys, zero
+reuse-of-convenience:** `profile.saved`, `common.error.network`,
+`common.locale` etc. are reused unchanged where named. Net per
+dictionary: **+4**; the `i18n.test.ts` per-dictionary count assertions
+update to the new count.
+
+#### 4.35.F Acceptance criteria (checkable)
+
+api-client:
+
+1. The `User` interface declares required `active: boolean` — reconciled
+   against swagger `model.User.active` with the verbatim description; a
+   missing `active` in any `User` literal is a compile error.
+2. `UpdateUserRequest` declares optional `active?: boolean` — reconciled
+   against swagger `server.UpdateUserRequest.active`.
+3. `updateRoomUser` is unchanged in signature/URL; a `{ active }` patch
+   serializes a PUT `/api/room/{room}/user/{address}` body containing
+   ONLY `active` (the existing omitted-field tests stay green).
+
+web — `/profile` indicator:
+
+4. Via the established mocked-fetch seam (`vi.mock('#lib/api/client')` —
+   the API layer, NOT a UI mock): a persona fixture with `active: true`
+   renders the indicator as the on-state pair ("Auto-handshake: on" /
+   «Авто-рукопожатия: вкл.»); `active: false` renders the off-state
+   pair; BOTH fixtures asserted in the profile-page suite.
+5. The indicator is non-interactive (no button/link/input in its DOM),
+   renders for both states from the server value only (no local write
+   path on the page), and the existing §4.29.A contracts stay green
+   (identity block, stats row, pill tabs, header buttons, live-QR
+   rotation mechanics).
+
+web — `/profile/settings` toggle row:
+
+6. Block 2 contains the toggle row labeled exactly EN "Automatically
+   send handshake" / RU «Отправлять рукопожатия автоматически» — both
+   locale renderings asserted (parity), placed as the FIRST row of
+   Block 2.
+7. On mount the switch reflects `user.active` from the mocked
+   `getRoomUser` (true and false both tested); no API call beyond the
+   existing mount fetch is issued for the row (no poller).
+8. Toggling issues `updateRoomUser` with the payload `{ active: bool }`
+   and nothing else; while in flight the control is disabled.
+9. Rejecting the toggle (mocked rejection) renders the inline error
+   line with `role="alert"` and the switch state REVERTS to the
+   pre-toggle server value; a subsequent toggle re-issues the PUT.
+10. The control is a real checkbox with `role="switch"`: space toggles
+    it, `aria-checked` mirrors the current state, the hit target is ≥
+    48px, and the transition is instant under
+    `prefers-reduced-motion: reduce`.
+
+cross-cutting:
+
+11. Exactly the four §4.35.E keys are added to BOTH dictionaries (RU/EN
+    parity + per-dictionary count assertions green); `i18n.test.ts`,
+    `profile-page`, `profile-settings`, `profile-edit` and `sweep`
+    suites stay green; `make lint && make test && make build` green.
+12. No new dependency, no new glyph (`status-active` reused in both
+    surfaces), no new token/palette value; default `true` needs no
+    migration — existing personas and fixtures behave unchanged apart
+    from the mechanical fixture `active: true` sweep.
+
+#### 4.35.G Flags for the owner / concept (design report)
+
+1. **DESIGN NOTE — indicator placement (§4.35.B):** a status line under
+   the language meta in the identity block was chosen over a StatTile or
+   a tab-panel block; reversible one-liner if the owner prefers a
+   tile/row treatment.
+2. **DESIGN NOTE — Block 2 row order (§4.35.C):** the toggle is placed
+   FIRST so the token-rotation row stays last with its flash/error lines
+   directly beneath it; reversible.
+3. **DESIGN NOTE — no «Saved» flash on the toggle:** the switch is its
+   own feedback (success = the state stands); the flash stays bound to
+   the editor flows. A flash could be added if the owner wants audible
+   parity with the editors.
+4. **RU copy ratification:** `profile.auto_handshake.row` is the owner's
+   adopted wording (verbatim); «Авто-рукопожатия», «вкл.», «выкл.» are
+   design inventions for tone ratification (standing precedent).
+5. **ADVICE NEEDED — none blocking:** the api-client shape, both
+   surfaces, the toggle semantics and the copy are fully specified in
+   §4.35.A–E; no palette value, dependency or glyph decision is open.
+
+### 4.36 owner bug-batch amendment (2026-11-23, owner-approved Concept §50): profile scan button → scanner, viewfinder bracket orientation, /profile/edit phone overflow + shared kv-row width
+
+Owner-reported fixes (Concept §50): (1) the `/profile` header scan button
+opened the QR **display** — it must open the QR **scanner**; (2) the
+scanner's four viewfinder brackets all opened in one direction — each
+corner must face its own angle; (3) `/profile/edit` at phone widths had a
+horizontal overflow from the Save button, and the key-value edit rows had
+ragged label widths. Scope: §43/§49 profile contracts otherwise in force;
+§3.8 scanner contract otherwise in force (camera lifecycle, focus return,
+state machine untouched); RU/EN parity; no new deps.
+
+#### 4.36.A Header scan button → the §3.8 QrScanner (supersedes §4.29.A.2)
+
+The §4.29.A.2 reading — "tapping the header QR icon activates the QR tab /
+scrolls it into view" — is **SUPERSEDED (Concept §50)**: the header scan
+icon button (§4.29.A.1, glyph `scan`, 48px touch target) now opens the
+shared §3.8 `QrScanner` overlay, **context persona**, mounted on
+`/profile` next to `</main>` (`bind:open`, same full-screen machine,
+camera lifecycle and focus return as on `/room`). The QR **display**
+affordance is NOT removed: the live badge QR lives EXACTLY ONCE inside the
+QR tab panel (A.6) and stays reachable through its tab-panel affordance —
+only the scan button's target changes.
+
+- **Members for the persona routine:** fetched ONCE per scanner open via
+  the gated `api.listRoomUsers(roomAddress)` (the `/room` pattern, §3.2);
+  **no polling**. On failure an EMPTY list is passed — the §3.8
+  empty-membership semantics (the foreign check is skipped, `memberName`
+  falls back to the scanned address). The list is cleared at open, so no
+  stale members survive between opens.
+- **A.2's scroll-into-view behavior retires with the tab-switch reading:**
+  the header button is a scanner toggle now; the `scrollQrIntoView` card
+  ref is retired from `/profile`.
+- **Aria-label retargeted (E.1 amended):** `profile.header.qr` announces
+  scanner intent — «Сканировать QR» / "Scan QR code" (the same copy as
+  `scan.title`; RU/EN parity kept, both dictionaries updated). The key
+  name stays `profile.header.qr` (the header's QR-family affordance).
+
+#### 4.36.B Viewfinder bracket geometry (§3.8 layout 2 amendment)
+
+The scan frame's four 48px accent corner brackets each orient its bars at
+ITS corner — the classic viewfinder framing (Concept §50). The shared
+anatomy is unchanged (`::before` = full-width 8px bar, `::after` =
+full-height 8px bar, `--color-accent`, opacity 0.85 → 1 flash, §4.6
+transform/opacity motion only); only the per-corner bar PLACEMENT is
+specified:
+
+| Bracket | Position | Bars at | Opens |
+| --- | --- | --- | --- |
+| `.tl` | top: 0; left: 0 | top + left | right/down |
+| `.tr` | top: 0; right: 0 | top + right | left/down |
+| `.bl` | bottom: 0; left: 0 | bottom + left | right/up |
+| `.br` | bottom: 0; right: 0 | bottom + right | left/up |
+
+Tokens only; no new glyph, dependency or palette value.
+
+#### 4.36.C `/profile/edit` phone-width save button + shared kv-row width
+
+1. **Save-button overhang (C.4/C.8 amendment):** at `<720px` the Save
+   Changes button keeps its `margin: 0 var(--space-5)` inset but switches
+   to `width: auto` — the flex column stretches it to the container minus
+   2×`--space-5`, so the border box stays inside and the page has NO
+   horizontal overflow at phone viewports (375/390/320px:
+   `scrollWidth <= clientWidth`). The base rule keeps `width: 100%` for
+   ≥720px; the inset pill look is kept (not full-bleed — the field-group
+   cards stay full-bleed per §4.12.1, the CTA keeps its floating shape).
+2. **Shared key-value row width (C.3 row anatomy amendment):** every
+   single-line kv row of the `/profile/edit` form uses ONE label width so
+   the name row (PersonaEditor) and the contact-card row
+   (ContactCardEditor) align their value inputs at one common left edge —
+   no ragged offsets. Spec: the page's `.form` owns a shared custom
+   property `--kv-label-width: 148px` (custom properties inherit into the
+   scoped component styles; defined exactly once); both editors'
+   `.kv-label` consume `flex: 0 0 var(--kv-label-width, 148px)` with
+   `white-space: nowrap` + ellipsis overflow so the row stays ONE line at
+   every viewport (148px fits the longest label, «Контактная карточка» /
+   "Contact card", at 14px down to 320px). The greeting block and the
+   label-above bio fields are unaffected (I-rec 10 carried).
+
+#### 4.36.D Acceptance criteria
+
+1. The `/profile` header scan button opens the QrScanner dialog
+   (`role="dialog"`, `scan.aria`), NOT the QR tab (the About tab stays
+   selected, the QR panel stays hidden under the button tap).
+2. The members list is fetched exactly once per scanner open
+   (`api.listRoomUsers(roomAddress)`); a rejection still opens the
+   scanner (empty list); close → re-open refetches (twice total across
+   two opens); no polling calls while the page idles.
+3. The QR display stays reachable via the tab panel: the QR tab still
+   activates through its tab button, exactly one `QrCodeBadge` mount,
+   announced once (`profile.qr.aria`).
+4. Bracket orientation per §4.36.B asserted source-level: all four
+   corner rules exist, pairwise DIFFERENT, each with its own
+   top/bottom + left/right placement; the shared bar anatomy
+   (100%/8px, accent, opacity 0.85→1 flash) is intact; no hardcoded hex.
+5. `/profile/edit` phone block: the `.save` rule carries `width: auto`
+   under `margin: 0 var(--space-5)` (no `width: 100%` at <720px — border
+   box inside the container at 375/390/320px); the ≥720px base keeps
+   `width: 100%`.
+6. The shared kv-row spec: `--kv-label-width` defined exactly once on the
+   page; both editors consume `var(--kv-label-width, 148px)` on a
+   single-line flex row.
+7. `profile.header.qr` carries the scanner-intent copy in BOTH
+   dictionaries («Сканировать QR» / "Scan QR code"); the superseded
+   tab-switch assertions in `profile-page.test.ts` are updated, not left
+   failing; `i18n` + `sweep` suites stay green; `make lint && make test
+   && make build` green.
+
+#### 4.36.E Flags for the owner / concept (design report)
+
+1. **Copy change needing ratification (E.1):** the header scan button's
+   aria-label changed «Показать QR-код» / "Show QR code" → «Сканировать
+   QR» / "Scan QR code" — required so the control announces scanner
+   intent (its function changed); the copy reuses `scan.title` verbatim,
+   RU/EN parity kept.
+2. **DESIGN NOTE — save button inset kept (§4.36.C.1):** the phone fix
+   keeps the space-5 inset pill instead of the full-bleed alternative
+   (the card criteria allowed either); reversible one-liner if the owner
+   prefers full-bleed parity with the field-group cards.
+3. **DESIGN NOTE — `--kv-label-width: 148px` (§4.36.C.2):** sized to fit
+   the longest label («Контактная карточка») on one line at 14px down to
+   320px; a different shared width (e.g. 40% relative) is a one-token
+   change if the owner prefers another proportion.
+4. **ADVICE NEEDED — none blocking:** all three fixes are fully
+   specified above; no dependency, glyph or palette decision is open.
+
+### 4.37 feature amendment (2026-11-23, owner-approved Concept §51): "searching new contacts" badge on /people
+
+> **SUPERSEDED IN PART (2026-11-24) — see §4.38:** Inner content superseded
+> by §4.38 (2026-11-24) — placement (§4.37.B), condition/data-path (the
+> §4.37.A condition), footprint and states (§4.37.C) remain in force; the
+> spinner, the §4.37.E key value and the absolute non-interactivity
+> guarantee are superseded there. The text below is kept as the historical
+> record of the §4.37 decisions that §4.38 does not touch.
+
+Concept §51 (owner, 2026-11-23): on the `/people` page, add a **badge
+above all users**, styled in the **same style family and dimensions as a
+user item**, containing a **loading-circle (spinner) animation** and the
+title **"Searching new contacts"** / «Поиск новых контактов»
+(concept-adopted wording, verbatim). The badge is shown when **the user
+is active** — the §49 `active` flag (the auto-matchmaking worker is
+running for this persona; §4.35 lineage: `model.User.active`, required,
+serialized always, `true` by default). It is a **system state, not a
+user**: no navigation, no PersonCard behavior, no relationship data.
+
+Grounded in the live code (read-only audit, 2026-11-23):
+`apps/web/src/routes/people/+page.svelte` — the 4 s poller trio
+(`pollTick` lines 66–82; `api.listRoomUsers(id.roomAddress)` line 70;
+`Poller intervalMs: 4000` line 101) already returns the **self** `User`
+entry in `users` (the `cards` derived filters it out at line 144 —
+`user.address !== me.userAddress` — proving self is in the roster), and
+the persona address is already on the page (`me = $derived($identity)`,
+line 127; `me.userAddress` lines 129/135/144). `packages/api-client/src/types.ts`
+line 33: `active: boolean` — REQUIRED (the §4.35.A deliverable, already
+merged). `apps/web/src/lib/components/people/PersonCard.svelte` — the
+user-item footprint this badge copies: `li.person-card.pixel-corners`
+(line 112), `.person-card` surface/`--radius-md`/`padding: var(--space-4)`
+(lines 203–211), `.row` 56px `PixelAvatar` + main + right meta
+(line 114, lines 212–217), name 16px/600 (lines 235–240), bio 14px muted
+(lines 241–248). Spinner precedents: the §4.13.4 unfinished-dialog
+circular loader — `apps/web/src/lib/components/chats/ChatCard.svelte`
+lines 304–322 (`.loader`: border ring with a transparent top arc,
+`--color-text-muted`, transform-only rotation 0.9s linear infinite;
+DESIGN line ~2165) — and the §3.1 CTA `.spinner` convention (16px ring,
+component-scoped: `profile/edit/+page.svelte` lines 412–424,
+`LiveRoom.svelte` 361–368, `InviteManager.svelte` 313–321). Reduced
+motion: the `base.css` catch-all (lines 57–68) freezes every animation
+under `prefers-reduced-motion: reduce`. Dictionaries: the `people.*`
+block (`en.ts`/`ru.ts` lines 149–163). Test seams:
+`tests/people-page.test.ts` mocks `#lib/api/client` (line 27,
+`listRoomUsers` line 29) and its `person()` fixture already carries
+`active: true` (line 62); `tests/i18n.test.ts` asserts RU/EN key-set
+equality (lines 15–19) and the §4.7 table count (94, line 206), with the
+dedicated-describe precedent for amendment keys (§4.35.E describe,
+line 311). Scope: `/people` page + its new component + the two
+dictionaries only; RU/EN parity; no new deps; existing suites green.
+
+**Live-contract note (binding):** §3.3's filter-chips row is RETIRED in
+the live app (v3.6, Concept §19.2 — the page header comment
+`+page.svelte` lines 3–6; `people.filter.*` keys retired,
+`i18n.test.ts` lines 155–157 and 564–575). The live list is search +
+the deterministic relationship-bucket sort (§4.15.4.2/4.15.4.3). This
+amendment binds to the LIVE contract; "above all users" means above the
+`PersonCard` stack.
+
+#### 4.37.A Anatomy (condition, data path, spinner, title, geometry)
+
+**Condition — server state only, no new fetch.** A page-level derived
+reads the SELF entry out of the ALREADY-POLLED `users` array — the entry
+whose `address` equals `me.userAddress` (the same entry the `cards`
+derived already excludes at line 144) — and takes its `active` boolean.
+The badge renders when the self entry EXISTS in `users` (not
+`deleted_at`-flagged, matching the count derivations' guard, lines
+132–138) AND `active === true` AND the initial load has completed
+(`loading === false` — the same moment the skeleton retires). Self entry
+absent or `active: false` → the badge is absent. **NO new endpoint call,
+no new poller, no mocks, no local-only state** — the field arrives
+inside the existing 4 s `listRoomUsers` response (§4.35.B precedent:
+server value only). A toggle flip on `/profile/settings` (§4.35.C PUT)
+propagates on the next poll tick, in place, without reordering the list.
+
+**Component.** New presentational component
+`apps/web/src/lib/components/people/SearchingBadge.svelte` (colocated
+with `PersonCard.svelte`; roots on a `<li>` exactly as PersonCard does;
+renders `$locale` copy; no props beyond the locale machinery). It is NOT
+part of the `cards` derived array, `sortedPeople`, `matchesQuery`,
+dismissals or relationships — pure markup as the first child of the
+`.cards` list.
+
+**Markup/CSS spec (tokens only; no new token, glyph or dependency):**
+
+| Element | Spec (mirrors PersonCard) |
+| --- | --- |
+| Root | `<li class="searching-badge pixel-corners">` — `background: var(--color-surface)`, `border-radius: var(--radius-md)`, `padding: var(--space-4)` (the `.person-card` footprint, PersonCard lines 203–211); `pixel-corners` per the §3.3 card family |
+| Row | flex, `align-items: center`, `gap: var(--space-3)` (the `.row`, lines 212–217) |
+| Left slot | a 56px square slot (the `PixelAvatar size={56}` slot, line 114) — NO avatar, NO placeholder box; a 16px spinner centered in it |
+| Spinner | `<span class="loader" aria-hidden="true"></span>` — the §4.13.4 construction (ChatCard lines 309–322): `border-radius: 50%`, `border: 2px solid var(--color-text-muted)`, transparent top arc, `animation: loader-spin 0.9s linear infinite`, transform-only rotation (§4.6) — at the §3.1 `.spinner` standard 16px diameter (component-scoped, the standing pattern) |
+| Title | `<p class="title">` — 16px, font-weight 600 (the `.name` family, lines 235–240) in `--color-text-muted`: the "muted/secondary styling" the Concept allows, so the row reads as a system state, not a user. Text = `translate($locale, 'people.searching')` — EN **"Searching new contacts"** / RU **«Поиск новых контактов»** (verbatim, Concept §51) |
+| Right column | none — no pill, no timestamp (a system row has no relationship state and no `created_at` story) |
+
+**Non-interactive guarantees (NOT a user):** no button, no link, no
+`role="button"`, no `tabindex`, no tap handler, no expand panel, no
+per-card error, no dismissal semantics; it never navigates. Focus is
+never involved. The badge is not clickable even though the row width
+equals a tappable incoming PersonCard's — no `cursor: pointer`.
+
+#### 4.37.B Placement rules — DECIDED: the first `<li>` of the `.cards` list
+
+The badge is the **first visual entry of the card list**, directly above
+every `PersonCard` — NOT above the header or the search control.
+
+- **Rationale (Concept §51 item 2):** "the same dimensions as a user
+  item (same footprint as the entries it sits above)" can only hold if
+  the badge lives IN the list container. At `<720px` the `.cards` list is
+  a stacked flex column with `gap: var(--space-3)` (= 12px, §3.3; tokens
+  line 125) — the badge is a full-width entry with a 12px gap to the
+  first card, identical margins to a PersonCard. At `≥720px` the list
+  becomes the two-column grid `repeat(auto-fill, minmax(360px, 1fr))`
+  (`+page.svelte` lines 403–411) — the badge becomes the **first grid
+  item**, occupying ONE cell at exactly a PersonCard's column width. A
+  badge hoisted ABOVE the `<ul>` would render as a full-width banner in
+  the grid layout — a different footprint from the entries it sits
+  above — which the Concept rules out.
+- **"Above all users" is literal:** above all USER entries. The badge is
+  pinned first — it never participates in the bucket sort, never
+  reorders on poll (§3.3 item 4 stands; poll diffing via `mergeRoster`
+  mutates cards in place and never touches the badge), and is never
+  filtered out by the search (A/C decisions below).
+- **No interference with list mechanics:** the §4.15.4.3 auto-open reads
+  `cards[0]` of the DERIVED array (page lines 170–180), not DOM position
+  — the badge does not shift it. The `memberCount`/`otherCount`
+  derivations, dismissals map and handshake actions are untouched.
+
+#### 4.37.C States and search/filter interaction — DECIDED
+
+- **Filter/search independence (the recorded rule):** the badge reflects
+  a SYSTEM state and never respects filters or the search query — inside
+  the card-list branch it is always first, regardless of what the query
+  filters or how the buckets sort. Filter chips are retired (v3.6), so
+  the question is moot in the live app; the standing rule if chips ever
+  return: the badge does NOT respect them.
+- **Page states (§3.3 states as amended):**
+  - *Initial loading (skeleton, page lines 261–274):* the badge is
+    ABSENT — the skeleton branch replaces the list and the `active`
+    value is not reliably present before the first tick; no separate
+    skeleton node is added for the badge.
+  - *Empty room (lines 275–276) and empty search (lines 277–281):* the
+    badge is ABSENT — these branches replace the `<ul>`, and the badge's
+    single render site is the list. The EmptyState treatments stand
+    alone (flagged in 4.37.G.2).
+  - *Error:* `ErrorBanner` renders above the controls; the list stays
+    visible and dimmed (`.cards.dimmed`, lines 369–371) — the badge dims
+    with the list (it is inside it); no separate error treatment.
+  - *Recovery:* nothing special — the next successful tick un-dims and
+    the badge follows the (unchanged) flag.
+- **Transitions:** flag flips are reflected on the poll tick that
+  delivers them; the badge appears/disappears as a plain list child — no
+  entrance animation beyond the §4.6 transform/opacity allowances, no
+  live region (it is a persistent ambient state, not an async
+  announcement — §4.35.B precedent).
+
+#### 4.37.D Reduced-motion fallback
+
+Under `prefers-reduced-motion: reduce` the `base.css` catch-all
+(lines 57–68: `animation-duration: 0.01ms !important;
+animation-iteration-count: 1 !important`) completes the rotation
+instantly — the ring freezes as a **static circle** (the transparent top
+arc stays as a fixed gap). This is the standing fallback pattern
+(§3.8/§4.13.4/§4.15.3 rely on the same catch-all; SkeletonBlock and the
+radar cite it). No component-scoped `@media` block is added for the
+badge.
+
+#### 4.37.E i18n delta (both dictionaries; RU/EN parity CI-enforced)
+
+**New keys: exactly ONE.** The wording is the concept-adopted pair
+(Concept §51 / owner, 2026-11-23 — verbatim, no design invention):
+
+| Key | RU | EN |
+| --- | --- | --- |
+| `people.searching` | «Поиск новых контактов» | "Searching new contacts" |
+
+The key follows the flat `people.*` naming convention (`people.empty`,
+`people.reset`, `people.dismiss` — `en.ts`/`ru.ts` lines 149–163) and
+slots into that block with a `§4.37` comment. **No value edits, no
+retired keys, no reuse-of-convenience.** Net per dictionary: **+1**. The
+`ru`/`en` key-set equality test (i18n.test.ts lines 15–19) covers parity
+automatically; the §4.7 `DESIGN_4_7_KEYS` table (94, line 206) is NOT
+extended — per the §4.35.E precedent, the key is asserted verbatim in a
+small dedicated `describe` (both locales, exact strings).
+
+#### 4.37.F Acceptance criteria (checkable)
+
+web — `/people` badge:
+
+1. Via the established mocked-fetch seam (`vi.mock('#lib/api/client')`,
+   `listRoomUsers` — NOT a UI mock): a roster containing the SELF user
+   (`address === identity.userAddress`) with `active: true` renders the
+   badge; the same fixture with `active: false` renders NO badge; BOTH
+   asserted in the people-page suite.
+2. The badge is absent while the self entry is absent from the roster
+   (every existing people-page fixture stays green unchanged — no false
+   badge), and absent during the initial skeleton state.
+3. The badge renders as the FIRST `<li>` inside `ul.cards`, before every
+   `PersonCard`; it is NOT an element of the `cards` derived array (the
+   `cards[0]` auto-open logic, bucket sort, search filtering, dismissal
+   and diffing behaviors are untouched — existing assertions stay
+   green).
+4. The badge DOM contains no button, link, `role="button"` or
+   `tabindex` — it is not clickable and never navigates; the spinner
+   span is `aria-hidden="true"`; the visible title is the only announced
+   text.
+5. With `active: true` and a non-empty search query that still matches
+   users, the badge stays pinned first (never filtered out, never
+   reordered); with a query matching nobody, the empty-search state
+   renders WITHOUT the badge (single render site — the empty-room state
+   likewise).
+6. The badge footprint matches a PersonCard: `--color-surface`
+   background, `--radius-md`, `padding: var(--space-4)`, `pixel-corners`
+   corners, a 56px left slot, the 12px (`--space-3`) list gap unchanged;
+   at `≥720px` the badge occupies ONE cell of the two-column
+   `minmax(360px, 1fr)` grid (never a full-width banner).
+7. The spinner is a border ring with a transparent top arc,
+   `--color-text-muted`, transform-only rotation, 0.9s linear infinite;
+   under `prefers-reduced-motion: reduce` it renders static (the
+   base.css catch-all; asserted source-level like §4.36.D.4).
+8. The title reads exactly EN "Searching new contacts" / RU «Поиск
+   новых контактов» per locale — verbatim assertions in the new i18n
+   describe.
+
+cross-cutting:
+
+9. Exactly the one §4.37.E key is added to BOTH dictionaries; the
+   `ru`/`en` key-set equality test and the §4.7 94-key count stay green;
+   `i18n`, `people-page`, `people-view` and `sweep` suites stay green;
+   `make lint && make test && make build` green.
+10. No new dependency, no new glyph, no new token/palette value; changes
+    confined to `apps/web/src/routes/people/+page.svelte`, the new
+    `SearchingBadge.svelte`, `en.ts`/`ru.ts` and their suites.
+
+#### 4.37.G Flags for the owner / concept (design report)
+
+1. **DESIGN NOTE — placement inside the list (§4.37.B):** the badge is
+   the first `<li>`/grid cell of the card list rather than a full-width
+   element above the list — the only structure that keeps "same
+   dimensions as a user item" true in the ≥720px two-column grid;
+   reversible one-liner if the owner prefers a banner treatment.
+2. **DESIGN NOTE — empty states without the badge (§4.37.C):** the
+   skeleton, empty-room and empty-search branches render without the
+   badge (single render site, the page's state machine untouched). If
+   the owner wants the badge above the empty-room EmptyState — the
+   "room is empty, but the worker is still searching for you" moment —
+   it is a small follow-up adding a second render site.
+3. **DESIGN NOTE — spinner size and tone (§4.37.A):** 16px (the app's
+   standard `.spinner` diameter) in the §4.13.4 muted construction,
+   centered in the otherwise empty 56px avatar slot; the title is muted
+   16px/600. Alternatives (14px ChatCard size, a larger slot-filling
+   ring, `--color-text` title) are one-value changes.
+4. **Copy:** EN/RU verbatim per the concept-adopted pair — nothing to
+   ratify (unlike §4.35.E's tone keys).
+5. **ADVICE NEEDED — none blocking:** the condition, data path,
+   anatomy, placement, states and copy are fully specified above; no
+   dependency, glyph or palette decision is open.
+
+### 4.38 feature amendment (2026-11-24, owner-approved Concept §52): searching-badge inner redesign — title, blinking bulb, settings link
+
+Concept §52 (owner, 2026-11-24): the §4.37 badge keeps its place, style,
+footprint and condition — only the INSIDE changes: (1) the title becomes
+RU **«Режим автоматического поиска контактов»** / EN **"Automatic contact
+search mode"** (concept-adopted wording, verbatim); (2) the loading
+spinner is replaced by a **blinking light-bulb icon** (a registry glyph
+with an opacity pulse — no loader; reduced motion = static bulb); (3) a
+secondary remark line links to **`/profile/settings`** — copy verbatim:
+RU «Изменить можно в настройках» / EN "Change it in settings".
+
+Grounded in the live code (read-only audit, 2026-11-24): the badge is
+implemented exactly per §4.37 —
+`apps/web/src/lib/components/people/SearchingBadge.svelte` (91 lines:
+`.loader` span line 33 + CSS 70–77, `loader-spin` keyframes 78–82,
+`.title` 85–90, the `people.searching` lookup line 25), rendered by
+`apps/web/src/routes/people/+page.svelte` (import line 35; the
+`searching` derived line 168 — self entry off the already-polled
+`listRoomUsers` roster with `active === true` and load completed;
+render site 303–309). Icon registry
+`apps/web/src/lib/components/icons/registry.ts` (275 lines: `IconName`
+union lines 6–33, `ICON_RECTS` from line 47; the `gear` glyph lines
+260–274 is the standing pattern — 16×16 grid, 2px weight,
+`currentColor`). `PixelIcon.svelte`: props lines 9–16 (`size` default
+16, `label` empty → decorative `aria-hidden`). Dictionaries:
+`people.searching` at `en.ts`/`ru.ts` line 166. Tests:
+`apps/web/tests/i18n.test.ts` §4.37.E describe lines 343–359 (the
+`people.searching*` key-set filter 347–352, verbatim-value assertions
+355–358); `apps/web/tests/people-page.test.ts` badge describe lines
+645–808 (AC-4 non-interactivity 747–765, footprint/loader source-level
+assertions 767–807). Reduced-motion catch-all: `base.css` lines 57–68.
+Global link defaults: `base.css` lines 37–40 (`a` →
+`--color-accent`, `text-decoration: none`) and `:focus-visible`
+outline lines 48–51; the muted-underlined inline-link precedent:
+`RoomPreview.svelte` lines 90–97. The `/profile/settings` route exists
+(`apps/web/src/routes/profile/settings/+page.svelte` — the §49/§4.35
+toggle page). The app's internal-link convention is a plain
+`<a href={resolve('/path')}>` with `resolve` from `$app/paths`
+(`HandshakeSheet.svelte` lines 146–150, `EmptyState.svelte` line 30,
+`routes/+page.svelte` line 87) — SvelteKit's router intercepts internal
+anchors; no click handler, no `goto`. Scope: the six files in
+§4.38.F.10; RU/EN parity; no new deps; existing suites green.
+
+#### 4.38.A Anatomy — same badge, new insides (DECIDED)
+
+Unchanged (supersession does NOT touch them): the §4.37.B placement
+(FIRST `<li>` of `ul.cards`); the §4.37.A condition and data-path (the
+route's `searching` derived, `+page.svelte` line 168, off the polled
+roster — no new fetch, no new poller); the PersonCard footprint
+(`li.searching-badge.pixel-corners`, `--color-surface` /
+`--radius-md` / `padding: var(--space-4)`, the 56px left slot, the
+`.row` gap); the §4.37.C state matrix. Same component file
+(`SearchingBadge.svelte`), same class names where sensible
+(`.searching-badge`, `.row`, `.slot`, `.title`).
+
+Changed inside the badge — the new markup skeleton:
+
+```svelte
+<li class="searching-badge pixel-corners">
+  <div class="row">
+    <div class="slot">
+      <span class="bulb" aria-hidden="true">
+        <PixelIcon name="bulb" size={32} />
+      </span>
+    </div>
+    <div class="main">
+      <p class="title">{title}</p>
+      <a class="remark" href={resolve('/profile/settings')}>{remark}</a>
+    </div>
+  </div>
+</li>
+```
+
+| Element | Spec |
+| --- | --- |
+| Left slot | the 56px slot is KEPT, but the 16px `.loader` spinner and its `loader-spin` keyframes are REMOVED. The slot now holds the **bulb**: a `span.bulb` wrapper (the animation hook, `aria-hidden="true"` — decorative) containing `<PixelIcon name="bulb" size={32} />` (§4.38.B). The wrapper is centered by the existing `.slot` inline-flex centering (lines 57–64) |
+| Main column | NEW wrapper `div.main` mirroring PersonCard's `.main` (`flex: 1; min-width: 0` — PersonCard lines 231–234). It is REQUIRED: the `.row` is `display: flex; align-items: center` — without the wrapper the title and remark would sit side-by-side instead of stacking |
+| Title | `.title` UNCHANGED: 16px/600 in `--color-text-muted` (the `.name` family values, PersonCard lines 235–240); text = `translate($locale, 'people.searching')` with the NEW §4.38 values (§4.38.D) |
+| Remark | `.remark` — the §4.38.C settings link, styled in the `.bio` family: `display: block; margin: 2px 0 0; font-size: 14px; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis` (the PersonCard `.bio` values, lines 241–248) **plus `text-decoration: underline`** (the RoomPreview muted-underlined link precedent, lines 90–97 — overrides the global `a { color: var(--color-accent); text-decoration: none }`, `base.css` lines 37–40) |
+
+The bulb color: `currentColor` via the registry (`PixelIcon` sets
+`fill="currentColor"`), inherited from the badge — the `.bulb` wrapper
+sets no color, so the glyph renders in the badge's muted text tone,
+matching the title's system-state tone (§4.37.A rationale). No new
+token, no palette value (flagged in §4.38.G.2).
+
+#### 4.38.B Bulb icon + blink spec (DECIDED)
+
+> **SUPERSEDED IN PART (2026-11-24) — see §4.38.1:** the bulb glyph is
+> replaced by the `bubble` glyph (Concept §53 owner micro-order); the
+> slot (56px), render size (32), tone (`currentColor`), blink rhythm
+> (1.2s ease-in-out, opacity 1↔0.3) and reduced-motion static fallback
+> are unchanged, only the glyph and the wrapper/keyframes names
+> (`.bulb`/`bulb-blink` → `.bubble`/`bubble-blink`) change. The text
+> below is kept as the historical record.
+
+**Registry entry.** Append `'bulb'` to the `IconName` union
+(`registry.ts` line 33, after `'gear'` with a `§4.38 (Concept §52)`
+comment) and add the rect data to `ICON_RECTS` after the `gear` entry
+(line 274). Same construction rules as the whole set: 16×16 grid, 2px
+weight, `currentColor`, pixel-stepped outline (the `gear` pattern,
+lines 260–274). Exact geometry (8 rects — dome, filament, neck, base):
+
+```ts
+// SEARCHING BADGE (DESIGN §4.38.B): a classic pixel light bulb — dome
+// (top cap + side walls), a filament wire hanging into the glass, a
+// stepped neck and a two-bar screw base; currentColor.
+bulb: [
+  [5, 2, 6, 2],    // dome top cap        (x5..10,  y2..3)
+  [3, 4, 2, 4],    // dome left wall      (x3..4,   y4..7)
+  [11, 4, 2, 4],   // dome right wall     (x11..12, y4..7)
+  [7, 4, 2, 4],    // filament wire       (x7..8,   y4..7) — hangs from the cap
+  [5, 8, 2, 2],    // neck taper left     (x5..6,   y8..9)
+  [9, 8, 2, 2],    // neck taper right    (x9..10,  y8..9)
+  [5, 10, 6, 2],   // screw base bar      (x5..10,  y10..11)
+  [6, 12, 4, 2]    // base foot           (x6..9,   y12..13)
+]
+```
+
+Geometry rationale: the glyph spans x3..x12 / y2..y13 — span-centered
+at (7.5, 7.5), the `gear` entry's own centering convention; every wall
+is a 2-cell-thick stroke; the dome chamfers in from a 6-wide cap to
+10-wide walls, tapers 2 cells inward per side at the neck, and closes
+with a flush 6-wide base bar + a 4-wide foot — the classic bulb
+skeleton, legible as a silhouette, with the filament wire giving the
+"light" reading at small sizes.
+
+**Render size: 32px** (`size={32}`). Rationale: the 16-grid scales to
+32 as an exact 2× — each grid cell renders at exactly 2px, so
+`shape-rendering: crispEdges` lands on pixel boundaries with no
+half-cell fringing (24px would be 1.5px/cell; 16px — the spinner
+standard — is lifted by this amendment). 32px also fills the otherwise
+empty 56px slot (≈57%) in balance with the 16px/600 title — the
+§4.37.G.3 "larger slot-filling" alternative, now chosen by design.
+
+**Blink animation** — component-scoped keyframes on the `.bulb`
+wrapper in `SearchingBadge.svelte` (NOT global CSS):
+
+```css
+.bulb {
+  display: inline-flex;
+  animation: bulb-blink 1.2s ease-in-out infinite;
+}
+@keyframes bulb-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+```
+
+- Name `bulb-blink`; duration **1.2s**; timing **ease-in-out**;
+  infinite — a calm "thinking" pulse.
+- **Opacity-only** (§4.6): the "off" phase is **`opacity: 0.3`** — no
+  color swap, no glow, no box-shadow, no transform. The glyph tone
+  never changes; only its opacity breathes.
+
+**Reduced motion:** the standing `base.css` catch-all (lines 57–68:
+`animation-duration: 0.01ms !important; animation-iteration-count: 1
+!important`) completes the pulse instantly, and the keyframes declare
+no `animation-fill-mode` — so the element returns to its natural base
+state: **the bulb renders STATIC at full opacity (opacity: 1, the
+"on" state)**. No component-scoped `@media` block is added (the
+§4.37.D pattern); asserted source-level like §4.36.D.4 (the catch-all
+lines in `base.css` + the absence of `prefers-reduced-motion` in the
+badge's styles).
+
+#### 4.38.C Remark + settings link — DECIDED: the FULL line is one link
+
+**Pick: option (b).** The entire remark line is ONE anchor:
+
+```svelte
+<a class="remark" href={resolve('/profile/settings')}>{remark}</a>
+```
+
+with `remark = $derived(translate($locale, 'people.searching_settings'))`
+and `resolve` imported from `$app/paths` — the app's internal-link
+convention (HandshakeSheet lines 146–150, EmptyState line 30); the
+target is a static route (no params), and SvelteKit's router
+intercepts the anchor, so no `goto`, no click handler.
+
+**Justification (vs option (a), the two-key split):** the flat i18n
+tables are plain RU/EN string maps with no interpolation across keys —
+splitting one sentence into `before-part` + `link-part` couples two
+keys that must concatenate (a brittle anti-pattern if the owner ever
+rewords one half, and RU/EN word order would not survive a third
+locale anyway). Both target locales happen to end with the link word,
+but the full-line link needs only ONE key (the fewest-keys rule), and
+it gives pointer, touch and screen-reader users one larger, simpler
+target. The Concept explicitly allows the full line clickable
+(§52 item 3). Visual affordance comes from the underline, not from
+styling the link word differently.
+
+**Semantics and non-interactivity:** a real `<a>` with `href` —
+natively focusable and keyboard-activatable; the global
+`:focus-visible` outline (`base.css` lines 48–51) applies. This
+SUPERSEDES the §4.37.A guarantee to: **no interactive element EXCEPT
+the §4.38.C settings link** — no button, no `role="button"`, no
+`tabindex`, no other `<a>`, no tap handler on the row; the badge root
+carries **no `cursor: pointer`** (the link's own pointer cursor is the
+browser default for a real link and is fine); clicking anywhere on the
+badge outside the link does nothing.
+
+#### 4.38.D i18n delta — REPURPOSE `people.searching` + one new key (net +1 pair)
+
+**DECIDED: repurpose, not rename.** The key `people.searching` keeps
+its name (it still names the searching-badge feature; a rename would
+churn the component, both dictionaries and their tests for zero
+behavior gain) and takes the new concept-adopted values IN PLACE:
+
+| Key | RU (line 166, `ru.ts`) | EN (line 166, `en.ts`) |
+| --- | --- | --- |
+| `people.searching` *(repurposed — value edit only)* | «Режим автоматического поиска контактов» | "Automatic contact search mode" |
+| `people.searching_settings` *(NEW — slots in right after line 166)* | «Изменить можно в настройках» | "Change it in settings" |
+
+Both dictionaries' `people.*` blocks, each entry tagged with a
+`§4.38 (Concept §52)` comment (the `people.searching` comment is
+updated from §4.37 to §4.38). **Net delta: +1 pair per dictionary**
+(one in-place value edit, one new key; no retired keys, no orphans —
+the only prior consumer of `people.searching` is this same badge).
+The `ru`/`en` key-set equality test (`i18n.test.ts` lines 15–19)
+covers parity automatically; the §4.7 `DESIGN_4_7_KEYS` 94-key count
+(line 206) is NOT extended (the §4.35.E/§4.37.E dedicated-describe
+precedent).
+
+**Test updates (exact):** the §4.37.E describe (`i18n.test.ts` lines
+343–359) is renamed to reference §4.38.D/Concept §52, and its
+assertions become: the `people.searching*` key-set filter expects
+`['people.searching', 'people.searching_settings']` (insertion order —
+the new key lands directly after line 166), and the verbatim-value
+test asserts all four exact strings above.
+
+#### 4.38.F Acceptance criteria (checkable)
+
+web — `/people` badge:
+
+1. Placement/condition stay green UNCHANGED: via the established
+   mocked-fetch seam, a roster with the SELF entry `active: true`
+   renders the badge as the FIRST `<li>` of `ul.cards`; `active:
+   false`, self-entry-absent and initial-skeleton states render NO
+   badge (existing people-page assertions 645–745 stay green except
+   where they reference the loader/link, per items 3–7).
+2. The title reads exactly EN "Automatic contact search mode" / RU
+   «Режим автоматического поиска контактов» per locale — verbatim
+   assertions in the renamed i18n describe.
+3. The 56px slot holds the bulb: `'bulb'` exists in the `IconName`
+   union and `ICON_RECTS` (`registry.ts`), the badge renders
+   `<PixelIcon name="bulb" size={32} />` inside a `span.bulb`
+   (`aria-hidden="true"`); the `.loader` span, its 16px ring CSS and
+   the `loader-spin` keyframes are GONE from `SearchingBadge.svelte`
+   (source-level negative assertion); the DOM contains no `.loader`.
+4. Blink: the `.bulb` rule carries `animation: bulb-blink 1.2s
+   ease-in-out infinite`; `@keyframes bulb-blink` alternates opacity
+   1 → 0.3 → 1 and contains NOTHING but opacity (no box-shadow,
+   filter, transform or color — source-level).
+5. Reduced motion: NO component-scoped `prefers-reduced-motion` block
+   in the badge (stylesOnly assertion, §4.37.F.7 pattern); the
+   `base.css` catch-all (lines 57–68) freezes the pulse — the bulb
+   renders static at FULL opacity (no fill-mode; asserted source-level
+   like §4.36.D.4).
+6. Remark link: the badge contains EXACTLY ONE `<a>`, its `href` is
+   `resolve('/profile/settings')` (resolves to `/profile/settings`),
+   its visible text is the full `people.searching_settings` value per
+   locale (EN "Change it in settings" / RU «Изменить можно в
+   настройках» — verbatim); it is a real anchor (natively focusable)
+   styled 14px muted underlined (the `.bio` family + underline).
+7. Non-interactivity except the link: no button, no `role="button"`,
+   no `tabindex`, no second `<a>`; clicking the badge outside the
+   link does nothing (`goto` not called); the badge root styles
+   contain no `cursor: pointer` (source-level).
+8. Footprint kept: `--color-surface` / `--radius-md` / `padding:
+   var(--space-4)` / `pixel-corners`, the 56px slot, the 12px list
+   gap, ONE grid cell at `≥720px` — the §4.37.F.6 source assertions
+   stay green, updated only where they referenced the loader (now the
+   bulb) or the announced text (now title + remark, both keys).
+
+cross-cutting:
+
+9. Exactly the §4.38.D delta in BOTH dictionaries — `people.searching`
+   repurposed, `people.searching_settings` added, no orphaned keys
+   (the `people.searching*` key-set assertion proves both); the
+   `ru`/`en` key-set equality test and the §4.7 94-key count stay
+   green; `i18n`, `people-page`, `people-view` and `sweep` suites
+   stay green; `make lint && make test && make build` green.
+10. No new dependency, no new token/palette value; changes confined
+    to `apps/web/src/lib/components/people/SearchingBadge.svelte`,
+    `apps/web/src/lib/components/icons/registry.ts`,
+    `apps/web/src/lib/i18n/en.ts`, `apps/web/src/lib/i18n/ru.ts`,
+    `apps/web/tests/people-page.test.ts`,
+    `apps/web/tests/i18n.test.ts` — plus `docs/DESIGN.md`.
+
+#### 4.38.G Flags for the owner / concept (design report)
+
+1. **DESIGN NOTE — bulb size (§4.38.B):** 32px — the exact 2× of the
+   16-grid (crisp under `crispEdges`) and a ~57% fill of the 56px
+   slot; 24px (1.5px/cell) or 40px are one-prop changes if the owner
+   prefers smaller/larger.
+2. **DESIGN NOTE — bulb tone (§4.38.A):** the badge's muted text tone
+   via `currentColor` — matches the system-state title; a warmer
+   accent/amber "blinking light" is a one-token change on the `.bulb`
+   wrapper if the owner wants it.
+3. **DESIGN NOTE — link treatment (§4.38.C):** the full remark line is
+   the link (one key, one large target; affordance via underline) —
+   the Concept's acceptable alternative; if the owner later wants only
+   the word «настройках»/"settings" styled as the link, that is the
+   two-key split (net +1 more key) plus wrapping the link part in the
+   anchor.
+4. **DESIGN NOTE — blink rhythm (§4.38.B):** 1.2s ease-in-out with a
+   0.3 opacity floor — a calm ambient pulse in the §4.6 opacity-only
+   budget; 0.9s or a 0.2 floor are one-value changes.
+5. **ADVICE NEEDED — none blocking:** copy, link target, anatomy and
+   the animation budget are fixed by Concept §52; the design picks
+   (bulb size/geometry, rhythm, link treatment) are decided above and
+   flagged reversible.
+
+### 4.38.1 owner amendment (2026-11-24, Concept §53 record): badge icon bulb → bubble
+
+Owner micro-order (Concept §53, 2026-11-24): on the §4.38 badge the
+light-bulb glyph becomes a **chat (speech) bubble** — the symbol of
+incoming conversations. Everything else from §4.38 stands untouched:
+same 56px slot, same blink animation, same muted `currentColor` tone,
+same 32px render size, same reduced-motion static full-opacity
+fallback; copy, link, placement, condition and footprint unchanged.
+The `bulb` registry icon is REMOVED (grep-audit by the process,
+2026-11-24: its sole consumer is this badge — union entry
+`registry.ts` ~lines 33–37, `ICON_RECTS` entry ~lines 279–300,
+`SearchingBadge.svelte` `.bulb`/`bulb-blink` ~lines 76–93).
+
+**1. Registry — `bulb` → `bubble`, same construction rules.**
+`'bubble'` replaces `'bulb'` at the same union position (comment
+retagged `§4.38.1 (Concept §53)`), and the `ICON_RECTS` `bulb` entry
++ comment are REPLACED by a `bubble` entry: 16×16 grid, `currentColor`,
+2px-weight pixel-stepped outline, span-centered at (7.5, 7.5). Exact
+geometry (6 rects — rounded-rect body + stepped tail):
+
+```ts
+// SEARCHING BADGE (DESIGN §4.38.1): a pixel chat (speech) bubble — a
+// rounded-rect outline body with chamfered corners and a stepped tail
+// at the lower left; currentColor.
+bubble: [
+  [3, 2, 10, 2],   // body top wall          (x3..x12,  y2..y3)
+  [1, 4, 2, 4],    // body left wall         (x1..x2,   y4..y7)
+  [13, 4, 2, 4],   // body right wall        (x13..x14, y4..y7)
+  [3, 8, 10, 2],   // body bottom wall       (x3..x12,  y8..y9)
+  [5, 10, 4, 2],   // tail root              (x5..x8,   y10..y11)
+  [3, 12, 4, 2]    // tail tip, stepped left (x3..x6,   y12..y13)
+]
+```
+
+Geometry rationale: spans x1..x14 / y2..y13 — the set's (7.5, 7.5)
+centering convention; every wall is a 2-cell-thick stroke; the
+chamfered corners (walls start inset from the edges) give the
+rounded-rect read; the tail hangs from the bottom wall's left half —
+root y10..y11, tip stepped left to x3..x6 at y12..y13, edge-connected
+at x5..x6 — legible as an incoming-conversation bubble. Render size
+stays 32 (`size={32}`, the exact 2× per §4.38.B), slot stays 56px.
+
+**2. Naming + animation.** In `SearchingBadge.svelte` the wrapper
+class and keyframes RENAME — `.bulb` → `.bubble`, `bulb-blink` →
+`bubble-blink` — same `animation: bubble-blink 1.2s ease-in-out
+infinite`, same opacity 1 → 0.3 → 1, opacity-only per §4.6 (no color
+swap, no transform, no shadow). Markup: `<span class="bubble"
+aria-hidden="true"><PixelIcon name="bubble" size={32} /></span>` (the
+§4.38.A skeleton, names swapped). Reduced-motion fallback unchanged:
+the `base.css` catch-all completes the pulse instantly and the glyph
+rests STATIC at full opacity — no component-scoped `@media` block is
+added.
+
+**3. `bulb` REMOVED.** `'bulb'` leaves the `IconName` union; its
+`ICON_RECTS` entry and comment are deleted — the sole consumer was
+this badge (grep-audit recorded above). After this change no file
+under `apps/web/src` may reference `bulb` (source-level negative
+assertion).
+
+**4. AC deltas vs §4.38.F.** Items 1–2, 5–10 stand unchanged (item
+10's file list is unchanged). Only:
+
+- Item 3 becomes: the 56px slot holds the bubble — `'bubble'` exists
+  in the `IconName` union and `ICON_RECTS`, the badge renders
+  `<PixelIcon name="bubble" size={32} />` inside `span.bubble`
+  (`aria-hidden="true"`); the `.loader` span, its CSS and the
+  `loader-spin` keyframes stay GONE; the DOM contains no `.loader`.
+  NEW negative assertions: no `'bulb'` anywhere in `apps/web/src`
+  (source-level) and no `.bulb` in the rendered DOM.
+- Item 4 becomes: the `.bubble` rule carries `animation: bubble-blink
+  1.2s ease-in-out infinite`; `@keyframes bubble-blink` alternates
+  opacity 1 → 0.3 → 1 and contains NOTHING but opacity (source-level).
+  The badge's source-level test assertions rename `.bulb`/`bulb-blink`
+  → `.bubble`/`bubble-blink` accordingly.
+
 ## 5. Design-decision rationale (short)
 
 ## 5. Design-decision rationale (short)
@@ -3569,7 +12362,58 @@ Revision 3 additions:
   value. If the amendment lands, counts slot into the drill-down header
   without structural change.
 
-## 6. Flagged gaps & open questions (revision 3)
+Revision 4 additions (Concept §54):
+
+- **Route tree over single page**: the owner's four-route split puts each
+  host job on its own URL (entry, panel, invites, per-code QR) — the invite
+  page and QR pages become bookmarkable/shareable, the entry page stops
+  re-rendering the whole console on a credential reset, and the §2.8 host
+  gate gets a clean landing (`/host`, log-in mode). The panel guard
+  (stored room must match the URL) keeps deep links honest.
+- **Auto-resume via the invite-list GET**: it is the cheapest room-token
+  read, it is the same call the invite page needs first, and a 401 on it
+  is unambiguous (the key is dead) — so it doubles as the §54.1 resume
+  probe with no extra endpoint. NetworkError deliberately keeps the stored
+  entry: a failed probe must not destroy a possibly-valid credential.
+- **Log-in needs the address + key, honestly**: every room-token route is
+  addressed by `room_address`; the contract has no token→room resolve, so
+  the paste-token-only form would be a dead end. The secondary "forgot
+  the address?" finder uses the public room list and probes with the
+  host's own key (bounded) — self-service without inventing a resolve
+  endpoint (flag F11).
+- **Statistics fan-out (rule A), cadence and bound**: 15 s full re-run on
+  the panel's Poller (every third 5 s tick) with **concurrency 4** —
+  meetup-scale rooms stay well within venue Wi-Fi, and the metrics stay
+  live without a websocket. Chats are deduped by address before message
+  fetches; partial branch failures render honest undercount warnings
+  rather than silent gaps.
+- **Hand-rolled SVG chart**: 12 five-minute buckets, relative axis labels
+  («−60 мин» … «сейчас») so no locale time formatting is needed and the
+  axis stays truthful across refreshes; every-3rd-bucket labeling keeps
+  muted text at the 14px minimum; accent discipline holds (data marks are
+  the one allowed non-interactive accent use, mirroring the radar's
+  decorative-enhancement precedent — the chart is `role="img"` with a
+  textual summary, so the People-adjacent lists remain the canonical data).
+- **Gated, not hidden (rules B/D)**: metrics 5–7 and member deletion are
+  specified fully but ship **absent** — no locked rows, no zeros, no proxy
+  metrics. The one visible rule-B hint line tells the host why the section
+  is thinner than the concept promises; the rule-D locked row in the
+  drill-down marks where deletion will live, so the amendment slots in
+  without redesign.
+- **Invite ledger (rule C)**: the server list is active-only by contract,
+  so expiry history is device-local by necessity. The ledger renders
+  honestly (badges + dates, caveat about other devices) instead of
+  silently dropping codes the host minted and can no longer see.
+- **Client-side QR (rev. 4)**: the host tree reuses the §3.6 `uqr`
+  renderer for invite QRs — no helper PNG call, no network dependency on
+  the QR path, one renderer for both badge and invite codes. The helper
+  endpoint stays for external parity only.
+- **Share region kept on the panel** (not moved to the invite page): the
+  room's primary code is a glanceable artifact mid-event; per-code sharing
+  lives one tap away on the invite page, and the QR page exists for
+  hand-out moments (print/screen).
+
+## 6. Flagged gaps & open questions (revision 4)
 
 Rev. 2 items resolved by owner rulings (Concept §1c) stay resolved: decline =
 local dismissal, personal QR shipped, no human messaging ever. The import
@@ -3619,11 +12463,58 @@ New in rev. 3:
 8. **Flag 6.9a not landing** → the host drill-down stays counts-less as
    designed (§3.7); no design rework is needed either way.
 
+New in rev. 4 (host admin panel, Concept §54):
+
+9. **`UpdateRoomRequest` has no `language`/`max_user`** (verified in
+   swagger.json 2026-11-24: the PUT body accepts only `name` +
+   `description`). §54.1 intends both to be settable; the DESIGN renders
+   them read-only with a server-amendment hint and keeps the editable
+   controls backend-gated (§3.7.2). Backend TODO ledger item — supersedes
+   the rev. 3 "max_user not settable" note only in intent; the contract
+   still gates it.
+10. **`PUT /api/room/{address}` declares no security scheme** in swagger
+    (unlike its 401/403 responses and the RoomToken-declared sibling
+    DELETE). The DESIGN sends the room token as Bearer per §54.1; the
+    architect should confirm the server enforces it (contract nuance,
+    §3.7 endpoint table).
+11. **No token→room resolve endpoint** — the `/host` log-in mode must ask
+    for the room address + key (§3.7.1); the "forgot the address?" finder
+    leans on the public `GET /api/room` list staying public and
+    venue-scale. If a resolve seam (§6 item 7, `resolveInviteCode`)
+    ships, the finder becomes a one-function change.
+12. **Rule B gate (flag 6.9a / `tz2-07a`)**: stats metrics 5–7 are
+    specified in §3.7.5 and **omitted from the UI**; if the amendment
+    never lands, the panels never build — no design rework either way.
+    Definition nuance recorded there: "number of handshakes" counts
+    directed records (a mutual handshake = two records); the caption
+    states it so testers verify against the same definition.
+13. **Rule D gate**: `DELETE /api/room/{room}/user/{address}` is
+    persona-token-only (verified) — the panel ships the locked
+    unavailable state (§3.7.2), never the call.
+14. **Ledger caveat (rule C)**: codes minted from other devices cannot be
+    reconstructed as expired — they simply vanish from the invite page
+    when they expire. The caveat copy is binding (§3.7.3); a server-side
+    invite-history endpoint would retire the ledger entirely (backend
+    TODO candidate).
+15. **ARCHITECTURE amendments implied by the route tree (for the
+    architect's TZ pass, §6 note only):** §10.9's console-v2 wording
+    (single-page console, helper-PNG share-kit QR, counts-less
+    drill-down) is superseded by the route tree — the drill-down now
+    lists dialogs via the room-token chat **listing** endpoint (the old
+    "plain reads" workaround is retired); §10.3's hostApi reset wording
+    ("resets the host console") should re-point at "lands on `/host`
+    (log-in mode)"; §2.2/§5 polling tables gain the §2.2 rev. 4 rows;
+    api-client gains `listRooms` + the `InviteListResponse` wrapper
+    shape; `GET /h/rooms/{code}/qr` is no longer used by any host route
+    (helper disposition per §10.10 unchanged otherwise).
+
 ---
 
-*End of DESIGN.md — design instance bd636f23, revision 3 (2026-11-15; v2
-credentials scope applied onto the delivered v1 baseline: persona/room
-tokens with a global 401 gate, live one-time badge QR with visible
-rotation, server-mediated QR handshake with 410/403 states, vault-driven
-import, creation-token host console with invite management and room-token
-drill-down). Baseline: rev. 2 by fd19a963.*
+*End of DESIGN.md — rev. 4 by design instance `558f4d6b` (2026-11-24;
+owner-approved Concept §54 applied: the host console restructured into the
+`/host` route tree — entry with create/log-in/auto-resume, admin panel with
+room-token drill-down and the rule-A statistics engine with a hand-rolled
+SVG bucket chart, invite page with the rule-C expired/revoked ledger, and
+the per-code QR page with the never-shown link — rules B and D shipped as
+honest gates, no new dependencies, RU/EN parity). Baselines: rev. 3 by
+`bd636f23` (v2 credentials scope); rev. 2 by `fd19a963`.*

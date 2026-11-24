@@ -1,12 +1,19 @@
-/** JoinFlow component tests (TZ-03 + TZ2-06 Part B, DESIGN §3.1 rev. 3):
- * DigitInput → resolve → preview hand-off, deep-link auto-submit, inline 404
- * with preserved digits, persona creation with the client-generated token
- * (exact v2 body; identity + vault written only after 2xx), the §2.9
- * invite-code rejection state, 409, the RETURN-TO-EVENT vault screen
- * (Concept §10.1.1 / DESIGN §4.11.1 — amends §6.2 import semantics: the
- * Step-1 entry point, stored-token validation, identity restore → /room,
- * dead/stale entry handling, the copy flow REMOVED), the empty-vault state,
- * and the scanner mount (QrScanner public API). */
+/** JoinFlow component tests (TZ-03 + TZ2-06 Part B, DESIGN §3.1 rev. 3;
+ * §4.34 entry-flow amendment, Concept §48 owner bug batch 2026-11-23):
+ * DigitInput → auto-advance on the 6th digit (§4.34.B — the completion
+ * fires the resolve, the submit button stays redundant) → navigation to
+ * the intro route, deep-link auto-submit (sharing the same path), inline
+ * 404 with preserved digits, the intro route mode (§4.34.C — resolve on
+ * mount, both actions, error treatments), the seeded create route
+ * (§4.34.D — the param IS the 6-digit code, resolved on mount, NO ?code=;
+ * clean create redirect; wizardBack → the intro route), persona creation
+ * with the client-generated token (exact v2 body; identity + vault
+ * written only after 2xx), the §2.9 invite-code rejection state, 409, the
+ * RETURN-TO-EVENT vault screen (Concept §10.1.1 / DESIGN §4.11.1 — amends
+ * §6.2 import semantics: the Step-1 entry point, stored-token validation,
+ * identity restore → /room, dead/stale entry handling, the copy flow
+ * REMOVED), the empty-vault state, and the scanner mount (QrScanner
+ * public API). */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
@@ -16,7 +23,10 @@ import { get } from 'svelte/store';
 import { ApiError, NetworkError, type Room, type User } from '@bleak/api-client';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
-vi.mock('$app/paths', () => ({ resolve: (route: string) => route }));
+vi.mock('$app/paths', () => ({
+  resolve: (route: string, params?: { income_code?: string }) =>
+    params?.income_code ? route.replace('[income_code]', params.income_code) : route
+}));
 
 vi.mock('#lib/api/invite-resolve', () => {
   class InviteResolveError extends Error {
@@ -65,16 +75,17 @@ const room: Room = {
 };
 
 /**
- * tz12-02 route re-homing (Concept §31): the creation process lives
- * under /income/[room]/create — the room intro's "Create profile"
- * navigates there; the wizard tests render the flow SEEDED (roomParam +
- * ?code=) exactly as the create route mounts it. The entry tests keep
- * driving the /income surfaces (code entry → preview → vault).
+ * §4.34 (Concept §48): the entry-flow route map — /income (6-digit entry,
+ * auto-advance → navigates) → /income/[income_code] (the intro route,
+ * `introParam` mode: resolve on mount, both actions) →
+ * /income/[income_code]/create (the wizard, SEEDED via `incomeCodeParam`
+ * — the param IS the 6-digit invite code, resolved on mount, NO ?code=).
  */
-const SEEDED = { roomParam: room.address, deepLinkCode: '123456' };
+const SEEDED = { incomeCodeParam: '123456' };
 
 function user(address: string, name: string, privateBio = ''): User {
   return {
+    active: true,
     address,
     room: room.address,
     name,
@@ -113,6 +124,13 @@ beforeEach(() => {
   localStorage.clear();
   identity.set(null);
   vi.clearAllMocks();
+  // §4.34.C/D: the intro route and the create route resolve the param
+  // code on mount — the seeded/intro renders below rely on the default
+  // happy-path mocks (individual tests override before render when they
+  // need failures).
+  mockedResolve.mockResolvedValue({ roomAddress: room.address });
+  mockedApi.getRoom.mockResolvedValue(room);
+  mockedApi.listRoomUsers.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -121,62 +139,227 @@ afterEach(() => {
   identity.set(null);
 });
 
-describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
-  it('resolves a typed code and shows the room preview without a reload', async () => {
-    mockedResolve.mockResolvedValue({ roomAddress: room.address });
-    mockedApi.getRoom.mockResolvedValue(room);
-    mockedApi.listRoomUsers.mockResolvedValue([user('0xa', 'Алиса')]);
-
+describe('JoinFlow — 6th-digit auto-advance (§4.34.B, Concept §48)', () => {
+  /**
+   * §4.34.B: after the 6th digit — typed, backspace-refilled, pasted, or
+   * prefilled by the ?code= deep link / the scanner — the entry form
+   * AUTOMATICALLY performs the resolve; the submit button stays as the
+   * redundant affordance. Success NAVIGATES to the room intro route
+   * /income/[income_code] (§4.34.A — the in-card Step-2 swap is
+   * superseded); failure shows the existing codeErrorOf treatments with
+   * the digits preserved. No double-submit: while a resolve is in flight
+   * the form is busy (digit edits do not re-trigger, a submit press is a
+   * no-op via the resolving guard); a FAILED resolve is not auto-retried.
+   */
+  it('the 6th digit (pasted) auto-submits: the resolve runs and success navigates to the intro route — no submit press', async () => {
     render(JoinFlow, { props: {} });
 
     pasteCode('123456');
-    await submitViaCta();
-    await screen.findByText(room.name);
-    expect(mockedResolve).toHaveBeenCalledWith('123456');
-    expect(screen.getByText('Митап по пиксель-арту')).toBeTruthy();
-    expect(screen.getByText(/Язык агентов: ru/)).toBeTruthy();
-    expect(screen.getByText(/Участников: 1/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: ru['join.create_persona'] })).toBeTruthy();
-    // v2.4 (§4.11.1): the copy-flow import option is REMOVED from the room
-    // preview — the vault screen is return-to-event, reachable from Step 1.
-    expect(screen.queryByRole('button', { name: ru['join.import.title'] })).toBeNull();
-    expect(screen.getByRole('button', { name: ru['join.change_code'] })).toBeTruthy();
+    await waitFor(() => expect(mockedResolve).toHaveBeenCalledWith('123456'));
+    // Success → the intro route with the code in the PATH (nothing in the
+    // query); the room preview does NOT render in the card anymore.
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income/123456'));
+    expect(screen.queryByText(room.name)).toBeNull();
   });
 
-  it('?code=NNNNNN deep link prefills the cells and auto-submits (AC 4)', async () => {
-    mockedResolve.mockResolvedValue({ roomAddress: room.address });
-    mockedApi.getRoom.mockResolvedValue(room);
-    mockedApi.listRoomUsers.mockResolvedValue([]);
+  it('typing digit by digit triggers on the 6th (no submit press)', async () => {
+    render(JoinFlow, { props: {} });
 
+    const inputs = cells();
+    for (let i = 0; i < 5; i += 1) {
+      fireEvent.input(inputs[i]!, { target: { value: String(i + 1) } });
+      await tick();
+    }
+    expect(mockedResolve).not.toHaveBeenCalled(); // five digits — no fire
+    fireEvent.input(cells()[5]!, { target: { value: '6' } });
+    await waitFor(() => expect(mockedResolve).toHaveBeenCalledWith('123456'));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income/123456'));
+  });
+
+  it('?code=NNNNNN deep link prefills the cells and auto-submits through the same completion path (AC 4)', async () => {
     render(JoinFlow, { props: { deepLinkCode: '654321' } });
 
     expect(cells().map((c) => c.value).join('')).toBe('654321');
-    await screen.findByText(room.name);
+    await waitFor(() => expect(mockedResolve).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income/654321'));
+  });
+
+  it('unknown code shows the 404 copy inline, keeps the digits, does not navigate, does NOT auto-retry (AC 5)', async () => {
+    mockedResolve.mockRejectedValue(new InviteResolveError('not_found'));
+    render(JoinFlow, { props: {} });
+
+    pasteCode('999999'); // the completion itself auto-submits
+    await screen.findByText(ru['join.error.unknown']);
+    expect(cells().map((c) => c.value).join('')).toBe('999999');
+    expect(mockedResolve).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(room.name)).toBeNull();
+    expect(goto).not.toHaveBeenCalled();
+    await tick();
+    await tick();
+    // The failed attempt is NOT retried automatically (the trigger is the
+    // completion event; the next attempt is the user's).
     expect(mockedResolve).toHaveBeenCalledTimes(1);
   });
 
-  it('unknown code shows the 404 copy inline, keeps the digits, does not navigate (AC 5)', async () => {
-    mockedResolve.mockRejectedValue(new InviteResolveError('not_found'));
-
+  it('editing a digit after a failure re-arms the trigger and auto-resolves again; the digits survive every failure (AC 5)', async () => {
+    mockedResolve.mockRejectedValueOnce(new InviteResolveError('not_found'));
     render(JoinFlow, { props: {} });
+
     pasteCode('999999');
-    await submitViaCta();
-    await tick();
     await screen.findByText(ru['join.error.unknown']);
     expect(cells().map((c) => c.value).join('')).toBe('999999');
-    expect(screen.queryByText(room.name)).toBeNull();
-    expect(goto).not.toHaveBeenCalled();
+
+    // The user edits a digit — the fresh completion fires the resolve.
+    fireEvent.input(cells()[5]!, { target: { value: '8' } });
+    await waitFor(() => expect(mockedResolve).toHaveBeenCalledWith('999998'));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income/999998'));
   });
 
-  it('seam unreachable shows the NetworkError banner and preserves the code (AC 6)', async () => {
+  it('seam unreachable shows the NetworkError banner, preserves the code; the redundant submit button re-runs the resolve (AC 6)', async () => {
     mockedResolve.mockRejectedValue(new NetworkError('/api/invite/111111', new Error('offline')));
-
     render(JoinFlow, { props: {} });
+
     pasteCode('111111');
-    await submitViaCta();
     await screen.findByText(ru['common.error.network']);
     expect(cells().map((c) => c.value).join('')).toBe('111111');
-    // Retry re-runs the resolution with the preserved digits.
+    // The CTA stays functional (the redundant affordance): pressing it
+    // re-runs the resolution with the preserved digits.
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
+    mockedApi.getRoom.mockResolvedValue(room);
+    mockedApi.listRoomUsers.mockResolvedValue([]);
+    await submitViaCta();
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income/111111'));
+  });
+
+  it('no double-submit: a CTA click while the auto-attempt is in flight is a no-op (the resolving guard)', async () => {
+    let release!: (value: { roomAddress: string }) => void;
+    mockedResolve.mockReturnValue(
+      new Promise<{ roomAddress: string }>((resolve) => {
+        release = resolve;
+      })
+    );
+    render(JoinFlow, { props: {} });
+
+    pasteCode('123456');
+    await waitFor(() => expect(mockedResolve).toHaveBeenCalledTimes(1));
+    // Click the CTA while the resolve is in flight — a no-op.
+    await screen.getByRole('button', { name: ru['join.enter'] }).click();
+    fireEvent.submit(document.querySelector('form') as HTMLFormElement);
+    await tick();
+    expect(mockedResolve).toHaveBeenCalledTimes(1);
+    release({ roomAddress: room.address });
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income/123456'));
+    // Still exactly one resolve for the one completion.
+    expect(mockedResolve).toHaveBeenCalledTimes(1);
+  });
+
+  it('the redundant submit button stays present and works: disabled until 6 digits, resolves a fresh completion', async () => {
+    render(JoinFlow, { props: {} });
+
+    const cta = () => screen.getByRole('button', { name: ru['join.enter'] }) as HTMLButtonElement;
+    expect(cta().disabled).toBe(true); // 0 digits
+    fireEvent.input(cells()[0]!, { target: { value: '1' } });
+    await tick();
+    expect(cta().disabled).toBe(true); // still incomplete
+    pasteCode('123456');
+    // The auto-advance resolves immediately; the CTA is busy (disabled)
+    // while the resolve is in flight.
+    await waitFor(() => expect(mockedResolve).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income/123456'));
+  });
+});
+
+describe('JoinFlow — the entry-flow route map (§4.34.A, Concept §48)', () => {
+  /**
+   * /income → /income/[income_code] (the intro route, §4.34.C) →
+   * /income/[income_code]/create (§4.34.D): the income code (the 6-digit
+   * invite code) travels in the PATH PARAM ONLY on both parametrized
+   * routes — never in a query string.
+   */
+  it('the intro route resolves the param code on mount (the param IS the 6-digit invite code) and renders BOTH actions', async () => {
+    render(JoinFlow, { props: { introParam: '123456' } });
+    await screen.findByText(room.name);
+    expect(mockedResolve).toHaveBeenCalledWith('123456');
+    expect(mockedApi.getRoom).toHaveBeenCalledWith(room.address);
+    expect(mockedApi.listRoomUsers).toHaveBeenCalledWith(room.address);
+    expect(screen.getByText('Митап по пиксель-арту')).toBeTruthy();
+    expect(screen.getByRole('button', { name: ru['join.create_persona'] })).toBeTruthy();
+    expect(screen.getByRole('button', { name: ru['join.change_code'] })).toBeTruthy();
+  });
+
+  it('"Create profile" on the intro route navigates to /income/<income_code>/create with an EMPTY query string (the ?code= append is removed, §4.34.D)', async () => {
+    render(JoinFlow, { props: { introParam: '123456' } });
+    await screen.findByText(room.name);
+    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income/123456/create'));
+    // Negative: NO internal consumer emits ?code= on the create route.
+    expect(goto).not.toHaveBeenCalledWith(expect.stringContaining('?code='));
+  });
+
+  it('"Change code" on the intro route goes back to /income (§4.34.C)', async () => {
+    render(JoinFlow, { props: { introParam: '123456' } });
+    await screen.findByText(room.name);
+    await screen.getByRole('button', { name: ru['join.change_code'] }).click();
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income'));
+  });
+
+  it('the intro route resolving treatment: shell + spinner only, the footer actions disabled until the room context is present (no skeleton)', async () => {
+    let release!: (value: { roomAddress: string }) => void;
+    mockedResolve.mockReturnValue(
+      new Promise<{ roomAddress: string }>((resolve) => {
+        release = resolve;
+      })
+    );
+    const { container } = render(JoinFlow, { props: { introParam: '123456' } });
+
+    // While resolving: the shell renders (header/locale + mascot + title),
+    // the content region shows the small inline spinner, no skeleton, and
+    // the footer actions are disabled.
+    expect(container.querySelector('.shell-header [role="radiogroup"]')).toBeTruthy();
+    expect(container.querySelector('.mascot-row')).toBeTruthy();
+    expect(container.querySelector('.intro-title')?.textContent).toBe(ru['join.title']);
+    expect(container.querySelector('.spinner')).toBeTruthy();
+    expect(container.querySelector('.skeleton')).toBeNull();
+    const buttons = Array.from(container.querySelectorAll('.shell-footer button')) as HTMLButtonElement[];
+    expect(buttons).toHaveLength(2);
+    expect(buttons.every((b) => b.disabled)).toBe(true);
+    release({ roomAddress: room.address });
+    await screen.findByText(room.name);
+    // Once resolved, BOTH actions are enabled.
+    const resolvedButtons = Array.from(
+      container.querySelectorAll('.shell-footer button')
+    ) as HTMLButtonElement[];
+    expect(resolvedButtons.every((b) => !b.disabled)).toBe(true);
+  });
+
+  it('a dead param (404 on the resolve) shows the code-not-found treatment; Change code goes back to /income (§4.34.C)', async () => {
+    mockedResolve.mockRejectedValue(new InviteResolveError('not_found'));
+    render(JoinFlow, { props: { introParam: '999999' } });
+    await screen.findByText(ru['join.error.unknown']);
+    expect(goto).not.toHaveBeenCalled();
+    await screen.getByRole('button', { name: ru['join.change_code'] }).click();
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income'));
+  });
+
+  it('a malformed-looking param shows the same treatment with NO API call (§4.34.C)', async () => {
+    render(JoinFlow, { props: { introParam: 'not-a-code' } });
+    await screen.findByText(ru['join.error.unknown']);
+    expect(mockedResolve).not.toHaveBeenCalled();
+  });
+
+  it('a room deleted meanwhile (404 on the room read) shows the gone card; its Change code action goes back to /income', async () => {
+    mockedApi.getRoom.mockRejectedValue(new ApiError(404, '/api/room/x', 'room deleted'));
+    render(JoinFlow, { props: { introParam: '123456' } });
+    await screen.findByText(ru['join.error.gone']);
+    await screen.getByRole('button', { name: ru['join.change_code'] }).click();
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income'));
+  });
+
+  it('a network failure on the intro route shows the banner with a working retry (§4.34.C)', async () => {
+    mockedResolve.mockRejectedValue(new NetworkError('/api/invite/123456', new Error('offline')));
+    render(JoinFlow, { props: { introParam: '123456' } });
+    await screen.findByText(ru['common.error.network']);
+    // Retry re-runs the intro resolve.
     mockedResolve.mockResolvedValue({ roomAddress: room.address });
     mockedApi.getRoom.mockResolvedValue(room);
     mockedApi.listRoomUsers.mockResolvedValue([]);
@@ -184,50 +367,67 @@ describe('JoinFlow — DigitInput → resolve → preview hand-off', () => {
     await screen.findByText(room.name);
   });
 
-});
-
-describe('JoinFlow — route re-homing (tz12-02, Concept §31)', () => {
-  /**
-   * The creation process lives under /income/[room]/create: the room
-   * intro's "Create profile" navigates there (room param + ?code=), the
-   * create route seeds the same flow directly into the wizard step, and
-   * the wizard's back re-enters /income with the code (the prefill +
-   * auto-submit re-resolves the room preview).
-   */
-  it('"Create profile" on the room intro navigates to /income/[room]/create?code=…', async () => {
-    mockedResolve.mockResolvedValue({ roomAddress: room.address });
-    mockedApi.getRoom.mockResolvedValue(room);
-    mockedApi.listRoomUsers.mockResolvedValue([]);
-    render(JoinFlow, { props: {} });
-    pasteCode('123456');
-    await submitViaCta();
-    await screen.findByText(room.name);
-    await screen.getByRole('button', { name: ru['join.create_persona'] }).click();
-    await waitFor(() =>
-      expect(goto).toHaveBeenCalledWith('/income/[room]/create?code=123456')
-    );
-    // The wizard does NOT render inline anymore — the route owns it.
-    expect(screen.queryByText(ru['join.wizard.intro.title'])).toBeNull();
-  });
-
-  it('the create route seed: the flow opens directly in the wizard step with the ?code= invite code', async () => {
+  it('the create route seeds from the path param only: resolve on mount opens the wizard (§4.34.D, NO ?code=)', async () => {
     render(JoinFlow, { props: SEEDED });
     await screen.findByText(ru['join.wizard.intro.title']);
-    // The entry steps never rendered: no digit cells, no resolution.
+    // The seeded resolve ran with the param (the 6-digit code).
+    expect(mockedResolve).toHaveBeenCalledWith('123456');
+    expect(mockedApi.getRoom).toHaveBeenCalledWith(room.address);
+    // The entry steps never rendered: no digit cells.
     expect(screen.queryByRole('group', { name: ru['join.code.label'] })).toBeNull();
-    expect(mockedResolve).not.toHaveBeenCalled();
     // The seeded code is carried into the persona submit (AC 8 asserts
     // the exact body with invite_code '123456' through this same seed).
     await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
     await screen.findByText(ru['join.wizard.name.question']);
   });
 
-  it('wizard back on the create route re-enters /income with the code (the room preview re-resolves there)', async () => {
+  it('the seeded create route: a network failure shows the banner with retry (no dead-end blank shell, §4.34.D)', async () => {
+    mockedResolve.mockRejectedValue(new NetworkError('/api/invite/123456', new Error('offline')));
+    render(JoinFlow, { props: SEEDED });
+    await screen.findByText(ru['common.error.network']);
+    expect(goto).not.toHaveBeenCalled();
+    // Retry re-runs the seed resolve.
+    mockedResolve.mockResolvedValue({ roomAddress: room.address });
+    mockedApi.getRoom.mockResolvedValue(room);
+    mockedApi.listRoomUsers.mockResolvedValue([]);
+    await screen.getByRole('button', { name: ru['common.retry'] }).click();
+    await screen.findByText(ru['join.wizard.intro.title']);
+  });
+
+  it('the seeded create route: an unresolvable param redirects to /income with replaceState (the §4.31.D rule, §4.34.D)', async () => {
+    mockedResolve.mockRejectedValue(new InviteResolveError('not_found'));
+    render(JoinFlow, { props: SEEDED });
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income', { replaceState: true }));
+  });
+
+  it('wizard back on the create route lands on the INTRO route (param-only — the /income?code= round-trip is superseded, §4.34.D)', async () => {
     render(JoinFlow, { props: SEEDED });
     await screen.findByText(ru['join.wizard.intro.title']);
     // The intro's revert arrow (the back control, §24 item 2).
     await screen.getByRole('button', { name: ru['common.back'] }).click();
-    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income?code=123456'));
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income/123456'));
+    // Negative: no ?code= emission anywhere.
+    expect(goto).not.toHaveBeenCalledWith(expect.stringContaining('?code='));
+  });
+
+  it('the scanner feeds the code into the cells and the §4.34.B auto-advance takes over (no double resolve)', async () => {
+    let release!: (value: { roomAddress: string }) => void;
+    mockedResolve.mockReturnValue(
+      new Promise<{ roomAddress: string }>((resolve) => {
+        release = resolve;
+      })
+    );
+    render(JoinFlow, { props: {} });
+
+    // Simulate the scanner mount point: the code enters the cells as if
+    // typed (the completion event then auto-submits).
+    pasteCode('123456');
+    await waitFor(() => expect(mockedResolve).toHaveBeenCalledTimes(1));
+    await tick();
+    await tick();
+    release({ roomAddress: room.address });
+    await waitFor(() => expect(goto).toHaveBeenCalledWith('/income/123456'));
+    expect(mockedResolve).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -251,8 +451,9 @@ describe('JoinFlow — persona creation via the creation wizard (v3.9 + §23.2 a
   }
 
   async function openWizard(): Promise<void> {
-    // Seeded render (tz12-02): the flow mounts at /income/[room]/create
-    // directly IN the wizard step — the room param + the ?code= seed.
+    // Seeded render (§4.34.D): the flow mounts at /income/[income_code]/create
+    // directly IN the wizard step — the income-code param (resolved on
+    // mount).
     render(JoinFlow, { props: SEEDED });
     await screen.findByText(ru['join.wizard.intro.title']);
     await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
@@ -680,16 +881,19 @@ describe('JoinFlow — return-to-event vault screen (Concept §10.1.1, §4.11.1)
 });
 
 describe('JoinFlow — scanner mount (context *a*, QrScanner public API)', () => {
-  it('the scan button opens the overlay; the manual fallback closes it and refocuses the cells (AC 18)', async () => {
+  it('the scan button opens the overlay; the manual fallback closes it and refocuses the cells; a detected code fills the cells and the auto-advance takes over (AC 18 + §4.34.B)', async () => {
     render(JoinFlow, { props: {} });
-    pasteCode('123456');
     await screen.getByRole('button', { name: ru['join.scan.open'] }).click();
     expect(screen.getByRole('dialog')).toBeTruthy();
     // Manual fallback (§3.8, context a): «Ввести код вручную».
     await screen.getByRole('button', { name: ru['scan.fallback.enter_code'] }).click();
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(document.activeElement).toBe(cells()[0]);
-    // Digits intact.
+    // A detected invite code enters Step 1 exactly as if typed — the cells
+    // fill and the §4.34.B completion auto-resolves (a scanned code never
+    // waits for the submit button).
+    pasteCode('123456');
+    await waitFor(() => expect(mockedResolve).toHaveBeenCalledWith('123456'));
     expect(cells().map((c) => c.value).join('')).toBe('123456');
   });
 
@@ -857,25 +1061,37 @@ describe('JoinFlow — phone full-screen forms (Concept §12, DESIGN §4.12.1 it
     expect(digitCss).toMatch(/\.digit-input\s*\{[^}]*min-width:\s*0/);
   });
 
-  it('the resume card (the same join screen) carries the identical treatment', () => {
-    // tz12-02: the join entry (the resume card + JoinFlow) lives on
-    // /income — the route file re-homed from routes/+page.svelte.
-    const phone = phoneBlock(source('src/routes/income/+page.svelte'));
+  it('the resume card is REMOVED (Concept §47): the phone treatment lives only on the .join wrapper', () => {
+    // tz12-02: the join entry (JoinFlow) lives on /income — the route
+    // file re-homed from routes/+page.svelte.
+    const src = source('src/routes/income/+page.svelte');
+    const phone = phoneBlock(src);
     expect(phone).toMatch(/\.join\s*\{[^}]*max-width:\s*none/);
     expect(phone).toMatch(/\.join\s*\{[^}]*padding:\s*0/);
-    expect(phone).toMatch(/\.resume\s*\{[^}]*border-radius:\s*0/);
-    expect(phone).toMatch(/\.resume\s*\{[^}]*clip-path:\s*none/);
-    expect(phone).toMatch(/\.resume\s*\{[^}]*flex:\s*1/);
+    // Concept §47 (2026-11-23): no stored-session resume variant on the
+    // entry surface — the resume card markup/styles/i18n keys are gone.
+    expect(src).not.toMatch(/\.resume\b/);
+    expect(src).not.toMatch(/join\.resume\./);
+    // Tokens only (sweep discipline).
     expect(phone).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 
   it('desktop is untouched: the overrides exist only inside the phone query', () => {
-    for (const file of [
-      'src/lib/components/join/JoinFlow.svelte',
-      // tz12-02: the join entry (the resume card + JoinFlow) lives on
-      // /income — the route file re-homed from routes/+page.svelte.
-      'src/routes/income/+page.svelte'
-    ]) {
+    // Concept §47 (2026-11-23): the resume card (and its border-radius/clip
+    // overrides) is GONE from the route file — the page keeps only the
+    // wrapper's max-width override; the JoinFlow card keeps its own
+    // chrome-dropping overrides in the component file.
+    const phoneOverrides: Record<string, string[]> = {
+      'src/lib/components/join/JoinFlow.svelte': [
+        'border-radius: 0',
+        'clip-path: none',
+        'max-width: none'
+      ],
+      // tz12-02: the join entry (JoinFlow) lives on /income — the route
+      // file re-homed from routes/+page.svelte.
+      'src/routes/income/+page.svelte': ['max-width: none']
+    };
+    for (const [file, decls] of Object.entries(phoneOverrides)) {
       let css = source(file);
       // tz11-08 (task 109): the persona-scoped :global wrapper rule is the
       // Concept §25 conduit — the page-level .join wrapper is bounded and
@@ -895,13 +1111,13 @@ describe('JoinFlow — phone full-screen forms (Concept §12, DESIGN §4.12.1 it
       expect(css, file).toMatch(/@media \(min-width:\s*720px\)/);
       // Each chrome-dropping declaration appears exactly once in the file —
       // inside the 719px query, never in the base (desktop) rules.
-      for (const decl of ['border-radius: 0', 'clip-path: none', 'max-width: none']) {
+      for (const decl of decls) {
         expect(css.split(decl).length - 1, `${file}: "${decl}"`).toBe(1);
       }
       const base = baseCss(css);
-      expect(base).not.toContain('border-radius: 0');
-      expect(base).not.toContain('clip-path: none');
-      expect(base).not.toContain('max-width: none');
+      for (const decl of decls) {
+        expect(base).not.toContain(decl);
+      }
     }
   });
 });
@@ -953,7 +1169,7 @@ describe('JoinFlow — §23.2 5.9 fade on every creation step boundary (owner am
   it('behavior: after the creation 2xx the card takes the leaving fade, then the flow enters /room', async () => {
     mockedApi.createRoomUser.mockResolvedValue(user('0xme', 'Я'));
     // Seeded mount (tz12-02): the create route opens the flow IN the
-    // persona step (room param + ?code=).
+    // persona step (the income-code param, resolved on mount §4.34.D).
     render(JoinFlow, { props: SEEDED });
     await screen.findByText(ru['join.wizard.intro.title']);
     await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
@@ -1088,7 +1304,7 @@ describe('JoinFlow — creation-chat geometry (tz11-06 bug round, task 107 + Con
 
   it('structure: in the rendered persona step the composer follows the log — the input bar cannot cover the newest message', async () => {
     // Seeded mount (tz12-02): the create route opens the flow IN the
-    // persona step (room param + ?code=).
+    // persona step (the income-code param, resolved on mount §4.34.D).
     render(JoinFlow, { props: SEEDED });
     await screen.findByText(ru['join.wizard.intro.title']);
     await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
@@ -1122,7 +1338,7 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
    *      exactly as routes/+layout.svelte + routes/income/+page.svelte
    *      (tz12-02: the join entry route) render it;
    *   3. the real JoinFlow is mounted into that fixture — the persona
-   *      step via the /income/[room]/create seed (the entry steps via the
+   *      step via the /income/[income_code]/create seed (the entry steps via the
    *      unseeded /income mount);
    *   4. the COMPUTED cascade of the actual rendered chain is asserted
    *      (happy-dom resolves stylesheet cascade incl. :has()).
@@ -1187,7 +1403,7 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
 
   function seedShellAndWrapper(): HTMLElement {
     // The exact rendered ancestor chain of JoinFlow on /income and
-    // /income/[room]/create (tz12-02 re-homing)
+    // /income/[income_code]/create (tz12-02 re-homing)
     // (routes/+layout.svelte → routes/income/+page.svelte → JoinFlow).
     shell = document.createElement('div');
     shell.className = 'app-shell';
@@ -1214,7 +1430,7 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
   it('the computed chain from div.log to the app-shell is a bounded flex column ending in the log as the single scroll container (tz11-10: the two-region root is the DEFINITE 100dvh wrapper height)', async () => {
     injectCascadeFixtureCss();
     // TWO MOUNTS (tz12-02): the off-state (the code step on /income) and
-    // the on-state (the persona step seeded on /income/[room]/create) —
+    // the on-state (the persona step seeded on /income/[income_code]/create) —
     // the room intro's "Create profile" navigates to the create route, so
     // one mount can no longer hold both steps.
     const wrapper = seedShellAndWrapper();
@@ -1236,7 +1452,8 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
     cleanup();
     (shell as HTMLElement).remove();
 
-    // ON-state mount: the create route's seed (room param + ?code=) opens
+    // ON-state mount: the create route's seed (the income-code param,
+    // §4.34.D) opens
     // the flow IN the persona step (the creation chat).
     seedShellAndWrapper();
     render(JoinFlow, { props: SEEDED, target: shell!.querySelector('.join') as HTMLElement });
@@ -1308,7 +1525,7 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
 
     // THE CHAIN: every flex-item link from the log up to (exclusive) the
     // shell is a flex column with min-height: 0 — one unbounded link is
-    // the recurrence bug; the shell provides the 100dvh definite height.
+    // the recurrence bug; the shell provides the definite height.
     const bounded: HTMLElement[] = [];
     for (let el = pLog.parentElement; el && el !== pShell; el = el.parentElement) {
       bounded.push(el);
@@ -1323,7 +1540,14 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
     const shellCs = getComputedStyle(pShell);
     expect(shellCs.display).toBe('flex');
     expect(shellCs.flexDirection).toBe('column');
-    expect(shellCs.minHeight).toContain('dvh');
+    // §44.4.2 iOS correction (DESIGN §4.31.2): the persona gate LIFTS the
+    // shell's min-height (0) — the layout's 100dvh pin would keep the
+    // shell un-shrunk on iOS (height = max(min-height, height), and the
+    // iOS layout viewport does not resize on keyboard); the definite
+    // height now comes from the gate's height trio (100vh fallback +
+    // 100dvh + the --app-height px).
+    expect(shellCs.minHeight).toBe('0');
+    expect(shellCs.height).toMatch(/px/);
 
     // THE LOG is the scroll container: overflow-y engages on it and on
     // NOTHING else in the whole rendered chain.
@@ -1352,7 +1576,7 @@ describe('JoinFlow — creation-chat REAL-GEOMETRY cascade contract (tz11-08, ta
     injectCascadeFixtureCss();
     const wrapper = seedShellAndWrapper();
     // Seeded mount (tz12-02): the create route opens the flow IN the
-    // persona step (room param + ?code=).
+    // persona step (the income-code param, resolved on mount §4.34.D).
     render(JoinFlow, { props: SEEDED, target: wrapper });
     await screen.findByText(ru['join.wizard.intro.title']);
     await screen.getByRole('button', { name: ru['join.wizard.intro.start'] }).click();
@@ -1579,7 +1803,7 @@ describe('JoinFlow — viewport-bounded main block (tz11-13, task 114, Concept �
     shell.appendChild(wrapper);
     document.body.appendChild(shell);
     // Seeded mount (tz12-02): the create route opens the flow IN the
-    // persona step (room param + ?code=).
+    // persona step (the income-code param, resolved on mount §4.34.D).
     render(JoinFlow, { props: SEEDED, target: wrapper });
 
     // Drive to the THEMES step — the real tall multi-button form
@@ -1942,13 +2166,11 @@ describe('JoinFlow — unified three-block form shell (Concept §30, DESIGN §4.
     expect(middle.querySelector('.shell-footer')).toBeNull();
   });
 
-  it('behavior (room intro): the footer holds BOTH create-profile and change-code actions (the 1..n footer region), the header carries the language switch', async () => {
-    mockedResolve.mockResolvedValue({ roomAddress: room.address });
-    mockedApi.getRoom.mockResolvedValue(room);
-    mockedApi.listRoomUsers.mockResolvedValue([]);
-    const { container } = render(JoinFlow, { props: {} });
-    pasteCode('123456');
-    await submitViaCta();
+  it('behavior (room intro, the §4.34.C intro route): the footer holds BOTH create-profile and change-code actions (the 1..n footer region), the header carries the language switch', async () => {
+    // The intro route mode: the flow mounts AT the room (intro) step and
+    // resolves the param code on mount (§4.34.C) — the in-card Step-2 swap
+    // on /income is superseded by the route map (§4.34.A).
+    const { container } = render(JoinFlow, { props: { introParam: '123456' } });
     await screen.findByText(room.name);
     // The 1..n footer: create profile FIRST, change code second.
     const footer = container.querySelector('.shell-footer') as HTMLElement;

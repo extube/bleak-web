@@ -41,10 +41,14 @@
   });
 
   // Pre-room screens (tz12-02 re-homing): the landing `/`, the join
-  // entry `/income` and the creation route `/income/[room]/create` —
-  // no tab bar there.
+  // entry `/income` and the creation route `/income/[income_code]/create` —
+  // no tab bar there. TZ13-02 (DESIGN rev. 4 §3.7.1 AC 1): the host tree
+  // (`/host…`) renders no tab bar either — the entry route + the rev. 4
+  // panel/invite/QR routes (§3.7 route tree chrome).
   const isJoin = $derived(
-    page.url.pathname === '/' || page.url.pathname.startsWith('/income')
+    page.url.pathname === '/' ||
+      page.url.pathname.startsWith('/income') ||
+      page.url.pathname.startsWith('/host')
   );
 </script>
 

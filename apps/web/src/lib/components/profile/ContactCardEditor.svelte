@@ -1,129 +1,90 @@
 <script lang="ts">
   /**
-   * ContactCardEditor (DESIGN §4.13.3 item 1, Concept §13.1.3): the LOCAL
-   * contact-card field in /profile/settings — one free-text string
-   * (≤255 symbols, e.g. "telegram: @handle") persisted per room|user in
-   * `bleak.contactCard` (stores/contactCard.ts). There is NO backend user
-   * field — the save is a purely local write; the card content is what the
-   * dialog's share slide sends as POST /api/contact content.
+   * ContactCardEditor — the contact-card FIELD GROUP of /profile/edit
+   * (DESIGN §4.29.C.3; the local field per §4.13.3 item 1, Concept
+   * §13.1.3). Previously the inline-swap editor of /profile/settings with
+   * its own Save/Cancel CTAs — those are retired (the route owns the ONE
+   * Save Changes, §4.29.C.4); the label (`profile.contact.edit` — reused,
+   * same string/role), the ≤255 input and the helper copy carry verbatim
+   * as ONE single-line key-value row.
+   *
+   * A purely LOCAL field: the persona's card text (≤255 symbols) is stored
+   * per room|user in `bleak.contactCard` (stores/contactCard.ts) — no
+   * backend user field, no API call on save; the card content is what the
+   * dialog's share slide composes into POST /api/contact content.
    *
    * The 255-symbol cap mirrors the server MaxContactContentLen and the
-   * tz5-01 client pre-flight; the input enforces it locally (maxLength +
-   * counter).
+   * tz5-01 client pre-flight; the input enforces it locally (maxLength;
+   * the store clamps again on save).
    */
   import { locale, translate } from '#lib/i18n/locale';
   import { MAX_CONTACT_CARD } from '#lib/stores/contactCard';
 
   interface Props {
-    /** The persona's stored card text (prefill; may be empty). */
-    initial?: string;
-    onsave?: (text: string) => void;
-    oncancel?: () => void;
+    /** The card text (bindable — the page persists it on its save). */
+    text?: string;
   }
 
-  let { initial = '', onsave, oncancel }: Props = $props();
-
-  let text = $state(initial);
-
-  const counter = $derived(
-    translate($locale, 'profile.greeting.counter', { n: String(text.length) })
-  );
+  let { text = $bindable('') }: Props = $props();
 </script>
 
-<section class="editor pixel-corners">
-  <h2>{translate($locale, 'profile.contact.edit')}</h2>
-  <p class="caption">{translate($locale, 'profile.contact.note')}</p>
-
-  <label class="field">
-    <span class="field-label">{translate($locale, 'profile.contact.label')}</span>
+<div class="group card pixel-corners">
+  <!-- Key-value row (C.3): the reused label left, the value input right. -->
+  <div class="kv-row">
+    <label class="kv-label" for="contact-card-text">{translate($locale, 'profile.contact.edit')}</label>
     <!-- maxlength is the client-side cap; the store clamps again on save -->
-    <input maxlength={MAX_CONTACT_CARD} bind:value={text} />
-  </label>
-  <span class="counter">{counter}</span>
-
-  <div class="actions">
-    <button type="button" class="ghost" onclick={() => oncancel?.()}>
-      {translate($locale, 'common.cancel')}
-    </button>
-    <button type="button" class="cta" onclick={() => onsave?.(text)}>
-      {translate($locale, 'common.save')}
-    </button>
+    <input id="contact-card-text" maxlength={MAX_CONTACT_CARD} bind:value={text} />
   </div>
-</section>
+  <p class="caption">{translate($locale, 'profile.contact.note')}</p>
+</div>
 
 <style>
-  .editor {
+  .card {
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
+    gap: var(--space-2);
     background: var(--color-surface);
     border-radius: var(--radius-lg);
-    padding: var(--space-5);
-    text-align: left;
+    padding: var(--space-4) var(--space-5);
   }
-  .editor h2 {
-    font-size: 24px;
+  .kv-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+  .kv-label {
+    color: var(--color-text-muted);
+    font-size: 14px;
+    /* Concept §50 shared kv-row spec: the SAME shared label width as the
+     * name row (PersonaEditor) — the value inputs align across the two
+     * groups at one common left edge, one line, no ragged offsets. */
+    flex: 0 0 var(--kv-label-width, 148px);
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  input {
+    flex: 1;
+    min-width: 0;
+    min-height: var(--touch-target);
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    color: var(--color-text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    text-align: right;
+    transition: color 120ms ease-out;
+  }
+  input:focus {
+    outline: none;
+    color: var(--color-accent);
   }
   .caption {
     margin: 0;
     font-size: 14px;
     color: var(--color-text-muted);
-  }
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-  .field-label {
-    font-size: 14px;
-    color: var(--color-text-muted);
-  }
-  input {
-    min-height: var(--touch-target);
-    padding: 0 var(--space-4);
-    background: transparent;
-    border: 1px solid var(--color-text-disabled-strong);
-    border-radius: var(--radius-md);
-    color: var(--color-text);
-    font-family: var(--font-body);
-    font-size: 14px;
-  }
-  input:focus {
-    outline: none;
-    border-color: var(--color-accent);
-  }
-  .counter {
-    font-size: 12px;
-    color: var(--color-text-muted);
-    align-self: flex-end;
-    margin-top: calc(var(--space-2) * -1);
-  }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--space-3);
-    margin-top: var(--space-2);
-  }
-  .ghost,
-  .cta {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    min-height: var(--touch-target);
-    padding: 0 var(--space-5);
-    border-radius: var(--radius-pill);
-    font-weight: 600;
-    font-size: 14px;
-    transition: opacity 120ms ease-out;
-  }
-  .ghost {
-    background: transparent;
-    border: 1px solid var(--color-text-disabled-strong);
-    color: var(--color-text);
-  }
-  .cta {
-    background: var(--color-accent);
-    color: var(--color-accent-ink);
-    border: none;
   }
 </style>

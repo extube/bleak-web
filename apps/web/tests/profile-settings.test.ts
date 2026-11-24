@@ -1,20 +1,16 @@
-/** /profile/settings tests (Concept §8.1.3, DESIGN §4.9.3; persona edits per
- * Concept §10.1.4 / DESIGN §4.11.4): the settings block moved off /profile
- * onto this sub-page — a pure logic move, so the moved suites assert the
- * same behaviors against the new route: heading + rows render (RU + EN),
- * token rotation (identity + vault written only after 2xx; 403 keeps them),
- * leave room (purely local per Concept §11.1.1 / DESIGN §4.12.1: the
- * confirmation question first; clears identity + mutual code; NO server
- * delete anywhere in the exit path; the vault entry survives and the
- * return-to-event pick validates the stored token), outline-style leave
- * button (red font + red border, no filled background), back navigation,
- * and no tab bar (sub-page pattern).
- *
- * ALL persona editing lives here now (Concept §10.1.4): the persona section
- * hosts the PersonaEditor (name/public/private bio), GreetingEditor and the
- * contact-card field. §23.2 5.6: the interests picker was REMOVED —
- * interests are set at creation only (the wizard's themes); the local
- * mirror store stays the badge display source.
+/** /profile/settings tests (DESIGN §4.29.B — v3.23 list-block restyle):
+ * the settings page is APP-LEVEL ONLY now. Covered: the sub-page chrome
+ * (no tab bar, back control with the /profile fallback, the CENTERED h1
+ * «Настройки»), the ONE profile entry row → /profile/edit (AC 13; the
+ * three old persona-edit rows are GONE — the editors re-host on
+ * /profile/edit, covered by tests/profile-edit.test.ts), the Language row
+ * with the INLINE LocaleControl, token rotation (§8.1.3 untouched:
+ * identity + vault written only after 2xx; 403 keeps them), leave room
+ * (purely local per Concept §11.1.1 / DESIGN §4.12.1: the confirmation
+ * question first; clears identity + mutual code; NO server delete
+ * anywhere in the exit path; the vault entry survives), the STANDALONE
+ * full-width outline-red leave button (red font + red border, no filled
+ * background), the load-error state, and §23.2 5.6 (no interests row).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -22,7 +18,7 @@ import { join, sep } from 'node:path';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { get } from 'svelte/store';
-import { ApiError, type User } from '@bleak/api-client';
+import { ApiError, NetworkError, type User } from '@bleak/api-client';
 import { identity, saveIdentity } from '../src/lib/stores/identity';
 import { mutualCode } from '../src/lib/stores/mutualCode';
 import { tokenVault } from '../src/lib/stores/tokenVault';
@@ -41,9 +37,7 @@ vi.mock('#lib/api/client', () => ({
     putUserGreeting: vi.fn(),
     regenerateGreeting: vi.fn(),
     deleteRoomUser: vi.fn(),
-    rotateUserToken: vi.fn(),
-    addUserInterests: vi.fn(),
-    deleteUserInterests: vi.fn()
+    rotateUserToken: vi.fn()
   }
 }));
 
@@ -68,6 +62,7 @@ const mockedApi = vi.mocked(api, true);
 
 function userFixture(overrides: Partial<User> = {}): User {
   return {
+    active: true,
     address: ME,
     room: ROOM,
     name: 'Трамвайщик',
@@ -94,9 +89,8 @@ beforeEach(() => {
     JSON.stringify({ roomAddress: ROOM, userAddress: ME, token: TOKEN })
   );
   identity.set({ roomAddress: ROOM, userAddress: ME, token: TOKEN });
-  // The persona editors prefill from the persona record (mount-time fetch).
+  // The entry row prefills from the persona record (mount-time fetch).
   mockedApi.getRoomUser.mockResolvedValue(userFixture());
-  mockedApi.getUserGreeting.mockResolvedValue({ address: ME, greeting: 'Привет! Я про трамваи.' });
   mockedApi.rotateUserToken.mockResolvedValue(undefined);
   mockedApi.deleteRoomUser.mockResolvedValue(undefined);
 });
@@ -117,13 +111,11 @@ async function renderPage(): Promise<void> {
   await tick();
 }
 
-describe('settings route renders (AC: heading, locale, rows; RU + EN)', () => {
-  it('renders the heading, locale control, rotate row and leave button (RU + EN)', async () => {
+describe('settings route renders (§4.29.B.1; AC 12; RU + EN)', () => {
+  it('renders the CENTERED h1, locale control, rotate row and leave button (RU + EN)', async () => {
     const { setLocale } = await import('../src/lib/i18n/locale');
     const { en } = await import('../src/lib/i18n/en');
     await renderPage();
-    // level 1: the top-bar h1 — the section h2 now shares the same
-    // «Мой профиль» name (v2.5 copy sweep), so the level disambiguates.
     expect(screen.getByRole('heading', { level: 1, name: ru['profile.settings.title'] })).toBeTruthy();
     expect(screen.getByText(ru['common.locale'])).toBeTruthy();
     expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
@@ -138,6 +130,25 @@ describe('settings route renders (AC: heading, locale, rows; RU + EN)', () => {
     await tick();
   });
 
+  it('the h1 is CENTERED (grid [48px 1fr 48px]) with the back control in the side column', async () => {
+    await renderPage();
+    const bar = document.querySelector('.top-bar') as HTMLElement | null;
+    expect(bar).toBeTruthy();
+    // The back button and the spacer occupy the 48px side columns; the
+    // title sits centered in the middle (source-level — happy-dom
+    // evaluates no grid geometry).
+    expect(bar?.querySelector('button.back')).toBeTruthy();
+    expect(bar?.querySelector('.spacer')).toBeTruthy();
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/routes/profile/settings/+page.svelte'),
+      'utf8'
+    );
+    const grid = source.match(/\.top-bar\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(grid).toContain('grid-template-columns: var(--touch-target) 1fr var(--touch-target)');
+    const title = source.match(/\.top-bar h1\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(title).toContain('text-align: center');
+  });
+
   it('is a sub-page: no tab bar (scoped style) + back navigation falling back to /profile', async () => {
     await renderPage();
     // The /chats/[address] sub-page pattern: the tab bar is hidden while the
@@ -150,211 +161,64 @@ describe('settings route renders (AC: heading, locale, rows; RU + EN)', () => {
   });
 });
 
-describe('persona editing section (Concept §10.1.4, DESIGN §4.11.4; §23.2 5.6)', () => {
-  it('renders the persona section with the editor rows — NO interests row (§23.2 5.6: interests are creation-only)', async () => {
-    const { setLocale } = await import('../src/lib/i18n/locale');
-    const { en } = await import('../src/lib/i18n/en');
+describe('profile entry row (§4.29.B.3.1; AC 13, 17)', () => {
+  it('renders the ONE entry row → /profile/edit: 40px own avatar + name + muted address + chevron; the accessible name is profile.edit.title', async () => {
     await renderPage();
-    // level 2: the persona section h2 — shares the «Мой профиль» name with
-    // the top-bar h1 after the v2.5 copy sweep; the level disambiguates.
-    expect(screen.getByRole('heading', { level: 2, name: ru['profile.settings.persona'] })).toBeTruthy();
-    expect(screen.getByRole('button', { name: ru['profile.persona.edit'] })).toBeTruthy();
-    expect(screen.getByRole('button', { name: ru['profile.greeting.edit'] })).toBeTruthy();
-    // §23.2 5.6: the interests EDITOR row is REMOVED from the settings —
-    // the wizard's themes set the interests; the mirror stays for the badge.
+    const entry = screen.getByRole('link', { name: ru['profile.edit.title'] }) as HTMLAnchorElement;
+    expect(entry.getAttribute('href')).toBe('/profile/edit');
+    // 40px own avatar (square, accent backdrop), the name and the muted
+    // single-line address inside the row.
+    const avatar = entry.querySelector('span.frame');
+    expect(avatar).toBeTruthy();
+    expect(entry.textContent).toContain('Трамвайщик');
+    expect(entry.textContent).toContain(ME);
+    // A chevron trails the row.
+    expect(entry.querySelectorAll('svg').length).toBeGreaterThan(0);
+  });
+
+  it('the three old persona-edit rows are GONE; no interests row (§23.2 5.6; AC 17; §4.35.D supersession)', async () => {
+    await renderPage();
+    // §4.29.E.3: the editor-row keys are RETIRED from the dictionaries —
+    // the rows are gone with them (the editors re-host on /profile/edit).
+    expect(ru['profile.persona.edit' as keyof typeof ru]).toBeUndefined();
+    expect(ru['profile.greeting.edit' as keyof typeof ru]).toBeUndefined();
+    expect(ru['profile.settings.persona' as keyof typeof ru]).toBeUndefined();
     expect(screen.queryByRole('button', { name: 'Интересы' })).toBeNull();
-    // EN parity through the locale store.
-    setLocale('en');
+    // §4.35.D: the §4.29.B.2 "no toggle rows" clause is SUPERSEDED — the
+    // app now has its FIRST (and only) toggle-backed setting, the
+    // auto-handshake switch. No other toggle markup exists (the FAQ/Terms
+    // clause of B.2 still carries — nothing invented).
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/routes/profile/settings/+page.svelte'),
+      'utf8'
+    );
+    // Exactly ONE real checkbox in the markup, and it IS the switch.
+    expect(source.match(/^\s*<input\b/m)?.length ?? 0).toBe(1);
+    expect(source).toMatch(
+      /<input\s+id="auto-handshake-switch"\s+type="checkbox"\s+role="switch"/
+    );
+  });
+
+  it('a load error shows ErrorBanner + retry; a retry re-fetches the persona record', async () => {
+    mockedApi.getRoomUser.mockRejectedValueOnce(
+      new ApiError(500, '/api/room/0xroom/user/0xme', 'db locked')
+    );
+    mockedApi.getRoomUser.mockResolvedValueOnce(userFixture());
+    render(Page, { props: {} });
     await tick();
     await tick();
-    expect(screen.getByRole('heading', { level: 2, name: en['profile.settings.persona'] })).toBeTruthy();
-    expect(screen.getByRole('button', { name: en['profile.persona.edit'] })).toBeTruthy();
-    setLocale('ru');
-    await tick();
+    // The error surfaces with a retry affordance...
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect(screen.queryByRole('link', { name: ru['profile.edit.title'] })).toBeNull();
+    // ...and the retry recovers into the entry row.
+    await screen.getByRole('button', { name: ru['common.retry'] }).click();
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: ru['profile.edit.title'] })).toBeTruthy()
+    );
   });
 });
 
-describe('persona editor (AC 2, moved from /profile)', () => {
-  it('opens from the persona row, prefills from the persona record, and saves all three fields via PUT updateRoomUser', async () => {
-    mockedApi.updateRoomUser.mockResolvedValue(
-      userFixture({ name: 'Стеклодув', public_bio: 'Новое био', private_bio: 'Секрет' })
-    );
-    await renderPage();
-
-    await screen.getByRole('button', { name: ru['profile.persona.edit'] }).click();
-    await tick();
-
-    const nameInput = screen.getByLabelText(ru['join.form.name']) as HTMLInputElement;
-    expect(nameInput.value).toBe('Трамвайщик'); // prefilled from getRoomUser
-    nameInput.value = 'Стеклодув';
-    nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-    const publicInput = screen.getByLabelText(ru['join.form.public_bio']) as HTMLInputElement;
-    publicInput.value = 'Новое био';
-    publicInput.dispatchEvent(new Event('input', { bubbles: true }));
-
-    await screen.getByRole('button', { name: ru['common.save'] }).click();
-
-    await waitFor(() =>
-      expect(mockedApi.updateRoomUser).toHaveBeenCalledWith(ROOM, ME, {
-        name: 'Стеклодув',
-        public_bio: 'Новое био',
-        private_bio: 'Люблю глина и стеклодувное дело'
-      })
-    );
-    // After the save the editor returns to the settings rows with the
-    // transient «Saved» note (the badge re-fetches on /profile).
-    await waitFor(() =>
-      expect(screen.getByText(ru['profile.saved'], { exact: false })).toBeTruthy()
-    );
-    expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
-  });
-
-  it('cancel returns to the rows without a PUT', async () => {
-    await renderPage();
-    await screen.getByRole('button', { name: ru['profile.persona.edit'] }).click();
-    await screen.getByRole('button', { name: ru['common.cancel'] }).click();
-    await tick();
-    expect(mockedApi.updateRoomUser).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
-  });
-});
-
-describe('greeting editor (AC 3, 4, moved from /profile)', () => {
-  it('blocks saving when the text contains a question mark — half-width or full-width — with the rule copy', async () => {
-    await renderPage();
-    await screen.getByRole('button', { name: ru['profile.greeting.edit'] }).click();
-    await waitFor(() => expect(mockedApi.getUserGreeting).toHaveBeenCalled());
-    await tick();
-
-    const textarea = screen.getByLabelText(ru['profile.greeting.label']) as HTMLTextAreaElement;
-    textarea.value = 'Кто здесь?';
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    await tick();
-    expect((screen.getByRole('button', { name: ru['common.save'] }) as HTMLButtonElement).disabled)
-      .toBe(true);
-    expect(screen.getByText(ru['profile.greeting.no_questions'])).toBeTruthy();
-    expect(mockedApi.putUserGreeting).not.toHaveBeenCalled();
-
-    // The full-width ？ is blocked by the same rule.
-    textarea.value = '你好？';
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    await tick();
-    expect((screen.getByRole('button', { name: ru['common.save'] }) as HTMLButtonElement).disabled)
-      .toBe(true);
-  });
-
-  it('saves via PUT putUserGreeting when question-free (AC 3) and returns to the rows', async () => {
-    mockedApi.putUserGreeting.mockResolvedValue({ address: ME, greeting: 'Новый оффлайн-режим' });
-    await renderPage();
-    await screen.getByRole('button', { name: ru['profile.greeting.edit'] }).click();
-    await waitFor(() => expect(mockedApi.getUserGreeting).toHaveBeenCalled());
-    await tick();
-
-    const textarea = screen.getByLabelText(ru['profile.greeting.label']) as HTMLTextAreaElement;
-    textarea.value = 'Новый оффлайн-режим';
-    textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    await screen.getByRole('button', { name: ru['common.save'] }).click();
-
-    await waitFor(() =>
-      expect(mockedApi.putUserGreeting).toHaveBeenCalledWith(ROOM, ME, 'Новый оффлайн-режим')
-    );
-    await waitFor(() =>
-      expect(screen.getByText(ru['profile.saved'], { exact: false })).toBeTruthy()
-    );
-    expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
-  });
-
-  it('regenerate fills the editor without saving until Save (AC 4); cancel returns without a PUT', async () => {
-    mockedApi.regenerateGreeting.mockResolvedValue({
-      address: ME,
-      greeting: 'Сгенерировано из био'
-    });
-    await renderPage();
-    await screen.getByRole('button', { name: ru['profile.greeting.edit'] }).click();
-    await waitFor(() => expect(mockedApi.getUserGreeting).toHaveBeenCalled());
-    await tick();
-
-    await screen.getByRole('button', { name: ru['profile.greeting.regenerate'] }).click();
-    await waitFor(() =>
-      expect(screen.getByLabelText(ru['profile.greeting.label'])).toHaveProperty('value', 'Сгенерировано из био')
-    );
-    expect(mockedApi.putUserGreeting).not.toHaveBeenCalled();
-    // Cancel discards the regenerated text — nothing was saved.
-    await screen.getByRole('button', { name: ru['common.cancel'] }).click();
-    await tick();
-    expect(mockedApi.putUserGreeting).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
-  });
-});
-
-// §23.2 5.6 (2026-11-20 owner amendment): the interests PICKER was REMOVED
-// from the settings — interests are set at creation only (the wizard's
-// themes); the mirror store stays the badge display source. The removed
-// endpoint-driven picker tests lived here (addUserInterests/deleteUserInterests
-// toggles) and are superseded by the wizard flush tests in join-flow.test.ts.
-
-describe('contact card field (DESIGN §4.13.3 item 1 — purely local, no API)', () => {
-  it('the persona section carries the contact-card row; the editor prefills from bleak.contactCard', async () => {
-    localStorage.setItem(
-      'bleak.contactCard',
-      JSON.stringify({ '0xroom|0xme': 'telegram: @me' })
-    );
-    await renderPage();
-    expect(screen.getByRole('button', { name: ru['profile.contact.edit'] })).toBeTruthy();
-    await screen.getByRole('button', { name: ru['profile.contact.edit'] }).click();
-    await tick();
-    const input = screen.getByLabelText(ru['profile.contact.label']) as HTMLInputElement;
-    expect(input.value).toBe('telegram: @me');
-    expect(input.maxLength).toBe(255);
-    // caption + counter rendered
-    expect(screen.getByText(ru['profile.contact.note'])).toBeTruthy();
-    expect(screen.getByText('13/255')).toBeTruthy();
-  });
-
-  it('saving persists locally per room|user and returns to the rows — NO API call', async () => {
-    await renderPage();
-    await screen.getByRole('button', { name: ru['profile.contact.edit'] }).click();
-    await tick();
-    const input = screen.getByLabelText(ru['profile.contact.label']) as HTMLInputElement;
-    input.value = '  telegram: @handle  ';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    await screen.getByRole('button', { name: ru['common.save'] }).click();
-    await tick();
-    expect(JSON.parse(localStorage.getItem('bleak.contactCard') ?? '{}')).toMatchObject({
-      '0xroom|0xme': 'telegram: @handle' // trimmed by the store
-    });
-    // back to the rows with the saved flash; mockedApi untouched
-    await waitFor(() =>
-      expect(screen.getByText(ru['profile.saved'], { exact: false })).toBeTruthy()
-    );
-    expect(mockedApi.updateRoomUser).not.toHaveBeenCalled();
-    expect(mockedApi.putUserGreeting).not.toHaveBeenCalled();
-  });
-
-  it('cancel returns without changing the stored card', async () => {
-    localStorage.setItem(
-      'bleak.contactCard',
-      JSON.stringify({ '0xroom|0xme': 'telegram: @me' })
-    );
-    await renderPage();
-    await screen.getByRole('button', { name: ru['profile.contact.edit'] }).click();
-    await tick();
-    const input = screen.getByLabelText(ru['profile.contact.label']) as HTMLInputElement;
-    input.value = 'changed but not saved';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    await screen.getByRole('button', { name: ru['common.cancel'] }).click();
-    await tick();
-    expect(JSON.parse(localStorage.getItem('bleak.contactCard') ?? '{}')).toMatchObject({
-      '0xroom|0xme': 'telegram: @me'
-    });
-    expect(screen.getByRole('button', { name: ru['profile.rotate.row'] })).toBeTruthy();
-  });
-});
-
-// DESIGN §4.14.2: the §4.13.3 minimal "Shared with you" list was REMOVED
-// from the settings page — the /contacts footer tab is the PRIMARY surface
-// (tests: tests/contacts-page.test.ts).
-describe('token rotation (AC 15, moved from /profile)', () => {
+describe('token rotation (§8.1.3 — untouched; AC 15)', () => {
   function seedVault(): void {
     localStorage.setItem(
       'bleak.tokenVault',
@@ -364,6 +228,19 @@ describe('token rotation (AC 15, moved from /profile)', () => {
       ])
     );
   }
+
+  it('the row opens the ConfirmDialog with the other-device lockout copy; the key glyph leads the row', async () => {
+    await renderPage();
+    await screen.getByRole('button', { name: ru['profile.rotate.row'] }).click();
+    await tick();
+    expect(screen.getByText(ru['profile.rotate.body'])).toBeTruthy();
+    // The row carries the `key` glyph (§4.29.B.3.2, D.4).
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/routes/profile/settings/+page.svelte'),
+      'utf8'
+    );
+    expect(source).toContain('PixelIcon name="key"');
+  });
 
   it('rotate updates identity + the matching vault entry IN PLACE, only after the 2xx (AC 15)', async () => {
     seedVault();
@@ -404,7 +281,7 @@ describe('token rotation (AC 15, moved from /profile)', () => {
   });
 });
 
-describe('leave room (AC 7, moved from /profile; Concept §11.1.1 local-only exit)', () => {
+describe('leave room (§4.29.B.3.3; AC 16; Concept §11.1.1 local-only exit)', () => {
   function seedVault(): void {
     localStorage.setItem(
       'bleak.tokenVault',
@@ -473,10 +350,10 @@ describe('leave room (AC 7, moved from /profile; Concept §11.1.1 local-only exi
 });
 
 /**
- * Outline-style leave (Concept §8.1.3, DESIGN §4.9.3): the exit-room action
- * renders red font + red border ONLY on the transparent surface — no filled
- * red background (the v2.1 §4.8.4 filled style is retired). tokens.css is
- * parsed as the palette source of truth, same approach as
+ * Outline-style leave (§4.29.B.3.3; Concept §8.1.3, DESIGN §4.9.3): the
+ * STANDALONE bottom button renders red font + red border ONLY on the
+ * transparent surface — no filled red background (§7.1.6 roles verbatim).
+ * tokens.css is parsed as the palette source of truth, same approach as
  * tests/bubble-contrast.test.ts.
  */
 const WEB_ROOT = process.cwd().endsWith(`${sep}apps${sep}web`)
@@ -509,22 +386,29 @@ function contrast(fg: string, bg: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-describe('outline-style leave button (Concept §8.1.3, DESIGN §4.9.3)', () => {
-  it('the exit button is red font + red border on a transparent background — NO filled red', () => {
+describe('outline-style leave button (§4.29.B.3.3; Concept §8.1.3, DESIGN §4.9.3)', () => {
+  it('the exit button is a STANDALONE full-width bottom button — red font + red border on a transparent background, NO filled red', () => {
     // tokens.css defines --color-danger: #c53030 (v2.1 §4.8.4 token, unchanged)
     // and the font-role companion --color-danger-text: #e05252 (architect
     // consult on the v2.2 outline style).
     expect(TOKENS_CSS).toMatch(/--color-danger:\s*#c53030\s*;/);
     expect(TOKENS_CSS).toMatch(/--color-danger-text:\s*#e05252\s*;/);
-    // The standalone .leave rule (not the shared .rotate/.leave one) wires
-    // the border role to --color-danger and the font role to
-    // --color-danger-text, over a transparent background (no fill).
+    // The standalone .leave rule (NOT inside a list block) wires the border
+    // role to --color-danger and the font role to --color-danger-text, over
+    // a transparent background (no fill).
     const leaveBlocks = [...PAGE_SOURCE.matchAll(/\.leave\s*\{[^}]*\}/g)].map((m) => m[0]);
     const outline = leaveBlocks.find((block) => block.includes('var(--color-danger'));
     expect(outline, 'standalone outline-style .leave rule').toBeTruthy();
-    expect(outline).toMatch(/border-color:\s*var\(--color-danger\)/);
+    expect(outline).toMatch(/border:\s*1px solid var\(--color-danger\)/);
     expect(outline).toMatch(/(?<!border-)color:\s*var\(--color-danger-text\)/);
     expect(outline).not.toMatch(/background:\s*var\(--color-danger\)/);
+    expect(outline).toMatch(/background:\s*transparent/);
+    expect(outline).toMatch(/border-radius:\s*var\(--radius-pill\)/);
+    // Standalone placement: the button lives BELOW the blocks at the page
+    // bottom — the markup order is blocks first, leave last.
+    const lastBlockIndex = PAGE_SOURCE.lastIndexOf('class="block"');
+    const leaveIndex = PAGE_SOURCE.indexOf('class="leave"');
+    expect(leaveIndex).toBeGreaterThan(lastBlockIndex);
   });
 
   it('numeric contrast — font #e05252 on the surface ≥4.5:1 AA; border #c53030 on the surface ≥3:1 non-text', () => {
@@ -535,5 +419,181 @@ describe('outline-style leave button (Concept §8.1.3, DESIGN §4.9.3)', () => {
     // WCAG 1.4.11 non-text ≥3:1 holds (the 3.43 value recorded here
     // supersedes the earlier 4.5 note; see tokens.css lineage comment).
     expect(contrast('#c53030', '#101213')).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Auto-handshake toggle row (Concept §49, DESIGN §4.35.C): the app's FIRST
+// real toggle-backed setting — a native checkbox with role="switch", seeded
+// from the §4.29.B.5 mount fetch, optimistic PUT { active } with
+// revert-on-error, no «Saved» flash (the switch IS the feedback).
+// ---------------------------------------------------------------------------
+
+describe('auto-handshake toggle row (§4.35.C)', () => {
+  it('Block 2 opens with the toggle row labeled EXACTLY EN/RU (adopted wording, parity; associated via label[for])', async () => {
+    const { setLocale } = await import('../src/lib/i18n/locale');
+    const { en } = await import('../src/lib/i18n/en');
+    await renderPage();
+    const sw = screen.getByRole('switch') as HTMLInputElement;
+    expect(sw.tagName).toBe('INPUT');
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    const label = document.querySelector('label[for="auto-handshake-switch"]');
+    expect(label?.textContent).toBe(ru['profile.auto_handshake.row']);
+    // EN parity: the same row re-renders through the locale store.
+    setLocale('en');
+    await tick();
+    await tick();
+    expect(document.querySelector('label[for="auto-handshake-switch"]')?.textContent).toBe(
+      en['profile.auto_handshake.row']
+    );
+    setLocale('ru');
+    await tick();
+  });
+
+  it('the toggle row is the FIRST row of Block 2 — before the Language row, the rotation row stays LAST with its lines under it (§4.35.C)', () => {
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/routes/profile/settings/+page.svelte'),
+      'utf8'
+    );
+    const section = source.match(/<section class="block"[\s\S]*?<\/section>/)?.[0] ?? '';
+    expect(section).toContain('toggle-row');
+    expect(section.indexOf('toggle-row')).toBeLessThan(
+      section.indexOf("translate($locale, 'common.locale')")
+    );
+    expect(section.indexOf('rotate-row')).toBeGreaterThan(
+      section.indexOf("translate($locale, 'common.locale')")
+    );
+    expect(section.indexOf('rotated-flash')).toBeGreaterThan(section.indexOf('rotate-row'));
+  });
+
+  it('the switch seeds from the §4.29.B.5 mount fetch — true AND false both render (aria-checked mirrors the server state)', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(userFixture({ active: false }));
+    await renderPage();
+    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('false');
+    // No extra fetch, no poller: the mount fetch is the seed source.
+    const calls = mockedApi.getRoomUser.mock.calls.length;
+    expect(calls).toBe(1);
+  });
+
+  it('while the persona record loads the control is DISABLED — no fake default', async () => {
+    mockedApi.getRoomUser.mockReturnValue(new Promise(() => undefined));
+    render(Page, { props: {} });
+    await tick();
+    await tick();
+    const sw = screen.getByRole('switch') as HTMLInputElement;
+    expect(sw.disabled).toBe(true);
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('toggling issues updateRoomUser with the payload { active: bool } and NOTHING else; success = the state stands (no flash)', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(userFixture({ active: false }));
+    mockedApi.updateRoomUser.mockResolvedValue(userFixture({ active: true }));
+    await renderPage();
+    const sw = screen.getByRole('switch') as HTMLInputElement;
+    await sw.click();
+    await waitFor(() => expect(mockedApi.updateRoomUser).toHaveBeenCalledTimes(1));
+    expect(mockedApi.updateRoomUser).toHaveBeenCalledWith(ROOM, ME, { active: true });
+    for (const call of mockedApi.updateRoomUser.mock.calls) {
+      const body = call[2] as Record<string, unknown>;
+      expect(Object.keys(body)).toEqual(['active']);
+    }
+    // The optimistic state stands and mirrors the new server truth.
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    // No «Saved» flash for this row — the switch IS the feedback.
+    expect(screen.queryByText(ru['profile.rotate.done'])).toBeNull();
+  });
+
+  it('while the toggle PUT is in flight the control is disabled (double-toggle impossible)', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(userFixture({ active: false }));
+    let resolvePut: (u: User) => void = () => undefined;
+    mockedApi.updateRoomUser.mockReturnValue(
+      new Promise<User>((resolve) => (resolvePut = resolve))
+    );
+    await renderPage();
+    const sw = screen.getByRole('switch') as HTMLInputElement;
+    await sw.click();
+    await tick();
+    expect(sw.disabled).toBe(true);
+    resolvePut(userFixture({ active: true }));
+    await waitFor(() => expect(sw.disabled).toBe(false));
+  });
+
+  it('a failed toggle renders the inline role="alert" line, REVERTS the switch to the pre-toggle server truth, and a re-toggle re-issues the PUT', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(userFixture({ active: false }));
+    mockedApi.updateRoomUser
+      .mockRejectedValueOnce(new ApiError(500, '/api/room/0xroom/user/0xme', 'db locked'))
+      .mockResolvedValueOnce(userFixture({ active: true }));
+    await renderPage();
+    const sw = screen.getByRole('switch') as HTMLInputElement;
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    await sw.click();
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect(screen.getByRole('alert').textContent).toContain('db locked');
+    // Reverted to the pre-toggle server truth — no stale fake state.
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    // A re-toggle after the failure re-issues the PUT.
+    await sw.click();
+    await waitFor(() => expect(mockedApi.updateRoomUser).toHaveBeenCalledTimes(2));
+    expect(mockedApi.updateRoomUser).toHaveBeenLastCalledWith(ROOM, ME, { active: true });
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    // The error line cleared on the successful re-toggle.
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('a NetworkError maps the inline line to common.error.network (revert stands)', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(userFixture({ active: true }));
+    mockedApi.updateRoomUser.mockRejectedValueOnce(
+      new NetworkError('/api/room/0xroom/user/0xme', new Error('offline'))
+    );
+    await renderPage();
+    await (screen.getByRole('switch') as HTMLInputElement).click();
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+    expect(screen.getByRole('alert').textContent).toBe(ru['common.error.network']);
+    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('a 401 goes through the §2.8 global gate — NEVER a local error line', async () => {
+    mockedApi.getRoomUser.mockResolvedValue(userFixture({ active: true }));
+    mockedApi.updateRoomUser.mockRejectedValueOnce(
+      new ApiError(401, '/api/room/0xroom/user/0xme', 'invalid token')
+    );
+    await renderPage();
+    await (screen.getByRole('switch') as HTMLInputElement).click();
+    await waitFor(() =>
+      expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true')
+    );
+    // The state reverted but no inline alert rendered for the gate case.
+    await tick();
+    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('the control is a real checkbox with role="switch" — 48px hit target, accent :focus-visible outline, instant under reduced motion (source-level)', () => {
+    const source = readFileSync(
+      join(WEB_ROOT, 'src/routes/profile/settings/+page.svelte'),
+      'utf8'
+    );
+    expect(source).toMatch(
+      /<input\s+id="auto-handshake-switch"\s+type="checkbox"\s+role="switch"/
+    );
+    const sw = source.match(/\.switch\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(sw).toContain('width: var(--touch-target)');
+    expect(sw).toContain('height: var(--touch-target)');
+    expect(sw).toContain('appearance: none');
+    // ON accent track/accent-ink knob; OFF transparent/disabled-strong/muted.
+    expect(source).toMatch(/\.switch:checked::before\s*\{[^}]*var\(--color-accent\)/);
+    expect(source).toMatch(/\.switch:checked::after\s*\{[^}]*var\(--color-accent-ink\)/);
+    expect(source).toMatch(/\.switch::before\s*\{[^}]*var\(--color-text-disabled-strong\)/);
+    expect(source).toMatch(/\.switch::after\s*\{[^}]*var\(--color-text-muted\)/);
+    // The pill stays smooth — never .pixel-corners on the control.
+    expect(source).not.toMatch(/class="switch[^"]*pixel-corners/);
+    const focus = source.match(/\.switch:focus-visible\s*\{[\s\S]*?\}/)?.[0] ?? '';
+    expect(focus).toContain('var(--color-accent)');
+    const motion = source.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    expect(motion).toContain('.switch::before');
+    expect(motion).toContain('.switch::after');
+    // Tokens only, no raw hex (sweep discipline).
+    const block = source.slice(source.indexOf('.switch {'), source.indexOf('@media (min-width: 720px)'));
+    expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 });

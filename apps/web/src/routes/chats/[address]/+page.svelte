@@ -37,7 +37,7 @@
   import { ApiError, NetworkError, type Chat, type Message, type Summary, type User } from '@bleak/api-client';
   import { identity, initIdentity } from '#lib/stores/identity';
   import { requireIdentityOrRedirect } from '#lib/nav/guard';
-  import { api, apiRaw, HOST_RESET_KEY } from '#lib/api/client';
+  import { api, apiRaw, HOST_NOTICE_KEY } from '#lib/api/client';
   import { hostRoom, clearHostRoom } from '#lib/stores/hostSession';
   import { Poller } from '#lib/polling/poller';
   import {
@@ -132,7 +132,7 @@
   // gate. A successful fallback engages host-view mode for the page
   // session: subsequent ticks go straight to the room token (never
   // re-tripping the attendee gate). A host-context 401/403 there replicates
-  // the hostApi gate (clear `bleak.hostRoom` + `bleak.hostReset` flag) and
+  // the hostApi gate (clear `bleak.hostRoom` + `bleak.hostNotice` flag) and
   // renders the error state — it NEVER touches the attendee identity.
   // Without a stored room token a 401 is NOT caught: the §2.8 global gate
   // applies (identity cleared, redirect to `/`).
@@ -146,7 +146,7 @@
   function hostReset(): void {
     clearHostRoom();
     try {
-      sessionStorage.setItem(HOST_RESET_KEY, '1');
+      sessionStorage.setItem(HOST_NOTICE_KEY, '1');
     } catch {
       /* storage unavailable — the console notice is best-effort */
     }

@@ -5,6 +5,12 @@ chain: `docs/Concept.md` (incl. §1c owner rulings, backend TODO ledger) →
 `docs/ARCHITECTURE.md` (merged) → `docs/DESIGN.md` **revision 2** (owner-
 approved 2026-11-14) → **this document**.
 
+> **Document map (dated pointer note, 2026-11-24):** Part I (§1–§7) = the v1
+> build loop (delivered); Part II (§8) = the v2 credentials build loop
+> (delivered); **Part III (§9, appended 2026-11-24)** = the host admin panel
+> build loop (Concept §54 / DESIGN rev. 4) — the newest part at the end of the
+> file is the active loop.
+
 **What TZ is:** the ordered, worker-sized implementation plan for v1. DESIGN §3
 owns the *what* (per-page specs + 100 acceptance criteria); ARCHITECTURE owns
 the *how* (stack, boundaries, polling, tokens); TZ owns the *in what order, by
@@ -688,6 +694,15 @@ hashes via `open-feature.sh` with `tz-section` pointing back here.*
 ---
 
 # Part II — v2 credentials build loop (TZ pass 2, architect `81037a13`, 2026-11-15)
+
+> **Supersession note (2026-11-24, Part III):** the host slice of **TZ2-07
+> Part B** (the rev. 3 single-page console, delivered) is **superseded by
+> Part III's `tz13` route-tree round** (Concept §54 / DESIGN rev. 4
+> §3.7.1–§3.7.5). Its delivered code is reworked by TZ13-02/TZ13-03/TZ13-04;
+> the old host tasks (TZ-09, TZ2-11, TZ2-07's host half) are **not reopened**
+> — the process opens fresh `tz13-*` cards. The pre-authorized `tz2-07a`
+> follow-up (flag 6.9a, rule B) is unchanged and remains the only
+> backend-gated UX piece (§9.4).
 
 > **Status note:** Part I (§1–§7) is the v1 TZ — **all v1 tasks TZ-01…TZ-10
 > are delivered and closed** (v1 shipped 2026-11-15, owner ran it). This part
@@ -1516,5 +1531,647 @@ token-budget policy added 2026-11-16 by owner directive (recorded inline
 by the concept/devops agent). The process agent owns the v2 build loop;
 per-task sessions get their own hashes via `open-feature.sh` with
 `tz-section` pointing at the `tz2-NN` references above.*
+
+---
+
+# Part III — host admin panel build loop (TZ pass 3, architect `81037a13`, 2026-11-24)
+
+> **Status note:** Part I (§1–§7, delivered) and Part II (§8, delivered) are
+> closed records. This part extends the document with the build loop for the
+> owner-approved **host admin panel** (Concept **§54**, 2026-11-24; DESIGN
+> **rev. 4** §3.7.1–§3.7.5, owner-approved as-is; merge mode **default
+> per-feature approval** — worker `ready-for-merge` handovers wait for the
+> owner's OK relayed via concept, the process merges squash-only). **Do not
+> regress what v1/v2 delivered:** every task touches only what DESIGN rev. 4
+> assigns to it; unmentioned behavior must keep passing its standing
+> criteria. The delivered rev. 3 host console (TZ2-07 Part B) is the
+> **rewritten codebase** this round replaces — see the Part II supersession
+> note.
+>
+> **Owner ratifications encoded here (2026-11-24, stage gate cleared):**
+> (a) **F9 as designed** — `language`/`max_user` render read-only with a
+> hint; editable controls stay backend-dependency-gated (**no backend
+> changes this round**); (b) **F11 as designed** — log-in asks room address
+> + room token, with the bounded public-list address finder (concurrency 4,
+> cap 25, stop on first 200); (c) **F10 stands as designed** — the room
+> token is sent on `PUT /api/room/{address}` per §54.1; server-enforcement
+> confirmation is a backend-dependency note (§9.4), not a client task. The
+> F9/F10 swagger gaps are recorded as §8.4-style backend-dependency notes,
+> referencing the §54.5 ledger (flag 6.9a / `tz2-07a` pre-authorization).
+
+Authority chain: `docs/Concept.md` **§54** (owner-approved 2026-11-24, hard
+ruling: no backend changes, rules A–D pre-decided) → `docs/ARCHITECTURE.md`
+(§2.2/§5/§10.3/§10.9; rev. 4 amendments implied are DESIGN §6.15's list) →
+`docs/DESIGN.md` **rev. 4** (§3.7.1–§3.7.5 = 58 acceptance criteria) →
+**Part III**. Format follows Part II: each task = **one worker instance =
+one branch `feature/<hash>-<slug>` = one task card** (`open-feature.sh
+<slug>`, `tz-section` = the `tz13-NN` reference below); inherited
+acceptance criteria are listed **verbatim by number** — the worker reads the
+referenced DESIGN rev. 4 section for the full criterion text.
+
+**Delivered plumbing (audit 2026-11-24, no new task needed):** the
+api-client already carries every endpoint this round uses — `listRooms`,
+`listInvites` (unwraps the `{ invites: […] }` wrapper), `mintInvite`,
+`revokeInvite`, `rotateRoomToken`, `updateRoom`, `deleteRoom`,
+`listChatsOfRoomUser`, `listRoomUserChatMessages`, `kickoffChat`,
+`clearChatHistory`, `createRoom` (creation-token header), `getRoom`,
+`listRoomUsers`, `listHandshakesOfUser` (persona-token-only — never called
+by host UI, rule B). The web layer already carries `hostApi`
+(auto-injection + host-context 401/403 gate) and the `bleak.hostRoom` store.
+The round is **routes + components + stats engine + ledger only**.
+
+## 9. Host admin panel work breakdown (build order)
+
+### 9.1 Task table
+
+| # | Task (`tz-section`) | Slug (branch suffix) | Size | Depends on | DESIGN rev. 4 § | Inherited ACs |
+| --- | --- | --- | --- | --- | --- | --- |
+| TZ13-01 | host-tree foundations: i18n +63 keys, rule-C invite ledger store, shared `InviteQr` (uqr extraction), notice-key rename | `host-tree-foundations` | S | — | 4.7 (rev. 4 additions) | — |
+| TZ13-02 | `/host` entry: create / log-in / auto-resume probe / address finder | `host-entry` | M | TZ13-01 | 3.7.1 (+2.8) | §3.7.1 1–12 (12) |
+| TZ13-03 | `/host/[room_address]` panel: members + drill-down + rule-D locked row + settings/rotation/delete, **and** the rule-A statistics engine + `BucketChart` | `host-panel-stats` | XL | TZ13-01 | 3.7.2 + 3.7.5 (+2.2) | §3.7.2 1–15 + §3.7.5 1–12 (27) |
+| TZ13-04 | `/host/[room_address]/invite` (active + rule-C ledger history) + `/invite/[code]/qr` (client-side QR, link never shown) | `host-invites-qr` | M | TZ13-01 | 3.7.3 + 3.7.4 | §3.7.3 1–12 + §3.7.4 1–7 (19) |
+| TZ13-05 | verification sweep `tz13` — **verification-only** | `verify-tz13` | L | TZ13-02…TZ13-04 all merged | 3.9 (§3.7 rows) | re-verifies all 58 |
+
+**Coverage: all 58 DESIGN rev. 4 host ACs (§3.9's §3.7 row: 12 + 15 + 12 + 7
++ 12) map to exactly one implementation task** — §3.7.1 → TZ13-02; §3.7.2 +
+§3.7.5 → TZ13-03 (Parts A/B); §3.7.3 + §3.7.4 → TZ13-04 (Parts A/B); TZ13-05
+re-verifies all 58. TZ13-01 carries only its own technical criteria, as in
+Parts I/II. **Token-budget note (per §8.8):** worker sessions are lean —
+spawn prompts are self-contained and reference Concept/DESIGN sections by
+number instead of restating them; the §3.7.1–§3.7.5 split maps one
+DESIGN part to one task part.
+
+**i18n placement decision (standing):** the copy table is the **foundation
+task TZ13-01** (mirroring TZ2-01); page tasks wire their own keys; the
+verification task audits usage.
+
+### 9.2 Per-task TZ sections
+
+### TZ13-01 — host-tree foundations (`tz13-01`)
+
+**Scope** (DESIGN §4.7 rev. 4 additions + §3.7.3 ledger + §4.2 `InviteQr`):
+1. **i18n +63 keys:** reconcile `apps/web/src/lib/i18n/{ru,en}.ts` against
+   the rev. 4 table — **add every new key verbatim in both languages** (62
+   new + the amended `host.session_reset`, whose new wording replaces the
+   rev. 3 «…с токеном создания» reset copy). The retired inline string
+   «Создать другую комнату» (old share kit) has no key — nothing to delete
+   unless a stale reference exists (grep). Rev. 3 carryover keys
+   (`host.gate.*`, `host.create`, `host.invites.*` title/hint/mint/presets/
+   `expires_in`/revoke/revoked, `host.rotate_room.*`, `host.drill.*`
+   clear/clear_confirm/empty, `host.empty_live`) stay untouched.
+2. **Rule-C invite ledger store** (`apps/web/src/lib/stores/hostInviteLedger.ts`):
+   localStorage key **`bleak.hostInvites.<room address>`** — append-only
+   array of `{ code, created_at, expires_at, revoked_at? }` recording every
+   mint and revoke response **of this device**. API: `recordMint(response)`,
+   `recordRevoke(code, at)`, `merge(serverInvites)` → `{ active, history }`
+   where history = ledger entries **missing from the server list**,
+   classified expired (`expires_at` past, no `revoked_at`) or revoked;
+   codes still in the server list are never double-rendered. Nothing is
+   recorded on a failed mint/revoke. Unit tests with an injectable clock.
+3. **Shared `InviteQr` (uqr extraction):** extract the §3.6 `uqr` SVG
+   renderer out of `QrCodeBadge.svelte` into a shared module
+   (`apps/web/src/lib/qr/svgQr.ts` or equivalent) and add the **`InviteQr`**
+   component (DESIGN §4.2): props `code`, size, `ariaLabel`; renders the
+   client-side SVG of the absolute invite deep link
+   `{INVITE_URL_BASE}?code={code}` — **no network call** (no helper PNG).
+   Re-point the profile badge to the shared module (behavior unchanged;
+   existing profile tests stay green). `uqr` stays lazy/code-split — now a
+   shared chunk of profile + host routes (bundle rule amended, §9.4.4).
+4. **Notice-key rename:** the delivered `hostApi` gate sets
+   `bleak.hostReset` (`HOST_RESET_KEY`, `lib/api/client.ts`); DESIGN rev. 4
+   names the key `bleak.hostNotice`. **Rename the key + constant to
+   `bleak.hostNotice`** across the gate and every consumer (grep-verified;
+   behavior identical). Page tasks use the new name only.
+
+**Files:** `apps/web/src/lib/i18n/{ru,en}.ts`, `apps/web/tests/i18n.test.ts`
+(extended), `apps/web/src/lib/stores/hostInviteLedger.ts` (+ test),
+`apps/web/src/lib/qr/svgQr.ts`, `apps/web/src/lib/components/qr/InviteQr.svelte`
+(+ test), `apps/web/src/lib/components/profile/QrCodeBadge.svelte`
+(mechanical re-point), `apps/web/src/lib/api/client.ts` (key rename only).
+
+**Task-specific technical criteria:** parity test green over the enlarged
+dictionaries; ledger merge tests (mint/revoke recorded, server-authoritative
+active list, missing entries classified expired/revoked, failure records
+nothing); `InviteQr` test asserts **zero** network requests (the SVG is
+computed client-side) and decodes back to the deep link; rename grep clean
+(no `bleak.hostReset` reference anywhere); no page wiring beyond the
+mechanical profile re-point.
+
+**Dependencies:** none. **Out of scope:** the four host route pages.
+
+---
+
+### TZ13-02 — `/host` entry (`tz13-02`)
+
+**Scope** (DESIGN §3.7.1): rework the delivered `routes/host/+page.svelte`
+into the rev. 4 **entry route** — the panel/invite/QR content moves out to
+TZ13-03/TZ13-04; this page keeps only the entry forms.
+
+1. **`HostEntryCard`** (§4.2; extends the retired single-mode gate): mode
+   switch (`SegmentedControl`, «Создать комнату» / «Войти по ключу»),
+   switching never loses input, both modes always reachable. **Create
+   mode:** masked creation token (`type="password"`, `autocomplete="off"`)
+   + room form (`name` required, `description`, `language` select ru|en) →
+   client generates the room token (`generateTokenSecret()`) →
+   `createRoom({ name, description, language, token }, createToken)`
+   (`x-create-token` header) → store
+   `bleak.hostRoom = { roomAddress, roomToken, code: response.invite_code }`
+   → navigate to `/host/<room_address>`. **The creation token is consumed,
+   never stored** (carried-over custody test). **Log-in mode:** room
+   **address** + masked room **key** → validate the pair with the
+   invite-list GET (`GET /api/room/{address}/invite`) → 200 →
+   store/overwrite `bleak.hostRoom` (`code` starts unknown, fills from the
+   panel's first invite-list tick) → navigate; 401/403 →
+   «Ключ комнаты отклонён.» inline, value stays masked, **nothing stored**.
+2. **Auto-resume probe (§54.1):** on mount with a stored `bleak.hostRoom`,
+   validate the stored key with the invite-list GET **before** the entry
+   card renders interactively: **200** → auto-navigate to
+   `/host/<room_address>` (skeleton + «Проверяем доступ к комнате…»,
+   `aria-busy`, meanwhile); **401** → clear `bleak.hostRoom`, show the reset
+   notice, fall back to the entry card **Create** mode; **404** → clear +
+   «Комната удалена.»; **NetworkError** → **keep** the stored entry,
+   network `ErrorBanner` + retry above the card (a failed probe must not
+   destroy a possibly-valid credential).
+3. **Reset notice:** renders only when `sessionStorage`
+   `bleak.hostNotice` is set (TZ13-01 rename); `--color-surface` notice
+   card, lock glyph, binding copy (`host.session_reset`), `aria-live="polite"`,
+   key removed after render (once per incident); presence pre-selects
+   **Log-in** mode.
+4. **Address finder (F11 as designed):** «Не помните адрес?» → fetch the
+   public `GET /api/room` list → probe candidates with the **entered key**
+   via the invite-list GET, **bounded: concurrency ≤ 4, cap 25 rooms, stop
+   at the first 200**; «Ищем комнату…» while running; a match fills the
+   address and continues normal validation; no match → «Ключ не подошёл ни
+   к одной комнате.»; **the finder never writes storage** — only the
+   successful validation does.
+5. **No tab bar** on `/host` (or any host route); the page never redirects
+   based on attendee identity.
+
+**Pre-credential probe exception (see §9.4.2):** the resume probe, the
+log-in validation and the finder run through the **raw client path with
+local 401 handling** — the `hostApi` gate must not fire for expected
+pre-credential 401s (it would redirect and clear on ordinary validation
+failures). The gate fires only for post-credential room-token calls.
+
+**Files:** `apps/web/src/routes/host/+page.svelte` (rewritten),
+`apps/web/src/lib/components/host/HostEntryCard.svelte`,
+`apps/web/src/lib/components/host/CreateRoomForm.svelte` (reused, moved),
+`apps/web/src/lib/api/client.ts` (apiRaw allowlist extension only),
+tests (`host-entry.test.ts` new; `host-console.test.ts`'s entry-related
+cases rewritten/moved here).
+
+**Inherited acceptance criteria:** DESIGN §3.7.1, AC **1–12 verbatim**.
+
+**Task-specific technical criteria:** probe state tests (200 → navigate, 401
+→ clear + Create fallback, 404 → deleted copy, NetworkError → entry kept +
+banner); finder bound test (mock fetch counting: never more than 25
+candidates, ≤ 4 in flight, stops at first 200) + never-writes-storage test;
+mode-switch non-dead-end test; creation-token custody test (header only,
+no body/log/storage); masked-input attribute assertions.
+
+**Dependencies:** TZ13-01. **Out of scope:** the panel, invite and QR routes.
+
+---
+
+### TZ13-03 — `/host/[room_address]` panel + statistics (`tz13-03`)
+
+One worker owns the main panel route — the live room view plus the rule-A
+statistics engine — because both render on the same route and share its
+Poller (DESIGN §2.2 rev. 4 row: members 5 s, stats every third tick ⇒ 15 s).
+
+**Inherited acceptance criteria:** DESIGN §3.7.2 AC **1–15** + §3.7.5 AC
+**1–12** (27 total) — verbatim per part below.
+
+#### Part A — panel regions (absorbs §3.7.2)
+
+**Scope** (DESIGN §3.7.2): new `routes/host/[room_address]/+page.svelte`:
+
+1. **Guard:** stored `bleak.hostRoom.roomAddress` must equal the URL param,
+   else redirect `/host`; missing entry → `/host`.
+2. **Top bar:** back control (→ `/host`), live room `h1` from public
+   `getRoom`, muted address chip, read-only data chips «Язык агентов…» /
+   «Вместимость…» (**F9**: data display, never controls).
+3. **Members region** (5 s public poll): tile «Участники {n}/{max_user}»,
+   member rows (avatar, name, joined time); row tap → **member drill-down
+   sheet** (on-demand, never polled): dialogs read with the **room token**
+   via `listChatsOfRoomUser` — the rev. 4 **real listing** replacing the
+   delivered 6.9a-hint empty state; each row links to the read-only
+   `/chats/{address}` transcript (host viewer context) and carries
+   «Очистить историю» (confirm → `clearChatHistory`, room token) and
+   «Запустить заново» (§3.5 kickoff copy → `kickoffChat`, room token;
+   `KickoffResponse` speaker line). **Kickoff is per-dialog only** — no
+   room-level batch restart exists in the contract and none is faked.
+   CONFIRM-LF: «У участника пока нет диалогов.»
+4. **Rule-D locked row:** at the bottom of the drill-down a
+   **non-interactive locked row** renders — muted lock glyph +
+   «Удаление участника появится вместе с серверным обновлением.»,
+   `aria-disabled`, no click handler, and **no `deleteRoomUser` call
+   anywhere in the host UI** (grep-enforced; backend-dependency note
+   §9.4.1-d).
+5. **Share region:** big code display (Handjet 40px, digits spelled in the
+   `aria-label`) + copy chip; **client-side `InviteQr`** (TZ13-01) of
+   `{INVITE_URL_BASE}?code={code}` — **no helper PNG call**; «Присоединиться
+   как участник» → `/?code={code}`; link row «Все коды приглашения» → the
+   invite route.
+6. **Settings region** (collapsible, last): room edit `name`/`description`
+   → `updateRoom` (room token; body `{ name, description }` **only**) →
+   transient «Сохранено», header refreshes from the PUT response; 400 →
+   server-text field error; **F9 hint** «Язык и вместимость изменятся вместе
+   с серверным обновлением.» under the read-only chips. «Сгенерировать ключ
+   комнаты» → confirm → `rotateRoomToken` (current key as Bearer) → stored
+   `bleak.hostRoom.roomToken` replaced **in place**. Danger zone: «Удалить
+   комнату» → confirm → `deleteRoom` → `bleak.hostRoom` cleared → `/host`
+   (entry card, Create mode).
+7. **Host session reset:** `hostApi` 401/403 on any room-token call →
+   `bleak.hostRoom` cleared, `bleak.hostNotice` set, lands on `/host`
+   (log-in mode + notice, TZ13-02's reset card); attendee identity never
+   touched. `getRoom` 404 → «Комната удалена.» full-page state → cleared +
+   redirect.
+8. **No handshake counts anywhere** on the panel (rule B negative AC 8).
+9. **Responsive:** ≥ 900px two-column (main ≈ 58% scrolls, sticky side ≈
+   42% holds share + invite shortcut; max 1080px); below 900px regions
+   stack in the specified order. Drill-down sheets trap focus; per-record
+   `aria-label`s.
+
+**Files:** `apps/web/src/routes/host/[room_address]/+page.svelte`,
+`apps/web/src/lib/components/host/{PanelMembers,MemberDrillDown,ShareKit,PanelSettings}.svelte`,
+`apps/web/src/lib/components/host/hostPanel.ts` (guard + diff helpers),
+tests (`host-panel.test.ts`, `member-drilldown.test.ts` extended/rewritten).
+
+#### Part B — statistics: rule-A engine + `BucketChart` (absorbs §3.7.5)
+
+**Scope** (DESIGN §3.7.5):
+
+1. **Engine** (`apps/web/src/lib/components/host/stats/hostStats.ts`, rule
+   A — client-side fan-out, bounded): one pass per stats tick, **every
+   third 5 s tick of the page Poller** (⇒ 15 s), start/stop on mount/
+   teardown, refresh on visibility regain. Steps: member list (reuse the
+   5 s poll's latest snapshot) → per member `listChatsOfRoomUser` (room
+   token, **concurrency ≤ 4**, individual branch failures tolerated) →
+   **dedupe chats by chat address across members** (a mutual chat appears
+   under both participants) → one message fetch per **unique** chat
+   (`listRoomUserChatMessages` via one participant path segment,
+   concurrency ≤ 4). Computes M1 (12 five-minute buckets over the past
+   hour by `message.created_at`), M2 (`listRoomUsers.length`), M3 (deduped
+   chat count), M4 (active vs finished by `Chat.done`; kickoff resets to
+   active).
+2. **`BucketChart`** (hand-rolled SVG, **no chart dependency**): per the
+   §3.7.5 spec — `viewBox="0 0 320 120"`, `width="100%"`, 12 bar slots
+   (≈ 26px, bar 18px, gap 8px, baseline y = 104); accent-tinted bars
+   (`color-mix(in srgb, var(--color-accent) 70%, transparent)`), newest
+   non-zero bucket at full `--color-accent`, zero buckets render a 2px
+   stub in `--color-text-disabled`, 1px muted baseline; 5 relative axis
+   labels only («−60 мин» … «сейчас»), muted Inter 14px; peak-bucket accent
+   dot; **no per-bar value labels**; **§4.1 tokens only** (no hardcoded
+   colors); static (no bar animation); `role="img"` + summary `aria-label`
+   («Сообщений за последний час: {n}; пик в {bucket}.»).
+3. **`StatsPanel`**: section header «Статистика»; `StatTile` row as a
+   `<dl>` (M2, M3, M4 split tile) + the M1 chart card; caption
+   «Сообщений за час: {n}»; the **rule-B hint line** under the section
+   («Статистика рукопожатий появится вместе с серверным обновлением.»).
+4. **States:** first pass skeletons; later ticks swap data in place; empty
+   room → members-empty copy, engine skips the fan-out; empty hour →
+   baseline + stubs + «За последний час сообщений не было.»; **partial**
+   (some branches failed after retries) → subset metrics + «Часть данных не
+   загрузилась — цифры могут быть занижены.» + retry; full error →
+   `ErrorBanner` + dimmed last-known tiles; identical-tick diffs do **not**
+   re-render (diff in the caller).
+5. **GATED BLOCK — metrics 5–7 (rule B): documented gate ONLY, do not
+   build.** The M5–M7 handshake panels are specified in DESIGN §3.7.5 and
+   are **omitted from the UI** until the flag-6.9a backend amendment /
+   pre-authorized `tz2-07a` lands — no locked rows, no zeros, no proxy
+   metric (negative AC 8; when the gate lifts, M5 joins the `StatTile` row
+   and M6/M7 render as two list cards under the chart per the spec,
+   **without design rework**). Backend-dependency note §9.4.1-c.
+
+**Files:** `apps/web/src/lib/components/host/stats/{hostStats.ts,StatsPanel.svelte,BucketChart.svelte}`,
+tests (`host-stats.test.ts`, `bucket-chart.test.ts`), wired into Part A's
+page region 2.
+
+**Task-specific technical criteria (both parts):** engine concurrency test
+(mock queue: ≤ 4 in flight at every step) + dedupe test (a mutual chat's
+messages fetched exactly once); bucketing test (`created_at` → 12 buckets;
+`Chat.done` split; kickoff semantics); poll cadence test (members 5 s,
+stats on every third tick, both stop on teardown); identical-tick
+no-re-render test; chart token test (no raw color literals in the SVG);
+rule-B negative grep (no `listHandshakesOfUser` reference in host code) +
+rule-D negative grep (no `deleteRoomUser` reference in host code); locked
+row `aria-disabled` assertion; guard redirect test; settings/rotation/
+delete happy-path + confirm tests carried from the delivered console
+(rewritten in this task's files).
+
+**Dependencies:** TZ13-01. **Out of scope:** the entry, invite and QR
+routes; the transcript route internals (linked into, not edited).
+
+---
+
+### TZ13-04 — invites + invite QR (`tz13-04`)
+
+One worker owns the two invite routes (§3.7.3 + §3.7.4): one data model
+(server active list ⊕ device ledger), one QR artifact flow.
+
+**Inherited acceptance criteria:** DESIGN §3.7.3 AC **1–12** + §3.7.4 AC
+**1–7** (19 total) — verbatim per part below.
+
+#### Part A — `/host/[room_address]/invite` (absorbs §3.7.3)
+
+**Scope** (DESIGN §3.7.3): guard as §3.7.2; top bar back + h1 + hint;
+single column max 720px.
+
+1. **Active codes** (room-token `listInvites`, **15 s poll**): `InviteRow`
+   per code — 6-digit code (Handjet 24px), muted expiry «истекает через
+   {time}», actions: copy chip / QR link (→ the per-code QR route) /
+   invite-link copy / «Отозвать» (outline-destructive, **no confirm** —
+   reversible) — each with its per-code `aria-label`.
+2. **Mint control:** «Выпустить код» → inline expiry chooser — presets «1
+   час» / «24 часа» (**pre-selected default**) / «7 дней» + «Своё время…»
+   (`datetime-local`, min = now) → `mintInvite({ expires_at? })` → the code
+   appears at the top of the active list **and is recorded in the ledger**
+   (rule C).
+3. **Expired & revoked (rule C):** collapsed disclosure section listing
+   ledger entries **missing from the server list** — expired
+   («истёк {date}») / revoked («отозван {date}») as muted text badges,
+   rows non-interactive (no copy/QR/revoke/navigation for dead codes);
+   **ledger caveat** under the header («Коды, выпущенные с других
+   устройств…»); the section is omitted when empty.
+4. **Merge rule (TZ13-01's store):** the server list is authoritative for
+   active codes; the ledger contributes history; mint/revoke responses are
+   appended immediately and reconciled on every poll tick; entries still in
+   the server list are never double-rendered; **failure records nothing**.
+5. **States:** loading skeletons on first arrival (no flicker on refresh);
+   empty (no active AND no ledger) → `EmptyState` + mint CTA; errors inline
+   muted with retry (the ledger section still renders — it is local);
+   mint/revoke failures inline near the control; room 404 →
+   «Комната удалена.» + redirect (host reset semantics). Rows ≥ 48px;
+   badges not color-only; the list is a real `<ul>`.
+
+#### Part B — `/host/[room_address]/invite/[code]/qr` (absorbs §3.7.4)
+
+**Scope** (DESIGN §3.7.4): guard as §3.7.2; **unknown `[code]`** (not in the
+server list nor the ledger) still renders the page with the warning line.
+
+1. **QR:** client-side `InviteQr` (TZ13-01) of the absolute invite deep
+   link `{INVITE_URL_BASE}?code={code}` — **no network QR call**; 280px,
+   pixel-cornered light frame, `aria-label` «QR-код приглашения {code}».
+2. **Code row:** 6-digit code (Handjet 40px) + «Скопировать код» chip
+   (clipboard receives the digits; aria-label includes the code).
+3. **Share-or-copy-link:** «Скопировать ссылку» (clipboard gets the URL) +
+   «Поделиться» **only where `navigator.share` exists** (same URL).
+   **The link text is never rendered anywhere — no text node, no `title`,
+   no tooltip; buttons only (hard AC).**
+4. **No Poller** — one liveness recheck on mount (a room-token
+   `listInvites` through the post-credential path), then idle; unknown-code
+   warning after the recheck; loading skeleton during it; inline error with
+   retry; «Скопировано» confirmations announced `aria-live="polite"`; back
+   returns to the invite page.
+
+**Files:** `apps/web/src/routes/host/[room_address]/invite/+page.svelte`,
+`apps/web/src/routes/host/[room_address]/invite/[code]/qr/+page.svelte`,
+`apps/web/src/lib/components/host/{InviteManager,InviteRow}.svelte`
+(delivered components reworked/moved),
+tests (`host-invites.test.ts`, `host-invite-qr.test.ts`,
+`host-invite-ledger.test.ts`).
+
+**Task-specific technical criteria:** merge/ledger tests (append on mint +
+revoke, reconcile per tick, no double-render, **failure writes nothing**,
+expired/revoked classification with injectable clock); dead-row
+non-interactive test (no actions/navigation for a history code); unknown-
+code test (warning renders, QR + actions still render); **link-never-
+rendered assertion** (component snapshot/DOM scan: the URL appears only in
+clipboard/share payloads, never as text/title/tooltip); poll cadence 15 s
++ per-tick ledger re-merge; conditional Share-button test.
+
+**Dependencies:** TZ13-01. **Out of scope:** the entry and panel routes.
+
+---
+
+### TZ13-05 — verification sweep `tz13` (`verify-tz13`) — **verification-only**
+
+**Scope**: the closing task of the round. One worker; bug discoveries go
+through the process bug flow, not this branch. Per the §8.8.3 pattern: **no
+new test files, no product code** — the deliverable is the recorded walk.
+**Amendments over the standing sweep:** as the round's owner ratifications
+direct, the sweep re-verifies the **58 host ACs** 1:1 and runs the
+host-symmetric negative sweeps.
+
+1. **AC sweep:** walk all **58** DESIGN rev. 4 host criteria (§3.7.1 1–12,
+   §3.7.2 1–15, §3.7.3 1–12, §3.7.4 1–7, §3.7.5 1–12) with per-criterion
+   pass/fail + evidence (test name / manual check note) in
+   **`docs/verification-v40.md`** (next sequence number at task time;
+   committed). One-shot grep/script checks are recorded in the report, not
+   committed as test files.
+2. **Round sweeps (grep/mock, recorded):** (a) **i18n parity + copy
+   audit** of every host-route string against §4.7 (incl. both gate/reset
+   notices, the ledger caveat, the rule-B hint); locale switch mid-flow.
+   (b) **No-new-dependency check:** hand-rolled SVG chart (no chart lib in
+   `package.json` vs `dev`), `uqr` reused (not re-added), no new runtime
+   dependency vs the delivered tree. (c) **Host-symmetric 401 reset
+   behavior end-to-end:** a room-token 401/403 clears only
+   `bleak.hostRoom`, sets `bleak.hostNotice`, lands on `/host` log-in mode
+   with the notice; attendee identity untouched. (d) **Rule-B negative
+   sweep:** no handshake-panel rendering on any host route and no
+   `listHandshakesOfUser` call in host code. (e) **Rule-D negative sweep:**
+   no `deleteRoomUser` call in host code; the locked row is
+   non-interactive. (f) **Link-never-rendered sweep:** every
+   `INVITE_URL_BASE`/deep-link occurrence on host routes is a
+   clipboard/share payload or QR payload — never rendered text/title/
+   tooltip. (g) **Creation-token custody re-check** (header-only, never
+   stored). (h) **Ledger/storage custody:** the only new localStorage key
+   family this round is `bleak.hostInvites.*` (enumerate via grep of
+   `localStorage.setItem`/storage-key constants); ledger is append-only.
+   (i) **Bundle re-check:** `uqr` now a shared lazy chunk of profile +
+   host routes; any-page ≤ 80 kB budget holds; record sizes.
+   (j) **Contract reconciliation status:** F9/F10 gaps + rules B/D gates
+   recorded as backend-dependency notes (§9.4.1) with their §54.5 ledger
+   references; existing `TBD(WP-6)` markers unchanged.
+3. **Fix-up allowance:** cross-cutting one-liners only (e.g. a missed i18n
+   key); everything else is a filed bug.
+
+**Files:** `docs/verification-v40.md` (+ its own session/log records only).
+
+**Task-specific technical criteria:** the verification doc lists all 58
+ACs with status and evidence; `make lint && make test && make build` green
+on `dev` at sweep time; `git diff dev` for this task touches only the
+verification doc (+ its own session/log records only).
+
+**Dependencies:** TZ13-02…TZ13-04 all merged. **Out of scope:** new
+features; redesigns; real-device fixing (record only).
+
+### 9.3 Criteria-coverage map (summary)
+
+| Task | Inherited DESIGN rev. 4 ACs | Count |
+| --- | --- | --- |
+| TZ13-02 | §3.7.1 1–12 | 12 |
+| TZ13-03 Part A | §3.7.2 1–15 | 15 |
+| TZ13-03 Part B | §3.7.5 1–12 | 12 |
+| TZ13-04 Part A | §3.7.3 1–12 | 12 |
+| TZ13-04 Part B | §3.7.4 1–7 | 7 |
+| TZ13-05 | re-verifies all of the above | 58 |
+| TZ13-01 | task-specific technical criteria only (foundations) | — |
+
+**Coverage: 58/58 mapped to exactly one implementation task; TZ13-05
+re-verifies all.** (12 + 15 + 12 + 7 + 12 = 58, matching DESIGN §3.9's
+§3.7 row; rev. 4 totals 160 with the other §3 sections' 102 ACs
+delivered/standing — those are re-walked only as the regression guard
+demands, see §9.4.6.)
+
+### 9.4 Contract caveats & cross-task rules for workers
+
+1. **Backend-dependency notes (recorded, not client tasks — §54 hard
+   ruling: no backend changes this round):**
+   - **(a) F9 — `UpdateRoomRequest` lacks `language`/`max_user`**
+     (verified swagger 2026-11-24): the panel renders both read-only with
+     the server-amendment hint; the editable controls stay
+     **backend-dependency-gated**. When the backend accepts the fields,
+     enabling the controls is a small follow-up per the ratified F9 design
+     (no redesign).
+   - **(b) F10 — `PUT /api/room/{address}` declares no security scheme** in
+     swagger (unlike its 401/403 responses): the client sends the room
+     token as Bearer per §54.1 (the delivered `hostApi` already does).
+     **Server-side enforcement confirmation is a backend-dependency note**
+     — record it with the §54.5 ledger; not a client task.
+   - **(c) Rule B — `GET /api/handshake/user/{address}` is
+     persona-token-only:** handshake metrics 5–7 stay **omitted from the
+     UI** until the flag-6.9a amendment; the pre-authorized follow-up
+     **`tz2-07a`** (size S, opened off the TZ2-07 lineage hash) is the
+     standing vehicle — **unchanged by this round**. No proxy metric
+     anywhere (§54.2-B binding).
+   - **(d) Rule D — `DELETE /api/room/{room}/user/{address}` is
+     persona-token-only:** the drill-down ships the locked row only; the
+     call exists nowhere in the UI (grep-enforced in TZ13-03 + TZ13-05).
+     Gates (b)–(d) all reference the **§54.5 backend TODO ledger**.
+2. **Pre-credential probe exception (architectural delta, for the
+   record):** the auto-resume probe, the log-in validation and the address
+   finder make **expected-401 room-key probes before any stored
+   credential exists**. The `hostApi` gate (§2.8) must not fire for them —
+   it would redirect and clear on ordinary validation failures. These
+   probes run through the raw client path with **local 401 handling**
+   (in-page clear/notice/entry-card states). The `apiRaw` allowed-use list
+   is therefore extended: transcript fallback (existing, §10.3) **+ host
+   key-validation probes** (grep rule updated in TZ13-02). Post-credential
+   room-token calls always go through `hostApi`.
+3. **Notice-key naming (resolved here):** the delivered gate writes
+   `bleak.hostReset`; DESIGN rev. 4 names it `bleak.hostNotice`.
+   **TZ13-01 renames the key + constant**; all later tasks use
+   `bleak.hostNotice` only; grep-verified at merge.
+4. **`uqr` chunk rule amended:** the standing "uqr profile-only" bundle
+   rule (§8.6.6) becomes "**uqr shared, lazy, profile + host chunks**"
+   (TZ13-01 extraction). Bundle budget re-check in TZ13-05.
+5. **Ledger discipline (rule C):** `bleak.hostInvites.<room address>` is
+   the **only new localStorage key family** this round; append-only; a
+   failed mint/revoke records nothing; the server list is authoritative
+   for active codes. Deleting the room leaves its ledger entries orphaned
+   **by design** (append-only, harmless; keyed per room) — noted, not a
+   bug. A server-side invite-history endpoint would retire the ledger
+   entirely (DESIGN §6.14, backend TODO candidate).
+6. **v1+v2 regression guard:** every task runs the full existing suite;
+   the rev. 3 host-console tests the round rewrites (`host-console.test.ts`
+   entry/panel cases) move into the rewriting task's file set — a red
+   attendee test anywhere is a bug, not a license to change behavior.
+7. **QA = CI** with the §8.8 discipline (targeted tests during
+   development; full test before commit; lint after green; build at
+   handover; per-wave CI batching by the process). **Merge mode: default
+   per-feature approval** (owner ratification 2026-11-24) —
+   `ready-for-merge` handovers wait for the owner's OK relayed via
+   concept; the process merges squash-only.
+8. **No new dependencies anywhere:** the chart is hand-rolled SVG; QR
+   reuses the app's existing `uqr`; no mocks; existing endpoints only
+   (§54).
+
+### 9.5 Sequencing & parallelism plan
+
+**Critical chain:** TZ13-01 → (TZ13-02 ∥ TZ13-03 ∥ TZ13-04) → TZ13-05.
+
+| Wave | Tasks running in parallel | Gate to enter |
+| --- | --- | --- |
+| 1 | TZ13-01 | — |
+| 2 | TZ13-02, TZ13-03, TZ13-04 | TZ13-01 merged (all three also depend only on the delivered v2 plumbing) |
+| 3 | TZ13-05 | TZ13-02…TZ13-04 all merged |
+
+**Why this is safe in parallel:**
+- TZ13-01 owns every shared module (i18n keys, ledger store, `InviteQr`
+  extraction, key rename) — nothing else touches those files.
+- Wave-2 tasks touch **disjoint route files**: TZ13-02 = `routes/host/+page.svelte`
+  + `HostEntryCard`; TZ13-03 = `routes/host/[room_address]/**` + stats
+  components; TZ13-04 = the two invite routes + `InviteManager`/`InviteRow`.
+  All consume only TZ13-01's contract plus the delivered api-client/hostApi.
+- TZ13-03 carries the panel and its statistics together because both
+  render on the same route and share its Poller — the §3.7.2/§3.7.5 split
+  stays per-part within the one card (27 ACs; XL per the §8.8.6 sizing
+  precedent; compaction covers the cap).
+- **Merge order within wave 2 is free** (each branch is self-contained
+  and gates-green); TZ13-01 must land first; TZ13-05 strictly last. No
+  task except TZ13-05 may edit another task's files; violations are bugs.
+
+### 9.6 Definition of Done — tz13 round
+
+1. **All 58 DESIGN rev. 4 host acceptance criteria pass** — recorded
+   1:1 with evidence in `docs/verification-v40.md` (TZ13-05); any failure
+   is a filed, closed bug.
+2. **CI green on `dev`** after the last merge (`make lint && make test &&
+   make build`).
+3. **Route tree live:** the rev. 3 single-page console is fully replaced
+   by the four routes; no tab bar on any host route; the Host entry stays
+   out of the footer nav (§10.1.8/§54.4).
+4. **Rule gates honest:** no handshake metrics, no zeros, no proxy metric
+   and no locked control for rule B (hint line only); the rule-D locked
+   row is non-interactive; no `listHandshakesOfUser`/`deleteRoomUser`
+   call anywhere in host code (grep-clean).
+5. **Link text never rendered** on the QR page or anywhere on the host
+   tree (test + grep).
+6. **i18n complete:** RU/EN parity green over the enlarged dictionaries;
+   §4.7 rev. 4 audit clean; locale switch works mid-flow.
+7. **No new runtime dependencies**; `uqr` shared extraction done and
+   lazy; bundle budgets hold (any page ≤ 80 kB; recorded).
+8. **Credential/ledger custody:** the creation token never persisted;
+   `bleak.hostRoom` untouched as the sole host credential;
+   `bleak.hostInvites.*` append-only and the only new storage key family;
+   `bleak.hostNotice` rename complete; attendee identity never touched by
+   host flows.
+9. **Backend-dependency notes recorded** (F9/F10 + rules B/D → §54.5
+   ledger); `tz2-07a` remains the pre-authorized follow-up for M5–M7.
+10. **Ownership trail complete:** every task closed via the task DB with
+    its criteria; bug branches attributable to their feature worker's
+    hash; session records and logs committed.
+
+### 9.7 Flags for the concept agent (unbuildable/ambiguous — flagged, not resolved)
+
+1. **`tz2-07a` (flag 6.9a) is the one backend-blocked UX piece of the
+   round:** when the amendment lands, M5–M7 build per the §3.7.5
+   specification without redesign (placement pre-designed in TZ13-03).
+   The pre-authorization stands; the concept agent should sequence the
+   backend amendment before or right after this round to unblock the full
+   seven-metric panel.
+2. **F9/F10 backend confirmation** (`UpdateRoomRequest` fields; PUT
+   security scheme) are ledger items — no client work this round; the F9
+   editable controls are pre-designed and open as a small follow-up when
+   the backend accepts the fields.
+3. **Pre-credential probe exception (§9.4.2)** is a documented delta vs
+   ARCHITECTURE §10.3's "transcript-fallback-only" `apiRaw` wording —
+   behavior matches DESIGN §3.7.1 exactly; flagged so the owner is not
+   surprised by the allowlist extension (an ARCHITECTURE §10.3 amendment
+   may follow per DESIGN §6.15).
+4. **Notice-key rename** (`bleak.hostReset` → `bleak.hostNotice`,
+   TZ13-01) is a delivered-code naming delta vs rev. 3 — resolved within
+   the round; flagged for the record.
+5. **Ledger scope note (rule C):** codes minted from other devices cannot
+   be reconstructed as expired — they vanish from the invite page when
+   they expire (DESIGN §6.14 caveat, binding copy shipped); a server-side
+   invite-history endpoint would retire the ledger (backend TODO
+   candidate; orphaned local entries after a room deletion are kept
+   by design).
+6. **XL-card watch (TZ13-03, 27 ACs):** per the §8.7.8 precedent, the
+   process should watch for a stalled card and split bug rounds early;
+   per-part criteria remain the acceptance granularity (no mid-task
+   `ready-for-merge`).
+
+---
+
+*End of Part III — TZ pass 3, architect `81037a13`, 2026-11-24. The process
+agent owns the `tz13` build loop; per-task sessions get their own hashes
+via `open-feature.sh` with `tz-section` pointing at the `tz13-NN`
+references above. Supersedes the host slice of TZ2-07 Part B (dated
+pointer note in Part II); supersedes TZ-09's `/host` console (Part I,
+delivered).*
 
 

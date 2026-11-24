@@ -26,7 +26,15 @@ export type IconName =
   | 'phone'
   | 'contact-card'
   | 'heart'
-  | 'contact-share';
+  | 'contact-share'
+  // v3.23 (DESIGN §4.29.D.2): the settings gear — the one new glyph of the
+  // profile redesign; same construction rules (16×16 grid, 2px weight,
+  // currentColor). Fallback per the design was the `edit` glyph.
+  | 'gear'
+  // §4.38.1 (Concept §53): the searching-badge chat (speech) bubble — the
+  // spinner's replacement in the 56px slot; same construction rules
+  // (16×16 grid, 2px weight, currentColor).
+  | 'bubble';
 
 /** Tab glyphs (§1.2) reference the same set. */
 export const TAB_ICONS = {
@@ -250,5 +258,33 @@ export const ICON_RECTS: Record<IconName, readonly Rect[]> = {
     [11, 1, 2, 2],
     [13, 0, 2, 2],
     [13, 2, 2, 2]
+  ],
+  // SETTINGS GEAR (DESIGN §4.29.D.2): a pixel gear — four cardinal teeth, a
+  // segmented ring and a center hub, drawn with currentColor.
+  gear: [
+    [7, 1, 2, 2],
+    [7, 13, 2, 2],
+    [1, 7, 2, 2],
+    [13, 7, 2, 2],
+    [6, 3, 4, 2],
+    [6, 11, 4, 2],
+    [3, 6, 2, 4],
+    [11, 6, 2, 4],
+    [5, 5, 2, 2],
+    [9, 5, 2, 2],
+    [5, 9, 2, 2],
+    [9, 9, 2, 2],
+    [7, 7, 2, 2]
+  ],
+  // SEARCHING BADGE (DESIGN §4.38.1): a pixel chat (speech) bubble — a
+  // rounded-rect outline body with chamfered corners and a stepped tail
+  // at the lower left; currentColor.
+  bubble: [
+    [3, 2, 10, 2], // body top wall          (x3..x12,  y2..y3)
+    [1, 4, 2, 4], // body left wall         (x1..x2,   y4..y7)
+    [13, 4, 2, 4], // body right wall        (x13..x14, y4..y7)
+    [3, 8, 10, 2], // body bottom wall       (x3..x12,  y8..y9)
+    [5, 10, 4, 2], // tail root              (x5..x8,   y10..y11)
+    [3, 12, 4, 2] // tail tip, stepped left (x3..x6,   y12..y13)
   ]
 };

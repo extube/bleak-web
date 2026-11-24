@@ -18,6 +18,12 @@ describe('i18n dictionaries (RU primary, EN second)', () => {
     expect(ruKeys).toEqual(enKeys);
   });
 
+  it('Concept §47 (2026-11-23): the resume-card keys are GONE from BOTH dictionaries — the 6-digit form is the only form on /income', () => {
+    for (const dict of [en, ru]) {
+      expect(Object.keys(dict).filter((k) => k.startsWith('join.resume'))).toEqual([]);
+    }
+  });
+
   it('every entry is a non-empty string in both languages', () => {
     for (const dict of [en, ru]) {
       for (const value of Object.values(dict)) {
@@ -224,7 +230,7 @@ describe('DESIGN §4.7 copy table coverage', () => {
       'Одноразовый токен выдаёт оператор развертывания. После создания комнаты он больше не нужен и не сохраняется.'
     );
     expect(ru['host.session_reset']).toBe(
-      'Доступ к комнате отозван — войдите заново с токеном создания.'
+      'Доступ к комнате отозван — войдите заново с ключом комнаты или создайте новую комнату.'
     );
     expect(ru['hs.income_limit']).toBe(
       'Лимит исходящих хендшейков — сначала получите рукопожатия в ответ.'
@@ -250,10 +256,214 @@ describe('DESIGN §4.7 copy table coverage', () => {
   });
 });
 
-describe('v2.1 UI-polish round keys (DESIGN §4.8)', () => {
-  it('the settings-block heading exists in both dictionaries (Concept §7.1.6; retitled per §11.1.3)', () => {
-    expect(en['profile.settings.title']).toBe('My profile');
-    expect(ru['profile.settings.title']).toBe('Мой профиль');
+/**
+ * Host-tree foundations (TZ13-01): the DESIGN rev. 4 §4.7 additions — the
+ * 62 `host.*` rows of the rev. 4 block (the /host entry, panel, invite
+ * ledger, QR page and statistics copy) plus the amended `host.session_reset`
+ * wording. Every key exists in BOTH dictionaries (parity is CI-enforced);
+ * verbatim spot-checks pin the owner copy.
+ */
+const DESIGN_REV4_HOST_KEYS: string[] = [
+  'host.title', 'host.subtitle',
+  'host.mode.create', 'host.mode.login', 'host.session_reset',
+  'host.resume.checking', 'host.room.deleted',
+  'host.login.address', 'host.login.key', 'host.login.rejected',
+  'host.login.find', 'host.login.finding', 'host.login.find_none',
+  'host.room.language', 'host.room.max_user', 'host.room.readonly_hint',
+  'host.room.saved', 'host.members_tile',
+  'host.panel.share', 'host.panel.invites_link',
+  'host.qr.alt', 'host.qr.aria', 'host.qr.code_aria',
+  'host.join_as',
+  'host.delete_room.row', 'host.delete_room.body',
+  'host.drill.restart_aria', 'host.drill.clear_aria', 'host.drill.delete_member_locked',
+  'host.invites.expired_title', 'host.invites.ledger_caveat',
+  'host.invites.expired_at', 'host.invites.revoked_at', 'host.invites.empty',
+  'host.invites.copy_code', 'host.invites.copy_link', 'host.invites.qr_aria',
+  'host.invites.revoke_aria',
+  'host.qr.title', 'host.qr.copy_code', 'host.qr.copy_code_aria',
+  'host.qr.copy_link', 'host.qr.copy_link_aria', 'host.qr.share',
+  'host.qr.warning', 'host.qr.back',
+  'host.stats.title', 'host.stats.members', 'host.stats.chats', 'host.stats.active',
+  'host.stats.messages_hour', 'host.stats.aria',
+  'host.stats.axis.60', 'host.stats.axis.45', 'host.stats.axis.30',
+  'host.stats.axis.15', 'host.stats.axis.now',
+  'host.stats.empty_hour', 'host.stats.partial',
+  'host.stats.gated.hint', 'host.stats.gated.def', 'host.stats.gated.empty'
+];
+
+describe('DESIGN §4.7 rev. 4 host-tree keys (TZ13-01, Concept §54)', () => {
+  it('every rev. 4 host key exists in BOTH dictionaries (62 rows incl. the amended session_reset)', () => {
+    expect(DESIGN_REV4_HOST_KEYS).toHaveLength(62);
+    for (const key of DESIGN_REV4_HOST_KEYS) {
+      expect(en, `en missing rev. 4 host key "${key}"`).toHaveProperty(key);
+      expect(ru, `ru missing rev. 4 host key "${key}"`).toHaveProperty(key);
+      expect((ru as Record<string, string>)[key]?.trim().length).toBeGreaterThan(0);
+      expect((en as Record<string, string>)[key]?.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('the amended host.session_reset wording replaces the rev. 3 creation-token copy in BOTH dictionaries', () => {
+    expect(ru['host.session_reset']).toBe(
+      'Доступ к комнате отозван — войдите заново с ключом комнаты или создайте новую комнату.'
+    );
+    expect(en['host.session_reset']).toBe(
+      'Room access was revoked — sign in again with the room key or create a new room.'
+    );
+  });
+
+  it('spot-checks verbatim rev. 4 RU strings (entry + panel + invites + stats)', () => {
+    expect(ru['host.subtitle']).toBe('Создайте комнату события и управляйте ею.');
+    expect(ru['host.mode.login']).toBe('Войти по ключу');
+    expect(ru['host.resume.checking']).toBe('Проверяем доступ к комнате…');
+    expect(ru['host.login.rejected']).toBe('Ключ комнаты отклонён.');
+    expect(ru['host.login.find_none']).toBe('Ключ не подошёл ни к одной комнате.');
+    expect(ru['host.room.readonly_hint']).toBe(
+      'Язык и вместимость изменятся вместе с серверным обновлением.'
+    );
+    expect(ru['host.members_tile']).toBe('Участники {n}/{max_user}');
+    expect(ru['host.drill.delete_member_locked']).toBe(
+      'Удаление участника появится вместе с серверным обновлением.'
+    );
+    expect(ru['host.invites.expired_title']).toBe('Истёкшие и отозванные');
+    expect(ru['host.invites.ledger_caveat']).toBe(
+      'Коды, выпущенные с других устройств, видны в списке только пока они активны; их истечение показать нельзя.'
+    );
+    expect(ru['host.qr.warning']).toBe(
+      'Код не найден в списке активных — возможно, он истёк или отозван.'
+    );
+    expect(ru['host.stats.messages_hour']).toBe('Сообщений за час: {n}');
+    expect(ru['host.stats.gated.def']).toBe('один хендшейк = одна направленная запись');
+  });
+
+  it('the retired inline «Создать другую комнату» string is not re-introduced as a new rev. 4 key', () => {
+    // The old share-kit string has NO rev. 4 key — the panel's back control
+    // covers it (DESIGN §4.7 note). The only host.* keys of the retired
+    // wording stay the pre-existing scaffold key until its owner tasks
+    // (TZ13-02/03/04) rework the consumers.
+    for (const key of DESIGN_REV4_HOST_KEYS) {
+      expect((ru as Record<string, string>)[key]).not.toBe('Создать другую комнату');
+    }
+  });
+
+  it('interpolates the new {code}/{digits}/{date} placeholders in both languages', () => {
+    expect(translate('ru', 'host.qr.aria', { code: '123456' })).toBe('QR-код приглашения 123456');
+    expect(translate('en', 'host.qr.aria', { code: '123456' })).toBe('Invite QR code 123456');
+    expect(translate('ru', 'host.qr.code_aria', { digits: '123 456' })).toBe('Код: 123 456');
+    expect(translate('ru', 'host.invites.expired_at', { date: '24.11' })).toBe('истёк 24.11');
+    expect(translate('en', 'host.invites.revoked_at', { date: 'Nov 24' })).toBe('revoked Nov 24');
+    expect(translate('ru', 'host.stats.active', { active: '3', finished: '1' })).toBe(
+      '3 активных · 1 завершено'
+    );
+    expect(translate('en', 'host.stats.active', { active: '3', finished: '1' })).toBe(
+      '3 active · 1 finished'
+    );
+  });
+});
+
+describe('v2.1 UI-polish round keys (DESIGN §4.8) — v3.23 value edits applied', () => {
+  it('the settings heading reads «Настройки» / "Settings" (DESIGN §4.29.E: the old «Мой профиль» value moved to /profile)', () => {
+    expect(en['profile.settings.title']).toBe('Settings');
+    expect(ru['profile.settings.title']).toBe('Настройки');
+    expect(en['profile.title']).toBe('My profile');
+    expect(ru['profile.title']).toBe('Мой профиль');
+  });
+});
+
+describe('v3.23 profile-redesign keys (DESIGN §4.29.E, Concept §42)', () => {
+  it('the 9 new keys exist in BOTH dictionaries (RU/EN parity)', () => {
+    for (const key of [
+      'profile.header.qr',
+      'profile.tab.about',
+      'profile.tab.interests',
+      'profile.tab.qr',
+      'profile.edit.title',
+      'profile.edit.row.name',
+      'profile.edit.row.public_bio',
+      'profile.edit.row.private_bio',
+      'profile.edit.save'
+    ] as const) {
+      expect(en[key]?.trim().length, `en missing "${key}"`).toBeGreaterThan(0);
+      expect(ru[key]?.trim().length, `ru missing "${key}"`).toBeGreaterThan(0);
+    }
+  });
+
+  it('the new keys carry the §4.29.E verbatim copy (RU is a design invention — I-rec 14)', () => {
+    // Concept §50 (2026-11-23): profile.header.qr announces scanner intent —
+    // the header scan icon opens the §3.8 QrScanner (the old tab-switch
+    // reading is superseded); same copy as scan.title, RU/EN parity kept.
+    expect(ru['profile.header.qr']).toBe('Сканировать QR');
+    expect(en['profile.header.qr']).toBe('Scan QR code');
+    expect(ru['profile.tab.about']).toBe('Обо мне');
+    expect(en['profile.tab.about']).toBe('About');
+    expect(ru['profile.tab.interests']).toBe('Интересы');
+    expect(en['profile.tab.interests']).toBe('Interests');
+    expect(ru['profile.tab.qr']).toBe('QR-код');
+    expect(en['profile.tab.qr']).toBe('QR code');
+    expect(ru['profile.edit.title']).toBe('Редактировать профиль');
+    expect(en['profile.edit.title']).toBe('Edit profile');
+    expect(ru['profile.edit.row.name']).toBe('Имя');
+    expect(en['profile.edit.row.name']).toBe('Name');
+    expect(ru['profile.edit.row.public_bio']).toBe('О себе');
+    expect(en['profile.edit.row.public_bio']).toBe('About you');
+    expect(ru['profile.edit.row.private_bio']).toBe('Для агента');
+    expect(en['profile.edit.row.private_bio']).toBe('For your agent');
+    expect(ru['profile.edit.save']).toBe('Сохранить изменения');
+    expect(en['profile.edit.save']).toBe('Save changes');
+  });
+});
+
+describe('§4.35.E auto-handshake keys (Concept §49, DESIGN §4.35.E)', () => {
+  it('exactly the four §4.35.E keys exist in BOTH dictionaries (RU/EN parity)', () => {
+    for (const key of [
+      'profile.auto_handshake.row',
+      'profile.auto_handshake.label',
+      'profile.auto_handshake.on',
+      'profile.auto_handshake.off'
+    ] as const) {
+      expect(en[key]?.trim().length, `en missing "${key}"`).toBeGreaterThan(0);
+      expect(ru[key]?.trim().length, `ru missing "${key}"`).toBeGreaterThan(0);
+    }
+  });
+
+  it('the keys carry the verbatim §4.35.E copy (the row label is the owner-adopted wording)', () => {
+    expect(ru['profile.auto_handshake.row']).toBe('Отправлять рукопожатия автоматически');
+    expect(en['profile.auto_handshake.row']).toBe('Automatically send handshake');
+    expect(ru['profile.auto_handshake.label']).toBe('Авто-рукопожатия');
+    expect(en['profile.auto_handshake.label']).toBe('Auto-handshake');
+    expect(ru['profile.auto_handshake.on']).toBe('вкл.');
+    expect(en['profile.auto_handshake.on']).toBe('on');
+    expect(ru['profile.auto_handshake.off']).toBe('выкл.');
+    expect(en['profile.auto_handshake.off']).toBe('off');
+    // The composed /profile indicator pairs read as designed (§4.35.E).
+    expect(`${ru['profile.auto_handshake.label']}: ${ru['profile.auto_handshake.on']}`).toBe(
+      'Авто-рукопожатия: вкл.'
+    );
+    expect(`${en['profile.auto_handshake.label']}: ${en['profile.auto_handshake.on']}`).toBe(
+      'Auto-handshake: on'
+    );
+  });
+});
+
+describe('§4.38.D searching-badge keys (Concept §52, DESIGN §4.38.D)', () => {
+  it('exactly the two §4.38.D keys exist in BOTH dictionaries (RU/EN parity)', () => {
+    // The only `people.searching*` keys in either dictionary: the
+    // repurposed title + the new remark key (net +1 per dictionary — no
+    // retired keys, no reuse-of-convenience).
+    for (const dict of [en, ru]) {
+      expect(Object.keys(dict).filter((k) => k.startsWith('people.searching'))).toEqual([
+        'people.searching',
+        'people.searching_settings'
+      ]);
+      expect(dict['people.searching']?.trim().length).toBeGreaterThan(0);
+      expect(dict['people.searching_settings']?.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('the keys carry the verbatim concept-adopted copy (owner, 2026-11-24)', () => {
+    expect(en['people.searching']).toBe('Automatic contact search mode');
+    expect(ru['people.searching']).toBe('Режим автоматического поиска контактов');
+    expect(en['people.searching_settings']).toBe('Change it in settings');
+    expect(ru['people.searching_settings']).toBe('Изменить можно в настройках');
   });
 });
 
@@ -400,16 +610,28 @@ describe('v2.5 copy sweep (Concept §11.1.3, DESIGN §4.12.3)', () => {
     }
   });
 
-  it('edit-screen titles drop the word "Edit" (values only — key names intact; §23.2 5.6 removed the interests row)', () => {
-    expect(en['profile.persona.edit']).toBe('Profile');
-    expect(ru['profile.persona.edit']).toBe('Профиль');
-    expect(en['profile.greeting.edit']).toBe('Greeting');
-    expect(ru['profile.greeting.edit']).toBe('Приветствие');
+  it('edit-screen titles drop the word "Edit" — superseded for /profile/edit only (DESIGN §4.29.G.8: the owner\'s reference names that screen; the retired editor keys are gone)', () => {
+    // §4.29.E.3: profile.persona.edit / profile.greeting.edit are RETIRED
+    // from BOTH dictionaries — the editors' h2s were replaced by the field
+    // labels of C.3 (profile.edit.row.*).
+    expect(en).not.toHaveProperty('profile.persona.edit');
+    expect(ru).not.toHaveProperty('profile.persona.edit');
+    expect(en).not.toHaveProperty('profile.greeting.edit');
+    expect(ru).not.toHaveProperty('profile.greeting.edit');
+    // The screen title the owner's reference names explicitly keeps "Edit".
+    expect(en['profile.edit.title']).toBe('Edit profile');
+    expect(ru['profile.edit.title']).toBe('Редактировать профиль');
   });
 
-  it('the persona section heading is retitled "My profile" / «Мой профиль» (owner change request)', () => {
-    expect(en['profile.settings.persona']).toBe('My profile');
-    expect(ru['profile.settings.persona']).toBe('Мой профиль');
+  it('the persona section heading is retitled to the settings title (the block became the entry row; §4.29.E value edits)', () => {
+    // §4.29.E.3: profile.settings.persona is RETIRED — the settings persona
+    // block became the ONE profile entry row → /profile/edit.
+    expect(en).not.toHaveProperty('profile.settings.persona');
+    expect(ru).not.toHaveProperty('profile.settings.persona');
+    // The §4.29.E value edits: /profile takes «Мой профиль»/"My profile";
+    // the settings h1 becomes «Настройки»/"Settings".
+    expect(en['profile.settings.title']).toBe('Settings');
+    expect(ru['profile.settings.title']).toBe('Настройки');
   });
 
   it('no user-visible "persona" / "персона" remains in any dictionary value', () => {

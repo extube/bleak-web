@@ -1,5 +1,1201 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.35 ROUND NOTE (Concept §53 owner micro-order — badge icon bulb →
+> bubble on `/people` — appended by the process 2026-11-24, post-round
+> three-gate run GREEN: lint clean · 1106 tests total (52 api-client +
+> 8 helper + 1046 web, 54 files) · svelte-check 0 errors (the 10
+> pre-existing `state_referenced_locally` warnings in untouched
+> TokenGate/JoinFlow files), dev `00baa26`):**
+> **Delivered end-to-end** (task 144, worker `8d0010e5`, design
+> `a223fa3d`, process `2f4dd06a`; branch
+> `feature/8d0010e5-searching-badge-bubble-icon` — one worker commit
+> `adf7ce4` squashed to ONE landing commit dev `00baa26`; DESIGN-FIRST
+> honored — the feature-scoped design pass wrote the dated **DESIGN
+> §4.38.1** amendment (2026-11-24, Concept §53 record) + the §4.38.B
+> supersession pointer BEFORE implementation; the uncommitted owner
+> edit to `docs/Concept.md` §53 and stray session/log records left
+> unstaged — landing staged by pathspec (the 3 branch files + DESIGN.md
+> + the two instance session records), not `git add -A`; concept's §53
+> brief carried pre-approved landing — lean protocol per §22.2):
+> on the §4.38 badge the light-bulb glyph became a **chat (speech)
+> bubble** (the incoming-conversations symbol): new **`bubble`**
+> registry glyph (6-rect pixel geometry, 16×16 grid, `currentColor`,
+> span-centered (7.5, 7.5) — DESIGN §4.38.1) rendered `<PixelIcon
+> name="bubble" size={32}/>` in the kept 56px slot inside
+> `span.bubble[aria-hidden]`; blink = renamed `@keyframes
+> bubble-blink` — same 1.2s ease-in-out infinite, **opacity 1 ↔ 0.3**
+> (opacity-only, §4.6); reduced motion = the standing `base.css`
+> catch-all **STATIC full-opacity** rest (no component `@media`);
+> **`bulb` REMOVED** from the registry (sole consumer was this badge —
+> grep-audited; new negative assertions: no `bulb` anywhere in
+> `apps/web/src`, no `.bulb` in the rendered DOM); copy, title,
+> remark/link (`/profile/settings`), placement, condition, footprint —
+> ALL unchanged. Tests: the bulb-specific people-page assertions
+> swapped to `.bubble`/`bubble-blink` + the registry 6-rect assert;
+> title/link/footprint/non-interactivity/reduced-motion assertions kept
+> green. Manual checks for the owner: on `/people` with the §49 flag
+> ON — the first card shows the blinking bubble glyph (both locales);
+> reduced motion → static; flag OFF → no badge (all as v3.34, glyph
+> swapped).
+> Housekeeping: devops `-D` branch-cleanup list adds
+> `feature/8d0010e5-searching-badge-bubble-icon` (`git branch -d`
+> refused on the squash-landed branch, `-D` mechanically denied); the
+> process session-record close delta rides the next landing
+> (disclosed).
+
+> **v3.34 ROUND NOTE (Concept §52 owner batch — searching-badge INNER
+> redesign on `/people` — appended by the process 2026-11-24, post-round
+> three-gate run GREEN: lint clean · 1106 tests total (52 api-client +
+> 8 helper + 1046 web, 57 files) · svelte-check 0 errors (10
+> pre-existing `state_referenced_locally` warnings in untouched
+> TokenGate/JoinFlow files), dev `e4aa904`):**
+> **Delivered end-to-end** (task 143, worker `443fe644`, design
+> `dd6ea61e`, process `d963f0b1`; branch
+> `feature/443fe644-searching-badge-inner-redesign` — worker commits
+> `548883b` + `c46eebe` (session close) squashed to ONE landing commit
+> dev `e4aa904`; DESIGN-FIRST honored — the feature-scoped design pass
+> wrote the dated **DESIGN §4.38** amendment (2026-11-24) + the §4.37
+> supersession pointer BEFORE implementation; the uncommitted owner
+> edit to `docs/Concept.md` §49–52 and stray session/log records left
+> unstaged — landing staged by pathspec (the 9 branch files + the three
+> instance session records), not `git add -A`; concept's §52 brief
+> carried pre-approved landing — lean protocol per §22.2):
+> (1) **Scope guard held:** the §51 badge stays in place on `/people` —
+> same FIRST-`<li>` placement (§4.37.B), same §49 `active`-flag
+> condition/data path (§4.37.A — the poller/roster logic untouched, no
+> mocks), same PersonCard footprint; only the INSIDE changed (§4.38.A).
+> (2) **New title** (§4.38.D): `people.searching` REPURPOSED in place —
+> EN **"Automatic contact search mode"** / RU **«Режим автоматического
+> поиска контактов»** (verbatim, concept-adopted; grep-audited — no
+> orphaned key, the badge is the sole consumer).
+> (3) **Blinking bulb instead of the spinner** (§4.38.B): the §4.13.4
+> loader/`loader-spin` construction REMOVED; a new **`bulb`** pixel
+> glyph in the icon registry (8 rects, the `gear` pattern: 16×16 grid,
+> 2px weight, `currentColor`); the badge renders `<PixelIcon
+> name="bulb" size={32}/>` (exact 2× of the 16-grid — crisp cells) in
+> the kept empty 56px slot inside `span.bulb[aria-hidden]`; blink =
+> component-scoped `@keyframes bulb-blink` — 1.2s ease-in-out infinite,
+> **opacity 1 ↔ 0.3** (opacity-only, §4.6 allowances); reduced motion =
+> the standing `base.css` catch-all leaves a **STATIC full-opacity
+> bulb** (no component `@media`; asserted source-level, §4.36.D.4
+> style).
+> (4) **Settings remark + link** (§4.38.C): new `people.searching_settings`
+> = EN **"Change it in settings"** / RU **«Изменить можно в настройках»**
+> (verbatim, concept-adopted; net +1 pair per dictionary); the FULL
+> remark line is ONE anchor `a.remark` → `resolve('/profile/settings')`
+> (the §49 toggle page) — 14px muted underlined (the `.bio` family; the
+> RoomPreview link precedent); it is the badge's **ONLY** interactive
+> element (everything else stays non-interactive, no `cursor: pointer`
+> on the root — §4.37.A's absolute no-link guarantee superseded by
+> §4.38 exactly here).
+> **Tests:** i18n describe renamed §4.38.D (key-set
+> `['people.searching', 'people.searching_settings']` + 4 verbatim
+> strings; the ru/en key-set equality and the §4.7 94-key count stay
+> green); the people-page badge suite reworked — bulb/aria-hidden DOM
+> asserts, one-anchor href + remark text, DOM+source no-loader
+> negatives, keyframes opacity-only extraction, registry 8-rect assert,
+> stylesOnly no-cursor/no-media/no-fill-mode + base.css catch-all;
+> placement / both-active-states / footprint assertions kept green.
+> Manual checks for the owner: on `/people` with the §49 flag ON — the
+> first card (a grid cell, not a banner) shows the blinking bulb + the
+> new title in both locales + the underlined remark; clicking the
+> remark lands on `/profile/settings`; with reduced motion the bulb
+> stands static; flag OFF → no badge (unchanged).
+> Housekeeping: commits pathspec-scoped (the owner's Concept.md §49–52
+> batch + stray session/log files left unstaged); devops `-D`
+> branch-cleanup list adds
+> `feature/443fe644-searching-badge-inner-redesign` (19 branches total;
+> `git branch -d` refused on the squash-landed branch, `-D` mechanically
+> denied); pre-existing duplicate `## 5.` header in DESIGN.md untouched;
+> my process session-record close delta rides the next landing
+> (disclosed).
+
+> **v3.33 ROUND NOTE (Concept §51 owner batch — "searching new contacts"
+> badge on `/people` — appended by the process 2026-11-23, post-round
+> three-gate run GREEN: lint clean · 1106 tests total (52 api-client +
+> 8 helper + 1046 web, 54 files) · svelte-check 0 errors (10
+> pre-existing `state_referenced_locally` warnings in untouched
+> JoinFlow/TokenGate files), dev `3b54f4c`):**
+> **Delivered end-to-end** (task 142, worker `218464fd`, design
+> `4aa83761`, process `7ea101dc`; branch
+> `feature/218464fd-searching-new-contacts-badge` — one worker commit
+> `60615c9` squashed to ONE landing commit dev `3b54f4c`; DESIGN-FIRST
+> honored — feature-scoped design pass wrote the dated **DESIGN §4.37**
+> amendment (2026-11-23) BEFORE implementation; the uncommitted owner
+> edit to `docs/Concept.md` §51 and stray session/log records left
+> unstaged; the §4.37 amendment + the three instance session records
+> (worker/design/process) landed with the squash — landing staged by
+> pathspec, not `git add -A`; concept's §51 brief carried pre-approved
+> landing — lean protocol per §22.2):
+> (1) **Condition + data path** (§4.37.A/C): the badge renders only when
+> the SELF `User` entry exists in the ALREADY-polled `listRoomUsers`
+> roster (address === `me.userAddress`, `deleted_at`-guarded — the same
+> entry the `cards` derived excludes) AND `active === true` (the §49
+> flag, §4.35.A lineage, required on the model) AND the initial load has
+> completed; **no new fetch, no new poller, no mocks** — a
+> `/profile/settings` toggle flip propagates on the next 4 s poll tick,
+> in place, without reordering.
+> (2) **Anatomy — system state, not a user** (§4.37.A): new component
+> `SearchingBadge.svelte` — `<li class="searching-badge pixel-corners">`
+> with the exact PersonCard footprint (`--color-surface`,
+> `--radius-md`, `padding: var(--space-4)`, `.row` flex/gap); an EMPTY
+> 56px avatar slot (no avatar, no placeholder) centered on the §4.13.4
+> loader construction at the §3.1 standard 16px diameter (muted ring,
+> transparent top arc, transform-only 0.9s rotation, `aria-hidden`);
+> muted 16px/600 title — NON-interactive by construction: no button,
+> link, `role`, `tabindex`, tap handler, navigation or PersonCard
+> behavior. Reduced motion: the standing `base.css` catch-all renders
+> the spinner static (no component `@media` needed).
+> (3) **Placement** (§4.37.B): the badge is the FIRST `<li>` of
+> `ul.cards` — above every `PersonCard`, never sorted/reordered/
+> filtered; it is NOT in the `cards` derived array (the `cards[0]`
+> auto-open logic, bucket sort, search filtering, dismissals and
+> poll diffing are untouched). Rationale: only inside the list
+> container does "same dimensions as a user item" hold at ≥720px,
+> where it becomes ONE cell of the `minmax(360px, 1fr)` two-column
+> grid instead of a full-width banner (reversible one-liner per
+> §4.37.G.1 if the owner prefers a banner).
+> (4) **States** (§4.37.C): absent in the skeleton, empty-room and
+> empty-search branches (single render site); pinned first under an
+> active search. The owner follow-up "badge above the empty-room
+> EmptyState" is a small second render site if wanted (§4.37.G.2).
+> (5) **i18n** (§4.37.E): exactly +1 key pair — `people.searching` =
+> EN **"Searching new contacts"** / RU **«Поиск новых контактов»**
+> (verbatim, concept-adopted; RU/EN parity, the §4.7 94-key count and
+> key-set equality tests stay green).
+> **Tests:** people-page suite +5 (render-first with footprint/
+> spinner/title assertions; absent at `active: false`; absent without a
+> self entry + during the skeleton; pinned-first under search + absent
+> in empty-search/empty-room; negative no-click/no-navigate assertion)
+> plus source-level footprint/loader/reduced-motion assertions
+> (§4.36.D.4 precedent); i18n suite +1 dedicated describe (§4.35.E
+> precedent). Untouched: all other §3.3 people contracts, §4.35/§43
+> profile contracts, spinner precedents.
+> Housekeeping (DISCLOSED): `git branch -d` refused on the
+> squash-landed branch and `git branch -D` is outside process
+> permissions (mechanically denied) —
+> `feature/218464fd-searching-new-contacts-badge` joins the devops
+> `-D` cleanup list (11 branches total).
+
+> **v3.32 ROUND NOTE (Concept §50 owner bug batch — /profile scan button →
+> scanner, scanner corner orientation, /profile/edit phone overflow —
+> appended by the process 2026-11-23, post-round three-gate run GREEN:
+> lint clean · 1099 tests total (52 api-client + 8 helper + 1039 web,
+> 54 files) · svelte-check 0 errors (10 pre-existing
+> `state_referenced_locally` warnings in untouched files), dev `f7746ec`):**
+> **All three §50 items delivered** (task 141, worker `5e393579`, process
+> `6fa06a90`; branch `feature/5e393579-owner-bug-batch-scan-corners-edit-overflow`
+> — one worker commit `773e13e` squashed to ONE landing commit dev
+> `f7746ec`, pathspec-scoped to the 12 touched files; the uncommitted
+> owner edit to `docs/Concept.md` §50 and session/log records left
+> unstaged; concept's §50 brief carried pre-approved landing — lean
+> protocol per §22.2):
+> (1) **Header scan button opens the QR scanner** (DESIGN §4.36): the
+> `/profile` corner scan icon now mounts/opens the shared §3.8 `QrScanner`
+> overlay (`context="persona"`, same camera lifecycle/focus return as
+> /room); the room member list is fetched ONCE per scanner open via gated
+> `api.listRoomUsers` (empty on failure — §3.8 unknown-membership
+> semantics, no polling); the QR **display** stays reachable via the
+> existing badge-tab panel affordance (§43 A.2 kept); superseded
+> `openQrTab` + the card scroll-ref retired. Aria-label retargeted to
+> scanner intent — `profile.header.qr` «Сканировать QR»/"Scan QR code"
+> (reuses `scan.title` verbatim; the copy change from «Показать
+> QR-код»/"Show QR code" is **flagged for owner ratification** — function
+> changed, RU/EN parity kept).
+> (2) **Viewfinder corners face their own angles** (DESIGN §4.36): the
+> four `.bracket` pseudo-elements are now placed per corner — tl opens
+> right/down (top+left bars), tr left/down (top+right), bl right/up
+> (bottom+left), br left/up (bottom+right) — classic viewfinder framing;
+> shared 8px-bar anatomy, accent tokens and the opacity flash untouched.
+> (3) **/profile/edit phone overflow fixed + rows aligned** (DESIGN
+> §4.36): the phone-block `.save` dropped `width: 100%` (kept in the base
+> rule) under `margin: 0 var(--space-5)` — flex-stretch now bounds the
+> button to the container minus the insets, no horizontal overflow at
+> 375/390/320px; the key-value rows (name, contact-card) share ONE label
+> width — a single `--kv-label-width: 148px` defined on the form and
+> consumed by both editors (`flex: 0 0 var(--kv-label-width, 148px)`,
+> nowrap+ellipsis) so value inputs align on one common single-line layout.
+> **Tests:** superseded tab-switch assertions replaced with scanner-target
+> assertions (dialog opens, QR tab stays hidden, display still reachable
+> via the panel); new per-corner bracket placement assertions (four rules
+> exist, pairwise different); phone save bounds + single-definition
+> shared `--kv-label-width` assertions; i18n verbatim copy updated for the
+> retargeted label. Untouched: §4.29.A–C beyond the §4.36 amendments, all
+> §3.8 scanner state-machine/camera contracts, §43/§49 profile contracts.
+> Housekeeping (DISCLOSED): `git branch -d` refused on the squash-landed
+> branch and `git branch -D` is outside process permissions (mechanically
+> denied) — `feature/5e393579-owner-bug-batch-scan-corners-edit-overflow`
+> joins the devops `-D` cleanup list (10 branches total).
+
+> **v3.31 ROUND NOTE (Concept §49 auto-handshake opt-out — `active` flag on
+> the profile surface — appended by the process 2026-11-23, post-round
+> three-gate run GREEN: lint clean · 1093 tests total (52 api-client + 8
+> helper + 1033 web, 54 files) · svelte-check 0 errors (10 pre-existing
+> `state_referenced_locally` warnings in untouched files), dev `632cf8d`):**
+> **The `active` flag is delivered end-to-end** (task 140, worker
+> `00210962`, design `13b68a65`, process `be0754c2`; branch
+> `feature/00210962-auto-handshake-opt-out` — 3 worker commits squashed to
+> ONE landing commit dev `632cf8d`; concept's §49 brief carried
+> pre-approved landing, lean protocol per §22.2). **Order of work per the
+> brief:** (1) api-client FIRST — `types.ts`: `User` gains required
+> `active: boolean` (swagger `model.User`, verbatim description),
+> `UpdateUserRequest` gains optional `active?: boolean` (omitted keeps the
+> flag); `updateRoomUser` untouched — a toggle PUT carries ONLY
+> `{active}` (omitted-fields semantics tested); existing `User` fixtures
+> gained `active: true` mechanically (21 web test files). (2) `/profile`
+> indicator — muted 14px status line in the identity block (§4.29.A.4)
+> under the language meta: "Auto-handshake: on/off" /
+> «Авто-рукопожатия: вкл./выкл.», rendered from server truth (existing
+> token-gated `getRoomUser`; both true/false render; non-interactive).
+> (3) `/profile/settings` toggle — FIRST row of Block 2: adopted wording
+> EN "Automatically send handshake" / RU «Отправлять рукопожатия
+> автоматически» verbatim, native `<input type="checkbox" role="switch">`
+> pill in a 48px target, optimistic + revert-on-error (in-flight
+> disabled, `role="alert"` inline error, 401 → §2.8 gate), no «Saved»
+> flash, no fake default (seeded from the mount fetch). (4) DESIGN
+> **§4.35** written design-first with the dated §4.29 supersession record
+> (B.2 "no toggle rows", H.17, I-rec 4/7) — the first real toggle-backed
+> setting; i18n delta exactly +4 keys, RU/EN parity CI-enforced.
+> **Untouched (verified green):** the §4.29.A–C profile contracts beyond
+> the two additions, the §30 form shells, all v38 landing/join contracts.
+> Manual checks for the owner: on a real device, `/profile` shows the
+> auto-handshake line matching the server flag; the settings toggle flips
+> it, the PUT persists across reload; a killed network mid-toggle shows
+> the inline error and the switch snaps back to server truth.
+> Housekeeping (DISCLOSED): `git branch -d` refused on the squash-landed
+> branch and `-D` is outside process permissions —
+> `feature/00210962-auto-handshake-opt-out` joins the devops `-D` cleanup
+> list (9 branches total); the landing commit was pathspec-scoped (only
+> the 30 touched files + the two session records — the uncommitted owner
+> edit to `docs/Concept.md` §49 was deliberately left unstaged).
+
+> **v3.30 ROUND NOTE (§48 owner bug batch — 6-digit auto-advance + entry-flow
+> routes, Concept §48 — appended by the process 2026-11-23, post-round
+> three-gate run GREEN: lint clean · 1073 tests total (49 api-client + 8
+> helper + 1016 web, 54 files) · build 0 errors (10 pre-existing-category
+> `state_referenced_locally` warnings — 3 from the intentional
+> initial-capture seeds JoinFlow already carried), dev `70c6483`):**
+> **All three §48 items delivered** (task 139, worker `ca2b95fa`, process
+> `fa8c5cf9`; design-first — design instance `cc822d42` wrote DESIGN
+> §4.34 before the build; branch `feature/ca2b95fa-entry-flow-auto-advance`
+> squashed to dev `70c6483`; concept relayed the owner's §48 batch with
+> pre-approved landing — lean protocol per §22.2):
+> (1) **6-digit auto-advance (§4.34.B)** — after the 6th digit completes
+> (typed, backspace-refilled, pasted, scanner-filled or ?code= deep-link
+> prefill) the form auto-resolves per the existing resolve logic
+> (`resolveRoomByCode` + `codeErrorOf`: malformed inline+shake, network/
+> api banner, gone card); one-shot discipline (`autoFired` re-armed by
+> editing away from a complete code — a corrected digit or retyped code
+> fires again; no auto-retry after failure, no double-submit; the
+> `resolving` guard makes post-flight clicks no-ops); the submit button
+> stays as the redundant affordance; digits survive every failure.
+> (2) **Room intro route `/income/<income-code>` (§4.34.A/C)** — NEW
+> `src/routes/income/[income_code]/+page.svelte` serving the intro
+> (RoomPreview, Create profile + Change code) in its §30 FormShell; the
+> param IS the 6-digit invite code (supersedes §4.31.D's room-address
+> value), resolved on mount; resolving = shell + inline spinner, both
+> footer actions disabled; dead/invalid param → the code-not-found
+> inline treatment (gone card for a deleted room), Change code →
+> `/income`; on `/income` the resolve success now NAVIGATES to the intro
+> route instead of the in-card Step-2 swap (supersession recorded).
+> `/income` stays the 6-digit entry page (§31/§47 default-form contract
+> intact).
+> (3) **Clean create redirect (§4.34.D)** — Create profile navigates to
+> `/income/<income-code>/create` with an EMPTY query string (the
+> `?code=` builder append in `chooseCreate` removed); the create route
+> seeds from the path param ONLY (negative source tests: no `?code=`
+> emission or read anywhere on that route) and resolves on mount (the
+> seededRoom-from-param shortcut died — a 6-digit code is not a room
+> address); unresolvable param → `/income` replaceState; `wizardBack`
+> re-reaches the intro route param-only (the `/income?code=` round-trip
+> superseded). The §3.1 invite deep link on `/`→`/income?code=` and the
+> §3.8 handshake are untouched (separate mechanism — reconciliation
+> recorded in §4.34.E–F).
+> Tests: auto-advance (success/bad-code/edit-re-arm/no-double-submit/
+> button/scanner/deep-link), intro-route (resolve + both actions +
+> treatments + resolving state), create-route (exact-path URL assertion
+> with NO query string + negative source assertions + fallbacks);
+> superseded assertions updated in `join-flow.test.ts`,
+> `landing-page.test.ts`, `keyboard-viewport.test.ts`, `sweep.test.ts`;
+> RU/EN parity — zero copy delta. Untouched (verified green): §30
+> shells, §10.1.1 vault return, §3.8 handshake, §2.8 notice.
+> Manual checks for the owner: on a real device — type a 6th digit and
+> the form advances to `/income/<code>` (or errors) with no button
+> press; the intro's Create profile lands on `/income/<code>/create`
+> (clean URL, no `?code=`); wizard back returns to the intro; Change
+> code returns to `/income`; a dead code on the intro shows the
+> treatment with the way back; both locales.
+> Housekeeping (DISCLOSED, same sanctioned bare `git add -A` landing
+> form as the v3.29 round): commit `70c6483` additionally swept the
+> working tree — the `docs/Concept.md` §48 order text (+18), DESIGN
+> §4.34 (+248, the amendment itself — intended), the three session
+> records, the legacy `docs/logs/1640ba9e.log` mod, AND the owner's
+> media swap sitting in the worktree: the landing loop replaced by a
+> smaller `background-video-loop.mp4` (3,058,088 → 2,654,791 bytes,
+> also inside `apps/web/src/lib/assets/landing/`) with the old bytes
+> preserved at the root as `background-video-loop-old.mp4` — the owner
+> decides keep-vs-untrack (dev unpushed). `git branch -d` refused
+> (squash-landing artifact) and `-D` is outside process permissions —
+> `feature/ca2b95fa-entry-flow-auto-advance` joins the devops `-D`
+> cleanup list (9 branches total).
+
+> **v3.29 ROUND NOTE (§47 resume-form removal — /income always shows the
+> 6-digit form, Concept §47 — appended by the process 2026-11-23,
+> post-round three-gate run GREEN: lint clean · 1052 tests total (49
+> api-client + 8 helper + 995 web, 54 files) · build 0 errors (7
+> pre-existing `state_referenced_locally` warnings, untouched), dev
+> `2595c33`):**
+> **The stored-session resume variant is REMOVED from the entry surface**
+> (task 138, worker `f9add692`, process `c32a0997`; branch
+> `feature/f9add692-remove-resume-form`, commit `95d2206` squashed to dev
+> `2595c33`; concept relayed the owner's §47 order with pre-approved
+> landing — lean protocol per §22.2): `/income` renders `JoinFlow`
+> **unconditionally** — the identity-conditional "Continue to
+> {room}"/«Продолжить в «{room}»» card is deleted (markup,
+> `resumeRoomName` fetch effect, `continueToRoom`/`joinAnother`, the
+> `.resume`/`.resume-title`/`.secondary`/`.footer` styles incl. the
+> <720px full-screen block); the orphaned i18n keys
+> `join.resume.title` + `join.resume.another` are deleted from BOTH
+> dicts (grep-audited to zero references; `join.enter`/`join.title`
+> stay — CodeEntry consumes them); tests reworked (the join-flow
+> resume-card treatment case → a §47 removal-proof contract;
+> landing-page literal-RU negative assertions + a NEW
+> identity-exists → 6-digit-form test; i18n retired-key audit);
+> `docs/DESIGN.md` §1.3 identity-resume bullet + the item-15
+> test-expectation copy marked SUPERSEDED (Concept §47). **Untouched
+> (verified green):** the §30 form-shell 6-digit form + scan-QR +
+> return link → VaultList return-to-event picker (§10.1.1/§6.2), the
+> §3.8 DeepLinkHandshake persona panel (still gated on an existing
+> identity), §2.8 NoticeCard, the identity store module.
+> Manual checks for the owner: with a stored identity on a real device,
+> `/income` shows ONLY the 6-digit form (no Continue-to-room card, both
+> locales); a persona-QR deep link with an existing identity still opens
+> the §3.8 handshake; the join flow end-to-end unchanged.
+> Housekeeping (DISCLOSED deviation): the sanctioned bare `git add -A`
+> landing form swept the working tree into the squash commit `2595c33`
+> — the root owner media refs (`background-img.jpg`,
+> `background-video.mp4`, `background-video-loop.mp4`,
+> `landing-design-example.png`, `profile-design.png`,
+> `profile-design-2.png`, `real-design.png`, ≈8.7 MB binaries, tracked
+> for the first time), the `docs/Concept.md` §47 order text (+11), both
+> session records, and the legacy `docs/logs/1640ba9e.log` mod landed
+> INSIDE the landing commit (prior rounds pathspec-scoped; the owner
+> should decide keep-vs-untrack — dev is unpushed);
+> `git branch -d` refused (squash-landing artifact) and `-D` is outside
+> process permissions — `feature/f9add692-remove-resume-form` joins the
+> devops `-D` cleanup list (8 branches total).
+
+> **v3.28 ROUND NOTE (task 131 PROFILE REDESIGN LANDED — Concept §43,
+> owner-approved merge — executed by devops 2026-11-23, three-gate run
+> GREEN: lint clean · tests all passed (api-client + helper + 993 web,
+> 54 files incl. the new `profile-edit.test.ts`, +21 cases) · build 0
+> errors, dev `fd9f1ea`):**
+> Squash landing of `feature/f6ab8db7-profile-redesign` (worker
+> `f6ab8db7`, created by process `2a7c5e22`): `/profile` rebuilt per
+> `profile-design.png` (QR + gear header, centered square avatar,
+> username row, 3-stat row, 3 pill tabs), `/profile/settings` restyled
+> to the list-block pattern, new `/profile/edit` route (key-value
+> persona editing + Save Changes). Square avatars; streak/badges/
+> social-post dropped (not real); §6.3 live-QR rotation, §8.1.3 token
+> rotation, §2.2 polling, §7.1.6 destructive-red all intact; i18n
+> RU/EN parity for every new/moved key. **Authority disclosure:** the
+> landing was executed by devops at the owner's explicit direction —
+> task 131's DB stamps (`merged`, `ci green`) run under the creator's
+> hash `2a7c5e22` per the DB's created_by authority rule (its session
+> was unreachable); the index blocker (staged leftovers) was cleared
+> by devops first (`git restore --staged background-img.jpg
+> docs/logs/1640ba9e.log` — the standing housekeeping item, resolved).
+> Task 131 closed `done` (CI green); branch deleted. Manual check for
+> the owner: fresh dev build → /profile (new layout + tabs), 
+> /profile/settings (list blocks), /profile/edit (save/cancel/error).
+> Housekeeping: staged-leftover state RESOLVED; `-D` branch-cleanup
+> list unchanged by this round (`f6ab8db7` now deleted); owner refs
+> stay untracked at the root.
+
+> **v3.27 ROUND NOTE (§46 Bleak block per-breakpoint structure + 960
+> step-stack + staggered text reveal, Concept §46 — appended by the process
+> 2026-11-23, post-round three-gate run GREEN: lint clean · 1029 tests
+> total (49 api-client + 8 helper + 972 web, 53 files; landing suite 100)
+> · build 0 errors, dev `abd518d`):**
+> **Landing adjusted per ALL 5 §46 items** (task 137, worker `eda902cb`;
+> design-first — design instance `d20ab945` wrote DESIGN §4.33): (1)
+> **>960px heights-equal narrow card** — the ≥960 grid `align-items:
+> center` → `stretch`; the `height: 100%` chain
+> (.copy/.copy-body/.agent-card/.agent-body); `.agent-card` keeps
+> `max-width: 240px` but right-aligned (`margin-left: auto` — the §45.2
+> right-edge symmetry kept); TALK pinned via `margin-top: auto` — the
+> bottom lines align by construction; the wrap math picked 240px as the
+> narrowest width whose stack (≈364px with the 2-line RU quote) does not
+> exceed the lead's ≈371px (200–220px rejected — the RU quote wraps to 3
+> lines and the card would dictate the row; the 960-boundary floor
+> recorded); (2) **720–959.98px banner-structure card** — a band media
+> re-places the byte-unchanged DOM via named grid areas (the 96px
+> portrait spans rows 1–3; the class badge = the status chip in row 4;
+> name/traits/quote/TALK = the 1fr text side), the banner's EXACT glass
+> (`rgba(20,18,30,0.55)` + `blur(12px)` + 16/20 padding, byte-equal to
+> `.stat-body`); below the fold (the §45.1 lead-alone open state
+> unchanged); (3) **<720px carried verbatim**; (4) **steps stack at
+> <960** — the `repeat(3, 1fr)` grid moved to a new ≥960 media (stacked
+> at 800, row at ≥960; all other 720px rules stand); (5) **staggered text
+> reveal** — `reveal.ts` extended: units (observed) vs PARTS (slaved to
+> their unit's one-shot, never observed, per-part cleanup); 20
+> title/description part markers (part delay = unit delay + 60ms×index);
+> the use-cases section title = the 14th scroll unit; armed 14 → **35**;
+> the lead + BLEAK card carry no parts; reduced-motion/missing-IO =
+> immediate; base.css byte-unchanged. i18n ZERO delta (55/55); no new
+> deps; tokens untouched.
+> §4.33.J flags (records, none blocking): the 960-boundary row floor; the
+> 240-vs-220 computation; a one-new-key option if the owner ever wants
+> the literal dot+caption status on the band card; the privacy cascade's
+> 360ms tail (one-constant lever).
+> Manual checks for the owner: the landing at 800/960/1280/1920 (the
+> hero's shared bottom line at >960 with the narrow right-aligned BLEAK
+> card; the banner-structured BLEAK card in the 720–960 band below the
+> fold; steps stacked at 800 / row at ≥960; titles-then-descriptions
+> staggered reveal in BOTH locales; reduced-motion immediate).
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/eda902cb-tz12-16-bleak-breakpoints` (18 entries total; the
+> profile branch `f6ab8db7` still excluded — awaiting the owner's merge
+> approval); owner refs stay untracked.
+
+> **v3.25.2 ROUND NOTE (bug round — the §44.4 iOS keyboard viewport fix was
+> ineffective on iPhone/iPad, owner-reported — appended by the process
+> 2026-11-23, post-round three-gate run GREEN: lint clean · 1024 tests
+> total (49 api-client + 8 helper + 967 web, 53 files; keyboard-viewport
+> suite 11) · build 0 errors, dev `0f87fc2`):**
+> **FIXED per the deterministic diagnosis** (bug context:
+> `docs/bugs/ios-keyboard-viewport-1.md`, committed; fix by the SAME
+> worker `5de72e33` — session resumed — on
+> `feature/5de72e33-ios-keyboard-viewport`, DESIGN §4.31.2 recorded):
+> root cause = the layout's `.app-shell { min-height: 100dvh }` pinning
+> `height = max(min-height, height)` (iOS does not resize the layout
+> viewport on keyboard — the shrunk `--app-height` never applied; the
+> composer stayed behind the keyboard and iOS panned the document up).
+> Changes: (1) `min-height: 0` on BOTH `.app-shell` shell gates in
+> `JoinFlow.svelte` (persona-step + form-step); (2) the persona-step
+> `$effect` additionally locks `documentElement.style.overflow` (restored
+> on teardown) and pins the window during the keyboard pan
+> (`visualViewport` `scroll` listener → `window.scrollTo(0, 0)`, removed
+> on teardown — no-leak add/remove pairs asserted); (3) untouched: the
+> `--app-height` write/restore, the `100vh → 100dvh → var(--app-height,
+> 100dvh)` fallback chain, the §24–§29 two-fixed-areas layout, every
+> other join step/surface (negatives green; the tz11-10 cascade test
+> updated to the lifted-min-height contract — the only full-suite
+> break).
+> **Flow deviation (disclosed):** task 134 was `done` (terminal) when the
+> bug arrived — `task.py` forbids both bug-filing and reopening on
+> `done`; the fix therefore runs under the lineage card **136** (same
+> worker hash `5de72e33`, same resumed session, branch
+> `feature/5de72e33-ios-keyboard-viewport` — the established
+> feature/-prefix bug-card deviation) and the bug record lives in
+> `docs/bugs/ios-keyboard-viewport-1.md` (not in the `bugs` table).
+> Manual checks for the owner (iOS Safari, iPhone + iPad): open
+> `/income/<code>/create`, focus the composer — the container shrinks to
+> the visible viewport (messages + composer both visible), NO page pan,
+> NO stuck scroll after close; desktop/Android unchanged.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/5de72e33-ios-keyboard-viewport` (17 entries total; the profile
+> branch `f6ab8db7` still excluded — awaiting the owner's merge
+> approval); owner refs stay untracked.
+
+> **v3.26 ROUND NOTE (§45 hero breakpoint/width/headline + Bleak margins,
+> Concept §45 — appended by the process 2026-11-23, post-round three-gate
+> run GREEN: lint clean · 1022 tests total (49 api-client + 8 helper +
+> 965 web, 53 files; landing suite 95) · build 0 errors, dev `092d67b`):**
+> **Landing adjusted per ALL 3 §45 items** (task 135, worker `1c622991`;
+> design-first — design instance `b5720895` wrote DESIGN §4.32): (1)
+> **<960px open state = lead ALONE** — CSS-only, DOM unmoved: the base
+> `.stage` lost `min-height: 100dvh` + centering; a `≤959.98px` media
+> gives `.area-lead` the 100dvh flex-centered region — the lead centered
+> ALONE in the first viewport, BLEAK strictly below the fold (reveals on
+> scroll — its marker dropped `data-reveal-load` → bare `data-reveal`,
+> the 13th scroll unit; at ≥960 its IO fires at the scroll origin — net
+> same on-open reveal); `min-height: 100dvh` moved into the ≥960 media —
+> the §37 open-state rule now scoped ≥960 only (supersedes the §44.1
+> <960 stack); (2) **Bleak card wider — symmetric edges** — the 240px
+> cap + auto margins DELETED; the card fills its `1fr` track
+> (`width: 100%`); the container's 48px padding included on BOTH sides →
+> card-right-margin == lead-left-margin == `calc(10% + 48px)` at every
+> ≥960 width (card ≈288@960 / ≈407@1280 / ≈640@1920); (3) **headline
+> bigger** — ≥960 clamp(28,4vw,48) → **`clamp(32px, 4.5vw, 64px)`**
+> (<960 ladder byte-unchanged; agent-name 28px stays subordinate; line
+> fit + open-state fit verified at 960/1280/1920 — row max ≈370/371/392px
+> fits any realistic desktop height; `min-height: 100dvh` kept
+> grow-allowed). i18n ZERO delta (55/55); no new deps; tokens/routes/
+> income untouched; the reveal + reduced-motion mechanics unchanged.
+> §4.32.H records (no blocking flags): the DOM-stays-put rationale; the
+> padding-inclusive symmetry reading; the ≥960 origin-fire reveal timing;
+> the clamp value = design's call (one-literal revert band 56–72px cap if
+> the smoke dislikes the 1920 scale).
+> Manual checks for the owner: the landing at 800/960/1280/1920 (phone/
+> narrow: ONLY the lead centered on open, BLEAK below the fold; desktop:
+> lead + BLEAK both visible and centered, the BLEAK card's right edge
+> symmetric with the lead's left margin, the bigger headline in BOTH
+> locales), Start/TALK → /income, reduced-motion.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/1c622991-tz12-15-hero-breakpoint-bleak` (16 branches total;
+> the profile branch `f6ab8db7` still excluded — awaiting the owner's
+> merge approval); owner refs stay untracked.
+
+> **v3.25.1 ROUND NOTE (§44.4 mobile keyboard viewport fix for
+> income/[income_code]/create, Concept §44.4 — appended by the process
+> 2026-11-23, post-round three-gate run GREEN: lint clean · 1022 tests
+> total (49 api-client + 8 helper + 965 web, 53 files; new
+> keyboard-viewport suite 9) · build 0 errors, dev `fcc66be`):**
+> **The creation wizard no longer gets pushed off-screen by the mobile
+> keyboard** (task 134, worker `5de72e33`; NO design instance — lean
+> judgment: the owner's requirements were implementation-precise; the
+> worker wrote the dated DESIGN §4.31.1 owner-amendment record): (1)
+> **§44.4.1 dynamic viewport units** — the four §24–§30 height gates in
+> `JoinFlow.svelte` (persona main block, persona app-shell lock,
+> form-step gate, form-step shell lock) keep the `height: 100vh; height:
+> 100dvh;` fallback-then-dvh pair and consume the dynamic height as
+> `height: var(--app-height, 100dvh)` (unset elsewhere → the dvh fallback
+> stands); (2) **§44.4.2 visualViewport listener** — a creation-scoped
+> `$effect` gated on the persona step (the creation wizard): on
+> `window.visualViewport` resize, `--app-height: <px>` lands on the
+> document root + the body gets `overflow: hidden` (document scroll-lock)
+> while the creation flow runs — fully restored on teardown, SSR-safe
+> (guarded inside the effect, no module-init window access). **Scope
+> gate verified:** the mechanism exists only in JoinFlow (never mounted
+> by /chats) — negatives assert no `--app-height`/`visualViewport`/
+> scroll-lock in any chats route/component and nothing outside JoinFlow's
+> sources. The §24–§30 contracts HOLD — the "visible viewport" they bind
+> to is now the dynamic visualViewport height (geometry test: at a
+> keyboard-shrunk 400px bound, the messages area (flex:1/min-height:0/
+> overflow auto) and the input (flex:none) both stay in flow inside the
+> shrunk container). Listener/var/lock fully cleaned up on unmount.
+> RU/EN parity untouched; no new deps; tokens/routes/landing/profile
+> untouched; the §24–§30 contract suites green.
+> Manual checks for the owner: the creation wizard on a real phone
+> (Safari/iOS especially): open the keyboard — the page must not be
+> pushed up; the messages area and the input stay visible together;
+> closing the keyboard restores the full height; /chats unaffected.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/5de72e33-tz12-14a-keyboard-viewport` (15 branches total; the
+> profile branch `f6ab8db7` still excluded — awaiting the owner's merge
+> approval); owner refs stay untracked.
+
+> **v3.25 ROUND NOTE (§44 wider lead + unified card borders + route param
+> rename, Concept §44 — appended by the process 2026-11-23, post-round
+> three-gate run GREEN: lint clean · 1013 tests total (49 api-client + 8
+> helper + 956 web, 55 files) · build 0 errors, dev `84e7e7f`):**
+> **Landing adjusted per ALL 3 §44 items** (task 133, worker `bbf8e50d`;
+> design-first — design instance `6ce29032` wrote DESIGN §4.31): (1)
+> **hero rework** — ≥960px: two-column `1.2fr 1fr` (lead col 1 ≈489px
+> @1280 / ≈348px @960 — the empty middle third retires; the agent card's
+> 240px cap carries), <960px: ONE centered column — lead centered, BLEAK
+> below (the 720px hero breakpoint superseded; the 100dvh + centering now
+> live on `.stage` at every width; the §37 open-state re-verified at 800 —
+> ~712px content fits); all other blocks' 720px rules stand; (2) **step
+> cards 01/02/03 borders unified** — ROOT CAUSE found: no per-card
+> divergence existed; the thick white bottom block on 01/03 was a
+> GRID-STRETCH LEAK (the desktop grid stretched the `li`s while
+> `.step-body`'s `height: auto` exposed the `pixel-frame--strong`
+> near-white layer below the shorter bodies); fix = `.step-body { height:
+> 100% }` + all three `li`s drop `pixel-frame--strong` → plain
+> `pixel-frame` (unified 2px ring / stepped corners /
+> `--color-surface-elevated`; agent + banner keep `--strong`); (3) **route
+> param rename** — `income/[room]/create` → `income/[income_code]/create`
+> (dir moved; `page.params.income_code`; JoinFlow resolve/prop
+> `roomParam`→`incomeCodeParam` + seed; comment-only income/layout
+> corrections; resolution behavior byte-identical; out-of-scope room
+> surfaces untouched). i18n ZERO delta (55/55); no new deps; tokens
+> untouched; §37 open state + all §31–§43 contracts green. Note: the
+> Concept §42→§43 renumber (the duplicate-§42 fix) rode this landing.
+> §4.31.I records (no blocking flags): the unified border color is
+> `--color-surface-elevated` (a one-class `--strong` revert if the owner
+> meant width/radius only); the headline clamp steps at the 960 boundary
+> (48→38.4px — single-value tweak possible); the phone hero behavior
+> changes by design <960 (the §37 RULE carries).
+> Manual checks for the owner: the landing at 800/960/1280 (the wider
+> lead, the centered stack below 960, the thirds ≥960), the three step
+> cards' identical outlines (no white bottoms in EITHER locale — the leak
+> was RU-height-dependent), the create deep link
+> `income/<income_code>/create` still resolving via the room intro,
+> Start/TALK → /income.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/bbf8e50d-tz12-14-wider-lead-borders-param` (15 branches total;
+> the profile branch `feature/f6ab8db7-profile-redesign` is NOT on the
+> list — still awaiting the owner's merge approval); owner refs stay
+> untracked.
+
+> **v3.24 ROUND NOTE (§42 scroll-triggered animations + card/width/icon
+> tweaks, Concept §42 of 2026-11-23 — appended by the process 2026-11-23,
+> post-round three-gate run GREEN: lint clean · 1012 tests total (49
+> api-client + 8 helper + 955 web, 52 files; landing suite 94) · build 0
+> errors, dev `16773a6`):**
+> **Landing adjusted per ALL 5 §42 items** (task 132, worker `9626632b`;
+> design-first — design instance `72f54529` wrote DESIGN **§4.30** —
+> NUMBERING DEVIATION: the caller's cited §4.29 was already claimed by the
+> PARALLEL profile-redesign rev, see below): (1) **scroll-reveal** — new
+> native utility `landing/reveal.ts` (one shared IntersectionObserver,
+> threshold 0.15 / rootMargin −48px, one-shot per unit + unobserve,
+> `transitionend` + 720ms-fallback cleanup stripping the class+attribute,
+> 60ms sibling stagger; hidden state ONLY under `data-reveal="armed"` in
+> base.css — opacity 0 + translateY(16px), 320ms steps(4,end)/ease-out;
+> reduced-motion OR missing IO ⇒ never armed ⇒ everything visible
+> immediately; no-JS safe by construction); the below-fold blocks reveal
+> on scroll (banner, 3 steps, sim, privacy, 4 use-case pills, join,
+> footer); the §37 first-viewport pair (lead + BLEAK) animates on LOAD;
+> (2) **Bleak card narrower** — desktop `max-width: 240px` centered in its
+> third (phone 100%); (3) **icons +50%** in every below-first-screen
+> block: flower 44/48→66/72, status dot 6→9px, step icons 32→48 (wrapper
+> 72), step art 48→72, privacy 48→72, use-case 40→60, sim avatars 64→96 —
+> negatives unchanged (lead/BLEAK art, join mascot, footer glyph,
+> step-num, ring); (4) **step cards → the Bleak card's background** —
+> `.step-body` now `var(--color-surface)` (byte-equal to the `.card`
+> fill), the §38 glass rgba(15,14,22,0.65)+blur(10) SUPERSEDED on those
+> cards (hover glow/lift/frame/pills/illustrations kept); (5) **phone
+> banner stacking** — the flower icon + "AI Agents active nearby" caption
+> moved ON TOP of the text; desktop row unchanged. i18n ZERO delta
+> (55/55); no new deps; tokens untouched; all §31–§41 contracts green.
+> **PARALLEL-TRACK COORDINATION (for concept):** a second process instance
+> (`2a7c5e22`, parent concept) ran the profile-redesign track (task 131,
+> worker `f6ab8db7`, design `0fd398c9` — DESIGN §4.29) in parallel; its
+> code sits ready-for-merge on `feature/f6ab8db7-profile-redesign` (4
+> commits, cut from this same dev base). Its UNCOMMITTED doc records
+> (Concept's second "§42 profile redesign" + DESIGN §4.29) were folded
+> into THIS landing's docs commit so they would not dangle — **Concept.md
+> now contains TWO sections numbered §42** (2026-11-23 scroll-animations =
+> mine; 2026-11-22 profile = theirs) — concept should renumber; and their
+> landing (their process) now carries pure code (the docs are already
+> in). The uncommitted §4.29 profile spec described in this file is
+> theirs and lands with this commit — their code may supersede it
+> operationally once merged.
+> Manual checks for the owner: the landing on phone + desktop (blocks
+> fade/rise in on scroll; the site still opens on lead + BLEAK only; the
+> BLEAK card visibly narrower; icons notably bigger below the first
+> screen; step cards match the BLEAK card's dark surface; the phone
+> banner stacks icon-over-text in BOTH locales), reduced-motion
+> (everything visible immediately, no reveal).
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/9626632b-tz12-13-scroll-reveal-tweaks` (13 branches total);
+> owner refs stay untracked.
+
+> **v3.22.1 ROUND NOTE (§41 lead text color + copy changes, Concept §41 —
+> appended by the process 2026-11-22, post-round three-gate run GREEN:
+> lint clean · 1000 tests total (49 api-client + 8 helper + 943 web, 52
+> files; landing suite 87) · build 0 errors, dev `929bb56`):**
+> **Landing adjusted per ALL 3 §41 items** (task 130, worker `42ce1dbc`;
+> NO design instance — lean judgment: copy + one color; the worker wrote
+> the dated DESIGN §4.28.1 owner-amendment record): (1) the lead
+> description `.sub` now reads **white** — `var(--color-text)` (the muted
+> token retired for this element only; the headline treatment — clamp
+> 28/4vw/48 + halo + accent word — unchanged); (2) **titles**: EN →
+> "The right connections beside you" / RU → «Нужные знакомства рядом»
+> (`landing.headline.accent` = 'BESIDE YOU' / «РЯДОМ» — the 3-line
+> pixel-headline + highlighted-accent structure kept); (3) the **RU
+> description** = the owner's VERBATIM string «Нетворкинг - это работа.
+> Здесь ИИ-двойники работают за Вас. Собирайте контакты, проверяйте
+> совместимость и вдохновляйтесь общими идеями!» (hyphen preserved as
+> given); the **EN description UNCHANGED** (the §41.3 proposed translation
+> stays pending the owner's decision — a negative test asserts it did not
+> leak). Values only — parity stays 55/55 key-wise; no new deps; tokens
+> untouched; all other muted consumers (nav etc.) untouched.
+> Owner decision pending (carried): the EN description string — the
+> §41.3 proposal awaits approval.
+> Manual checks for the owner: the lead block (white description over the
+> video, the new 3-line titles in BOTH locales with the accent line
+> BESIDE YOU / «РЯДОМ»), Start/TALK → /income.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/42ce1dbc-tz12-12a-lead-copy-color` (14 branches total); owner
+> refs stay untracked (incl. `profile-design*.png` — still no owner
+> batch referencing them).
+
+> **v3.22 ROUND NOTE (§40 bigger titles/descriptions/badges + phone widths,
+> Concept §40 — appended by the process 2026-11-22, post-round three-gate
+> run GREEN: lint clean · 995 tests total (49 api-client + 8 helper + 938
+> web, 52 files; landing suite 77) · build 0 errors, dev `b909e40`):**
+> **Landing adjusted per ALL 2 §40 items** (task 129, worker `05423c53`;
+> design-first — design instance `2e2e5c6d` wrote DESIGN §4.28, a
+> sizing-only pass with the full from→to ladder): (1) **font ladder** —
+> headline 36/44/clamp(22,3.5vw,44) → **40 / 48 / clamp(28,4vw,48)** (the
+> clamp adjustment was forced by the hierarchy — the grown agent-name
+> would otherwise overtake the lead at 720px; open-state re-verified);
+> agent-name 24→28 · stat-title 17→21 · step/section titles 20→24 (join
+> ≥720 28) · privacy/sim/usecase labels 14→16 · descriptions 15→**17**
+> (.step-desc/.privacy-desc/.stat-line/.agent-quote) · .sub 14→16 (≥720
+> 18) · status captions 11→13 / sim 12→14 · pills 10→12 (≥720 13) ·
+> CTAs 16→18; **negatives hold: nav stays 14 (§39), switcher untouched,
+> join-input 14, footer/ring geometric sizes unchanged**; (2) **phone
+> widths** — `.landing` AND `.top` both carry the identical
+> `width: max(90%, 280px); margin-inline: auto` in the base (phone) rules,
+> and `.landing`'s phone inline padding is DROPPED so the width-100%
+> blocks span edge-to-edge aligning exactly with the header edges
+> (390→351px both, 320→288px both, <311→280px floored both); ≥720px
+> restores `max(80%, 280px)` content / 90% header — desktop unchanged.
+> i18n ZERO delta (55/55 byte-identical); no motion; no new deps; tokens
+> untouched; §37 open state + all §35–§39 contracts green.
+> §4.28.K records (no ADVICE NEEDED — all six are design calls within the
+> owner's §40 delegation): .sub + CTA pill family included in the ladder
+> (one-line reversals if the owner disagrees); the shared-floor token
+> rejected (two consumers only); the headline clamp decision; the 280px
+> floor shared by both rules.
+> Manual checks for the owner: the landing on phone + desktop (bigger
+> titles/descriptions/badges read comfortably in BOTH locales; on phone
+> the content blocks and the header edges line up exactly; desktop 80/90
+> split unchanged; the first viewport still opens on lead + BLEAK
+> centered), Start/TALK → /income.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/05423c53-tz12-12-font-scale-phone-widths` (12 branches total);
+> owner refs stay untracked (now also `profile-design.png` +
+> `profile-design-2.png` — appeared at the root, not yet an owner batch).
+
+> **v3.21.1 ROUND NOTE (§39.4 amendment — native-loop swap, Concept §39.4 —
+> appended by the process 2026-11-22, post-round three-gate run GREEN:
+> lint clean · 991 tests total (49 api-client + 8 helper + 934 web, 52
+> files; landing suite 73) · build 0 errors, dev `94a19ef`):**
+> **The ping-pong video now plays via native loop** (task 128, worker
+> `da60d572`; Option A per the recorded §39.4 amendment; design instance
+> SKIPPED per the lean judgment — purely subtractive + asset swap; the
+> worker wrote the dated DESIGN §4.27.1 owner-amendment record): the
+> owner's pre-stitched yo-yo clip `background-video-loop.mp4`
+> (3,058,088 bytes, forward+reverse) copied to
+> `apps/web/src/lib/assets/landing/` and the superseded
+> `background-video.mp4` DELETED — **the bundle emits only the new clip**
+> (`background-video-loop.8oyblBBJ.mp4`, −1.3 MB vs the old file); the JS
+> seek-stepper is GONE (`videoPingPong.ts` deleted + all hero wiring —
+> net −124 lines in the hero); native `loop` RESTORED with the §34
+> attribute set verbatim (`muted loop playsinline preload="metadata"
+> disablepictureinpicture aria-hidden`), the gated one-shot mount
+> `.play()` + swallowed rejection + error fallback + black bg + dissolve
+> + dot mesh unchanged; §4.27.1 supersedes §4.27.E. Tests: new-asset
+> emitted + old-absent negatives, `loop` present, videoPingPong-gone
+> negatives, the 3 stepper tests dropped → landing 73, parity 55/55
+> untouched. Everything else untouched per the §35–§39 contracts.
+> Manual checks for the owner: the background video yo-yos seamlessly
+> (forward→reverse→forward) on phone + desktop, reduced-motion static
+> fallback, no console errors from playback.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/da60d572-tz12-11a-native-loop-swap` (11 branches total); owner
+> refs (now incl. the root `background-video.mp4` AND
+> `background-video-loop.mp4`) stay untracked.
+
+> **v3.21 ROUND NOTE (§39 font bumps + compatibility circle + ping-pong
+> video, Concept §39 — appended by the process 2026-11-22, post-round
+> three-gate run GREEN: lint clean · 992 tests total (49 api-client + 8
+> helper + 935 web, 52 files; landing suite 74) · build 0 errors, dev
+> `6e9f0be`):**
+> **Landing adjusted per ALL 4 §39 items** (task 127, worker `43e60f70`;
+> design-first — design instance `bda82016` wrote DESIGN §4.27 after
+> LOCATING the pattern source): (1) nav anchors 12 → **14px** (switcher
+> untouched — explicit negative test); (2) one consistent description bump
+> 13 → **15px** on `.step-desc`/`.privacy-desc`/`.stat-line`/
+> `.agent-quote` (`.sub` + join input untouched); (3) **Section 4 center
+> rework** — the 3-message chat window DELETED (4 orphaned keys removed,
+> 55 keys/dict), replaced by the **compatibility circle reusing the /chats
+> summary-sheet pattern verbatim**: imports `RING_RADIUS`/
+> `ringCircumference`/`ringScoreOffset`/`TALLY_MS`/`tallyValue` from
+> `#lib/chats/summary` (no duplicated constants — pattern-reuse test
+> asserts the import; the shared `summary.js` chunk is now in the build),
+> r66/160×160/stroke-12 ring, 25% ink track, 900ms ease-out ring-fill,
+> `COMPAT_SCORE = 96`, Handjet 600 40px numeral, NO yellow (green stays on
+> the badge), one-shot IntersectionObserver trigger (mount fallback;
+> reduced-motion = static final); the ICE BROKEN badge relocated BELOW the
+> circle; flanking avatars + status lines verbatim; (4) **video
+> ping-pong** — the `loop` attribute REMOVED; pure seam
+> `landing/videoPingPong.ts` (`stepTime` clamp+flip, unit-tested) + one
+> rAF seek-stepper driving the paused element (wall-clock delta, 1×,
+> direction state flips at 0/duration), idles until `loadedmetadata`,
+> bails on error, cancels on unmount; reduced-motion = no play/no stepper
+> (static fallback unchanged). RU invention carried: «Совместимость
+> агентов: 96%» (design-invented aria — owner tone approval requested,
+> §4.26.O.1 precedent). Keep: header glass recipe, transparent lead, all
+> section structures, BLEAK/БЛИК, income surfaces, tokens.
+> Manual checks for the owner: nav/description sizes in BOTH locales, the
+> Section 4 compatibility circle count-up on scroll-into-view (matches the
+> /chats summary ring), the badge below it, the video yo-yo reverse at the
+> ends, reduced-motion statics.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/43e60f70-tz12-11-fonts-compat-pingpong` (10 branches total);
+> owner refs stay untracked.
+
+> **v3.20 ROUND NOTE (§38 glass-system polish + 4 new landing sections,
+> Concept §38 — appended by the process 2026-11-22, post-round three-gate
+> run GREEN: lint clean · 983 tests total (49 api-client + 8 helper + 926
+> web, 52 files; landing suite 65) · build 0 errors, dev `b429e69`):**
+> **Landing adjusted per ALL 7 §38 items** (task 126, worker `a729241a`;
+> design-first — design instance `1a3d809d` wrote DESIGN §4.26 from the
+> owner's verbatim values/copy): (1) **header** — detached floating glass
+> pill: `fixed; top: 24px`, centered `width: 90% / max-width: 1200px`,
+> `radius-md` 20px, `rgba(18,15,28,0.35)` + `blur(18px) saturate(180%)`,
+> 1px `rgba(255,255,255,0.2)` border + `inset 0 1px 1px
+> rgba(255,255,255,0.35)` (supersedes the §37 exact values + the §36 80%
+> HEADER width — the content container keeps 80%, recorded as intended);
+> nav → 4 smooth-scroll anchors HOW IT WORKS/PRIVACY/USE CASES/JOIN →
+> `#how-it-works` (renamed from #tutorial) / `#privacy` / `#use-cases` /
+> `#join`, `scroll-margin-top: 100px`, CSS smooth under
+> `no-preference`; (2) **banner** — glass `rgba(20,18,30,0.55)` +
+> `blur(12px)`, `[ LIVE NETWORK // IRL ]` sub-badge, glowing caption
+> "AI Agents active nearby" + pulsing green dot (reduced-motion static);
+> (3) **step cards** — glass `rgba(15,14,22,0.65)` + `blur(10px)`, hover
+> purple glow + lift, 3 original pixel mini-illustrations (new
+> `sectionArt.ts`: radar character / avatars+bubble / fist-bump+sparkles),
+> the 3 EXACT micro-pills; (4) **footer** — glass pill
+> `rgba(18,15,28,0.5)` + `blur(14px)` (pixel-frame box retired, content
+> contract kept); (5) **four new sections** (shared recipe
+> `rgba(18,15,28,0.45)` + `blur(16px)` + glossy white borders, all below
+> the fold, open state intact): **#sim** live agent simulation (BLEAK 64px
+> + "Status: Scanning..." blinking cursor, new 24×24 SCOUT figure +
+> "Distance: 15m", opaque 3-row chat window + `[ ICE BROKEN — SAY HELLO ]`
+> pulsing badge), **#privacy** 3-col (GHOST MODE / MUTUAL OPT-IN /
+> EPHEMERAL GPS; ghost/padlock+key/shield+radar icons), **#use-cases** 4
+> pills (CONFERENCES / PARTIES & BARS / COWORKINGS / FESTIVALS;
+> badge/neon-glasses/laptop/headphones), **#join** final CTA (centered
+> glass card, purple neon glow, new `BLEAK_WAVE_FIGURE` 36×32 —
+> cyber-glasses + wave arm on the byte-identical BLEAK art; headline
+> verbatim; dark glass input + **GET EARLY ACCESS mailto stub** →
+> `mailto:extube@proton.me?subject=BLEAK%20EARLY%20ACCESS` + encoded body,
+> no form/fetch/env/validation — swap-to-endpoint note recorded §4.26.I);
+> (6) i18n **+35 keys → 58/dict** (EN verbatim from §38.5, RU per
+> §4.26.L); (7) reduced-motion statics for all pulse/hover/glow; no new
+> deps; raw-hex sweep stays green (the rgba glass family per the
+> §4.25.D.7/§4.26.K.8 sanctioned exception).
+> §4.26.O owner flags (advice): (1) **all 35 RU strings are design
+> inventions** (the owner gave EN only) — tone approval requested; (2) the
+> nav form «ВСТУПИТЬ»; (3) GET EARLY ACCESS button = the yellow accent
+> (one-value flip to purple if preferred); (4) the stub record (no
+> decision needed); (5) header-wider-than-content (90% vs 80%) is
+> intended; (6) Section 4 has no nav anchor (by design).
+> Manual checks for the owner: the landing on phone + desktop (detached
+> glass header pill + the 4 anchor scrolls, banner sub-badge/caption/dot,
+> step-card glass/hover/illustrations/pills, glass footer pill, the four
+> new sections in BOTH locales, the JOIN mailto stub on desktop mail
+> client, open state still lead+Bleak only, reduced-motion statics).
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — commits
+> pathspec-scoped; devops `-D` branch-cleanup list adds
+> `feature/a729241a-tz12-10-glass-sections` (9 branches total); owner refs
+> stay untracked.
+
+> **v3.19 ROUND NOTE (§37 owner correction — "Not, is not what I want":
+> open state + transparent lead + true liquid-glass header, Concept §37 —
+> appended by the process 2026-11-22, post-round three-gate run GREEN:
+> lint clean · 967 tests total (49 api-client + 8 helper + 910 web, 52
+> files; landing suite 52) · build 0 errors, dev `6263fb4`):**
+> **Landing adjusted per ALL 3 §37 items** (task 125, worker `221c49f3`;
+> design-first — design instance `2e68e6a5` wrote DESIGN §4.25; item 3
+> carries the owner's EXACT css values verbatim): (1) **default open
+> state** — header `position: fixed; top: 0` (video scrolls directly
+> underneath; flow height zero), hero row `min-height: 100dvh` +
+> `align-content/align-items: center` — desktop shows ONLY the lead
+> (col 1) + BLEAK (col 3) vertically centered with the middle third empty;
+> phone: `.area-lead` = the 100dvh first screen (Start block centered),
+> BLEAK next in flow; stat/steps/footer below the fold (scroll-only); the
+> §36 `calc(200dvh / 3)` spacer DELETED (negative AC); (2) **transparent
+> borderless lead** — all pixel-frame classes dropped, transparent body,
+> no border/fill/radius/shadow; legibility = token text-shadow halo on
+> headline+sub (accent keeps its violet glow); Start pill unchanged →
+> /income; supersedes §36 item 2 opaque+pixel-frame for this block; (3)
+> **true liquid-glass header — the owner's exact values, verbatim**:
+> `background: rgba(20, 20, 30, 0.25)`; `backdrop-filter: blur(16px)
+> saturate(180%)` (+-webkit-); `border-top/bottom: 1px solid
+> rgba(255, 255, 255, 0.15)` (sides none); `box-shadow: inset 0 1px 0
+> rgba(255, 255, 255, 0.15)` inner highlight; rounding kept (radius-lg/md
+> — owner silent); width `max(80%, 280px)` centered (breakout math
+> retired); keep-list unchanged; the §4.24 two-tier 92/88% fill DELETED;
+> `@supports not(...)` fallback `rgba(20, 20, 30, 0.85)`. i18n zero delta
+> (23/23). Keep: fixed video layer + attrs/gating, dissolve + dots,
+> thirds-with-empty-middle, BLEAK/БЛИК, step blocks, contact footer,
+> income surfaces, RU/EN.
+> **AA tradeoff recorded (§4.25.C — owner-order exception):** at 0.25 tint
+> + blur, worst-case bright video frames put muted nav ≈1.1:1 / text
+> ≈2.5:1 (FAIL); over the owner's near-black video ≥4.5:1 holds. The
+> owner's exact values win; residual risk routed to the owner's real-
+> device smoke — remedies (higher tint opacity / nav text treatment) need
+> owner sign-off if smoke fails (§4.25.H flag 1). Smoke notes: the rounded
+> top corners sit flush at `top: 0`; short viewports tuck content under
+> the glass on scroll. §4.24.J statuses updated (1 resolved — clamp stands;
+> 2 moot — 88% band replaced; 3 moot — spacer gone).
+> Manual checks for the owner: the landing on phone + desktop (first
+> viewport = ONLY lead + BLEAK vertically centered over the video, third
+> thirds column empty, glass header with the exact blur/tint/border over
+> the scrolling video, transparent borderless lead legible in BOTH
+> locales, everything else below the fold), Start/TALK → /income,
+> reduced-motion (static near-black + halo reads).
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — this round
+> the worker committed code-only and the process's pathspec landing folded
+> the doc amendments in (verified clean); devops `-D` branch-cleanup list
+> adds `feature/221c49f3-tz12-09-open-state-glass` (8 branches total);
+> owner refs stay untracked.
+
+> **v3.18 ROUND NOTE (§36 80% widths + opaque narrower lead + thirds layout
+> + phone open state, Concept §36 — appended by the process 2026-11-22,
+> post-round three-gate run GREEN: lint clean · 966 tests total (49
+> api-client + 8 helper + 909 web, 52 files; landing suite 51) · build 0
+> errors, dev `b34465a`):**
+> **Landing adjusted per ALL 4 §36 items** (task 124, worker `aef20dd9`;
+> design-first — design instance `54ba0ec2` wrote DESIGN §4.24 amending
+> §4.23): (1) **80% container + header** — one container rule `.landing {
+> width: max(80%, 280px); margin-inline: auto }` (the 1000px canvas cap
+> retired as a width rule; the 280px floor protects 320px phones), header
+> spans the same 80% via the container breakout (negative-margin
+> calc — no vw units); **blur VERIFIED applied and unoverridden** — the
+> imperceptibility root cause was the 92% fill over the already near-black
+> clip; fixed with the two-tier fill (92% `@supports`-fallback floor + 88%
+> where the blur actually runs; blur-inclusive AA re-derived 5.2:1);
+> (2) **opaque narrower lead** — solid `--color-surface` body, §4.20.G
+> pixel-frame, SQUARE corners (the header is now the ONLY rounded
+> surface), no translucency; fills its thirds column (≈288px @1280, was
+> ≤560px); desktop headline `clamp(22px, 3.5vw, 44px)` (the §4.20.C 64px
+> cannot hold a 288px third — flag below); (3) **thirds layout (desktop
+> ≥720px)** — `repeat(3, 1fr)` grid: lead col 1 / BLEAK agent card col 3 /
+> **col 2 EMPTY** (video + vignette + dots show through; negative AC: no
+> col-2 element, no glass panel); the §4.23.D `1fr/360px` row + cap
+> retired; (4) **phone open state** — `@media (max-width: 719.98px)
+> { .canvas { padding-top: calc(200dvh / 3) } }` (dvh, URL-bar-safe; the
+> owner's verbatim wording recorded in §36.4/§4.24.E) — the first content
+> block starts below the two-thirds mark; the sticky glass chip floats
+> over pure video; desktop no offset. i18n ZERO delta (23/23 parity, with
+> the §4.23.F erratum recorded in §4.24.G). Keep-list, video layer +
+> attrs/gating, dissolve, dot mesh, BLEAK/БЛИК, step blocks, contact
+> footer, Start/TALK → /income, income surfaces — all untouched.
+> §4.24.J owner flags (advice): (1) the desktop headline needed
+> `clamp(22px, 3.5vw, 44px)` to survive the 288px third (alternative: a
+> wider lead, contradicting the thirds reading); (2) the glass-visibility
+> band landed at 88% — the owner may step to 85% on real-device smoke
+> (≈5.05:1 blur-inclusive — the documented floor); (3) the phone first
+> block lands slightly BELOW the exact 2/3 line (header + container
+> padding inside the offset zone — satisfies the verbatim "no blocks in
+> top 2/3"; pixel-exact placement deliberately not specced).
+> Manual checks for the owner: the landing on phone + desktop (site
+> "opens" on pure video for the first 2/3 of a phone viewport, 80%
+> centered column, visible glass blur on the header, opaque pixel-frame
+> lead in the left third, video showing through the empty middle third,
+> BLEAK card right third, RU/EN over glass), Start/TALK → /income,
+> reduced-motion.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — the
+> landing + docs commits pathspec-scoped (this round the worker also
+> committed via an explicit 7-file pathspec — verified clean); devops
+> `-D` branch-cleanup list adds
+> `feature/aef20dd9-tz12-08-widths-thirds` (7 branches total); owner refs
+> stay untracked.
+
+> **v3.17 ROUND NOTE (§35 full-screen video background + liquid-glass header
+> + reminders removed, Concept §35 — appended by the process 2026-11-22,
+> post-round three-gate run GREEN: lint clean · 964 tests total (49
+> api-client + 8 helper + 907 web, 52 files; landing suite 49) · build 0
+> errors, dev `1100cab`):**
+> **Landing adjusted per ALL 3 §35 items** (task 123, worker `9659161e`;
+> design-first — design instance `1e2fd9c5` wrote DESIGN §4.23 amending
+> §4.22; still no video tooling in the sandbox — defensive spec from the
+> owner's text): (1) **fixed full-viewport video background** —
+> `LandingVideoHero` repurposed in place as the first `.landing-page`
+> child: z0 video `position: fixed; inset: 0`, cover (crops, never
+> letterboxes), §34 attribute set verbatim (muted/loop/playsinline/
+> preload="metadata"/disablepictureinpicture, one-shot mount .play() gated
+> on prefers-reduced-motion); z1 dissolve vignette (ellipse 120%×105%,
+> 55/78/100% stops) + 30% legibility wash into `--color-landing-bg`; z2
+> the 12-dot purple mesh kept, ambient over the full viewport; z3 the
+> content column scrolls OVER the video (desktop lead glass panel + 360px
+> BLEAK card row; phone DOM-order stack); play/pause control RETIRED
+> (ambient scenery — restorable, §4.23.I); error fallback unchanged (black
+> tint + dots); (2) **liquid-glass header** — floating sticky chip (top
+> 12px, insets 12px, canvas-aligned): `color-mix(--color-landing-bg 92%,
+> transparent)` + `backdrop-filter: blur(14px) saturate(1.1)` (+-webkit-) +
+> 22% Deepa hairline + ROUNDED corners (radius-lg 24px desktop / radius-md
+> 20px phone — the only rounded surfaces, scoped to the glass); keep-list
+> unchanged (icon + nav + switcher); AA floor ≈5:1 recorded; @supports
+> near-solid fallback; (3) **agent reminders REMOVED entirely** —
+> `LandingReminder.svelte` + its derivations/vars/z-rules deleted, 6 keys
+> dropped from both dicts (live audit: the copy lived in
+> `landing.dialog.line1/2/3` + `landing.video.aria/play/pause` — there was
+> no `landing.reminder.*` family), grep-audited; i18n parity **23/23**.
+> **Supersessions recorded (§4.23.E, 8 items):** §34 center-video-block
+> geometry + phone no-overlay rule + §33 protected-scenario/art-block
+> rules + §4.21.C/§4.22.C reminder contracts + the play control + the
+> named video region all retired; the attribute set, gated mount, error
+> fallback, dot mesh, header keep-list carried verbatim; §4.22.F vignette
+> rationale amended (structural dissolve into the black token stays).
+> Spec erratum disclosed: §4.23.F's "29 keys (35−6)" arithmetic predated
+> the landed §4.22.1 chat-strip retirement (the live start was already 29);
+> the 6-key removal intent was honored and lands at 23/23.
+> §4.23.I owner flags (advice): (1) the play/pause control retired —
+> restorable as one glass chip + 3 keys; (2) the glass LEAD panel is the
+> design's legibility extension beyond the owner's header-only wording
+> (raw muted text over an arbitrary bright video region cannot guarantee
+> AA at any tolerable global tint; fallback = ~90% global tint so the
+> video reads as faint texture); (3) the video's exact bg color remains
+> unverifiable without tooling — the dissolve stays structural.
+> Manual checks for the owner: the landing on phone + desktop (fixed video
+> behind ALL scrolling content on both, glass header + glass lead panel
+> legibility in BOTH locales, no reminders anywhere, black seamless edges,
+> Start/TALK → /income), reduced-motion (static near-black, no playback),
+> RU/EN switch over the glass.
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — pathspec-
+> scoped commits again; devops `-D` branch-cleanup list adds
+> `feature/9659161e-tz12-07-video-background` (6 branches total); owner
+> refs stay untracked.
+
+> **v3.16.1 ROUND NOTE (§34 owner amendment — chat-strip retirement, Concept
+> §34 record — appended by the process 2026-11-22, post-round three-gate run
+> GREEN: lint clean · 966 tests total (49 api-client + 8 helper + 909 web,
+> 52 files; landing suite 51) · build 0 errors, dev `1b2256c`):**
+> **The mascot-chat animation strip is REMOVED from the landing's center
+> video block** (task 122, worker `18b096e1` — subtractive owner amendment:
+> the video's own cast, the boy + robot inside the video, is the only
+> animated center content). Deleted: `LandingChatStrip.svelte` +
+> `chatTimeline.ts`, the `.area-chat` markup/grid CSS (`.stage` phone DOM
+> order = lead → video block → agent card), the orphaned PIP/GLITCH figure
+> data (`FigureName` narrowed to bleak/bloom), the 6 `landing.chat.*` keys
+> from BOTH dicts (grep-audited; parity 29/29), and the strip test
+> assertions (supersession AC added: files gone, no strip DOM/keyframes,
+> negative render assertions). DESIGN §4.22.1 owner-amendment record added
+> (supersedes §4.20.F + the §4.22.B strip-flow decision; resolves the §32
+> mascot-chat requirement by owner order). Design instance SKIPPED per the
+> lean judgment call (purely subtractive; the worker wrote the §4.22.1
+> record). Everything else untouched: reminder contracts (bottom-fixed,
+> 1:3.5, pixel font, emoji corner, bob, check), purple pixel treatment,
+> Start/TALK → /income, header keep-list, BLEAK/БЛИК, step blocks, contact
+> footer, black bg + dissolve; landing bundle shrank (~9 kB JS).
+> Housekeeping (unchanged): staged-leftover index state persists (root
+> `background-img.jpg` + legacy `docs/logs/1640ba9e.log` mod) — pathspec-
+> scoped commits again; devops `-D` branch-cleanup list adds
+> `feature/18b096e1-tz12-06a-chat-strip-removal` (5 branches total);
+> owner refs stay untracked.
+
+> **v3.16 ROUND NOTE (§34 video hero + header cleanup + Vector→Bleak,
+> Concept §34 — appended by the process 2026-11-22, post-round three-gate
+> run GREEN: lint clean · 966 tests total (49 api-client + 8 helper + 909
+> web, 52 files) · build 0 errors, dev `1ada0cd`):**
+> **Landing adjusted per ALL 6 §34 items** (task 121, worker `a4e2a3c6`;
+> design-first — design instance `58b2d3f9` wrote DESIGN §4.22 amending
+> §4.21; NO video-inspection tooling exists in the sandbox, so the spec is
+> defensive from the owner's text): (1) header slimmed to web icon +
+> desktop-only nav anchors + language switcher (all tagline lines, the
+> GLITCH tagline glyph and the header START controls removed; `/income`
+> entry points = exactly the lead CTA + card TALK); (2) hero common block
+> = the VIDEO (`LandingVideoHero`, the owner's `background-video.mp4`
+> copied to `apps/web/src/lib/assets/landing/background-video.mp4`,
+> committed + build-emitted 4,355.62 kB), flanked left/right by the Start
+> block (27%) and the BLEAK agent card (26%); (3) video full common-block
+> width 16:9 cover; desktop = the side blocks OVERLAY the video (grid
+> overlay, vertically centered on the video — implemented as grid
+> row-span/align-center rather than §4.22.B's sketched absolute+top:50%,
+> which collided with the chat strip; same visual, deviation disclosed);
+> phone = NO overlay, video full-width then the exact §4.20.K stack; (4)
+> Vector → **BLEAK / БЛИК** everywhere on the landing (i18n grounded in
+> the live dict's existing «Блик» transliteration; grep-audit clean) AND
+> the income mascot swap — `BleakMascot` re-pointed to the promoted shared
+> personage (`personage/bleakFigure.ts`, byte-identical art): CodeEntry
+> 96, RoomPreview 96, wizard intro 96 + steps 112, MessageBubble rows 28 —
+> FormShell §30 / §23 / §24–§29 contracts green; (5) landing background =
+> near-black via the derived token `--color-landing-bg` (5% Deepa over
+> surface, scoped to `/`), vignette dissolve re-pointed (seamless with the
+> video's near-black); (6) video attributes = `muted loop playsinline
+> preload="metadata" disablepictureinpicture`, NO autoplay attr — playback
+> via a one-shot mount effect gated on `prefers-reduced-motion` (paused
+> under reduced motion), 48px pixel play/pause control only when paused
+> (phone: lifted above the reminder band), `error` fallback = black tint +
+> 12-dot purple mesh + reminder. **Supersessions recorded (§4.22.G):**
+> `background.jpg` + `LandingHeroScene.svelte` DELETED, NOVA/ASTRA retired
+> (the video's own boy+robot duo is the only hero cast — resolves the
+> §4.21.J-1 flag), tagline keys retired; i18n parity 35/35 both dicts;
+> reminder-box contracts (bottom-fixed, 1:3.5, bob, check) migrated into
+> the video block verbatim; animated purple pixels kept over the video;
+> mascot-chat strip below the video, right-aligned 280px.
+> §4.22.K owner flags (advice): (1) header START controls removed per the
+> owner's keep-list enumeration — restore is trivial if unintended; (2)
+> the phone reminder covers a larger share of the short video — verbatim
+> §33 geometry kept, one-token fix available; (3) the video's exact bg
+> color is unverifiable without tooling — seamlessness is structural
+> (vignette → token), mix ratio is a one-line tweak; (4) RU brand form =
+> «Блик» (Latin "BLEAK" is a one-value change if preferred).
+> Manual checks for the owner: the landing on phone + desktop (header
+> slim, video playback/mute/loop + play-pause control, side overlays vs
+> phone stack, BLEAK card, reminder geometry/bob/check, black seamless
+> bg, RU/EN), Start/TALK → /income with the 6-digit input + the Bleak
+> personage on the entry/room-intro/wizard surfaces, reduced-motion
+> rendering.
+> Housekeeping: the staged-leftover index state persists (untracked root
+> `background-img.jpg` + 2-line legacy `docs/logs/1640ba9e.log` mod) —
+> landing + docs commits were again pathspec-scoped (verified clean);
+> devops `-D` branch-cleanup list: `feature/c1dc2bb0-tz12-03-landing-redesign`,
+> `feature/c28f1e56-tz12-04-landing-rebuild`,
+> `feature/dc61864e-tz12-05-landing-adjustments`,
+> `feature/a4e2a3c6-tz12-06-video-hero`; owner refs (`real-design.png`,
+> `landing-design-example.png`, root `background-img.jpg`,
+> `background-video.mp4`) stay untracked.
+
+> **v3.15 ROUND NOTE (§33 landing adjustments — owner photo review, Concept
+> §33 — appended by the process 2026-11-22, post-round three-gate run GREEN:
+> lint clean · 958 tests total (49 api-client + 8 helper + 901 web, 52
+> files; landing suite 45) · build 0 errors, dev `01196b6`):**
+> **Landing adjusted per ALL 7 §33 items** (task 120, worker `dc61864e`;
+> design-first — design instance `bbe7aacb` wrote DESIGN §4.21 amending
+> §4.20, grounded in `real-design.png` + `background-img.jpg`): (1) hero
+> right figure = **ASTRA** — NOVA's copy with white hair + small purple
+> horns (shared 16×31 body table; BYTE + handshake-node/beam retired); (2)
+> **reminder box** (`LandingReminder`) — pixel (Handjet) centered text,
+> 1:3.5 strip fixed at the art block's bottom (bottom 16px, min()-capped
+> widths, top edge ≥81% of block height — no overlays left/right/top),
+> 24px pixel emoji at the left-top corner, 24/20px pixel check mark with
+> pulsing glow, 3s ease-in-out up-down bob (−6/−10px, reduced-motion
+> static); (3) stat card padding minimized (12×14/16×20); (4) layout
+> reorganized — desktop: header / lead+art+agent+chat section
+> (`27% 1fr 26%`) / stat + steps + contact footer; **phone order
+> unchanged**; footer = site contacts (extube@proton.me /
+> github.com/extube, RU/EN); (5) Find/Chat/Share = three BIG blocks
+> (01/02/03 pixel number + pixel title + icon + one-line description;
+> desktop row, phone stack); (6) "every connection matters" + "start now"
+> blocks REMOVED (keys deleted both dicts); (7) art block taller
+> (500/680px) on the committed app asset
+> `apps/web/src/lib/assets/landing/background.jpg` (#lib URL import,
+> cover) with radial-vignette dissolve into `--color-bg` (no hard edge),
+> protected central-scenario rects, animated purple pixels kept;
+> mascot-chat strip re-placed under the agent card (§32 animation
+> preserved); i18n 38 keys parity; entry points = Start CTA + agent TALK
+> → /income.
+> §4.21.J owner flags (advice): (1) the small SVG pair flanks the image's
+> own boy+robot cast (outside the protected rects) — owner may prefer the
+> image duo as the only cast (one-line layer removal); (2) invented names/
+> descriptions (ASTRA, step descriptions) — tone/naming ratification
+> welcome; (3) contact footer = extube@proton.me / github.com/extube per
+> the owner's suggestion — confirm before treating as published.
+> Worker-disclosed deviations: footer hover uses `--color-deepa-4` (not
+> `--color-accent` — the yellow accent is unusable on the landing, per the
+> ratified §4.20 deviation); §4.21.B's conservative protected rect grazes
+> the flanking pair's outer ~2% at the real desktop column — the drawn
+> boy+robot sit at x≈38–62%, central scene untouched.
+> Manual checks for the owner: the landing vs `real-design.png` intent on
+> phone + desktop (hero pair, reminder box geometry/bob/check, 3 big step
+> blocks, contact footer, removed blocks gone, taller art block with the
+> background image + smooth edge in BOTH locales), Start/TALK → /income,
+> reduced-motion rendering.
+> Housekeeping: index carries STAGED-LEFTOVER state from a worker's
+> transient `git add -A` (untracked root `background-img.jpg` + a 2-line
+> legacy `docs/logs/1640ba9e.log` mod) — the landing + docs commits were
+> pathspec-scoped to exclude them; needs a devops `git restore --staged`
+> (or equivalent) cleanup; branches `feature/c1dc2bb0-tz12-03-landing-redesign`,
+> `feature/c28f1e56-tz12-04-landing-rebuild`,
+> `feature/dc61864e-tz12-05-landing-adjustments` await `git branch -D`
+> (squash-landing `-d` refusal, devops); owner refs (`real-design.png`,
+> `landing-design-example.png`, root `background-img.jpg`) stay untracked.
+
 > **v3.14 ROUND NOTE (§32 landing REBUILD from zero, Concept §32 — appended by
 > the process 2026-11-22, post-round three-gate run GREEN: lint clean · 941
 > tests total (49 api-client + 8 helper + 884 web, 52 files) · build 0 errors,

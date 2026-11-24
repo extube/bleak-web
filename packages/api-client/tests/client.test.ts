@@ -5,7 +5,7 @@
  * that bodies/errors are handled per the contract.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError, BleakClient, NetworkError, ValidationError } from '../src/index.js';
+import { ApiError, BleakClient, NetworkError, ValidationError, type User } from '../src/index.js';
 
 type Recorded = { method: string; path: string; body?: unknown };
 
@@ -43,6 +43,15 @@ describe('BleakClient endpoint mapping (swagger.json)', () => {
     const { client, calls } = makeClient(201, room);
     await expect(client.createRoom(req, 'create-token-123')).resolves.toEqual(room);
     expect(calls[0]).toEqual({ method: 'POST', path: '/api/room', body: req });
+  });
+
+  it('listInvites unwraps the server.InviteListResponse wrapper to the Invite[] array', async () => {
+    // Regression (2026-11-24): the backend wraps the list in
+    // `{"invites": [...]}`; returning it raw crashed the host console
+    // (TypeError: invites.filter is not a function → 500 error page).
+    const invite = { room: '0xr', code: '123456', created_at: 't', expires_at: 't' };
+    const { client } = makeClient(200, { invites: [invite] });
+    await expect(client.listInvites('0xr', 'room-token')).resolves.toEqual([invite]);
   });
 
   it('routes room CRUD to /api/room/{address} and encodes addresses', async () => {
@@ -725,6 +734,66 @@ describe('BleakClient v3 client-side validation (server 400 caps mirrored pre-fl
       client.shareContact('0xuser2', 'é'.repeat(255), U, { token: 'tok' })
     ).resolves.toEqual([]);
     expect(calls).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Auto-handshake opt-out (2026-11-23, Concept §49 / DESIGN §4.35.A): the
+// `active` flag on model.User / server.UpdateUserRequest
+// ---------------------------------------------------------------------------
+
+describe('User.active + UpdateUserRequest.active (Concept §49, feature #36)', () => {
+  const R = '0xroom1';
+  const U = '0xuser1';
+
+  it('User.active is REQUIRED and typed boolean — a User literal without it is a compile error', async () => {
+    const full = {
+      active: true,
+      address: U,
+      room: R,
+      name: 'Alice',
+      greeting: 'Hi',
+      public_bio: '',
+      private_bio: '',
+      language: 'en',
+      created_at: '2026-11-23T00:00:00Z',
+      updated_at: '2026-11-23T00:00:00Z',
+      deleted_at: null
+    };
+    // The strict-safe type exercise: a full User literal compiles and the
+    // field reads back as boolean.
+    const parsed: User = await new BleakClient({
+      baseUrl: 'http://node.test',
+      fetch: (() => Promise.resolve(new Response(JSON.stringify(full), { status: 200 }))) as unknown as typeof fetch
+    }).getRoomUser(R, U);
+    expect(typeof parsed.active).toBe('boolean');
+    expect(parsed.active).toBe(true);
+    // Missing `active` fails tsc (vitest ignores the directive at runtime).
+    // @ts-expect-error User.active is required (DESIGN §4.35.A.1)
+    const broken: User = { ...full, active: undefined };
+    expect(broken).toBeTruthy();
+  });
+
+  it('UpdateUserRequest.active is OPTIONAL — an update without it still type-checks (omitted keeps the flag)', async () => {
+    const { client, calls } = makeClient(200, {});
+    // No `active` key at all — the pre-#36 body shape keeps compiling.
+    await client.updateRoomUser(R, U, { name: 'x' }, { token: 'tok' });
+    expect(nth(calls, 0).body).toEqual({ name: 'x' });
+  });
+
+  it('updateRoomUser passes { active } through and the body carries ONLY active (omitted-fields semantics)', async () => {
+    for (const active of [true, false]) {
+      const { client, calls } = makeClient(200, {});
+      await client.updateRoomUser(R, U, { active }, { token: 'tok' });
+      expect(nth(calls, 0)).toEqual({
+        method: 'PUT',
+        path: `/api/room/${R}/user/${U}`,
+        body: { active }
+      });
+      // name/public_bio/private_bio never ride along with an active-only toggle.
+      expect(JSON.stringify(nth(calls, 0).body)).not.toContain('name');
+      expect(JSON.stringify(nth(calls, 0).body)).not.toContain('bio');
+    }
   });
 });
 

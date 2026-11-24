@@ -47,7 +47,7 @@ vi.mock('#lib/api/client', () => ({
     hardMatch: vi.fn()
   },
   apiRaw: apiRawMock,
-  HOST_RESET_KEY: 'bleak.hostReset'
+  HOST_NOTICE_KEY: 'bleak.hostNotice'
 }));
 
 import { goto } from '$app/navigation';
@@ -85,6 +85,7 @@ function secondsAgo(seconds: number): string {
 
 function person(address: string, name: string): User {
   return {
+    active: true,
     address,
     room: ROOM,
     name,
@@ -919,7 +920,7 @@ describe('transcript viewer fallback (§3.5 AC 14, ARCHITECTURE §10.3)', () => 
     expect(laterCall?.[1]).toEqual({ token: 'r-tok' });
   });
 
-  it('a host-context 401 on the retry replicates the hostApi gate: host room cleared + hostReset flag, identity untouched', async () => {
+  it('a host-context 401 on the retry replicates the hostApi gate: host room cleared + hostNotice flag, identity untouched', async () => {
     storeHostSession();
     mockedApi.getChat.mockRejectedValue(
       new ApiError(403, `/api/chat/${CHAT}`, 'not a participant')
@@ -931,7 +932,7 @@ describe('transcript viewer fallback (§3.5 AC 14, ARCHITECTURE §10.3)', () => 
     render(Page, { props: {} });
 
     await waitFor(() =>
-      expect(sessionStorage.getItem('bleak.hostReset')).toBe('1')
+      expect(sessionStorage.getItem('bleak.hostNotice')).toBe('1')
     );
     expect(localStorage.getItem('bleak.hostRoom')).toBeNull();
     expect(JSON.parse(localStorage.getItem('bleak.identity') ?? 'null')).toMatchObject({

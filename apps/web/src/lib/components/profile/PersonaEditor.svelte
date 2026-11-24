@@ -1,29 +1,38 @@
 <script lang="ts">
   /**
-   * PersonaEditor (DESIGN §3.6): inline swap of the badge card — name,
-   * public_bio, private_bio prefilled; saves via `PUT updateRoomUser`
-   * sending ALL THREE fields (omitted-field semantics). Pending spinner +
-   * double-submit prevention; server errors surface inline.
+   * PersonaEditor — the persona FIELD GROUP of /profile/edit (DESIGN
+   * §4.29.C.3, v3.23 profile redesign). Previously the inline-swap editor
+   * of /profile/settings with its own Save/Cancel CTAs — those are retired
+   * (the route owns the ONE full-width Save Changes, §4.29.C.4/I-rec 3);
+   * the fields, labels, maxlengths, validators and helper copy carry
+   * verbatim: Name (single-line key-value row, maxlength 64, required),
+   * Public bio and Private bio (label-above borderless input blocks —
+   * I-rec 10), the muted-red «only your agent sees this» caption above the
+   * private field (Concept §9.1.1 / DESIGN §4.10.3, carried).
+   *
+   * Values are BINDABLE (the page owns the save state + the ONE save
+   * sequence: `PUT updateRoomUser` sending ALL THREE fields —
+   * omitted-field semantics, §3.6). Server errors surface inline.
    */
   import { locale, translate } from '#lib/i18n/locale';
-  import type { User } from '@bleak/api-client';
-  import type { PersonaDraft } from '#lib/join';
 
   interface Props {
-    user: User;
-    pending?: boolean;
+    name?: string;
+    publicBio?: string;
+    privateBio?: string;
+    /** Client-side name validation from the page (empty → name_required). */
+    nameError?: string | null;
     /** Server error mapping from the route ({kind, text}). */
     error?: { kind: 'network' | 'api'; text: string | null } | null;
-    onsave?: (draft: PersonaDraft) => void;
-    oncancel?: () => void;
   }
 
-  let { user, pending = false, error = null, onsave, oncancel }: Props = $props();
-
-  let name = $state(user.name);
-  let publicBio = $state(user.public_bio);
-  let privateBio = $state(user.private_bio);
-  let nameError = $state<string | null>(null);
+  let {
+    name = $bindable(''),
+    publicBio = $bindable(''),
+    privateBio = $bindable(''),
+    nameError = null,
+    error = null
+  }: Props = $props();
 
   const errorMessage = $derived.by(() => {
     if (nameError) return nameError;
@@ -31,25 +40,15 @@
     if (error.kind === 'network') return translate($locale, 'common.error.network');
     return error.text ?? translate($locale, 'common.error');
   });
-
-  function submit(event: SubmitEvent): void {
-    event.preventDefault();
-    nameError = null;
-    if (name.trim() === '') {
-      nameError = translate($locale, 'join.error.name_required');
-      return;
-    }
-    onsave?.({ name: name.trim(), publicBio, privateBio });
-  }
 </script>
 
-<form class="editor pixel-corners" onsubmit={submit}>
-  <h2>{translate($locale, 'profile.persona.edit')}</h2>
-
-  <div class="field">
-    <label for="persona-edit-name">{translate($locale, 'join.form.name')}</label>
+<div class="group card pixel-corners">
+  <!-- Key-value row (C.3): the muted label left, the right-aligned
+       borderless input right. -->
+  <div class="kv-row">
+    <label class="kv-label" for="profile-edit-name">{translate($locale, 'profile.edit.row.name')}</label>
     <input
-      id="persona-edit-name"
+      id="profile-edit-name"
       type="text"
       maxlength={64}
       autocomplete="off"
@@ -57,68 +56,88 @@
       class:invalid={nameError !== null}
     />
   </div>
-  <div class="field">
-    <label for="persona-edit-public">{translate($locale, 'join.form.public_bio')}</label>
-    <input id="persona-edit-public" type="text" maxlength={255} bind:value={publicBio} />
+  <!-- Multi-line fields use label-ABOVE borderless input blocks (I-rec 10). -->
+  <div class="block-row">
+    <label class="row-label" for="profile-edit-public">{translate($locale, 'profile.edit.row.public_bio')}</label>
+    <input id="profile-edit-public" type="text" maxlength={255} bind:value={publicBio} />
   </div>
-  <div class="field">
-    <label for="persona-edit-private">{translate($locale, 'join.form.private_bio')}</label>
+  <div class="block-row">
+    <label class="row-label" for="profile-edit-private">{translate($locale, 'profile.edit.row.private_bio')}</label>
     <!-- Concept §9.1.1 / DESIGN §4.10.3: the «only your agent sees this»
          heading reverts to the body face (Inter) in a muted red, still
          distinct from the field below it (uppercase, weight). -->
     <p class="private-bio-heading">{translate($locale, 'profile.private_bio.caption')}</p>
-    <input id="persona-edit-private" type="text" maxlength={255} bind:value={privateBio} />
+    <input id="profile-edit-private" type="text" maxlength={255} bind:value={privateBio} />
   </div>
 
   {#if errorMessage}
     <p class="field-error" role="alert" aria-live="polite">{errorMessage}</p>
   {/if}
-
-  <div class="actions">
-    <button type="button" class="outline" onclick={() => oncancel?.()}>
-      {translate($locale, 'common.cancel')}
-    </button>
-    <button type="submit" class="cta" disabled={pending}>
-      {#if pending}<span class="spinner" aria-hidden="true"></span>{/if}
-      {translate($locale, 'common.save')}
-    </button>
-  </div>
-</form>
+</div>
 
 <style>
-  .editor {
+  .card {
     display: flex;
     flex-direction: column;
-    gap: var(--space-3);
     background: var(--color-surface);
     border-radius: var(--radius-lg);
-    padding: var(--space-5);
-    text-align: left;
+    padding: var(--space-4) var(--space-5);
   }
-  .editor h2 {
-    font-size: 24px;
+  .kv-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    /* Single-line key-value row (§4.29.C.3 row anatomy; Concept §50): the
+     * label takes ONE shared width (`--kv-label-width`, owned by the
+     * /profile/edit page) so every kv row of the form aligns its value
+     * input at the same left edge. */
   }
-  .field {
+  .kv-label {
+    color: var(--color-text-muted);
+    font-size: 14px;
+    flex: 0 0 var(--kv-label-width, 148px);
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .block-row {
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
   }
-  label {
+  /* The 1px divider between rows within the group (C.3 row anatomy). */
+  .kv-row + .block-row,
+  .block-row + .block-row {
+    border-top: 1px solid var(--color-surface-elevated);
+    padding-top: var(--space-3);
+    margin-top: var(--space-3);
+  }
+  .row-label {
     color: var(--color-text-muted);
     font-size: 14px;
   }
   input {
-    background: var(--color-bg);
-    color: var(--color-text);
-    border: 1px solid var(--color-text-disabled-strong);
-    border-radius: var(--radius-md);
     min-height: var(--touch-target);
-    padding: 0 var(--space-4);
-    font-size: 16px;
-    transition: border-color 120ms ease-out;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    color: var(--color-text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    transition: color 120ms ease-out;
+  }
+  .kv-row input {
+    flex: 1;
+    min-width: 0;
+    text-align: right;
+  }
+  input:focus {
+    outline: none;
+    color: var(--color-accent);
   }
   input.invalid {
-    border-color: var(--color-accent);
+    color: var(--color-accent);
   }
   /* Concept §10.1.3 / DESIGN §4.11.3: body face (Inter) with a muted red
    * (danger color mixed toward transparency, never solid); no uppercase,
@@ -135,50 +154,5 @@
     margin: 0;
     color: var(--color-accent);
     font-size: 14px;
-  }
-  .actions {
-    display: flex;
-    gap: var(--space-3);
-    margin-top: var(--space-2);
-  }
-  .cta,
-  .outline {
-    flex: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-2);
-    min-height: var(--touch-target);
-    border-radius: var(--radius-pill);
-    font-weight: 600;
-    font-size: 14px;
-    transition: opacity 120ms ease-out;
-  }
-  .cta {
-    background: var(--color-accent);
-    border: none;
-    color: var(--color-accent-ink);
-  }
-  .cta:disabled {
-    cursor: default;
-    filter: saturate(0.4);
-  }
-  .outline {
-    background: transparent;
-    border: 1px solid var(--color-text-disabled-strong);
-    color: var(--color-text);
-  }
-  .spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid var(--color-accent-ink);
-    border-right-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 </style>

@@ -16,6 +16,7 @@ import {
 
 function user(address: string, name = address): User {
   return {
+    active: true,
     address,
     room: '0xroom',
     name,

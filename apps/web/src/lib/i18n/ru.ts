@@ -95,8 +95,6 @@ export const ru: Record<MessageKey, string> = {
   'join.import.dead':
     'Этот профиль больше не существует на сервере. Запись останется в списке, но вернуться в это событие нельзя.',
   'join.error.invite': 'Код приглашения недействителен или истёк.',
-  'join.resume.title': 'Продолжить в «{room}»',
-  'join.resume.another': 'Присоединиться к другому событию',
 
   /* --- camera scanner --- */
   'scan.title': 'Сканировать QR',
@@ -163,6 +161,11 @@ export const ru: Record<MessageKey, string> = {
   // чат» (ведёт в существующий диалог, как убранная иконка).
   'people.action.back': 'Привет!',
   'people.action.open_chat': 'Открыть чат',
+  // §4.38 (Concept §52): заголовок системного бейджа «ищу новые контакты»
+  // на /people (состояние авто-маткинга — не пользователь) + примечание
+  // о настройках (§4.38.C — вся строка ведёт в /profile/settings).
+  'people.searching': 'Режим автоматического поиска контактов',
+  'people.searching_settings': 'Изменить можно в настройках',
 
   /* --- chats --- */
   'chats.title': 'Диалоги',
@@ -229,9 +232,19 @@ export const ru: Record<MessageKey, string> = {
   'chat.host_view': 'Наблюдение хоста',
 
   /* --- profile --- */
-  'profile.title': 'Профиль',
+  // v3.23 (DESIGN §4.29.E): value edit — the screen title moves to the
+  // reference's first screen («Мой профиль»); the old value belongs to
+  // /profile's title, the settings h1 becomes «Настройки».
+  'profile.title': 'Мой профиль',
   'profile.subtitle': 'Ваш профиль в этой комнате.',
   'profile.language.meta': 'Язык агента: {language}',
+  // §4.35.E (Concept §49, 2026-11-23): auto-handshake opt-out — the row
+  // label is the owner's ADOPTED wording (verbatim); the other three are
+  // design inventions for tone ratification (standing precedent).
+  'profile.auto_handshake.row': 'Отправлять рукопожатия автоматически',
+  'profile.auto_handshake.label': 'Авто-рукопожатия',
+  'profile.auto_handshake.on': 'вкл.',
+  'profile.auto_handshake.off': 'выкл.',
   'profile.greeting.caption': 'Открывает каждый новый диалог агента',
   'profile.greeting.rule':
     'Приветствие открывает каждый новый диалог. Без вопросов — только утверждения.',
@@ -239,9 +252,10 @@ export const ru: Record<MessageKey, string> = {
     'Уберите вопросительные знаки — приветствие не может содержать вопросов.',
   'profile.greeting.label': 'Приветствие',
   'profile.greeting.counter': '{n}/255',
-  'profile.greeting.edit': 'Приветствие',
   'profile.greeting.regenerate': 'Сгенерировать заново',
-  'profile.persona.edit': 'Профиль',
+  // v3.23 (DESIGN §4.29.E.3): profile.persona.edit / profile.greeting.edit
+  // RETIRED — the editors' h2s are replaced by the field labels of C.3
+  // (profile.edit.row.*); the persona block became the settings entry row.
   'profile.badge.about': 'О себе',
   'profile.badge.for_agent': 'Для агента',
   'profile.private_bio.caption': 'видно только вашему агенту',
@@ -330,8 +344,23 @@ export const ru: Record<MessageKey, string> = {
   'profile.qr.refreshed': 'QR обновлён',
   'profile.qr.aria': 'Ваш одноразовый QR для обмена рукопожатиями',
   'profile.saved': 'Сохранено',
-  'profile.settings.title': 'Мой профиль',
-  'profile.settings.persona': 'Мой профиль',
+  'profile.settings.title': 'Настройки',
+  // v3.23 (DESIGN §4.29.E.3): profile.settings.persona RETIRED — the
+  // persona block became the ONE profile entry row → /profile/edit.
+  // v3.23 (DESIGN §4.29.E): new keys — the reference's header/tab/edit copy.
+  // RU is a design invention for tone ratification (I-rec 14).
+  // Concept §50 (2026-11-23): profile.header.qr retargeted to the scanner —
+  // the header scan icon opens the §3.8 QrScanner, so the label announces
+  // scanner intent (same copy as scan.title; RU/EN parity kept).
+  'profile.header.qr': 'Сканировать QR',
+  'profile.tab.about': 'Обо мне',
+  'profile.tab.interests': 'Интересы',
+  'profile.tab.qr': 'QR-код',
+  'profile.edit.title': 'Редактировать профиль',
+  'profile.edit.row.name': 'Имя',
+  'profile.edit.row.public_bio': 'О себе',
+  'profile.edit.row.private_bio': 'Для агента',
+  'profile.edit.save': 'Сохранить изменения',
   'profile.leave': 'Выйти из комнаты',
   'profile.leave.confirm_body':
     'Вы покинете событие. Токен останется на этом устройстве — вы сможете вернуться в любой момент через «Вернуться на событие».',
@@ -346,14 +375,17 @@ export const ru: Record<MessageKey, string> = {
 
   /* --- host --- */
   'host.title': 'Хост',
-  'host.subtitle': 'Создайте комнату события и поделитесь приглашением.',
+  'host.subtitle': 'Создайте комнату события и управляйте ею.',
   // v2-учётные данные (DESIGN rev. 3 §3.7): гейт одноразового токена создания —
   // переименованные ключи host.gate.*; остатки host.token.* уберёт TZ2-11.
   'host.gate.label': 'Токен создания комнаты',
   'host.gate.continue': 'Продолжить',
   'host.gate.note':
     'Одноразовый токен выдаёт оператор развертывания. После создания комнаты он больше не нужен и не сохраняется.',
-  'host.session_reset': 'Доступ к комнате отозван — войдите заново с токеном создания.',
+  // DESIGN rev. 4 §4.7 (host-tree rework): the reset copy no longer mentions
+  // the creation token — the log-in mode takes the room key.
+  'host.session_reset':
+    'Доступ к комнате отозван — войдите заново с ключом комнаты или создайте новую комнату.',
   'host.token.rejected': 'Токен отклонён.',
   'host.form.name': 'Название',
   'host.form.description': 'Описание',
@@ -361,7 +393,9 @@ export const ru: Record<MessageKey, string> = {
   'host.create': 'Создать комнату',
   'host.join_attendee': 'Присоединиться как участник',
   'host.create_another': 'Создать другую комнату',
-  'host.stats.members': 'Участники {n}/{max}',
+  // rev. 4 §4.7: the plain stats-tile label — the count lives in
+  // host.members_tile ('{n}/{max_user}').
+  'host.stats.members': 'Участники',
   'host.stats.language': 'Язык {language}',
   'host.empty_live': 'Пока никто не присоединился.',
   'host.delete_room': 'Удалить комнату',
@@ -404,47 +438,135 @@ export const ru: Record<MessageKey, string> = {
   'host.drill.kickoff': 'Запустить заново',
   'host.drill.dialogs': 'Диалоги',
 
-  /* --- лендинг v3.14 (Concept §31+§32, DESIGN §4.20.M — владелец отклонил
-   --- лендинг §31 и заказал пересборку с нуля по своему образцу; все 35
-   --- ключей — дословно из таблицы §4.20.M, RU/EN паритет) --- */
-  'landing.tagline.left.1': 'ЗНАКОМСТВА — ЭТО ИГРА.',
-  'landing.tagline.left.2': 'АГЕНТ ИГРАЕТ ЗА ВАС.',
-  'landing.tagline.top': 'БЕЗ СМОЛТОЛКА. ТОЛЬКО РЕАЛЬНЫЕ ЗНАКОМСТВА.',
-  'landing.tagline.right.1': 'СДЕЛАНО ДЛЯ ЛЮДЕЙ.',
-  'landing.tagline.right.2': 'РАБОТАЮТ АГЕНТЫ.',
+  /* --- host-tree foundations (DESIGN rev. 4 §4.7 additions — verbatim;
+   * --- /host entry, panel, invites + ledger, QR page, statistics;
+   * --- RU/EN паритет) --- */
+  'host.mode.create': 'Создать комнату',
+  'host.mode.login': 'Войти по ключу',
+  'host.resume.checking': 'Проверяем доступ к комнате…',
+  'host.room.deleted': 'Комната удалена.',
+  'host.login.address': 'Адрес комнаты',
+  'host.login.key': 'Ключ комнаты',
+  'host.login.rejected': 'Ключ комнаты отклонён.',
+  'host.login.find': 'Не помните адрес?',
+  'host.login.finding': 'Ищем комнату…',
+  'host.login.find_none': 'Ключ не подошёл ни к одной комнате.',
+  'host.room.language': 'Язык агентов: {language}',
+  'host.room.max_user': 'Вместимость: {n}',
+  'host.room.readonly_hint': 'Язык и вместимость изменятся вместе с серверным обновлением.',
+  'host.room.saved': 'Сохранено',
+  'host.members_tile': 'Участники {n}/{max_user}',
+  'host.panel.share': 'Приглашение',
+  'host.panel.invites_link': 'Все коды приглашения',
+  'host.qr.aria': 'QR-код приглашения {code}',
+  'host.qr.code_aria': 'Код: {digits}',
+  'host.join_as': 'Присоединиться как участник',
+  'host.delete_room.row': 'Удалить комнату',
+  'host.delete_room.body': 'Комната будет удалена вместе со всеми участниками.',
+  'host.drill.restart_aria': 'Запустить заново диалог {chat}',
+  'host.drill.clear_aria': 'Очистить историю диалога {chat}',
+  'host.drill.delete_member_locked': 'Удаление участника появится вместе с серверным обновлением.',
+  'host.invites.expired_title': 'Истёкшие и отозванные',
+  'host.invites.ledger_caveat':
+    'Коды, выпущенные с других устройств, видны в списке только пока они активны; их истечение показать нельзя.',
+  'host.invites.expired_at': 'истёк {date}',
+  'host.invites.revoked_at': 'отозван {date}',
+  'host.invites.empty': 'Активных кодов нет. Выпустите код, чтобы пригласить участников.',
+  'host.invites.copy_code': 'Скопировать код {code}',
+  'host.invites.copy_link': 'Скопировать ссылку кода {code}',
+  'host.invites.qr_aria': 'QR-код кода {code}',
+  'host.qr.title': 'QR-приглашение',
+  'host.qr.copy_code': 'Скопировать код',
+  'host.qr.copy_code_aria': 'Скопировать код {code}',
+  'host.qr.copy_link': 'Скопировать ссылку',
+  'host.qr.copy_link_aria': 'Скопировать ссылку приглашения',
+  'host.qr.share': 'Поделиться',
+  'host.qr.warning': 'Код не найден в списке активных — возможно, он истёк или отозван.',
+  'host.qr.back': 'К кодам приглашения',
+  'host.stats.title': 'Статистика',
+  'host.stats.chats': 'Диалогов',
+  'host.stats.active': '{active} активных · {finished} завершено',
+  'host.stats.messages_hour': 'Сообщений за час: {n}',
+  'host.stats.aria': 'Сообщений за последний час: {n}; пик в {bucket}.',
+  'host.stats.axis.60': '−60 мин',
+  'host.stats.axis.45': '−45 мин',
+  'host.stats.axis.30': '−30 мин',
+  'host.stats.axis.15': '−15 мин',
+  'host.stats.axis.now': 'сейчас',
+  'host.stats.empty_hour': 'За последний час сообщений не было.',
+  'host.stats.partial': 'Часть данных не загрузилась — цифры могут быть занижены.',
+  'host.stats.gated.hint': 'Статистика рукопожатий появится вместе с серверным обновлением.',
+  'host.stats.gated.def': 'один хендшейк = одна направленная запись',
+  'host.stats.gated.empty': 'Рукопожатий пока не было.',
+
+  /* --- лендинг v3.14 + v3.15 + v3.16 + §4.22.1 + §4.23 (Concept
+   * --- §31+§32+§33+§34+§35, DESIGN §4.20.M с поправками §4.21.H, §4.22.H,
+   * --- §4.22.1 и §4.23.F — −5 ключей слоганов, −hero.aria, ~agent.name
+   * --- (→БЛИК), −6 ключей chat-стрипа, −3 ключа диалога + −3 ключа видео
+   * --- (уход напоминания и play-контрола, §35); 23 ключа, RU/EN паритет) --- */
   'landing.headline.1': 'НУЖНЫЕ',
   'landing.headline.2': 'ЗНАКОМСТВА',
-  'landing.headline.accent': 'ВАС',
+  'landing.headline.accent': 'РЯДОМ',
   'landing.sub':
-    'Приложение события, где ИИ-агенты заводят разговор за вас — вы приходите к знакомству уже готовым.',
+    'Нетворкинг - это работа. Здесь ИИ-двойники работают за Вас. Собирайте контакты, проверяйте совместимость и вдохновляйтесь общими идеями!',
   'landing.cta': 'НАЧАТЬ',
-  'landing.dialog.line1': '* Агент здоровается…',
-  'landing.dialog.line2': '* Ваш агент уже нашёл три совпадения.',
-  'landing.dialog.line3': '* Совпадение принято. Обмен контактами через минуту.',
-  'landing.hero.aria':
-    'Пиксельная сцена: человек встречает своего ИИ-агента под светящимся узлом сети',
   'landing.stat.title': 'РЕАЛЬНЫЕ ЛЮДИ. РЕАЛЬНЫЕ РЕЗУЛЬТАТЫ.',
   'landing.stat.line1': 'Никаких пустых чатов.',
   'landing.stat.line2': 'Никаких холодных сообщений.',
   'landing.stat.line3': 'Только встречи, которые важны.',
-  'landing.agent.name': 'ВЕКТОР',
+  'landing.agent.name': 'БЛИК',
   'landing.agent.badge': 'АГЕНТ · УР 1',
   'landing.agent.traits': 'БЫСТРЫЙ · ТОЧНЫЙ · НАДЁЖНЫЙ',
   'landing.agent.quote': '«Я начинаю разговор. Вы сохраняете контакт.»',
   'landing.agent.cta': 'ПОГОВОРИТЬ',
-  'landing.chat.label': 'ЖИВОЙ ЧАТ АГЕНТА',
-  'landing.chat.bubble1': 'Привет! Я Глитч — агент Даши.',
-  'landing.chat.bubble2': 'Привет. Я здесь ради трека по ИИ.',
-  'landing.chat.bubble3': 'Тогда вам по пути. Даша собрала демо, которое вы лайкнули.',
-  'landing.chat.bubble4': 'Передайте ей мои контакты!',
-  'landing.chat.aria':
-    'Анимация: агент Глитч и участник Пип обмениваются сообщениями',
   'landing.tutorial.search': 'НАЙДИ',
   'landing.tutorial.chat': 'ОБЩАЙСЯ',
   'landing.tutorial.share': 'ПОДЕЛИСЬ',
-  'landing.footer.line': 'КАЖДЫЙ КОНТАКТ ВАЖЕН.',
-  'landing.footer.badge': 'СТАРТ СЕЙЧАС — 6 ЦИФР ДЛЯ ВХОДА',
+  'landing.steps.find.desc': 'Радар показывает, кто рядом прямо сейчас.',
+  'landing.steps.chat.desc': 'Ваши агенты заводят разговор до вашего прихода.',
+  'landing.steps.share.desc': 'Одно рукопожатие — и контакты обменяны.',
+  'landing.footer.contact.email.label': 'ПОЧТА',
+  'landing.footer.contact.github.label': 'ГИТХАБ',
   'landing.footer.copyright': 'bleak-web · 2026',
+
+  /* --- лендинг v3.20 (Concept §38, DESIGN §4.26.L — 35 новых ключей:
+   * --- якорная навигация, стеклянный баннер, микро-пилюли шагов,
+   * --- четыре новых секции; RU из §4.26.L (авторские RU для EN-копий
+   * --- §38.5 — дизайн-изобретения, флаг §4.26.O.1); RU/EN паритет) --- */
+  'landing.nav.how': 'КАК ЭТО РАБОТАЕТ',
+  'landing.nav.privacy': 'ПРИВАТНОСТЬ',
+  'landing.nav.usecases': 'СЦЕНАРИИ',
+  'landing.nav.join': 'ВСТУПИТЬ',
+  'landing.banner.badge': '[ ЖИВАЯ СЕТЬ // IRL ]',
+  'landing.banner.status': 'Рядом активны ИИ-агенты',
+  'landing.steps.find.pill': 'ДАЛЬНОСТЬ: 50М • GPS В РЕАЛЬНОМ ВРЕМЕНИ',
+  'landing.steps.chat.pill': 'АВТО-ЗНАКОМСТВО • НОЛЬ НЕЛОВКОСТИ',
+  'landing.steps.share.pill': 'МГНОВЕННАЯ СИНХРОНИЗАЦИЯ • ВЗАИМНОЕ СОГЛАСИЕ',
+  'landing.sim.title': 'КАК ВАШИ АГЕНТЫ ЗАВОДЯТ РАЗГОВОР',
+  'landing.sim.you': 'ВАШ АГЕНТ',
+  'landing.sim.you.status': 'Статус: Сканирование...',
+  'landing.sim.nearby': 'АГЕНТ РЯДОМ',
+  'landing.sim.nearby.status': 'Дистанция: 15м',
+  'landing.sim.compat.aria': 'Совместимость агентов: 96%',
+  'landing.sim.badge': '[ ЛЁД РАЗБИТ — СКАЖИТЕ ПРИВЕТ ]',
+  'landing.privacy.title': 'СОЗДАНО ДЛЯ РЕАЛЬНОЙ ЖИЗНИ, А НЕ ДЛЯ СТЕЛКЕРОВ',
+  'landing.privacy.ghost.title': 'РЕЖИМ ПРИЗРАКА',
+  'landing.privacy.ghost.desc': 'Одно касание — и вы исчезаете с радара.',
+  'landing.privacy.mutual.title': 'ВЗАИМНОЕ СОГЛАСИЕ',
+  'landing.privacy.mutual.desc':
+    'Никаких холодных сообщений. Контакты открываются только после взаимного рукопожатия.',
+  'landing.privacy.gps.title': 'GPS БЕЗ СЛЕДОВ',
+  'landing.privacy.gps.desc':
+    'Ваша геопозиция обрабатывается в реальном времени и никогда не сохраняется.',
+  'landing.usecases.title': 'ГДЕ БЛИК РАСКРЫВАЕТСЯ',
+  'landing.usecases.conferences': 'КОНФЕРЕНЦИИ',
+  'landing.usecases.parties': 'ВЕЧЕРИНКИ И БАРЫ',
+  'landing.usecases.coworkings': 'КОУОРКИНГИ',
+  'landing.usecases.festivals': 'ФЕСТИВАЛИ',
+  'landing.join.title': 'ВСТУПАЙТЕ В СЕТЬ',
+  'landing.join.headline': 'НУЖНЫЕ ЗНАКОМСТВА УЖЕ РЯДОМ.',
+  'landing.join.input.placeholder': 'Введите почту или @telegram...',
+  'landing.join.button': 'ПОЛУЧИТЬ РАННИЙ ДОСТУП',
 
   /* --- глобальный гейт 401 (DESIGN rev. 3 §2.8, §4.7) --- */
   'auth.401.notice':

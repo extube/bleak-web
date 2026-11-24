@@ -1,17 +1,34 @@
 /**
- * Landing mascot cast — part data (DESIGN §4.20.J, §4.3 rules): six
- * DISTINCT original figures; no figure reuses another's parts and none is
- * the shared app mascot. All are hand-authored SVG `<rect>` art on their
- * own grid, `crispEdges`, dot eyes, chunky pixels, transparent background —
- * NO background plates (Concept §23/§32). NOVA + BYTE are the hero scene's
- * figures (LandingHeroScene.svelte); VECTOR / BLOOM / PIP / GLITCH render
- * through LandingFigure.svelte from this table.
+ * Landing mascot cast — part data (DESIGN §4.20.J as amended by §4.22.D/§I
+ * and §4.22.1, §4.3 rules): two DISTINCT original figures — BLEAK (the
+ * agent-card portrait, promoted to the shared personage module §4.22.E)
+ * and BLOOM — no figure reuses another's parts and none is drawn twice on
+ * the page. All are hand-authored SVG `<rect>` art on their own grid,
+ * `crispEdges`, dot eyes, chunky pixels, transparent background — NO
+ * background plates (Concept §23/§32). The §4.21.A drawn hero pair is
+ * RETIRED with the drawn hero scene (§4.22.G — the video carries its own
+ * cast); BYTE retired earlier (§4.21.A); PIP + GLITCH retired with the
+ * mascot-chat strip (§4.22.1 owner amendment).
+ *
+ * BLEAK's rect data lives in `personage/bleakFigure.ts` (the ONE shared
+ * source consumed by both the landing card and every `/income*` mascot
+ * mount) and is re-exported here as the `bleak` entry — byte-identical art,
+ * only the name changed (§4.22.D).
+ *
+ * §4.26 (Concept §38, tz12-10) adds two cast members: `scout` — the
+ * NEARBY AGENT of the Live Agent Simulation (a NEW cyan/yellow 24×24
+ * figure, original art, no part reused from another figure) — and
+ * `bleakWave` — the Final-CTA waving mascot, re-exported from the shared
+ * personage module (`BLEAK_WAVE_FIGURE`, the BLEAK art extended per the
+ * §4.26.I byte-table; one source of truth, zero duplication).
  *
  * Fills are token references only (§4.1) — the landing accent is the
  * approved Deepa violet (--color-deepa-4, the example's purple bloom);
  * shading stays in `color-mix` alpha variants of existing tokens.
  */
-export type FigureName = 'vector' | 'bloom' | 'pip' | 'glitch';
+import { BLEAK_FIGURE, BLEAK_WAVE_FIGURE } from '../personage/bleakFigure';
+
+export type FigureName = 'bleak' | 'bloom' | 'scout' | 'bleakWave';
 
 export interface FigurePart {
   fill: string;
@@ -19,76 +36,27 @@ export interface FigurePart {
 }
 
 export interface Figure {
-  /** Logical grid size (square viewBox). */
+  /** Logical grid size. */
   grid: number;
+  /** Explicit viewBox dims (§4.21.A interface kept; the square figures are 32×32 / 16×16). */
+  viewW: number;
+  viewH: number;
   parts: readonly FigurePart[];
 }
 
 export const LANDING_FIGURES: Record<FigureName, Figure> = {
-  /* VECTOR (§4.20.G-b): the agent character card portrait — an agent in a
-   * sharp suit, monocle visor, accent tie. 32×32 → 96px. */
-  vector: {
-    grid: 32,
-    parts: [
-      {
-        fill: 'var(--color-surface)',
-        rects: [
-          [9, 3, 14, 3], // slicked hair, top
-          [9, 6, 2, 3], // hair, left
-          [21, 6, 2, 3] // hair, right
-        ]
-      },
-      {
-        fill: 'var(--color-art-skin-1)',
-        rects: [
-          [10, 6, 12, 10], // face
-          [19, 10, 2, 2] // monocle lens interior
-        ]
-      },
-      {
-        fill: 'var(--color-surface)',
-        rects: [
-          [13, 10, 2, 2], // left dot eye
-          [14, 13, 4, 1] // mouth
-        ]
-      },
-      {
-        // monocle visor ring (the single accent lens, right eye)
-        fill: 'var(--color-deepa-4)',
-        rects: [
-          [18, 9, 4, 1],
-          [18, 12, 4, 1],
-          [18, 10, 1, 2],
-          [21, 10, 1, 2]
-        ]
-      },
-      {
-        fill: 'var(--color-surface-elevated)',
-        rects: [
-          [7, 18, 18, 2], // shoulders
-          [8, 20, 16, 8], // torso
-          [12, 20, 2, 6], // lapel, left
-          [18, 20, 2, 6] // lapel, right
-        ]
-      },
-      {
-        fill: 'var(--color-text)',
-        rects: [
-          [14, 18, 4, 2], // shirt collar
-          [15, 20, 2, 3] // shirt front
-        ]
-      },
-      {
-        fill: 'var(--color-deepa-4)',
-        rects: [[15, 21, 2, 5]] // accent tie
-      }
-    ]
-  },
+  /* BLEAK (renamed per §4.22.D): the agent character card portrait — an
+   * agent in a sharp suit, monocle visor, accent tie. 32×32 → 96px. The
+   * rect data is the shared personage module's (byte-identical to the
+   * pre-rename agent-card art; §4.22.E: also the /income* mascot figure). */
+  bleak: BLEAK_FIGURE,
 
   /* BLOOM (§4.20.G-a): the stat-card glyph — a pixel flower with a
    * signal-antenna bloom, accent center. 32×32 → 56px. */
   bloom: {
     grid: 32,
+    viewW: 32,
+    viewH: 32,
     parts: [
       {
         fill: 'var(--color-deepa-4)',
@@ -140,78 +108,59 @@ export const LANDING_FIGURES: Record<FigureName, Figure> = {
     ]
   },
 
-  /* PIP (§4.20.F): the mascot-chat strip's human attendee — warm neutrals.
-   * 16×16 → 48px. */
-  pip: {
-    grid: 16,
+  /* SCOUT (§4.26.F): the NEARBY AGENT of the Live Agent Simulation — a
+   * cyan/yellow pixel agent with an antenna, a wide cyan visor and a
+   * chest stripe. Original 24×24 art, token fills, no part reused from
+   * another figure. */
+  scout: {
+    grid: 24,
+    viewW: 24,
+    viewH: 24,
     parts: [
       {
-        fill: 'color-mix(in srgb, var(--color-art-hair-3) 55%, var(--color-surface))',
+        fill: 'var(--color-deepa-2)',
         rects: [
-          [3, 2, 10, 3], // hair
-          [3, 5, 2, 3], // hair, left
-          [11, 5, 2, 3] // hair, right
+          [11, 1, 2, 3] // antenna
         ]
       },
       {
-        fill: 'var(--color-art-skin-2)',
-        rects: [[4, 5, 8, 6]] // face
+        fill: 'var(--color-art-skin-1)',
+        rects: [
+          [8, 4, 8, 6] // head
+        ]
       },
       {
-        fill: 'var(--color-surface)',
+        fill: 'var(--color-deepa-5)',
         rects: [
-          [5, 7, 2, 2], // left dot eye
-          [9, 7, 2, 2], // right dot eye
-          [7, 10, 2, 1] // smile
+          [7, 6, 10, 2] // visor
+        ]
+      },
+      {
+        fill: 'var(--color-text)',
+        rects: [
+          [8, 6, 2, 1] // visor glint
         ]
       },
       {
         fill: 'var(--color-surface-elevated)',
-        rects: [[3, 12, 10, 4]] // shoulders
+        rects: [
+          [7, 11, 10, 8], // body
+          [8, 19, 3, 4], // leg, left
+          [13, 19, 3, 4] // leg, right
+        ]
       },
       {
-        fill: 'var(--color-text)',
-        rects: [[7, 12, 2, 2]] // collar
+        fill: 'var(--color-deepa-2)',
+        rects: [
+          [10, 13, 4, 2] // chest stripe
+        ]
       }
     ]
   },
 
-  /* GLITCH (§4.20.F + §4.20.B): the robo-cat agent — round charcoal head,
-   * accent ears, dot eyes. 16×16 → 48px (chat strip) / 24px (tagline glyph). */
-  glitch: {
-    grid: 16,
-    parts: [
-      {
-        fill: 'var(--color-deepa-4)',
-        rects: [
-          [3, 1, 1, 1], // ear tip, left
-          [12, 1, 1, 1], // ear tip, right
-          [2, 2, 3, 2], // ear, left
-          [11, 2, 3, 2] // ear, right
-        ]
-      },
-      {
-        fill: 'var(--color-surface-elevated)',
-        rects: [
-          [4, 3, 8, 1], // round head: dome
-          [3, 4, 10, 1],
-          [2, 5, 12, 7],
-          [3, 12, 10, 1]
-        ]
-      },
-      {
-        fill: 'var(--color-surface)',
-        rects: [
-          [5, 7, 2, 2], // left dot eye
-          [9, 7, 2, 2], // right dot eye
-          [4, 10, 8, 1], // panel line
-          [6, 11, 4, 1] // muzzle
-        ]
-      },
-      {
-        fill: 'var(--color-deepa-4)',
-        rects: [[7, 9, 2, 1]] // accent nose
-      }
-    ]
-  }
+  /* BLEAK WAVE (§4.26.I): the Final-CTA waving mascot — the shared
+   * personage module's BLEAK_WAVE_FIGURE (the BLEAK art extended per the
+   * §4.26.I byte-table; re-exported here so LandingFigure renders it —
+   * one source of truth, zero duplication). */
+  bleakWave: BLEAK_WAVE_FIGURE
 };

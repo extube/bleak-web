@@ -52,6 +52,7 @@ function message(txId: string, from: string, content: string, createdAt: string)
 
 function person(address: string, name: string): User {
   return {
+    active: true,
     address,
     room: '0xroom',
     name,

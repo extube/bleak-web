@@ -42,7 +42,7 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
       .filter((f) => !ROUTE_FILES.includes(f))
       .map(rel);
     expect(offenders, `new Poller outside route files: ${offenders.join(', ')}`).toEqual([]);
-    // The rule is not vacuous: the six polling pages really do instantiate it.
+    // The rule is not vacuous: the eight polling pages really do instantiate it.
     const pollingRoutes = ROUTE_FILES
       .filter((f) => /new\s+Poller\b/.test(readFileSync(f, 'utf8')))
       .map(rel)
@@ -51,18 +51,27 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
       'src/routes/chats/+page.svelte',
       'src/routes/chats/[address]/+page.svelte',
       'src/routes/contacts/+page.svelte',
-      'src/routes/host/+page.svelte',
+      // rev. 4 §2.2 row (TZ13-03): the admin panel polls members 5 s, and
+      // the statistics fan-out runs on every third tick of that Poller.
+      'src/routes/host/[room_address]/+page.svelte',
+      // rev. 4 §3.7.3 (TZ13-04): the invite route polls the room-token
+      // listInvites every 15 s; each tick re-merges the rule-C ledger.
+      'src/routes/host/[room_address]/invite/+page.svelte',
       'src/routes/people/+page.svelte',
       'src/routes/profile/+page.svelte',
       'src/routes/room/+page.svelte'
+      // rev. 4 (TZ13-02): `/host` is the ENTRY route — no poller. The 5 s
+      // host panel poller moved to `src/routes/host/[room_address]/…`
+      // (TZ13-03, §3.7.2); TZ13-05 re-verifies the §2.2 table.
     ]);
   });
 
-  it('the landing `/`, the join entry `/income` and the create route use NO poller (§2.2 cadence table — mount-time fetches only; tz12-02 re-homing)', () => {
+  it('the landing `/`, the join entry `/income`, the room intro `/income/[income_code]` and the create route use NO poller (§2.2 cadence table — mount-time fetches only; tz12-02 re-homing; §4.34.A route map)', () => {
     for (const file of [
       'src/routes/+page.svelte',
       'src/routes/income/+page.svelte',
-      'src/routes/income/[room]/create/+page.svelte'
+      'src/routes/income/[income_code]/+page.svelte',
+      'src/routes/income/[income_code]/create/+page.svelte'
     ]) {
       const source = readFileSync(join(WEB_ROOT, file), 'utf8');
       expect(source, `${file} must not poll`).not.toMatch(/new\s+Poller\b/);
@@ -78,7 +87,14 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
       // §4.14.2 row: /contacts polls the recipient-only listContactsSharedWith
       // (+ the roster for name resolution) at 4 s.
       'src/routes/contacts/+page.svelte': '4000',
-      'src/routes/host/+page.svelte': '5000',
+      // rev. 4 (TZ13-02 + TZ13-03): the 5 s host cadence lives on the
+      // admin panel route — members 5 s, the statistics fan-out on every
+      // third tick of the same Poller (⇒ 15 s; host-stats/host-panel
+      // tests). The entry route polls nothing (TZ13-02).
+      'src/routes/host/[room_address]/+page.svelte': '5000',
+      // rev. 4 §3.7.3 row (TZ13-04): the invite route polls the room-token
+      // listInvites at 15 s (each tick re-merges the rule-C ledger).
+      'src/routes/host/[room_address]/invite/+page.svelte': '15000',
       // rev. 3 §2.2 row: /profile polls the token-gated getRoomUser at 4 s
       // for the badge live-QR liveness flag (TZ2-07 Part A).
       'src/routes/profile/+page.svelte': '4000'
@@ -165,11 +181,11 @@ describe('sweep: QR module placement (DESIGN §3.8 AC 14, §3.6 AC 13)', () => {
     expect(dynamic).toEqual(['src/lib/scanner/decode.ts']);
   });
 
-  it('uqr is imported only inside the /profile component tree', () => {
+  it('uqr is imported only by the shared lib/qr module (TZ13-01 extraction — profile + host chunks share it)', () => {
     const offenders = ALL_SOURCE.filter((f) => /from\s+['"]uqr['"]/.test(readFileSync(f, 'utf8')))
-      .filter((f) => !f.includes(`${sep}components${sep}profile${sep}`))
+      .filter((f) => !f.endsWith(`${sep}svgQr.ts`))
       .map(rel);
-    expect(offenders, 'uqr imported outside /profile tree').toEqual([]);
+    expect(offenders, 'uqr imported outside the shared lib/qr module').toEqual([]);
   });
 });
 

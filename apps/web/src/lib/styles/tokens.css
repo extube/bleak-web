@@ -101,6 +101,12 @@
    * glyph inside the closed square checkboxes — sourced from the approved
    * Deepa green, no new palette hex. */
   --color-check-green: var(--color-deepa-1);
+  /* §4.22.F landing page background (scoped to `/`): the near-black page
+   * matching the hero video's own near-black background — the palette's
+   * near-black --color-surface with a 5% Deepa violet cast (the same
+   * recipe family as the §4.21.B base tint; no new hex, DESIGN §4.1).
+   * Every other page keeps --color-bg. */
+  --color-landing-bg: color-mix(in srgb, var(--color-deepa-4) 5%, var(--color-surface));
 
   /* --- typography --------------------------------------------------------- */
   /* Handjet (variable pixel font, Cyrillic-safe) — titles/logo ONLY. */

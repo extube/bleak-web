@@ -1531,6 +1531,832 @@ template. Requirements:
 
 ---
 
+## 33. Owner change batch: landing adjustments (photo review) — ✅ APPROVED (2026-11-22)
+
+The owner reviewed the live landing (photo: `real-design.png`) and wants
+these changes (owner, 2026-11-22):
+
+1. **Hero scene — right character redo:** the left personage is good;
+   the right one becomes a **copy of the left person but with white
+   hair and little purple horns** (same figure/proportions/style as
+   the left, different head: white hair + small purple horns).
+2. **Agent message reminders (the dialogue box at the center block):**
+   1. the reminder message font is **pixel**;
+   2. the reminder is **adaptive — it must not overlay the nearest
+      blocks** on the left / right / top sides;
+   3. reminder proportions are **1 : 3.5** (width : height ratio of the
+      reminder box), with a **pixel emoji at the left-top corner**, and
+      the **text is centered**;
+   4. reminders are **fixed at the bottom of the center pixel-art
+      composition block** and have an **up-and-down movement
+      animation**; the **check mark at the bottom of the reminder is
+      bigger and more visible**.
+3. **"Real people. Real results" block:** **minimize its padding**.
+4. **Layout reorganization (desktop clarity; phone order unchanged):**
+   - **First:** the header — keep it without changes (yet).
+   - **Second section:** the left block ("The right connection you" +
+     **Start** button), the **pixel-art block**, the **centered
+     reminders block at the bottom of the pixel-art block**, and the
+     **Vector agent block**.
+   - **Third section:** all the other blocks.
+   - **Footer:** add some **contact information about the site**.
+   - On the **phone screen the order does not change**; on the
+     **computer screen make it clearer** per the structure above.
+5. **Find >> Chat >> Share** — becomes **three BIG separate blocks**
+   with info about how the app works. Each step block has: the **step
+   number (pixel number)**, the **title (also pixel font)**, the **step
+   icon**, and a **mini description**. On the computer screen the three
+   blocks are ordered **left to right**; on the phone — **top to
+   bottom**.
+6. **Remove** the blocks **"bleak-web — every connection matters"** and
+   **"start now — 6-digit to join"**.
+7. **Pixel-art composition block:** make it **taller** (more height) and
+   use the owner's image **`background-img.jpg`** (workspace root) as
+   the block's background image. Other blocks **may overlay the
+   background image**, but must **not overlay the centered scenario**
+   (the central scene) of the image. **Keep the animated purple
+   pixels.** Make a **smooth transition between the image's background
+   and the landing's background color** (no hard edge).
+
+All other §31–§32 contracts stay in force (routes, Start → `/income`
+with the 6-digit input, RU/EN parity, palette, existing suites green).
+
+---
+
+## 34. Owner change batch: video hero + header/nav cleanup + Vector→Bleak — ✅ APPROVED (2026-11-22)
+
+The owner added a **16:9 `.mp4` video** (workspace root:
+**`background-video.mp4`**) to be used as a **video instead of the
+background image**. Requirements (owner, 2026-11-22):
+
+1. **Header:** keep **only the web icon, the navigation, and the
+   language switcher** (drop the tagline lines from the header).
+2. **Video block:** the block with the **video**; on its **right and
+   left sides — the blocks with Start and Vector** (the agent card).
+3. **Rename Vector → Bleak.** Also **switch all mascots in the
+   income's forms to the Vector image** (the pixel personage currently
+   used for the Vector/Bleak agent card becomes the mascot everywhere
+   in the `/income` forms).
+4. **Landing page background = black**, matching the video clip's
+   background.
+5. **Video geometry (owner refinement, same day):** the video must be
+   **the whole width of the landing's common block**; the **left and
+   right blocks overlay the video** from the left and right sides
+   respectively. **On phone screens there is no overlay** — the blocks
+   stack normally (video full-width, then the blocks).
+6. Commit the video as an app asset (like the background image before
+   it) so it builds/serves; keep the smooth dissolve into the black
+   page background; the animated purple pixels treatment follows the
+   video (drop the image if fully replaced).
+
+*Owner amendment (2026-11-22, after seeing the video hero):* **remove
+the animated pixel personage(s) from the center pixel-art block** —
+the two chatting pixel mascots (the §32 mascot-chat animation strip)
+no longer appear in/over the center composition; the video's own cast
+(the boy + robot in the video) is the only animated center content.
+
+---
+
+## 35. Owner change batch: full-screen video background + glass header + reminders removed — ✅ APPROVED (2026-11-22)
+
+The owner reviewed the video hero and wants (owner, 2026-11-22):
+
+1. **Video on full screen:** the video covers the **whole screen of
+   the device** (full-viewport), and its position is **fixed —
+   independent of scrolling** (the page content scrolls over it). All
+   the blocks are therefore **overlays of this video background**.
+2. **Header:** a **liquid-glass background** (frosted translucent
+   glass, backdrop blur) with **rounded corners**. The §34 header
+   keep-list stays (web icon + navigation + language switcher only).
+3. **Remove the agent reminders** — the reminder/dialogue box is
+   removed from the landing entirely (the §33 item 2 reminder
+   contracts are retired: pixel-font message, 1:3.5 strip, emoji
+   corner, bottom-fixed position, up-down bob, check mark — all go).
+
+Supersessions to carry into design/tests:
+
+- The §34 "center video block" becomes a **fixed full-viewport video
+  background**; the §34 phone no-overlay rule is superseded (everything
+  overlays the background now).
+- The §33 item 7 "protected centered scenario / art block height"
+  rules no longer apply (no art block; the video is the background).
+- Keep the **smooth dissolve** treatment where edges meet the black
+  page background (§34 item 4 black background stays).
+- Reduced-motion fallback: a static black/near-black background (no
+  video motion), consistent with the §34 attribute set.
+
+All other contracts stay in force (routes, Start/TALK → `/income`
+with the 6-digit input, header keep-list, BLEAK/БЛИК naming, income
+mascot swap, three step blocks, contact footer, RU/EN parity).
+
+---
+
+## 36. Owner change batch: 80% width + opaque narrower lead + thirds layout + phone open — ✅ APPROVED (2026-11-22)
+
+Continuing the video-background landing (owner, 2026-11-22):
+
+1. **Header + content width = 80% of the screen:** the header keeps
+   the liquid-glass treatment **with backdrop blur** and is **80% of
+   the screen width** (centered); the **whole page content** is also
+   constrained to **80% of the screen width** (centered).
+2. **"The right connection…" lead block:** **fully opaque** (no
+   translucency/glass — solid panel) and **narrower**.
+3. **Thirds layout (desktop):** the **lead block occupies the first
+   third** of the content width; the **Bleak agent block occupies the
+   last third**; the **middle third stays empty** (the video
+   background shows through, no block there).
+4. **Phone open state:** when the site opens on a phone, the **top
+   two-thirds of the screen show no content blocks** — the video
+   background only; the content blocks begin below that
+   (owner's sane reading, recorded as such; verbatim: "the site
+   should opens with 2/3 from top without blocks from content's").
+
+All other §35 contracts stay in force (fixed full-screen video
+background, reminders removed, black bg + dissolve, reduced-motion
+fallback, routes, Start/TALK → `/income`, RU/EN parity, three step
+blocks, contact footer).
+
+---
+
+## 37. Owner correction batch: open state + transparent lead + true liquid-glass header — ✅ APPROVED (2026-11-22)
+
+"Not, is not what I want" — corrections to the §36 result
+(owner, 2026-11-22):
+
+1. **Default open state:** when the site opens, **only the Start
+   block and the Bleak block are displayed**, **vertically centered**
+   (desktop: side-by-side in the §36 thirds; phone: the Start block
+   centered in the first viewport, Bleak next). **All the remaining
+   blocks are below the screen space initially** — they appear on
+   scroll. This supersedes the §36 item 4 "top 2/3 without blocks"
+   phone rule.
+2. **"The right connections you" block: TRANSPARENT and without
+   border** — no solid panel, no pixel frame; the text and the Start
+   button sit directly over the video background. (Supersedes the
+   §36 item 2 "fully opaque" and the §4.20.G pixel-frame for this
+   block.)
+3. **Header — true liquid glassmorphism** (owner's exact spec):
+   - **position: fixed** (or sticky at top: 0) so the video
+     background scrolls directly underneath it;
+   - background: a very **low-opacity dark tint**
+     `rgba(20, 20, 30, 0.25)`;
+   - strong frosted blur: **`backdrop-filter: blur(16px)
+     saturate(180%)`**;
+   - a subtle glossy **1px semi-transparent white top/bottom border**
+     `rgba(255, 255, 255, 0.15)` with a **soft inner highlight** for a
+     liquid-glass edge.
+   The §36 header width (80% of screen, centered) and keep-list stay.
+
+All other contracts stay in force (fixed full-screen video background,
+reminders removed, thirds layout with empty middle, black bg +
+dissolve, reduced-motion fallback, routes, Start/TALK → `/income`,
+RU/EN parity, three step blocks, contact footer).
+
+---
+
+## 38. Owner batch: glass system polish + 4 new sections — ✅ APPROVED (2026-11-22)
+
+Landing layout/nav/content improvements (owner, 2026-11-22). All new
+copy is RU/EN parity; all pixel art is original, in the app's style,
+no background plates; hover/pulse effects CSS-only with reduced-motion
+fallbacks.
+
+1. **Floating liquid-glass header** (supersedes the §37 header values
+   and the §36 80% header width):
+   - detached from the top edge: **top: 24px**, centered horizontally,
+     **width: 90%, max-width: 1200px, border-radius: 20px**;
+   - background **rgba(18, 15, 28, 0.35)**, **backdrop-filter:
+     blur(18px) saturate(180%)**;
+   - glossy **1px white border rgba(255, 255, 255, 0.2)**; inner top
+     highlight **box-shadow: inset 0 1px 1px rgba(255, 255, 255,
+     0.35)** — the glowing purple pixel background blurs right
+     through it;
+   - nav links become clear clickable anchors with **smooth scroll**:
+     owner's final directive (the "match the full page" line):
+     **HOW IT WORKS, PRIVACY, USE CASES, JOIN** (the interim options
+     "HOW IT WORKS, FEATURES, AGENTS, DOWNLOAD" / "RADAR, AGENTS,
+     HANDSHAKE, BLEAK" were offered and superseded).
+2. **Banner block ("REAL PEOPLE. REAL RESULTS."):**
+   - dark liquid glass **rgba(20, 18, 30, 0.55) + backdrop-filter:
+     blur(12px)** instead of the flat solid fill (the pixel cityscape
+     subtly glows behind it);
+   - keep the left text block ("REAL PEOPLE. REAL RESULTS. No empty
+     chats. No cold DMs. Only encounters that matter.");
+   - add a small pixel-art sub-badge above the title:
+     **[ LIVE NETWORK // IRL ]**;
+   - on the right, next to the pixel flower/character icon: a small
+     **glowing status caption "AI Agents active nearby"** with a
+     **pulsing green pixel dot**.
+3. **Three feature cards (01 FIND / 02 CHAT / 03 SHARE):**
+   - glass background **rgba(15, 14, 22, 0.65) + backdrop-filter:
+     blur(10px)**; hover = **purple outer glow + slight lift**;
+   - each card gets a **custom pixel-art mini-illustration in the
+     top-right corner** and a **bottom micro-caption pill**:
+     - **01 FIND:** pixel character holding a glowing radar/scanner
+       (top right); keep the magnifying-glass icon and "The radar
+       shows who is around you right now."; pill: **RANGE: 50M •
+       REAL-TIME GPS**;
+     - **02 CHAT:** two pixel avatars facing each other with a speech
+       bubble (top right); keep "Your agents break the ice before you
+       arrive."; pill: **AUTO-INTRO • ZERO AWKWARDNESS**;
+     - **03 SHARE:** two pixel characters doing a fist-bump/handshake
+       with sparkles (top right); keep "One handshake — and contacts
+       are exchanged."; pill: **INSTANT SYNC • MUTUAL OPT-IN**.
+4. **Footer:** replace the stark white box with a **dark liquid-glass
+   pill matching the header**: rgba(18, 15, 28, 0.5), backdrop-filter
+   blur(14px), subtle white border, white/purple pixel text.
+5. **Four NEW content sections** below the step cards — the same dark
+   liquid glassmorphism (**rgba(18, 15, 28, 0.45), backdrop-filter:
+   blur(16px), thin white glossy borders**) + 8-bit neon pixel art:
+   - **Section 4 — Live Agent Simulation ("HOW YOUR AGENTS BREAK THE
+     ICE"):** a wide glass container previewing two AI agents talking.
+     Left: glowing purple pixel avatar labeled **YOUR AGENT (Status:
+     Scanning...)**. Right: glowing cyan/yellow pixel avatar labeled
+     **NEARBY AGENT (Distance: 15m)**. Center: a sleek dark pixel-art
+     chat window with 3 short messages: (1) Agent 01: "Shared
+     interests detected: AI, Pixel Art, Coffee."; (2) Agent 02: "High
+     compatibility (96%). Suggesting IRL intro."; (3) a glowing green
+     system badge: **[ ICE BROKEN — SAY HELLO ]**.
+   - **Section 5 — Privacy & Control ("BUILT FOR REAL LIFE, NOT
+     STALKERS"):** a 3-column grid of compact glass cards with
+     pixel-art icons and captions: (A) pixel ghost/hoodie character —
+     **GHOST MODE** — "Go invisible on the radar with one tap.";
+     (B) pixel padlock & key — **MUTUAL OPT-IN** — "Zero cold DMs.
+     Contacts unlock only after a mutual handshake."; (C) pixel shield
+     + radar — **EPHEMERAL GPS** — "Your location is processed live
+     and never stored."
+   - **Section 6 — Use Cases ("WHERE BLEAK SHINES"):** a 4-column row
+     of glass pills/mini-cards with small pixel icons: **CONFERENCES**
+     (pixel badge), **PARTIES & BARS** (pixel neon glasses),
+     **COWORKINGS** (pixel laptop), **FESTIVALS** (pixel headphones).
+   - **Section 7 — Final CTA banner ("JOIN THE NETWORK"):** a
+     prominent centered glass card with a **vibrant purple neon glow**
+     behind it; the pixel mascot (pixel guy in a suit with purple tie
+     and cyber-glasses) **waving**; headline **THE RIGHT CONNECTIONS
+     ARE ALREADY NEARBY.**; an **inline dark glass input** ("Enter
+     your email or @telegram...") paired with a **bright neon yellow
+     or purple pixel button: GET EARLY ACCESS**. Anchor `join` for the
+     nav.
+6. **Behavior notes for the new elements:** smooth-scroll anchors
+   (`how-it-works` = the step cards, `privacy` = §38.5 Section 5,
+   `use-cases` = Section 6, `join` = Section 7); the GET EARLY ACCESS
+   form is a frontend stub for now (no backend endpoint exists —
+   default: mailto to the owner's contact on submit, until the owner
+   says otherwise); the animated pieces (pulsing dot, glow, hover
+   lift) respect reduced motion.
+
+---
+
+## 39. Owner batch: font sizes + compatibility circle + reverse video — ✅ APPROVED (2026-11-22)
+
+Follow-up adjustments (owner, 2026-11-22):
+
+1. **Header nav titles: bigger font** (the anchor links grow; the
+   language switcher keeps its current size).
+2. **Block descriptions: bigger font** — the mini description texts
+   inside the content blocks (step cards, privacy cards, etc.) are
+   increased. Exact sizes are the design's call — a clearly visible
+   bump, consistent across blocks.
+3. **Section 4 ("HOW YOUR AGENTS BREAK THE ICE") center rework:** in
+   the compatibility display, keep **only the 96% compatibility** with
+   an **animation of the percents increasing** and a **circle around
+   it** — the **same animation as the compatibility indicator in the
+   summary chat on the chats page** (reuse that existing component/
+   pattern for consistency). The 3-message chat window is removed in
+   favor of the compatibility circle. The badge **[ICE BROKEN — SAY
+   HELLO]** stays **below the compatibility circle**. The two agent
+   avatars (YOUR AGENT / NEARBY AGENT) flanking the center stay.
+4. **Video ping-pong playback:** when the background video reaches
+   the end, it **runs in reverse** back to the start, then plays
+   forward again — continuously (yo-yo loop). This replaces the plain
+   loop. Implementation note (not a contract): negative playbackRate
+   is unreliable across browsers — seek-stepping reverse is the
+   dependable approach; reduced-motion keeps the static fallback.
+   *Owner decision (2026-11-22): implement the ping-pong via the
+   **video file itself** (Option A) — the owner exports the clip as a
+   forward+reverse ping-pong file; the code then plays it with native
+   `loop` and the JS seek-stepper is removed (lag-free playback). This
+   supersedes the §39.4 JS ping-pong implementation once the owner's
+   ping-pong file lands in the workspace.*
+
+---
+
+## 40. Owner batch: bigger titles/descriptions/badges + phone widths — ✅ APPROVED (2026-11-22)
+
+Follow-up adjustments (owner, 2026-11-22):
+
+1. **All titles and descriptions bigger — also the badges:** another
+   clearly visible font bump across the landing — section/block
+   titles, description texts, and the badge/pill elements (the
+   micro-caption pills, [ LIVE NETWORK // IRL ],
+   [ICE BROKEN — SAY HELLO], status captions). Exact values are the
+   design's call — consistent hierarchy, everything reads bigger.
+2. **Phone view: blocks match the header width:** on phone
+   viewports, the content blocks' width equals the **header's width**
+   (90%, same as the header — so they align visually). Desktop stays
+   as-is (content 80%, header 90% per §38).
+
+---
+
+## 41. Owner batch: lead text color + copy changes — ✅ APPROVED (2026-11-22)
+
+Small copy/color batch (owner, 2026-11-22):
+
+1. **Lead block description: white font** — the description text in
+   the "The right connections" block is white.
+2. **Title copy change:**
+   - EN: "The right connections you" → **"The right connections
+     beside you"**;
+   - RU: "Нужные знакомства вас" → **"Нужные знакомства рядом"**.
+3. **Description copy change (RU):**
+   - old: "Приложение события, где ИИ-агенты заводят разговор за вас
+     — вы приходите к знакомству уже готовым."
+   - new: **"Нетворкинг - это работа. Здесь ИИ-двойники работают за
+     Вас. Собирайте контакты, проверяйте совместимость и
+     вдохновляйтесь общими идеями!"**
+   - The owner did not give a new EN description — EN stays as-is
+     until the owner approves a matching EN translation (proposed:
+     "Networking is work. Here, AI twins do it for you. Collect
+     contacts, check compatibility, and get inspired by shared
+     ideas!").
+
+---
+
+## 42. Owner batch: scroll animations + card/width/icon tweaks — ✅ APPROVED (2026-11-23)
+
+Follow-up adjustments (owner, 2026-11-23):
+
+1. **Scroll-triggered animations for all landing blocks:** blocks
+   animate in as they enter the viewport on scroll (reveal treatment
+   — e.g. fade/rise, CSS-driven, IntersectionObserver or
+   equivalent). Respect reduced motion (no animation). The §37
+   open-state rule stays — the first-viewport blocks (lead + Bleak)
+   may animate in on load; everything below the fold animates on
+   scroll into view.
+2. **Bleak card narrower in computer view** — the agent card's
+   desktop column gets narrower (design's call on the value; keep
+   readable).
+3. **Icons +50% in the blocks below the first screen:** all
+   icon/pixel-icon elements in every block except the first-viewport
+   pair (the banner's flower, the step-card icons, the privacy icons,
+   the use-case icons, the simulation avatars) are made **50% bigger**
+   (the pixel mini-illustrations scale proportionally with them).
+4. **01 / 02 / 03 step cards: dark background like the Bleak card** —
+   match the Bleak agent card's dark surface treatment (inspect its
+   current style and apply the same background to the three step
+   cards).
+5. **"Real people. Real results." block on phone:** stack **icon on
+   top** — currently the phone layout keeps text left / flower icon
+   right; on phone the flower icon (and its status caption) moves
+   above the text block.
+
+---
+
+## 44. Owner batch: wider lead + card borders + route param — ✅ APPROVED (2026-11-23)
+
+Follow-up adjustments (owner, 2026-11-23):
+
+1. **Lead block ("The right connections beside you") wider** on the
+   desktop; and when the screen is **less than 960px** — **center the
+   lead block** and **move the Bleak agent card below it** (stacked,
+   centered). Desktop ≥960px keeps the side-by-side composition with
+   the widened lead.
+2. **01 / 02 / 03 card borders unified:** fix the first ("01") and
+   third ("03") cards so their borders match the center card ("02") —
+   **remove the thick white bottom border / bottom white block /
+   shadow** on cards 01 and 03; apply the **exact same border width,
+   border radius, and subtle light border color** across all three
+   cards (completely consistent outlines).
+3. **Route param rename:** `income/<address>/create` →
+   **`income/<income_code>/create`** (the parameter is named
+   `income_code`, aligning with the backend's income-code
+   terminology; resolution behavior unchanged).
+4. **Mobile keyboard viewport fix (creation flow, esp. Safari):** in
+   `income/<income_code>/create`, fix the mobile layout so that when
+   the on-screen keyboard opens, the page is **not pushed upward
+   off-screen**; instead the container's height **dynamically shrinks
+   to fit the remaining visible viewport**, keeping both the top area
+   (messages) and the bottom area (input field) visible at the same
+   time. The form block is inside the page block, which is currently
+   fixed to the screen height — it must dynamically shrink to fit the
+   remaining visible viewport.
+   - 4.1. Replace fixed heights on the wrapper with **dynamic
+     viewport units** (`100dvh` with a `100vh` fallback) and tie the
+     layout to them;
+   - 4.2. Add a **`window.visualViewport` resize listener** — whenever
+     `visualViewport.height` changes (virtual keyboard opens/closes),
+     update a CSS variable for the container's height (e.g.
+     **`--app-height`**) and **prevent the browser from scrolling the
+     document** (overflow hidden).
+   Scope guard: creation flow only — the main-room chat (`/chats`)
+   behavior must not change (behavior-neutral shared components per
+   the standing rule); the §24–§29 layout contracts (two fixed areas,
+   main block never scrolls, messenger-only scroll) hold — the
+   "visible viewport" they bind to just becomes the dynamic
+   visualViewport height.
+
+---
+
+## 45. Owner batch: hero breakpoint/width/headline + Bleak margins — ✅ APPROVED (2026-11-23)
+
+Follow-up adjustments (owner, 2026-11-23):
+
+1. **Below 960px:** the landing shows **only "The right connections
+   beside you" block, centered on the screen**; the **Bleak block is
+   located behind the screen** — i.e. below the fold, reached by
+   scrolling (supersedes the §44.1 <960px stack that showed both).
+2. **Bleak block wider on computer:** its **margin from the right
+   side of the screen equals the left margin of the lead block**
+   (symmetric edges — the Bleak card stretches toward the content
+   container's right edge instead of a small centered card).
+3. **"The right connections beside you" headline bigger for computer
+   view** (desktop size raised; design's value, keep the open-state
+   fit).
+
+---
+
+## 46. Owner batch: Bleak heights/structures per breakpoint + staggered text reveal — ✅ APPROVED (2026-11-23)
+
+Follow-up adjustments (owner, 2026-11-23):
+
+1. **Screen >960px:** make the Bleak block **as narrow as possible**
+   such that its **height equals the height of "The right connections
+   beside you"** (the two hero blocks end on the same bottom line;
+   the card is as narrow as that allows — no taller, no wider than
+   needed).
+2. **Screen between 720px and 960px:** the Bleak block adopts the
+   **same structure as the "Real people. Real results." block** (the
+   wide banner-style glass card — text side, mascot/icon side with
+   the status treatment) and **stays located below the main screen**
+   (below the fold, per §45.1).
+3. **Screen <720px:** keep the same as now (no change).
+4. **01 / 02 / 03 step cards: vertical order when the screen is
+   <960px** (the three-block row collapses to a top-to-bottom stack
+   at the 960 boundary, not 720).
+5. **Scroll animation for titles and descriptions:** the reveal
+   system (§42) extends to the **title and description elements
+   themselves** — they animate in on scroll (staggered title →
+   description within each block; reduced-motion = visible
+   immediately, per the standing fallback).
+
+---
+
+## 47. Owner order: remove the "Continue to \<room\>" form — ✅ APPROVED (2026-11-23)
+
+On the entry page, the **resume-session form ("Continue to \<Room's
+name\>") is removed** — the **default form with the 6-digit input
+always shows** (owner, 2026-11-23). This supersedes the §30 middle-block
+"resume-session" affordance on the entry surface: no stored-session
+resume variant; the 6-digit entry form is the only form there.
+Dead markup/styles/tests/i18n keys (both locales) are removed with it.
+
+---
+
+## 48. Owner bug batch: auto-advance on 6-digit + entry-flow routes — ✅ APPROVED (2026-11-23)
+
+Owner-reported bugs/changes on the entry flow (owner, 2026-11-23):
+
+1. **Auto-advance on the 6-digit code:** after the 6th digit is
+   entered, the form **automatically proceeds to the next step (or
+   shows an error)** — it must NOT wait for the submit button.
+2. **Room intro route:** the room intro page (the **create user /
+   change code** actions) lives at **`/income/<income-code>`** (moved
+   to the income-code-based route).
+3. **Create-profile redirect is clean:** picking **create profile**
+   redirects into **`/income/<income-code>/create`** — **without any
+   URL params**: the `?code=…` query string is removed (the income
+   code travels in the path param only; the address param IS the
+   income code).
+
+All other §31–§33 contracts stay in force (routes, Start → `/income`
+with the 6-digit input, RU/EN parity, reminder box contracts, three
+step blocks, existing suites green).
+
+---
+
+## 49. Owner batch: auto-handshake opt-out (`active` flag) on profile — ✅ APPROVED (2026-11-23)
+
+bleak-node added a new `User` field: **`active`** (boolean, `true` by
+default). Per swagger: active users are matched by the auto-matchmaking
+worker; the flag is togglable via the user update endpoint — swagger
+records **PUT `/api/room/{room}/user/{address}`** with
+`server.UpdateUserRequest.active` (**omitted keeps the current flag**).
+This flag opts the persona in/out of the automatic sending of relevant
+handshakes — the user-facing control for the auto-matchmaking mechanic
+(Concept ruling 1), now implemented server-side (backend feature #36).
+Owner wants it exposed in bleak-web:
+
+1. **`/profile` — show the current auto-handshake state** on the
+   profile page (a visible indicator of whether the persona is
+   currently opted in).
+2. **`/profile/settings` — the user may enable/disable it there.** The
+   control is a **check/toggle labeled "Automatically send handshake"**
+   (RU copy in the same spirit, e.g. «Отправлять рукопожатия
+   автоматически» — concept owns the exact wording; **adopted wording**:
+   EN **"Automatically send handshake"**, RU **«Отправлять рукопожатия
+   автоматически»**; EN/RU i18n parity mandatory). **Supersession:**
+   DESIGN §4.29 records "no toggle rows" in settings — that constraint
+   is **superseded by this feature** (this is the first real
+   toggle-backed setting); the supersession must be written into the
+   docs (DESIGN amendment, dated).
+
+Scope notes (binding):
+
+- **api-client reconciliation first:** in
+  `packages/api-client/src/types.ts` the `User` interface lacks
+  `active` and `UpdateUserRequest` lacks `active`; the client method
+  `updateRoomUser` already exists — add the field to both interfaces
+  (optional in the request, boolean in the model), reconcile names with
+  swagger exactly.
+- **Default is `true` (opt-out model)** — existing personas need no
+  migration.
+- **No mocks: wire to the real field only** (real reads and real
+  writes through `updateRoomUser`; no placeholder state).
+- Existing personas need no migration; all §43 profile contracts stay
+  in force otherwise; RU/EN parity; no new deps; existing suites green.
+
+---
+
+## 50. Owner bug batch: scan button, scanner corners, edit-save overflow — ✅ APPROVED (2026-11-23)
+
+Owner-reported fixes (owner, 2026-11-23):
+
+1. **`/profile` header scan button opens the wrong thing:** the header
+   has a **scan button**, but pressing it currently opens the **QR
+   code (display)** — it must open the **QR scanner** instead.
+2. **Scanner corner brackets mis-oriented:** in the scanner all four
+   corners are oriented in one direction — **each corner must face its
+   own angle** (top-left bracket opens right/down, top-right opens
+   left/down, bottom-left right/up, bottom-right left/up — the classic
+   viewfinder framing).
+3. **`/profile/edit` phone-view overflow:** the **Save Changes button
+   is shifted slightly to the right in phone view, causing a
+   horizontal scroll** — fix it (no horizontal scroll at phone
+   widths). Additionally, **the settings rows must be in one line with
+   one width** (the key-value edit rows aligned on a common single-line
+   layout with a shared width — no ragged offsets).
+
+Scope: §43/§49 profile contracts otherwise in force; RU/EN parity; no
+new deps; existing suites green.
+
+---
+
+## 51. Owner batch: "searching new contacts" badge on `/people` — ✅ APPROVED (2026-11-23)
+
+On the **`/people` page**, add a **badge above all users**, styled in
+the **same style as a user item** (owner, 2026-11-23):
+
+1. **Condition:** shown when the **user is active** (the §49 `active`
+   flag — the auto-matchmaking worker is running for this persona).
+2. **Dimensions:** the badge is **the same dimensions as a user item**
+   (same footprint as the entries it sits above).
+3. **Content:** a **loading-circle (spinner) animation** and the title
+   **"searching new contacts"** (EN; RU copy in the same spirit —
+   concept owns the exact wording; i18n parity mandatory).
+
+Scope: RU/EN parity; no new deps; spinner follows the standing
+reduced-motion fallback (static when reduced motion is on); existing
+suites green.
+
+---
+
+## 52. Owner batch: "searching new contacts" badge inner redesign — ✅ APPROVED (2026-11-24)
+
+Change the **inner design of the Searching-new-contacts badge** on
+`/people` (§51; badge stays in place, same style/footprint/condition —
+only the inside changes). Owner, 2026-11-24:
+
+1. **New title:** something like **«режим автоматического поиска
+   контактов»** — concept-adopted wording: RU **«Режим автоматического
+   поиска контактов»**, EN **"Automatic contact search mode"** (i18n
+   parity; the §51 `people.searching` keys are replaced/superseded).
+2. **Instead of the loading spinner — a blinking light bulb:** an
+   animated bulb icon (blinking/pulsing glow), no loader. Reduced
+   motion = static bulb (standing fallback). The bulb is an SVG icon —
+   add it to the icon registry; no new deps.
+3. **Add a remark for the user** that the mode can be changed in
+   **settings** — a short secondary line with a **link redirecting to
+   `/profile/settings`** (the exact toggle from §49). Concept-adopted
+   copy: RU **«Изменить можно в настройках»**, EN **"Change it in
+   settings"** — with "настройках"/"settings" as the link part; full
+   line clickable is also acceptable (design picks, one target only:
+   `/profile/settings`).
+
+Scope: §51 badge contracts (placement, condition, non-interactive
+except the new settings link, footprint) otherwise in force; RU/EN
+parity; no new deps; existing suites green.
+
+---
+
+## 53. Owner micro-order: badge icon bulb → bubble — ✅ APPROVED (2026-11-24)
+
+On the §52 badge, **change the light-bulb icon into a light bubble**
+(owner, 2026-11-24). Concept reading: the glyph becomes a **chat
+(speech) bubble** — the symbol of incoming conversations — keeping the
+**same blink animation and reduced-motion static fallback**, same
+56px slot, same muted tone. The `bulb` registry icon is superseded by
+a `bubble` glyph (same pixel-glyph pattern, no new deps). Copy and
+everything else from §52 unchanged. (If the owner meant a different
+"light bubble", the icon swaps again — one-glyph change.)
+
+---
+
+## 43. Profile page redesign `/profile` — ✅ APPROVED (2026-11-22)
+
+*(Renumbered from §42 → §43 on 2026-11-23: the §42 number was
+double-assigned when two rounds ran in parallel; the scroll-animation
+batch kept §42, this profile round takes §43. Task 131's card cites
+the old number — same section.)*
+
+Owner request: redesign the profile page `/profile` based on the
+reference `profile-design.png` (also present as
+`docs/refs/profile-design.png`; a second, stylistically different
+reference `profile-design-2.png` exists but the owner named
+`profile-design.png` as the ground truth). Three mobile-app screens:
+My profile, Settings, Edit Profile. Owner decisions (asked 2026-11-22):
+
+1. **Theme fidelity — structure only, keep tokens.** Adopt the
+   reference's layout, structure and component patterns (header with
+   QR icon + gear, centered avatar, username row, stats row, pill
+   tabs, settings list blocks with toggles/chevrons, key-value edit
+   rows, full-width save/delete buttons) on the app's approved tokens
+   (charcoal `#1a1c20`/`#101213`, accent `#fedc5c`). No lime accent,
+   no global theme change.
+
+2. **Content mapping — real entities only.** The API has no posts,
+   followers, streak, or badges endpoints:
+   - stats row → real data: handshakes total / dialogs total /
+     added-you (existing §2.2 stats contract);
+   - the 3 pill tabs → real sections over existing content (e.g.
+     Badge / Interests / Handshakes — final naming per DESIGN rev);
+   - the header QR icon → the existing live badge QR affordance
+     (§6.3 rotation contract stays);
+   - streak counter, badges, social post card: **dropped**.
+   No placeholder/mock elements.
+
+3. **Edit Profile — new route `/profile/edit`.** Persona editing
+   (name/bios, greeting, interests) moves from `/profile/settings` to
+   a dedicated `/profile/edit` screen per the design: key-value rows,
+   Save Changes primary button. This amends the §10.1.4 contract
+   ("profile is read-only, editing lives on settings"): `/profile`
+   stays read-only; `/profile/settings` keeps app-level settings
+   (token rotation, leave room, notifications etc.) restyled to the
+   reference's list-block pattern. The design's "Delete Account"
+   maps to the existing delete/exit-room affordance rules
+   (destructive red, §7.1.6) — placement per DESIGN rev.
+
+4. **Avatar shape — square (text wins).** Sharp-edged square avatar
+   treatment per the owner's task text, consistent with the app's
+   pixel-corner style; the reference's circular avatars are not
+   followed.
+
+Scope: `/profile` + `/profile/settings` + new `/profile/edit`.
+Everything else (routes model, i18n RU/EN parity, polling contracts,
+live-QR §6.3, token rotation §8.1.3, tests green) stays in force.
+
+---
+
+## 54. New feature: host admin panel — route tree + statistics — ✅ APPROVED (owner directive, 2026-11-24)
+
+Owner requirements given verbatim in chat (2026-11-24), including an
+explicit owner ruling. Binding for the DESIGN pass and the build loop.
+**Hard ruling: no backend changes** — all statistics come from existing
+endpoints only; no mocks, no new bleak-node work in this feature. The
+sourcing was verified against the contract by the owner; rules A–D below
+are pre-decided and binding.
+
+### 54.1 Routes (supersedes the §6.6 single-page console where noted)
+
+The §6.6 host console becomes a **route tree**:
+
+- **`/host`** — create a room OR log back in as host. Two entry modes:
+  1. **Create:** consume a one-time creation token (masked input); the
+     client generates the room token; `POST /api/room` sends the
+     creation token in the `x-create-token` header and the room token
+     in the body (per §6.6 — the creation token is **consumed, never
+     stored**).
+  2. **Log back in:** paste the existing room admin (room) token.
+  On success the room token is saved to localStorage
+  (`bleak.hostRoom = { roomAddress, roomToken, code }` — §6.6 pattern).
+  **Returning-host UX (concept decision):** when `/host` loads and a
+  stored `bleak.hostRoom` entry validates against a room-token-gated
+  call (the invite-list GET — the same call the invite page needs
+  first), the app **auto-resumes** straight into
+  `/host/<room_address>`; a 401 clears the stored entry (DESIGN §3.7
+  host reset) and falls back to the token form. The token-paste form
+  stays always available (new device, rotated token, "use another
+  room") — no dead ends.
+- **`/host/<room_address>`** — main admin panel:
+  - manage the room: edit `name` / `description` / `language` /
+    `max_user` via `PUT /api/room/{address}` (room token);
+  - **restart chats — kickoff** (room token accepted; already the
+    delivered host-observation behavior — DESIGN kickoff contract);
+  - **delete users — degradation rule D:** `DELETE
+    /api/room/{room}/user/{address}` is persona-token-only in the
+    contract. The requirement stays in the docs as
+    **backend-dependency-gated**; the UI ships **without it** under
+    this ruling (ledger entry in §54.5);
+  - statistics section (§54.3).
+- **`/host/<room_address>/invite`** — all invites: **active and
+  expired**; create one; delete one. Mint/revoke are room-token-gated
+  (contract: `GET/POST /api/room/{address}/invite`, `DELETE
+  /api/room/{address}/invite/{code}` — all RoomToken). The §6.6 mint
+  settings (settable expiry, default 24 h) carry over.
+- **`/host/<room_address>/invite/<invite-code>/qr`** — QR invite page:
+  the QR encodes the **invite deep link** (the same payload as the
+  helper's `/h/rooms/{code}/qr` — the absolute join link), the 6-digit
+  code with a **copy action**, and the **share-or-copy-link control** —
+  the link text is **never shown, only buttons**.
+
+### 54.2 Statistics — sourcing rules (owner ruling, pre-decided)
+
+- **A. Stats engine = client-side fan-out aggregation.**
+  `GET /api/room/{room}/user` (public) → per user
+  `GET /api/room/{room}/user/{address}/chat` (room token) → **dedupe
+  chats by address** before message fetches (a mutual chat appears
+  under both participants) → `GET
+  /api/room/{room}/user/{address}/chat/{chat}/messages` (room token),
+  **bounded concurrency**. Meetup-scale rooms make the N+1 acceptable.
+  Stats 1–4 compute from this tree. Refresh cadence per ARCHITECTURE
+  §2.2/§5 — the panel is a route; a per-page Poller is allowed there
+  (start/stop on mount/teardown, diff in the caller, no re-render
+  spam).
+- **B. Handshake stats = degradation gate (§6.6's own fallback rule).**
+  The only handshake read (`GET /api/handshake/user/{address}`) is
+  persona-token-only. The three handshake panels are specified here and
+  in DESIGN and render **only when the flag-6.9a amendment
+  (pre-authorized follow-up `tz2-07a`) lands**; until then they are
+  **omitted from the UI**. **Do NOT substitute a proxy metric.**
+- **C. Expired invites = client-side per-room invite ledger.** The
+  invite list endpoint returns only unexpired+unrevoked codes, so the
+  client keeps a **localStorage ledger per room**
+  (`bleak.hostInvites.<room address>`): mint/revoke responses are
+  recorded and merged with the server list; ledger entries missing
+  from the server list render as expired/revoked. Recorded caveat:
+  **codes minted from other devices cannot be reconstructed as
+  expired.**
+- **D. Delete users = backend-gated** (see §54.1 panel bullet).
+
+### 54.3 Statistics content (the seven requested metrics)
+
+1. **Messages per 5-minute bucket over the past hour** (bucketed by
+   message `created_at`).
+2. **Number of entered users** (room user list count).
+3. **Number of chats** (deduped).
+4. **Active vs finished chats** (`Chat.done`; kickoff resets a chat to
+   active — §13.1.2 semantics).
+5. **Number of handshakes** (rule B).
+6. **Top list — users with the largest number of income handshakes**
+   (rule B).
+7. **Bottom list — users with the lowest** (rule B).
+
+**Chart rendering (concept decision; owner's pre-decided preference):**
+**hand-rolled SVG — no new chart dependency.** Exact visual treatment,
+bucket axis labeling, and the panel IA / stats placement are the
+**DESIGN pass's** call (owner delegated layout to the design round).
+
+### 54.4 Supersessions & scope notes
+
+- §6.6's single-page console layout is superseded by this route tree;
+  its credential semantics carry over unchanged (creation token
+  consumed, `bleak.hostRoom`, room-token authority, share kit).
+- §10.1.8 stays: the Host entry is **not** in the footer nav — hosts
+  reach `/host` directly by URL/bookmark.
+- RU/EN i18n parity for every new string (standing parity test stays
+  green). No new dependencies (hand-rolled SVG; QR rendering reuses the
+  app's existing QR capability). WCAG AA basics and the dark-token
+  system apply.
+
+### 54.5 Backend TODO ledger additions (§1c ledger)
+
+- [ ] Room-token acceptance on `GET /api/handshake/user/{address}`
+  (flag 6.9a; the pre-authorized client follow-up is `tz2-07a`) — gates
+  statistics 5–7 (rule B).
+- [ ] Room-token acceptance on `DELETE /api/room/{room}/user/{address}`
+  (rule D) — gates the host delete-user UI.
+
+### 54.6 Routing note (standard flow)
+
+Concept amendment (this section) → **DESIGN pass for all four routes +
+the stats section** (process → design instance; DESIGN amends its own
+§2/§3.7 single-page host contracts where needed) → owner DESIGN
+approval → architect TZ pass (resumed instance) → owner TZ approval →
+build loop (workers; CI is the QA gate). Merge mode: **default
+per-feature approval** (`NOT_MAINTAIN_APPROVAL` unset) — the process
+reports each ready-for-merge handover and merges only on the owner's
+approval relayed via concept. Suggested round naming: `tz13-*`.
+
+### 54.7 Owner directive — autonomous merge mode for this round (2026-11-24)
+
+The owner switched the round to **autonomous merge mode** in chat
+(2026-11-24, "run autonomous"): the process **merges immediately** when a
+worker hands over (`ready-for-merge`) — no per-feature owner gate; CI
+still gates closure (red CI = bug + reopen per AGENTS.md, reported to
+the owner via concept). Standing default returns to per-feature
+approval after this round unless the owner directs otherwise.
+
+---
+
 
 ---
 

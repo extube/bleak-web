@@ -1,24 +1,35 @@
 <script lang="ts">
   /**
-   * BleakMascot (Concept §22.3 item 1, DESIGN §4.16.1): the Bleak mascot —
-   * a chunky 12×12 pixel-art ghost portrait hand-rolled as inline SVG rects
-   * (the PixelIcon/PixelAvatar technique: crispEdges, token fills only).
-   * Same art register as the avatar art (tokens.css --color-art-* / deepa
-   * family): muted ghost body, surface face, a warm Deepa blush —
-   * decorative color, token references only, never the interactive accent
-   * (§4.1 accent discipline).
-   * §23.1 item 1: NO BACKGROUND — no plate/box behind the figure (no
-   * backdrop fill, no frame padding); the pixel figure sits directly on
-   * the page and the ghost outline carries itself.
-   * `idle` runs the 2-frame CSS blink (steps(1) — hard toggle between the
-   * open and closed eye frames). Reduced motion needs no local override:
-   * the base.css catch-all collapses the animation to a single frame.
-   * Reusable so the §4.16.2 creation wizard can mount it too.
+   * BleakMascot (Concept §22.3 item 1, DESIGN §4.16.1 as amended by
+   * §4.22.E — Concept §34): the Bleak mascot is now the shared BLEAK
+   * PERSONAGE — the agent-card pixel personage (renamed from the old
+   * landing name per §4.22.D, the rect art UNCHANGED), promoted to the
+   * shared module `personage/bleakFigure.ts` so EVERY `/income*` mascot
+   * mount renders the same figure the landing agent card does:
+   * CodeEntry 96, RoomPreview 96, CreationWizard intro 96 + steps 112,
+   * MessageBubble mascot rows 28. The old 12×12 ghost art retires
+   * (§4.22.G item 7).
+   *
+   * The §4.3 rect technique: crispEdges SVG rects on the figure's 32×32
+   * grid, token fills only (§4.1), transparent background. §23.1 item 1:
+   * NO BACKGROUND — no plate/box behind the figure (no backdrop fill, no
+   * frame padding); the pixel figure sits directly on the page and the
+   * personage carries itself.
+   *
+   * `idle` maps to the personage's established idle — the §4.20.J
+   * card-portrait sway (1.6s steps(2) ±2°, transform-origin 50% 100%).
+   * Reduced motion needs no local override: the base.css catch-all
+   * collapses the animation to a single frame.
+   *
+   * Public API UNCHANGED (§4.22.E item 2): `size` px height, `idle`
+   * boolean, `label` accessible name; decorative by default.
    */
+  import { BLEAK_FIGURE } from './personage/bleakFigure';
+
   interface Props {
-    /** Rendered size in px (scales the 12×12 grid cleanly; design size ~96–128). */
+    /** Rendered size in px (scales the 32×32 grid cleanly; design size ~96–128). */
     size?: number;
-    /** 2-frame CSS idle blink (eyes open → closed). */
+    /** The personage's idle sway (1.6s steps(2) ±2°). */
     idle?: boolean;
     /** Accessible name; empty → decorative (aria-hidden). */
     label?: string;
@@ -29,7 +40,7 @@
 
 <span class="mascot" class:idle>
   <svg
-    viewBox="0 0 12 12"
+    viewBox="0 0 {BLEAK_FIGURE.viewW} {BLEAK_FIGURE.viewH}"
     width={size}
     height={size}
     shape-rendering="crispEdges"
@@ -37,46 +48,19 @@
     aria-label={label || undefined}
     aria-hidden={label ? undefined : 'true'}
   >
-    <!-- ghost body: dome + tuft + the three-tab fringe -->
-    <g fill="var(--color-text-muted)">
-      <rect x="5" y="0" width="2" height="1" />
-      <rect x="4" y="1" width="4" height="1" />
-      <rect x="3" y="2" width="6" height="1" />
-      <rect x="2" y="3" width="8" height="7" />
-      <rect x="2" y="10" width="2" height="1" />
-      <rect x="5" y="10" width="2" height="1" />
-      <rect x="8" y="10" width="2" height="1" />
-    </g>
-    <!-- open eyes + smile (surface pixels on the body) -->
-    <g fill="var(--color-surface)">
-      <rect x="3" y="4" width="2" height="2" />
-      <rect x="7" y="4" width="2" height="2" />
-      <rect x="4" y="6" width="1" height="1" />
-      <rect x="7" y="6" width="1" height="1" />
-      <rect x="5" y="7" width="2" height="1" />
-    </g>
-    <!-- Deepa blush (same decorative register as the avatar art) -->
-    <g fill="var(--color-art-skin-4)">
-      <rect x="2" y="6" width="1" height="1" />
-      <rect x="9" y="6" width="1" height="1" />
-    </g>
-    <!-- blink frame: erases the open eyes, draws the closed 1px lids -->
-    <g class="eyes-closed">
-      <g fill="var(--color-text-muted)">
-        <rect x="3" y="4" width="2" height="2" />
-        <rect x="7" y="4" width="2" height="2" />
+    {#each BLEAK_FIGURE.parts as part, pi (pi)}
+      <g fill={part.fill}>
+        {#each part.rects as rect, ri (ri)}
+          <rect x={rect[0]} y={rect[1]} width={rect[2]} height={rect[3]} />
+        {/each}
       </g>
-      <g fill="var(--color-surface)">
-        <rect x="3" y="5" width="2" height="1" />
-        <rect x="7" y="5" width="2" height="1" />
-      </g>
-    </g>
+    {/each}
   </svg>
 </span>
 
 <style>
   /* §23.1 item 1: no plate — the frame is a transparent inline box that
-   * reserves exactly the declared `size`; the ghost figure carries itself
+   * reserves exactly the declared `size`; the personage carries itself
    * directly on the page background. */
   .mascot {
     display: inline-block;
@@ -85,23 +69,19 @@
   .mascot svg {
     display: block;
   }
-  /* The closed-eye frame is off by default; `idle` toggles it with a hard
-   * two-state steps(1) loop — eyes open ~3.6s, closed ~170ms, again. */
-  .eyes-closed {
-    opacity: 0;
+  /* `idle` = the personage's established idle: the card-portrait sway
+   * (§4.20.J / §4.22.E) — a hard two-state steps(2) loop, ±2°, pivoting
+   * at the figure's feet. */
+  .mascot.idle svg {
+    animation: mascot-idle 1.6s steps(2) infinite alternate;
+    transform-origin: 50% 100%;
   }
-  .idle .eyes-closed {
-    animation: mascot-blink 4.2s steps(1) infinite;
-  }
-  @keyframes mascot-blink {
-    0%,
-    90%,
-    100% {
-      opacity: 0;
+  @keyframes mascot-idle {
+    from {
+      transform: rotate(-2deg);
     }
-    92%,
-    96% {
-      opacity: 1;
+    to {
+      transform: rotate(2deg);
     }
   }
 </style>

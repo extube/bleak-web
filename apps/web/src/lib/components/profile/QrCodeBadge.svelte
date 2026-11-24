@@ -7,9 +7,12 @@
    * on the light `--color-qr-frame` backdrop — the one declared functional
    * light exception (§4.1); both colors are token references that resolve
    * once the inline SVG joins the DOM (no hardcoded hex, §2.4).
-   * The `uqr` import is STATIC but lives ONLY in this `/profile` route
-   * chunk (§3.6 AC 13 — no QR module loads on any other page); the QR is
-   * not interactive and issues no network request.
+   * The `uqr` import is STATIC but lives ONLY in the shared lib/qr module
+   * (`svgQr.ts`, TZ13-01 extraction) — that module is the single `uqr`
+   * import site, lazy/code-split as a shared chunk of the profile + host
+   * routes (§3.6 AC 13 as amended, TZ §9.4.4); no QR module loads on any
+   * page that does not render one; the QR is not interactive and issues no
+   * network request.
    *
    * Rotation micro-animation (§3.6, visible by design — Concept §6.3): when
    * the payload changes after a burn+refresh cycle the old module layer
@@ -19,7 +22,7 @@
    * shows the «QR обновлён» note). The initial render (first payload) does
    * not animate.
    */
-  import { renderSVG } from 'uqr';
+  import { svgQr } from '#lib/qr/svgQr';
 
   interface Props {
     payload: string;
@@ -33,16 +36,9 @@
 
   let { payload, size = 200, alt, onrotated }: Props = $props();
 
-  // Quiet zone 4 modules (§3.6); ecc M for scannability on glossy badges.
-  const svg = $derived(
-    renderSVG(payload, {
-      border: 4,
-      ecc: 'M',
-      pixelSize: 8,
-      whiteColor: 'var(--color-qr-frame)',
-      blackColor: 'var(--color-surface)'
-    })
-  );
+  // Quiet zone 4 modules (§3.6); ecc M for scannability on glossy badges —
+  // the shared module's §3.6 defaults (token colors included).
+  const svg = $derived(svgQr(payload));
 
   let displayed = $state('');
   /** 'out' = fade-out phase; 'in' = fade-in phase; null = settled. */

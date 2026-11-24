@@ -95,8 +95,6 @@ export const en = {
   'join.import.dead':
     'This profile no longer exists on the server. The entry stays listed, but you cannot return to it.',
   'join.error.invite': 'The invite code is invalid or expired.',
-  'join.resume.title': 'Continue to {room}',
-  'join.resume.another': 'Join another event',
 
   /* --- camera scanner (DESIGN §3.8, §4.7) --- */
   'scan.title': 'Scan QR code',
@@ -163,6 +161,12 @@ export const en = {
   // "Open chat" button (navigates the way the removed icon did).
   'people.action.back': 'handshake!',
   'people.action.open_chat': 'Open chat',
+  // §4.38 (Concept §52): the /people "searching new contacts" system badge
+  // (the auto-matchmaking worker state — not a user): the badge title
+  // (repurposed from §4.37) + the settings remark (§4.38.C — the full line
+  // links to /profile/settings).
+  'people.searching': 'Automatic contact search mode',
+  'people.searching_settings': 'Change it in settings',
 
   /* --- chats (DESIGN §3.4/§3.5, §4.7) --- */
   'chats.title': 'Chats',
@@ -230,9 +234,18 @@ export const en = {
   'chat.host_view': 'Host view',
 
   /* --- profile (DESIGN §3.6, §4.7) --- */
-  'profile.title': 'Profile',
+  // v3.23 (DESIGN §4.29.E): value edit — "My profile" is the /profile screen
+  // title now; the settings h1 becomes "Settings".
+  'profile.title': 'My profile',
   'profile.subtitle': 'Your profile in this room.',
   'profile.language.meta': 'Agent language: {language}',
+  // §4.35.E (Concept §49, 2026-11-23): auto-handshake opt-out — the row
+  // label is the owner's ADOPTED wording (verbatim); the other three are
+  // design inventions for tone ratification (standing precedent).
+  'profile.auto_handshake.row': 'Automatically send handshake',
+  'profile.auto_handshake.label': 'Auto-handshake',
+  'profile.auto_handshake.on': 'on',
+  'profile.auto_handshake.off': 'off',
   'profile.greeting.caption': "Opens each of your agent's new dialogs",
   'profile.greeting.rule':
     'The greeting opens every new dialog. No questions — statements only.',
@@ -240,9 +253,10 @@ export const en = {
     'Remove the question marks — the greeting must not contain questions.',
   'profile.greeting.label': 'Greeting',
   'profile.greeting.counter': '{n}/255',
-  'profile.greeting.edit': 'Greeting',
   'profile.greeting.regenerate': 'Regenerate',
-  'profile.persona.edit': 'Profile',
+  // v3.23 (DESIGN §4.29.E.3): profile.persona.edit / profile.greeting.edit
+  // RETIRED — the editors' h2s are replaced by the field labels of C.3
+  // (profile.edit.row.*); the persona block became the settings entry row.
   'profile.badge.about': 'About',
   'profile.badge.for_agent': 'For your agent',
   'profile.private_bio.caption': 'only your agent sees this',
@@ -331,8 +345,22 @@ export const en = {
   'profile.qr.refreshed': 'QR refreshed',
   'profile.qr.aria': 'Your one-time handshake QR',
   'profile.saved': 'Saved',
-  'profile.settings.title': 'My profile',
-  'profile.settings.persona': 'My profile',
+  'profile.settings.title': 'Settings',
+  // v3.23 (DESIGN §4.29.E.3): profile.settings.persona RETIRED — the
+  // persona block became the ONE profile entry row → /profile/edit.
+  // v3.23 (DESIGN §4.29.E): new keys — the reference's header/tab/edit copy.
+  // Concept §50 (2026-11-23): profile.header.qr retargeted to the scanner —
+  // the header scan icon opens the §3.8 QrScanner, so the label announces
+  // scanner intent (same copy as scan.title; RU/EN parity kept).
+  'profile.header.qr': 'Scan QR code',
+  'profile.tab.about': 'About',
+  'profile.tab.interests': 'Interests',
+  'profile.tab.qr': 'QR code',
+  'profile.edit.title': 'Edit profile',
+  'profile.edit.row.name': 'Name',
+  'profile.edit.row.public_bio': 'About you',
+  'profile.edit.row.private_bio': 'For your agent',
+  'profile.edit.save': 'Save changes',
   'profile.leave': 'Leave the room',
   'profile.leave.confirm_body':
     'You will leave the event. Your token stays on this device — you can return any time via Return to event.',
@@ -347,14 +375,16 @@ export const en = {
 
   /* --- host (DESIGN §3.7, §4.7) --- */
   'host.title': 'Host',
-  'host.subtitle': 'Create an event room and share the invite.',
+  'host.subtitle': 'Create the event room and manage it.',
   // v2 credentials (DESIGN rev. 3 §3.7): one-time creation-token gate — the
   // renamed host.gate.* keys; host.token.* remnants stay until TZ2-11 drops them.
   'host.gate.label': 'Room creation token',
   'host.gate.continue': 'Continue',
   'host.gate.note':
     'A one-time token issued by the deployment operator. After the room is created it is never needed again and is not stored.',
-  'host.session_reset': 'Room access was revoked — sign in again with a creation token.',
+  // DESIGN rev. 4 §4.7 (host-tree rework): the reset copy no longer mentions
+  // the creation token — the log-in mode takes the room key.
+  'host.session_reset': 'Room access was revoked — sign in again with the room key or create a new room.',
   'host.token.rejected': 'Token rejected.',
   'host.form.name': 'Name',
   'host.form.description': 'Description',
@@ -362,7 +392,9 @@ export const en = {
   'host.create': 'Create room',
   'host.join_attendee': 'Join as attendee',
   'host.create_another': 'Create another room',
-  'host.stats.members': 'Members {n}/{max}',
+  // rev. 4 §4.7: the plain stats-tile label — the count lives in
+  // host.members_tile ('{n}/{max_user}').
+  'host.stats.members': 'Members',
   'host.stats.language': 'Language {language}',
   'host.empty_live': 'Nobody has joined yet.',
   'host.delete_room': 'Delete room',
@@ -404,47 +436,135 @@ export const en = {
   'host.drill.kickoff': 'Restart',
   'host.drill.dialogs': 'Dialogs',
 
-  /* --- landing v3.14 (Concept §31+§32, DESIGN §4.20.M — the owner rejected
-   --- the §31 landing and ordered a rebuild from zero per their example;
-   --- all 35 keys verbatim from the §4.20.M table, RU/EN parity) --- */
-  'landing.tagline.left.1': 'NETWORKING IS A GAME.',
-  'landing.tagline.left.2': 'THE AGENT PLAYS IT FOR YOU.',
-  'landing.tagline.top': 'NO SMALL TALK. JUST REAL CONNECTIONS.',
-  'landing.tagline.right.1': 'BUILT FOR PEOPLE.',
-  'landing.tagline.right.2': 'RUN BY AGENTS.',
+  /* --- host-tree foundations (DESIGN rev. 4 §4.7 additions — verbatim;
+   * --- /host entry, panel, invites + ledger, QR page, statistics;
+   * --- RU/EN parity) --- */
+  'host.mode.create': 'Create room',
+  'host.mode.login': 'Sign in with key',
+  'host.resume.checking': 'Checking room access…',
+  'host.room.deleted': 'The room was deleted.',
+  'host.login.address': 'Room address',
+  'host.login.key': 'Room key',
+  'host.login.rejected': 'Room key rejected.',
+  'host.login.find': 'Forgot the address?',
+  'host.login.finding': 'Looking for the room…',
+  'host.login.find_none': "The key didn't match any room.",
+  'host.room.language': "Agents' language: {language}",
+  'host.room.max_user': 'Capacity: {n}',
+  'host.room.readonly_hint': 'Language and capacity become editable with a server-side amendment.',
+  'host.room.saved': 'Saved',
+  'host.members_tile': 'Members {n}/{max_user}',
+  'host.panel.share': 'Invite',
+  'host.panel.invites_link': 'All invite codes',
+  'host.qr.aria': 'Invite QR code {code}',
+  'host.qr.code_aria': 'Code: {digits}',
+  'host.join_as': 'Join as attendee',
+  'host.delete_room.row': 'Delete room',
+  'host.delete_room.body': 'The room will be deleted with all its members.',
+  'host.drill.restart_aria': 'Restart dialog {chat}',
+  'host.drill.clear_aria': 'Clear dialog {chat} history',
+  'host.drill.delete_member_locked': 'Member deletion arrives with a server-side amendment.',
+  'host.invites.expired_title': 'Expired & revoked',
+  'host.invites.ledger_caveat':
+    'Codes minted on other devices appear in the list only while active; their expiry cannot be shown.',
+  'host.invites.expired_at': 'expired {date}',
+  'host.invites.revoked_at': 'revoked {date}',
+  'host.invites.empty': 'No active codes. Mint one to invite attendees.',
+  'host.invites.copy_code': 'Copy code {code}',
+  'host.invites.copy_link': 'Copy link for code {code}',
+  'host.invites.qr_aria': 'QR for code {code}',
+  'host.qr.title': 'Invite QR',
+  'host.qr.copy_code': 'Copy code',
+  'host.qr.copy_code_aria': 'Copy code {code}',
+  'host.qr.copy_link': 'Copy link',
+  'host.qr.copy_link_aria': 'Copy the invite link',
+  'host.qr.share': 'Share',
+  'host.qr.warning': 'This code is not in the active list — it may have expired or been revoked.',
+  'host.qr.back': 'Back to invite codes',
+  'host.stats.title': 'Statistics',
+  'host.stats.chats': 'Chats',
+  'host.stats.active': '{active} active · {finished} finished',
+  'host.stats.messages_hour': 'Messages this hour: {n}',
+  'host.stats.aria': 'Messages in the last hour: {n}; peak at {bucket}.',
+  'host.stats.axis.60': '-60 min',
+  'host.stats.axis.45': '-45 min',
+  'host.stats.axis.30': '-30 min',
+  'host.stats.axis.15': '-15 min',
+  'host.stats.axis.now': 'now',
+  'host.stats.empty_hour': 'No messages in the last hour.',
+  'host.stats.partial': 'Some data failed to load — figures may be undercounts.',
+  'host.stats.gated.hint': 'Handshake statistics arrive with a server-side amendment.',
+  'host.stats.gated.def': 'one handshake = one directed record',
+  'host.stats.gated.empty': 'No handshakes yet.',
+
+  /* --- landing v3.14 + v3.15 + v3.16 + §4.22.1 + §4.23 (Concept
+   * --- §31+§32+§33+§34+§35, DESIGN §4.20.M as amended by §4.21.H,
+   * --- §4.22.H, §4.22.1 and §4.23.F — −5 tagline keys, −hero.aria,
+   * --- ~agent.name (→BLEAK), −6 chat-strip keys, −3 dialog + −3 video
+   * --- keys (the §35 reminder + play-control retirement); 23 keys,
+   * --- RU/EN parity) --- */
   'landing.headline.1': 'THE RIGHT',
   'landing.headline.2': 'CONNECTIONS',
-  'landing.headline.accent': 'YOU',
+  'landing.headline.accent': 'BESIDE YOU',
   'landing.sub':
     'An event app where AI agents break the ice for you — you arrive at every meeting already warmed up.',
   'landing.cta': 'START',
-  'landing.dialog.line1': '* The agent says hello…',
-  'landing.dialog.line2': '* Your agent already found three matches.',
-  'landing.dialog.line3': '* Match accepted. Contact exchange in a minute.',
-  'landing.hero.aria':
-    'Pixel scene: a person meets their AI agent under a glowing network node',
   'landing.stat.title': 'REAL PEOPLE. REAL RESULTS.',
   'landing.stat.line1': 'No empty chats.',
   'landing.stat.line2': 'No cold DMs.',
   'landing.stat.line3': 'Only encounters that matter.',
-  'landing.agent.name': 'VECTOR',
+  'landing.agent.name': 'BLEAK',
   'landing.agent.badge': 'AGENT · Lv 1',
   'landing.agent.traits': 'SWIFT · SHARP · LOYAL',
   'landing.agent.quote': '"I break the ice. You keep the contact."',
   'landing.agent.cta': 'TALK',
-  'landing.chat.label': 'LIVE AGENT CHAT',
-  'landing.chat.bubble1': "Hi! I'm Glitch — Dana's agent.",
-  'landing.chat.bubble2': "Hey. I'm here for the AI track.",
-  'landing.chat.bubble3': "Then you'll get along. Dana built the demo you starred.",
-  'landing.chat.bubble4': 'Send her my contacts!',
-  'landing.chat.aria':
-    'Animation: the agent Glitch and the attendee Pip exchange messages',
   'landing.tutorial.search': 'FIND',
   'landing.tutorial.chat': 'CHAT',
   'landing.tutorial.share': 'SHARE',
-  'landing.footer.line': 'EVERY CONNECTION MATTERS.',
-  'landing.footer.badge': 'START NOW — 6 DIGITS TO JOIN',
+  'landing.steps.find.desc': 'The radar shows who is around you right now.',
+  'landing.steps.chat.desc': 'Your agents break the ice before you arrive.',
+  'landing.steps.share.desc': 'One handshake — and contacts are exchanged.',
+  'landing.footer.contact.email.label': 'EMAIL',
+  'landing.footer.contact.github.label': 'GITHUB',
   'landing.footer.copyright': 'bleak-web · 2026',
+
+  /* --- landing v3.20 (Concept §38 owner batch, DESIGN §4.26.L — 35 new
+   * --- keys: floating glass header anchors, glass banner, step micro-
+   * --- pills, the four new sections; EN verbatim from §38.5, RU/EN
+   * --- parity; RU inventions flagged in §4.26.O.1) --- */
+  'landing.nav.how': 'HOW IT WORKS',
+  'landing.nav.privacy': 'PRIVACY',
+  'landing.nav.usecases': 'USE CASES',
+  'landing.nav.join': 'JOIN',
+  'landing.banner.badge': '[ LIVE NETWORK // IRL ]',
+  'landing.banner.status': 'AI Agents active nearby',
+  'landing.steps.find.pill': 'RANGE: 50M • REAL-TIME GPS',
+  'landing.steps.chat.pill': 'AUTO-INTRO • ZERO AWKWARDNESS',
+  'landing.steps.share.pill': 'INSTANT SYNC • MUTUAL OPT-IN',
+  'landing.sim.title': 'HOW YOUR AGENTS BREAK THE ICE',
+  'landing.sim.you': 'YOUR AGENT',
+  'landing.sim.you.status': 'Status: Scanning...',
+  'landing.sim.nearby': 'NEARBY AGENT',
+  'landing.sim.nearby.status': 'Distance: 15m',
+  'landing.sim.compat.aria': 'Agent compatibility: 96%',
+  'landing.sim.badge': '[ ICE BROKEN — SAY HELLO ]',
+  'landing.privacy.title': 'BUILT FOR REAL LIFE, NOT STALKERS',
+  'landing.privacy.ghost.title': 'GHOST MODE',
+  'landing.privacy.ghost.desc': 'Go invisible on the radar with one tap.',
+  'landing.privacy.mutual.title': 'MUTUAL OPT-IN',
+  'landing.privacy.mutual.desc':
+    'Zero cold DMs. Contacts unlock only after a mutual handshake.',
+  'landing.privacy.gps.title': 'EPHEMERAL GPS',
+  'landing.privacy.gps.desc': 'Your location is processed live and never stored.',
+  'landing.usecases.title': 'WHERE BLEAK SHINES',
+  'landing.usecases.conferences': 'CONFERENCES',
+  'landing.usecases.parties': 'PARTIES & BARS',
+  'landing.usecases.coworkings': 'COWORKINGS',
+  'landing.usecases.festivals': 'FESTIVALS',
+  'landing.join.title': 'JOIN THE NETWORK',
+  'landing.join.headline': 'THE RIGHT CONNECTIONS ARE ALREADY NEARBY.',
+  'landing.join.input.placeholder': 'Enter your email or @telegram...',
+  'landing.join.button': 'GET EARLY ACCESS',
 
   /* --- global 401 gate (DESIGN rev. 3 §2.8, §4.7) --- */
   'auth.401.notice':

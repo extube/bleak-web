@@ -3,8 +3,8 @@
    * JoinFlow (TZ-03 + TZ2-06 Part B) — the Step 1 → 3a/3b state machine
    * for the join flow (DESIGN §3.1 rev. 3; tz12-02 re-homing, Concept
    * §31: the entry steps run on `/income`, the persona (wizard) step on
-   * `/income/[room]/create` — seeded via `roomParam`). The route page
-   * passes deep-link values; this
+   * `/income/[income_code]/create` — seeded via `incomeCodeParam`). The
+   * route page passes deep-link values; this
    * component owns the steps, the mount-time API calls (NO Poller,
    * §2.2), the scanner mount point (context *a*, QrScanner public API
    * only) and every §3.1 interaction state.
@@ -38,12 +38,36 @@
    * intro included) and fades out into /room after the creation 2xx.
    *
    * tz12-02 route re-homing (Concept §31): the creation process lives
-   * under its own route — `/income/[room]/create`. The entry flow (this
+   * under its own route — `/income/[income_code]/create` (the param
+   * `[room]` → `[income_code]`, Concept §44.3 — and, per §4.34.F.1
+   * (Concept §48, owner bug batch), the param now carries the 6-DIGIT
+   * INVITE CODE on both parametrized routes — the room address is only
+   * ever a resolved value inside the page). The entry flow (this
    * component on `/income`) navigates there when "Create profile" is
-   * chosen; the route page mounts this same component with `roomParam`
-   * (the room context via the route param) + the `?code=` query, seeding
-   * the flow directly into the persona (wizard) step. The forms and the
-   * machine (lib/join.ts) are unchanged — only the routing wiring moved.
+   * chosen; the route page mounts this same component with
+   * `incomeCodeParam`, seeding the flow directly into the persona (wizard)
+   * step — the room context is RESOLVED from the param on mount (§4.34.D;
+   * no query parameters, ever). The forms and the machine (lib/join.ts)
+   * are unchanged — only the routing wiring moved.
+   *
+   * §4.34 (Concept §48, owner bug batch, 2026-11-23) — the entry-flow
+   * route map: /income (6-digit entry) → /income/[income_code] (room
+   * intro, NEW route — this component's `introParam` mode) →
+   * /income/[income_code]/create (wizard, seeded from the path param).
+   * 1. Auto-advance (§4.34.B, CodeEntry): after the 6th digit the resolve
+   *    fires automatically; a successful resolve on /income NAVIGATES to
+   *    the intro route (the §3.1 in-card Step-2 swap is superseded,
+   *    §4.34.F.4); the submit button stays as the redundant affordance.
+   * 2. Intro mode (§4.34.C): mounted at /income/[income_code] the flow
+   *    starts AT the room (intro) step and resolves the param code on
+   *    mount — resolving spinner (no skeleton), the existing code-error
+   *    treatments (inline 404 / banner / gone card) with Change code back
+   *    to /income, and BOTH footer actions once the room is resolved.
+   * 3. Seeded create mode (§4.34.D): the 6-digit code is not a room
+   *    address, so the seeded shortcut (Room from the param) is replaced
+   *    by a resolve on mount; an unresolvable param → /income
+   *    (replaceState, the §4.31.D rule) and a network/API failure may
+   *    show the banner with retry instead (no dead-end blank shell).
    */
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -71,51 +95,56 @@
     type PersonaDraft,
     type PersonaError
   } from '#lib/join';
-  import type { Room } from '@bleak/api-client';
   import ErrorBanner from '#lib/components/ErrorBanner.svelte';
   import QrScanner from '#lib/components/QrScanner.svelte';
+  import BleakMascot from '#lib/components/BleakMascot.svelte';
+  import FormShell from './FormShell.svelte';
   import CodeEntry from './CodeEntry.svelte';
   import RoomPreview from './RoomPreview.svelte';
   import CreationWizard from './CreationWizard.svelte';
   import VaultList from './VaultList.svelte';
 
   interface Props {
-    /** ?code=NNNNNN deep link (invite QR / link): prefill + auto-submit.
-     * On the create route it is ALSO the seeded invite code. */
+    /** ?code=NNNNNN deep link (invite QR / link): prefill + auto-submit —
+     * scoped to the ENTRY surface (/income) per §4.34.D; the create route
+     * never receives one (no query parameters, ever). */
     deepLinkCode?: string | null;
-    /** /income/[room]/create route param (tz12-02): seed the flow
-     * directly into the persona (wizard) step — the room context rides
-     * the URL; the invite code comes from deepLinkCode (?code=). */
-    roomParam?: string | null;
+    /** /income/[income_code]/create route param (§4.34.D): the 6-DIGIT
+     * invite code (§4.34.F.1 supersedes the room-address value) — seed the
+     * flow directly into the persona (wizard) step and resolve the code on
+     * mount. */
+    incomeCodeParam?: string | null;
+    /** /income/[income_code] route param (§4.34.C, the NEW intro route):
+     * the 6-digit invite code — seed the flow into the room (intro) step
+     * and resolve it on mount. */
+    introParam?: string | null;
   }
 
-  let { deepLinkCode = null, roomParam = null }: Props = $props();
+  let { deepLinkCode = null, incomeCodeParam = null, introParam = null }: Props = $props();
 
   // Deep-link prefill (?code=NNNNNN): captured once — the auto-submit runs
-  // exactly once (the effect below guards it).
+  // via the CodeEntry auto-advance (§4.34.B: the mount-time completion
+  // fires the resolve — the deep link shares the typed-entry path).
   const initialCode: string =
     deepLinkCode !== null && isValidInviteCode(deepLinkCode) ? deepLinkCode : '';
 
-  // Seeded entry (tz12-02): mounted at /income/[room]/create — the flow
-  // starts AT the creation wizard step. The room stub carries only the
-  // address the persona submit needs (the full preview lives on /income);
-  // seeded mode never resolves the code and never shows the entry steps.
-  const seeded: boolean = typeof roomParam === 'string' && roomParam !== '';
-  const seededRoom: Room = {
-    address: roomParam ?? '',
-    name: '',
-    description: '',
-    language: '',
-    max_user: 0,
-    created_at: '',
-    updated_at: '',
-    deleted_at: null
-  };
+  // Intro mode (§4.34.C): mounted at /income/[income_code] — the flow
+  // starts AT the room (intro) step; the param IS the 6-digit invite code,
+  // resolved on mount (see resolveIntro below).
+  const intro: boolean = typeof introParam === 'string' && introParam !== '';
+
+  // Seeded entry (§4.34.D): mounted at /income/[income_code]/create — the
+  // flow starts AT the creation wizard step. The 6-digit code is not a
+  // room address, so the room context is resolved on mount (the old
+  // seededRoom-from-path-param shortcut is superseded, §4.34.F.2).
+  const seeded: boolean = typeof incomeCodeParam === 'string' && incomeCodeParam !== '';
 
   let flow: JoinState = $state(
-    seeded
-      ? { ...initialJoinState, step: 'persona', code: initialCode, room: seededRoom }
-      : { ...initialJoinState, code: initialCode }
+    intro
+      ? { ...initialJoinState, step: 'room', code: introParam ?? '' }
+      : seeded
+        ? { ...initialJoinState, step: 'persona', code: incomeCodeParam ?? '', room: null }
+        : { ...initialJoinState, code: initialCode }
   );
 
   let resolving = $state(false);
@@ -150,9 +179,10 @@
   }
 
   function backToStep1(): void {
-    if (seeded) {
-      // The gone card on the create route: back to the ENTRY page (the
-      // code is dead — Step 1 opens empty there).
+    if (seeded || intro) {
+      // The gone card on the create/intro routes: back to the ENTRY page
+      // (the code is dead — Step 1 opens empty there; §4.34.C: on the
+      // intro route the Change code action goes back to /income).
       void goto(resolve('/income'));
       return;
     }
@@ -162,7 +192,7 @@
     flow = reduce(flow, { type: 'change-code' });
   }
 
-  // --- Step 1: code resolution --------------------------------------------
+  // --- Step 1: code resolution (the auto-advance target, §4.34.B) ----------
 
   async function submitCode(code: string): Promise<void> {
     if (resolving || gone) return;
@@ -175,8 +205,16 @@
     banner = null;
     resolving = true;
     try {
-      const { room, members } = await resolveRoomByCode(code);
-      flow = reduce(flow, { type: 'resolved', room, members });
+      // The resolve itself is the §3.1 seam (resolveInviteCode → room →
+      // member count); the entered digits and the CTA spinner state are
+      // handled by CodeEntry + the `resolving` guard.
+      await resolveRoomByCode(code);
+      // §4.34.A/§4.34.B (Concept §48): on /income a successful resolve
+      // NAVIGATES to the room intro route — the param IS the 6-digit
+      // invite code (nothing in the query). The §3.1 in-card Step-2 swap
+      // is superseded (§4.34.F.4); the intro route re-resolves on its own
+      // mount (§4.34.C).
+      void goto(resolve('/income/[income_code]', { income_code: code }));
     } catch (err) {
       handleError(err);
     } finally {
@@ -200,19 +238,86 @@
     flashShake();
   }
 
-  // ?code=NNNNNN deep link: prefill + auto-submit exactly once (AC 3).
-  let autoSubmitted = false;
-  $effect(() => {
-    if (autoSubmitted) return;
-    if (
-      deepLinkCode !== null &&
-      isValidInviteCode(deepLinkCode) &&
-      !resolving &&
-      flow.step === 'code'
-    ) {
-      autoSubmitted = true;
-      void submitCode(deepLinkCode);
+  // --- Intro mode (§4.34.C): the room intro route /income/[income_code] ---
+
+  // The resolving DISPLAY: on at mount (the param is about to be resolved)
+  // and re-set for every attempt; `introInFlight` is the plain (non-
+  // reactive) re-entrance guard.
+  let introResolving = $state(intro);
+  let introInFlight = false;
+  let introStarted = false;
+
+  /** The intro route resolves the param code with the existing resolve
+   * logic (§4.34.C): invite-resolve → room → member count, public reads.
+   * A malformed-looking param shows the same code-not-found state with no
+   * API call (there is no digit field here — no shake). */
+  async function resolveIntro(code: string): Promise<void> {
+    if (introInFlight) return;
+    introInFlight = true;
+    codeError = null;
+    if (!isValidInviteCode(code)) {
+      codeError = 'not_found';
+      introResolving = false;
+      introInFlight = false;
+      return;
     }
+    introResolving = true;
+    try {
+      const { room, members } = await resolveRoomByCode(code);
+      flow = { ...flow, room, members };
+    } catch (err) {
+      handleError(err);
+    } finally {
+      introResolving = false;
+      introInFlight = false;
+    }
+  }
+
+  // Resolve on mount (and on re-entry — each navigation to the route
+  // remounts the page). The retry affordance on the banner re-runs it.
+  $effect(() => {
+    if (!intro || introStarted) return;
+    introStarted = true;
+    void resolveIntro(introParam ?? '');
+  });
+
+  // --- Seeded create mode (§4.34.D): resolve the param code on mount -------
+
+  let seedResolving = $state(seeded);
+  let seedInFlight = false;
+  let seedStarted = false;
+
+  /** The create route's param is the 6-digit invite code — not a room
+   * address — so the persona step's room context comes from a resolve on
+   * mount (§4.34.D; the seeded Room-from-param shortcut is superseded).
+   * Resolve failures route as today: anything that cannot resolve →
+   * /income (replaceState, the §4.31.D rule); a network/API failure MAY
+   * show the ErrorBanner with retry instead (no dead-end blank shell). */
+  async function seedResolve(): Promise<void> {
+    if (seedInFlight) return;
+    seedInFlight = true;
+    banner = null;
+    seedResolving = true;
+    try {
+      const { room, members } = await resolveRoomByCode(incomeCodeParam ?? '');
+      flow = { ...flow, room, members };
+    } catch (err) {
+      const mapped = codeErrorOf(err);
+      if (mapped.kind === 'network' || mapped.kind === 'api') {
+        banner = { kind: mapped.kind, text: mapped.text };
+      } else {
+        void goto(resolve('/income'), { replaceState: true });
+      }
+    } finally {
+      seedResolving = false;
+      seedInFlight = false;
+    }
+  }
+
+  $effect(() => {
+    if (!seeded || seedStarted) return;
+    seedStarted = true;
+    void seedResolve();
   });
 
   // --- Step 2: room options -------------------------------------------------
@@ -221,21 +326,20 @@
     const room = flow.room;
     if (!room) return;
     personaError = null;
-    // tz12-02 re-homing (Concept §31): the creation process lives under
-    // /income/[room]/create — the room address rides the route param, the
-    // entered code the ?code= query (the create route's seed).
-    // eslint-disable-next-line svelte/no-navigation-without-resolve
-    void goto(`${resolve('/income/[room]/create', { room: room.address })}?code=${flow.code}`);
+    // §4.34.D (Concept §48) — the CLEAN create redirect: the income code
+    // (the 6-digit invite code) travels in the PATH PARAM only — the
+    // ?code= builder append is REMOVED; the create route seeds from the
+    // param (resolve on mount, §4.34.D).
+    void goto(resolve('/income/[income_code]/create', { income_code: flow.code }));
   }
 
   /** Wizard back: on the create route the room intro is re-reached via
-   * the ENTRY page with the code preserved (the ?code= prefill +
-   * auto-submit re-resolves the room preview); inline (unseeded) the
-   * machine's own back step applies. */
+   * the INTRO route (param-only — §4.34.D; the /income?code=… round-trip
+   * is superseded — the intro route re-resolves the preview on mount,
+   * §4.34.C); inline (unseeded) the machine's own back step applies. */
   function wizardBack(): void {
     if (seeded) {
-      // eslint-disable-next-line svelte/no-navigation-without-resolve
-      void goto(`${resolve('/income')}?code=${flow.code}`);
+      void goto(resolve('/income/[income_code]', { income_code: flow.code }));
       return;
     }
     flow = reduce(flow, { type: 'back' });
@@ -360,13 +464,13 @@
     }
   }
 
-  // --- Scanner mount (context *a*, QrScanner public API only) ---------------
-
+  /** Scanner mount (context *a*, QrScanner public API only) ---------------
+   * A detected invite code enters Step 1 exactly as if typed (§3.1 AC 18):
+   * the scanner closes by itself, the digits fill the cells, and the
+   * §4.34.B auto-advance takes over from here — the completion event
+   * fires the resolve (the same path typed entry takes). */
   function handleInviteCode(code: string): void {
-    // A detected invite code enters Step 1 exactly as if typed (§3.1 AC 18):
-    // scanner closed by itself, digits filled, auto-resolution.
     flow = reduce(flow, { type: 'code-input', code });
-    void submitCode(code);
   }
 
   function handleScannerClosed(): void {
@@ -375,6 +479,68 @@
     scannerOpen = false;
     codeEntry?.focusCode();
   }
+
+  // --- §44.4.2 (owner amendment, 2026-11-23, DESIGN §4.31.1): the mobile
+  // keyboard viewport fix — CREATION-SCOPED ----------------------------------
+  // The persona step IS the creation wizard (the seeded create route
+  // /income/[income_code]/create opens the flow directly in it), so the
+  // dynamic viewport behavior below runs ONLY while the creation chat is
+  // mounted: a window.visualViewport RESIZE listener tracks the on-screen
+  // keyboard — every visualViewport.height change (keyboard opens/closes)
+  // writes the remaining visible px into the --app-height custom property
+  // on the document root, which the wrapper/shell height gates in the
+  // stylesheet consume as `height: var(--app-height, 100dvh)` (the
+  // fallback-then-dvh pair stays). The DOCUMENT scroll is locked
+  // (body overflow hidden) while the creation flow runs, so the browser
+  // can never push the page upward off-screen when the keyboard opens —
+  // the container shrinks to the remaining visible viewport instead,
+  // keeping BOTH the top area (messages) and the bottom area (input)
+  // visible (the §24–§29 two-fixed-areas contract, now bound to the
+  // dynamic visualViewport height). iOS correction (2026-11-23 bug
+  // round, DESIGN §4.31.2): iOS does NOT resize the layout viewport on
+  // keyboard, so the shell gates carry min-height: 0 (the layout's
+  // 100dvh min-height would pin the shell un-shrunk), the
+  // documentElement overflow is locked TOO (body-only does not stop the
+  // iOS panning) and the window is pinned during the pan (a viewport
+  // scroll listener scrolls the window back to the top). SSR-safe: no
+  // window/document access at module init — everything is wired inside
+  // this effect; the listeners, the locks and the variable are fully
+  // restored on teardown (no leaks).
+  // /chats never mounts JoinFlow (and no other surface runs the persona
+  // step) — behavior-neutral shared components (negative-tested).
+  $effect(() => {
+    if (flow.step !== 'persona') return;
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    const viewport = window.visualViewport;
+    const root = document.documentElement;
+    const body = document.body;
+    const prevOverflow = body.style.overflow;
+    const prevRootOverflow = root.style.overflow;
+    const prevAppHeight = root.style.getPropertyValue('--app-height');
+    const applyAppHeight = (): void => {
+      if (viewport) root.style.setProperty('--app-height', `${viewport.height}px`);
+    };
+    applyAppHeight();
+    viewport?.addEventListener('resize', applyAppHeight);
+    body.style.overflow = 'hidden';
+    // §44.4.2 iOS correction (2026-11-23 bug round): the BODY lock alone
+    // does not stop iOS keyboard panning — the documentElement is locked
+    // too, and the window is pinned during the pan (every visualViewport
+    // scroll event scrolls the window back to the top; iOS pans the
+    // document up to reveal the focused input instead of resizing the
+    // layout viewport). Both restored on teardown, same no-leaks contract.
+    root.style.overflow = 'hidden';
+    const pinWindow = (): void => window.scrollTo(0, 0);
+    viewport?.addEventListener('scroll', pinWindow);
+    return () => {
+      viewport?.removeEventListener('resize', applyAppHeight);
+      viewport?.removeEventListener('scroll', pinWindow);
+      if (prevAppHeight === '') root.style.removeProperty('--app-height');
+      else root.style.setProperty('--app-height', prevAppHeight);
+      body.style.overflow = prevOverflow;
+      root.style.overflow = prevRootOverflow;
+    };
+  });
 </script>
 
 <!-- Concept §30 (DESIGN §4.19): the non-chat join forms (code/room/vault)
@@ -399,7 +565,9 @@
         kind={banner.kind}
         message={banner.text}
         onretry={() => {
-          if (flow.step === 'code') void submitCode(flow.code);
+          if (seeded) void seedResolve();
+          else if (intro) void resolveIntro(flow.code);
+          else if (flow.step === 'code') void submitCode(flow.code);
         }}
       />
     {/if}
@@ -432,20 +600,83 @@
             onscan={() => (scannerOpen = true)}
             onreturn={canReturn ? chooseReturn : undefined}
           />
-        {:else if flow.step === 'room' && flow.room}
-          <RoomPreview
-            room={flow.room}
-            memberCount={flow.members.length}
-            oncreate={chooseCreate}
-            onchange={backToStep1}
-          />
+        {:else if flow.step === 'room'}
+          {#if flow.room}
+            <RoomPreview
+              room={flow.room}
+              memberCount={flow.members.length}
+              oncreate={chooseCreate}
+              onchange={backToStep1}
+            />
+          {:else if introResolving}
+            <!-- §4.34.C resolving treatment (the intro route resolves the
+                 param on mount): the shell renders normally (header/locale
+                 + mascot + title), the content region shows the small
+                 inline spinner ONLY — no new copy, no skeleton (§3.1's
+                 "skeleton not used" rule); the footer actions are
+                 disabled until the room context is present. -->
+            <FormShell>
+              <div class="body">
+                <div class="mascot-row">
+                  <BleakMascot size={96} idle />
+                </div>
+                <h2 class="intro-title">{translate($locale, 'join.title')}</h2>
+                <div class="intro-spinner-row">
+                  <span class="spinner" aria-hidden="true"></span>
+                </div>
+              </div>
+              {#snippet footer()}
+                <button type="button" class="cta" disabled>
+                  {translate($locale, 'join.create_persona')}
+                </button>
+                <button type="button" class="link" disabled>
+                  {translate($locale, 'join.change_code')}
+                </button>
+              {/snippet}
+            </FormShell>
+          {:else if codeError}
+            <!-- §4.34.C dead/invalid param: the SAME code-error treatments
+                 as §3.1, relocated to this route — the code-not-found
+                 inline treatment (no shake, since there is no digit field
+                 here); the Change code action remains available and goes
+                 back to /income. -->
+            <FormShell>
+              <div class="body">
+                <div class="mascot-row">
+                  <BleakMascot size={96} idle />
+                </div>
+                <p class="intro-error" role="alert" aria-live="polite">
+                  {codeError === 'not_found'
+                    ? translate($locale, 'join.error.unknown')
+                    : translate($locale, 'join.code.malformed')}
+                </p>
+              </div>
+              {#snippet footer()}
+                <button type="button" class="link" onclick={backToStep1}>
+                  {translate($locale, 'join.change_code')}
+                </button>
+              {/snippet}
+            </FormShell>
+          {/if}
         {:else if flow.step === 'persona'}
-          <CreationWizard
-            error={personaError}
-            pending={creating}
-            onsubmit={(draft) => void submitPersona(draft)}
-            onback={wizardBack}
-          />
+          {#if flow.room}
+            <CreationWizard
+              error={personaError}
+              pending={creating}
+              onsubmit={(draft) => void submitPersona(draft)}
+              onback={wizardBack}
+            />
+          {:else if seedResolving || !banner}
+            <!-- §4.34.D/§4.34.I.3: the create route resolves the param code
+                 on mount (a 6-digit code is not a room address) — the
+                 §4.34.C spinner contract applied to the create shell:
+                 spinner only, no skeleton, no new copy. A banner failure
+                 keeps the card clear (the banner above carries the state;
+                 retry re-runs the seed resolve). -->
+            <div class="seed-resolving">
+              <span class="spinner" aria-hidden="true"></span>
+            </div>
+          {/if}
         {:else if flow.step === 'vault'}
           <VaultList
             entries={vaultEntries}
@@ -572,6 +803,10 @@
      * own). */
     height: 100vh;
     height: 100dvh;
+    /* §44.4.2 (DESIGN §4.31.1): the visualViewport-driven --app-height —
+     * the keyboard-shrunk px the creation-scoped listener writes on the
+     * document root; unset elsewhere → the dvh fallback stands. */
+    height: var(--app-height, 100dvh);
     overflow-x: hidden;
     overflow-y: hidden;
   }
@@ -587,8 +822,18 @@
    * wins). :has-gated on the persona step: /chats, /room and the other
    * join steps keep the content-driven shell. */
   :global(.app-shell:has(> .join > .persona-step)) {
+    /* §44.4.2 iOS correction (2026-11-23 bug round): min-height must be
+     * lifted — the layout pins .app-shell to a 100dvh min-height, and
+     * height computes as max(min-height, height): iOS does NOT resize
+     * the layout viewport on keyboard, so 100dvh stays full-height and
+     * the pin would keep the shell un-shrunk — the keyboard-shrunk
+     * --app-height would never apply. */
+    min-height: 0;
     height: 100vh;
     height: 100dvh;
+    /* §44.4.2 (DESIGN §4.31.1): the visualViewport-driven --app-height —
+     * see the main-block gate above. */
+    height: var(--app-height, 100dvh);
   }
   /* Concept §30 (DESIGN §4.19): the §29 viewport rule generalized to the
    * non-chat join forms — the SAME wrapper gate geometry as the persona
@@ -607,12 +852,24 @@
     padding: 0;
     height: 100vh;
     height: 100dvh;
+    /* §44.4.2 (DESIGN §4.31.1): the visualViewport-driven --app-height —
+     * the §30 forms on the creation path share the dynamic height (the
+     * var is only ever SET by the creation-scoped listener, so non-join
+     * surfaces are untouched). */
+    height: var(--app-height, 100dvh);
     overflow-x: hidden;
     overflow-y: hidden;
   }
   :global(.app-shell:has(> .join > .form-step)) {
+    /* §44.4.2 iOS correction (2026-11-23 bug round): min-height lifted —
+     * see the persona gate above (the layout's 100dvh min-height would
+     * pin the shell un-shrunk on iOS). */
+    min-height: 0;
     height: 100vh;
     height: 100dvh;
+    /* §44.4.2 (DESIGN §4.31.1): the visualViewport-driven --app-height —
+     * see the form-step gate above. */
+    height: var(--app-height, 100dvh);
   }
   /* §23.2 5.9 (owner amendment, DESIGN §4.15.6.4): the card content
    * mounts fresh on every join-step swap (code ⇄ preview ⇄ wizard ⇄
@@ -703,6 +960,64 @@
     overflow: hidden;
     clip: rect(0 0 0 0);
     white-space: nowrap;
+  }
+  /* §4.34.C (Concept §48): the intro route's resolving / code-error stages
+   * and the §4.34.D seeded-create resolving stage — the treatments reuse
+   * the §3.1 copy keys and the CodeEntry spinner (token-only, no new
+   * palette; the shell is the shared FormShell). */
+  .body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
+  }
+  .mascot-row {
+    display: flex;
+    justify-content: center;
+  }
+  .intro-title {
+    font-size: 28px;
+    /* Room/event titles are user data at runtime — a long word wraps. */
+    overflow-wrap: anywhere;
+  }
+  .intro-error {
+    margin: 0;
+    color: var(--color-accent);
+    font-size: 14px;
+    text-align: center;
+  }
+  .intro-spinner-row {
+    display: flex;
+    justify-content: center;
+  }
+  .link {
+    align-self: center;
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    min-height: var(--touch-target);
+    font-size: 14px;
+    text-decoration: underline;
+  }
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--color-accent-ink);
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .seed-resolving {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
   }
   @media (min-width: 720px) {
     .join {

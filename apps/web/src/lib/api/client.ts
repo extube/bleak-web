@@ -22,10 +22,11 @@
  * `bleak.authNotice` sessionStorage flag, navigates to `/` and rethrows —
  * no stale error UI flashes under the redirect. The host gate is symmetric
  * without navigation: 401/403 on a room-token call clears `bleak.hostRoom`
- * and sets `bleak.hostReset` (§3.7 host reset) — attendee identity is never
- * touched. Room creation is NOT gated (its credential is the one-time
- * creation token, consumed on use — a rejection is the §3.7 token-gate
- * state, not a revoked-room reset).
+ * sets `bleak.hostNotice` (§3.7 host reset; renamed from the retired
+ * host-reset key by TZ13-01) — attendee identity is never touched. Room
+ * creation is NOT gated (its credential is the one-time creation token,
+ * consumed on use — a rejection is the §3.7 token-gate state, not a
+ * revoked-room reset).
  */
 import { get } from 'svelte/store';
 import { goto } from '$app/navigation';
@@ -146,8 +147,10 @@ export const ROOM_TOKEN_METHODS = [
 
 /** Consumed by the `/` join page on mount (§2.8 notice card). */
 export const AUTH_NOTICE_KEY = 'bleak.authNotice';
-/** Consumed by the `/host` console on mount (§3.7 reset notice). */
-export const HOST_RESET_KEY = 'bleak.hostReset';
+/** Consumed by the `/host` tree on mount (§3.7 reset notice; DESIGN rev. 4
+ * names the key `bleak.hostNotice` — TZ13-01 renamed it from the retired
+ * host-reset key). */
+export const HOST_NOTICE_KEY = 'bleak.hostNotice';
 
 function setFlag(key: string): void {
   try {
@@ -180,7 +183,7 @@ async function roomGate<T>(run: () => Promise<T>): Promise<T> {
   } catch (cause) {
     if (cause instanceof ApiError && (cause.status === 401 || cause.status === 403)) {
       clearHostRoom();
-      setFlag(HOST_RESET_KEY);
+      setFlag(HOST_NOTICE_KEY);
     }
     throw cause;
   }
@@ -210,6 +213,36 @@ function credential(
 function ownAddress(address: string): boolean {
   return get(identity)?.userAddress === address;
 }
+
+// ---------------------------------------------------------------------------
+// hostProbes — pre-credential key-validation probes (TZ13-02, TZ §9.4.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Host PRE-CREDENTIAL probes — the documented `apiRaw` exception (TZ §9.4.2):
+ * the auto-resume probe, the log-in key validation and the address finder
+ * validate a room key with the invite-list GET **before any stored
+ * credential exists** (or with an explicitly passed key). The expected
+ * 401/403 answers are ordinary validation results there, so the `hostApi`
+ * roomGate must NOT fire for them (it would clear the session + set the
+ * reset notice on an ordinary validation failure). These calls run through
+ * the raw client path with LOCAL 401 handling in the `/host` entry page
+ * (DESIGN §3.7.1 states). Post-credential room-token calls always go
+ * through `hostApi`.
+ */
+export const hostProbes = {
+  /**
+   * GET /api/room/{address}/invite with an EXPLICIT key — the §3.7.1
+   * key-validation probe (resume probe + log-in validation + finder).
+   */
+  validateKey(address: string, roomKey: string): Promise<Invite[]> {
+    return apiRaw.listInvites(address, roomKey);
+  },
+  /** GET /api/room — the public room list (the address-finder source). */
+  listRooms(): Promise<Room[]> {
+    return apiRaw.listRooms();
+  }
+};
 
 // ---------------------------------------------------------------------------
 // api — attendee (persona) context
@@ -444,8 +477,13 @@ export const hostApi = {
     createToken: string
   ): Promise<{ room: Room; code: string }> {
     const room = await apiRaw.createRoom(request, createToken);
-    const invite = await roomGate(() => apiRaw.mintInvite(room.address, request.token));
-    return { room, code: invite.code };
+    // bleak-node mints the room's FIRST invite at creation and returns it
+    // (`CreateRoomResponse.invite_code`); mint an extra one only when the
+    // creation response carries no code (older backend / fallback path).
+    const code = room.invite_code
+      ? room.invite_code
+      : (await roomGate(() => apiRaw.mintInvite(room.address, request.token))).code;
+    return { room, code };
   },
 
   // Room settings / delete (room Bearer, gated).

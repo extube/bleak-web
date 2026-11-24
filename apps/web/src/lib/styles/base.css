@@ -67,6 +67,31 @@ button {
   }
 }
 
+/* Scroll-reveal state (DESIGN §4.30.A — the landing page only, Concept §42
+ * item 1): the bare [data-reveal] marker carries NO styles — the no-JS
+ * default is fully visible. The hidden state exists ONLY under
+ * [data-reveal='armed'], a state the landing's reveal utility applies at
+ * mount (it exists only when JS ran and animation is possible). The armed →
+ * .is-revealed pair runs the stepped pixel fade + eased rise
+ * (transform/opacity only, §4.6); the group stagger rides the
+ * --reveal-delay custom property the utility sets inline. After the reveal
+ * completes the utility strips BOTH the class and the attribute — the block
+ * ends in its natural state, so a hover lift can never fight a leftover
+ * armed transform. Reduced motion: the utility never arms; the catch-all
+ * above collapses any stray transition as belt-and-braces. */
+[data-reveal='armed'] {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 320ms steps(4, end),
+    transform 320ms ease-out;
+  transition-delay: var(--reveal-delay, 0ms);
+}
+[data-reveal='armed'].is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 /* Signature "dithered/stepped pixel corner" — v1 scaffold implementation is a
  * stepped clip-path; the design phase refines it to true dithered edges. */
 .pixel-corners {

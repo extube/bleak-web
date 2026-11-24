@@ -10,7 +10,9 @@
    * handshake-back panel on mount (§4.15.4.3). §4.15.4.3 addendum: tapping
    * any "added you" card toggles the form for THAT user (single-expanded —
    * opening another card moves the form). Chats-badge write-through on
-   * every chats poll (§1.2).
+   * every chats poll (§1.2). §4.37: the "searching new contacts" badge
+   * (Concept §51) renders as the FIRST list child when the SELF roster
+   * entry's `active` flag is true — a system state, not a user.
    */
   import { get } from 'svelte/store';
   import { SvelteMap } from 'svelte/reactivity';
@@ -30,6 +32,7 @@
     stableRoster
   } from '#lib/people/view';
   import PersonCard from '#lib/components/people/PersonCard.svelte';
+  import SearchingBadge from '#lib/components/people/SearchingBadge.svelte';
   import type { Relationship } from '#lib/room/relationships';
   import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
   import ErrorBanner from '#lib/components/ErrorBanner.svelte';
@@ -147,6 +150,22 @@
         )
       : []
   );
+
+  // §4.37.A (Concept §51): the SELF entry of the ALREADY-POLLED roster — the
+  // same entry the `cards` derived excludes above — carries the §49 `active`
+  // flag (the auto-matchmaking worker state for this persona). NO new
+  // endpoint call, no new poller, no local-only state: the field arrives
+  // inside the existing 4 s `listRoomUsers` response (§4.35.B precedent).
+  // The badge renders when the self entry EXISTS (not deleted_at-flagged,
+  // matching the count derivations' guard) AND `active === true` AND the
+  // initial load has completed (`loading === false` — the moment the
+  // skeleton retires). Self entry absent or `active: false` → no badge.
+  const selfUser = $derived(
+    me
+      ? (users.find((user) => !user.deleted_at && user.address === me.userAddress) ?? null)
+      : null
+  );
+  const searching = $derived(selfUser !== null && selfUser.active === true && !loading);
 
   // Collapse the expanded card when its state stops being actionable.
   $effect(() => {
@@ -281,6 +300,14 @@
     </div>
   {:else}
     <ul class="cards" class:dimmed={pollError !== null}>
+      {#if searching}
+        <!-- §4.37.B: the badge is the FIRST list child, above every
+             PersonCard — pinned first, it never participates in the bucket
+             sort, the search filter, dismissals or poll diffing (pure
+             markup; the §4.15.4.3 auto-open reads cards[0] of the DERIVED
+             array, not DOM position). -->
+        <SearchingBadge />
+      {/if}
       {#each cards as user (user.address)}
         {@const relationship = relationships.get(user.address) ?? null}
         {@const dismissed = relationship ? isDismissed(dismissals, relationship) : false}

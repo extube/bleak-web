@@ -67,6 +67,7 @@ const room: Room = {
 
 function user(address: string, name: string): User {
   return {
+    active: true,
     address,
     room: room.address,
     name,

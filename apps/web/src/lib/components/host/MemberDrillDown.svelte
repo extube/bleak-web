@@ -1,18 +1,31 @@
 <script lang="ts">
   /**
-   * Member drill-down sheet (DESIGN rev. 3 §3.7 item 5): the host observes
-   * one member's dialogs read with the ROOM token. ALL data arrives as
-   * props — the fetches are ON-DEMAND from the page (never polled).
+   * Member drill-down sheet (DESIGN rev. 4 §3.7.2 region 1 bullet): the
+   * host observes one member's dialogs read with the ROOM token. ALL data
+   * arrives as props — the listing fetch is ON-DEMAND from the page (the
+   * room-token `GET /api/room/{room}/user/{address}/chat` real listing,
+   * never polled).
    *
-   * Chat discovery is 6.9a-BLOCKED (the plain room-token chat reads give no
-   * room-scoped per-user chat LISTING): until the amendment lands the sheet
-   * renders the empty drill-down copy («У участника пока нет диалогов.»)
-   * plus the muted flag hint — chat listings are NEVER invented client
-   * side. `chats` carries only discoverable chat knowledge (v2: none).
-   * Each dialog row links to the read-only /chats/{address} transcript and
-   * carries «Очистить историю» (confirm) and «Запустить заново» (§3.5
-   * kickoff copy) → page callbacks with the room token. NO handshake
-   * counts are shown anywhere (AC 11).
+   * Each dialog row links to the read-only /chats/{address} transcript
+   * (host viewer context) and carries per-record-labelled inline actions:
+   * «Очистить историю» (confirm copy «История диалога участников будет
+   * очищена.») → `DELETE /api/chat/{address}/message` (room token) and
+   * «Запустить заново» (the §3.5 kickoff confirm copy) → `POST
+   * /api/chat/{address}/kickoff` (room token; the KickoffResponse speaker
+   * renders as the transient speaker line). Kickoff is per-dialog only —
+   * no room-level batch restart exists in the contract and none is faked.
+   *
+   * RULE-D locked row (TZ §9.4.1-d): at the bottom of the sheet, where
+   * member deletion will live after the backend amendment, a
+   * NON-INTERACTIVE locked row renders — muted lock glyph +
+   * «Удаление участника появится вместе с серверным обновлением.»,
+   * `aria-disabled="true"`, NO click handler, and no `deleteRoomUser`
+   * call anywhere in host code.
+   *
+   * Legacy note: `chats === null` with `loading === false` renders the
+   * retired 6.9a hint state — only the pre-rework entry console passes
+   * that shape; the panel always passes `loading` or a real array.
+   * NO handshake counts anywhere (rule B).
    */
   import { resolve } from '$app/paths';
   import { tick } from 'svelte';
@@ -22,8 +35,9 @@
   import Chip from '#lib/components/Chip.svelte';
   import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
+  import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
 
-  /** A discoverable dialog row (room + chat address + verbatim chips). */
+  /** A discovered dialog row (chat address + verbatim phase/scenario). */
   export interface DrillDialog {
     address: string;
     phase: string;
@@ -32,10 +46,14 @@
 
   interface Props {
     member: User | null;
-    /** Discoverable dialogs (null = nothing discoverable yet, 6.9a). */
+    /** The room-token listing (null = not loaded / legacy entry console). */
     chats: DrillDialog[] | null;
+    /** True while the page fetches the listing (skeleton rows). */
+    loading?: boolean;
     error: 'network' | 'api' | null;
     errorMessage: string | null;
+    /** Transient KickoffResponse speaker line (resolved name; null = idle). */
+    kickoffSpeaker?: string | null;
     onretry?: () => void;
     onclose?: () => void;
     onclear?: (chatAddress: string) => void;
@@ -45,8 +63,10 @@
   let {
     member,
     chats = null,
+    loading = false,
     error = null,
     errorMessage = null,
+    kickoffSpeaker = null,
     onretry,
     onclose,
     onclear,
@@ -62,7 +82,8 @@
   const closeLabel = $derived(translate($locale, 'common.close'));
   const dialogsTitle = $derived(translate($locale, 'host.drill.dialogs'));
   const emptyCopy = $derived(translate($locale, 'host.drill.empty'));
-  const amendmentHint = $derived(translate($locale, 'host.drill.pending_amendment'));
+  const legacyHint = $derived(translate($locale, 'host.drill.pending_amendment'));
+  const lockedCopy = $derived(translate($locale, 'host.drill.delete_member_locked'));
   const retryLabel = $derived(translate($locale, 'common.retry'));
   const networkErrorText = $derived(translate($locale, 'common.error.network'));
   const apiErrorTitle = $derived(translate($locale, 'common.error.api'));
@@ -73,6 +94,14 @@
   const kickoffBody = $derived(translate($locale, 'chat.kickoff.confirm_body'));
   const kickoffRun = $derived(translate($locale, 'chat.kickoff.confirm_run'));
   const cancelLabel = $derived(translate($locale, 'common.cancel'));
+
+  function clearAria(chat: string): string {
+    return translate($locale, 'host.drill.clear_aria', { chat });
+  }
+
+  function restartAria(chat: string): string {
+    return translate($locale, 'host.drill.restart_aria', { chat });
+  }
 
   $effect(() => {
     if (member) {
@@ -138,16 +167,25 @@
         {error === 'network' ? networkErrorText : `${apiErrorTitle}${errorMessage ? ` — ${errorMessage}` : ''}`}
       </p>
       <button type="button" class="retry" onclick={() => onretry?.()}>{retryLabel}</button>
+    {:else if loading}
+      <!-- On-demand listing in flight — the sheet is NEVER polled. -->
+      <ul class="dialogs" aria-hidden="true">
+        {#each [0, 1] as skeleton (skeleton)}
+          <li class="dialog-row">
+            <SkeletonBlock width="60%" height="16px" />
+            <SkeletonBlock width="40%" height="16px" />
+          </li>
+        {/each}
+      </ul>
     {:else if chats === null}
-      <!-- 6.9a-blocked discovery: the honest empty state + the muted flag
-           hint — no invented listings (§3.7). -->
+      <!-- Legacy pre-rework entry-console state (never the panel). -->
       <p class="empty">{emptyCopy}</p>
-      <p class="hint">{amendmentHint}</p>
+      <p class="hint">{legacyHint}</p>
     {:else}
       <h3>{dialogsTitle}</h3>
       {#if chats.length === 0}
+        <!-- CONFIRM-LF: the real room-token listing came back empty. -->
         <p class="empty">{emptyCopy}</p>
-        <p class="hint">{amendmentHint}</p>
       {:else}
         <ul class="dialogs">
           {#each chats as chat (chat.address)}
@@ -161,6 +199,7 @@
                 <button
                   type="button"
                   class="row-action"
+                  aria-label={clearAria(chat.address)}
                   onclick={() => {
                     clearTarget = chat.address;
                     clearOpen = true;
@@ -171,6 +210,7 @@
                 <button
                   type="button"
                   class="row-action"
+                  aria-label={restartAria(chat.address)}
                   onclick={() => {
                     kickoffTarget = chat.address;
                     kickoffOpen = true;
@@ -183,7 +223,18 @@
           {/each}
         </ul>
       {/if}
+      {#if kickoffSpeaker}
+        <!-- KickoffResponse speaker: the dialog restarts with this speaker. -->
+        <p class="kickoff-note" aria-live="polite">{kickoffSpeaker}</p>
+      {/if}
     {/if}
+
+    <!-- Rule-D locked row: non-interactive, aria-disabled, no click
+         handler — member deletion arrives with a server amendment. -->
+    <div class="locked-row" aria-disabled="true">
+      <PixelIcon name="lock" size={16} />
+      <span>{lockedCopy}</span>
+    </div>
   </div>
 {/if}
 
@@ -329,6 +380,24 @@
     transition:
       border-color 120ms ease-out,
       color 120ms ease-out;
+  }
+  .kickoff-note {
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-accent);
+  }
+  .locked-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    border-top: 1px solid var(--color-text-disabled);
+    color: var(--color-text-muted);
+    font-size: 14px;
+  }
+  .locked-row :global(svg) {
+    flex: none;
+    color: var(--color-text-muted);
   }
   .error {
     margin: 0;

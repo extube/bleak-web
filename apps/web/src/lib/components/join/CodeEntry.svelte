@@ -1,9 +1,11 @@
 <script lang="ts">
   /**
-   * Step 1 — code entry card (DESIGN §3.1, §4.12.1 item 6): DigitInput (six
-   * cells capped at 56px, flexible at phone widths), inline 404/400 errors
-   * with a single shake, scan entry (QrScanner context *a* is mounted by
-   * the parent JoinFlow).
+   * Step 1 — code entry card (DESIGN §3.1, §4.12.1 item 6; §4.34.B
+   * auto-advance): DigitInput (six cells capped at 56px, flexible at phone
+   * widths), inline 404/400 errors with a single shake, scan entry
+   * (QrScanner context *a* is mounted by the parent JoinFlow), and the
+   * 6th-digit auto-advance — the completion fires the resolve (§4.34.B),
+   * the submit button stays as the redundant affordance.
    *
    * Concept §30 (DESIGN §4.19 + owner amendment) — the reference
    * three-block instantiation: the form mounts the SHARED FormShell —
@@ -67,6 +69,37 @@
 
   const complete = $derived(isValidInviteCode(code));
 
+  // --- §4.34.B auto-advance (Concept §48, owner bug batch) -------------------
+  // The DigitInput completion contract ("6 digits present") now ALSO
+  // submits: after the 6th digit — typed, backspace-refilled, pasted, or
+  // prefilled by the ?code= deep link / the scanner — the resolve fires
+  // automatically; the submit button stays as the REDUNDANT affordance.
+  //
+  // One-shot trigger discipline (no double-submit, no debounce — the
+  // completion event itself is the trigger): ONE auto-attempt per
+  // completion. While the resolve is in flight the form is busy (the
+  // cells are disabled → no further edits), a submit press re-hits the
+  // parent's `resolving` guard, and a FAILED attempt is not auto-retried
+  // — the next attempt is the user's (edit a digit, or tap submit).
+  // Editing away from a complete code re-arms the trigger (the marker
+  // below resets on the incomplete value), so a corrected digit — or the
+  // same code retyped after clearing — fires a fresh completion.
+  let autoFired = $state('');
+
+  function handleComplete(completed: string): void {
+    if (autoFired === completed) return;
+    autoFired = completed;
+    if (disabled) return; // resolve in flight — no re-trigger
+    onsubmit?.(completed);
+  }
+
+  // Re-arm: leaving a complete code (an edit, a clear) allows the next
+  // completion to fire again. Writes only on a real change — no effect
+  // loop.
+  $effect(() => {
+    if (!complete && autoFired !== '') autoFired = '';
+  });
+
   function submit(event: SubmitEvent): void {
     event.preventDefault();
     if (!disabled && complete) onsubmit?.(code);
@@ -87,7 +120,9 @@
       <p class="subtitle">{translate($locale, 'join.subtitle')}</p>
 
       <div class="cells" bind:this={cellsWrap} class:shaking>
-        <DigitInput bind:value={code} {disabled} />
+        <!-- §4.34.B: the completion callback drives the auto-advance — the
+             6th digit submits without the button. -->
+        <DigitInput bind:value={code} {disabled} oncomplete={handleComplete} />
       </div>
 
       {#if error}

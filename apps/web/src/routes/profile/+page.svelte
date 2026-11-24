@@ -1,9 +1,18 @@
 <script lang="ts">
   /**
-   * /profile — Persona badge (DESIGN rev. 3 §3.6, TZ2-07 Part A).
+   * /profile — "My profile" screen (DESIGN rev. 3 §3.6 → REDESIGNED by
+   * §4.29, v3.23 profile redesign; Concept §42).
    *
    * All calls go through the attendee `api` context — the persona Bearer is
    * auto-injected on every credentialed call (ARCHITECTURE §10.8).
+   *
+   * Header (§4.29.A.1): the h1 left («Мой профиль»), the top-right cluster
+   * holds two icon-only buttons — the SCAN affordance (Concept §50,
+   * superseding the §4.29.A.2 tab-switch reading: the header scan icon
+   * opens the shared §3.8 QrScanner overlay, context persona; the live
+   * badge QR lives EXACTLY ONCE, inside the QR tab panel, still reachable
+   * through the tab-panel affordance) and the settings gear →
+   * /profile/settings (§4.10.2 carried, G.5: labeled button → icon button).
    *
    * Live badge QR (Concept §6.3): a 4 s Poller polls the token-gated
    * `getRoomUser` (own address → persona Bearer, returns `private_bio` and
@@ -13,21 +22,20 @@
    * (`registerMutualCode` body = SHA-256 hash), update the `mutualCode`
    * store, and re-render with the rotation micro-animation + the transient
    * «QR обновлён» note. A registration failure keeps the last QR; the next
-   * tick retries. Stats are fetched on mount + after mutations (§2.2 row).
+   * tick retries. When the rotation fires while another tab is active, the
+   * app switches to the QR tab first (§4.29.A.3 — the rotation is visible
+   * by design). Stats are fetched on mount + after mutations (§2.2 row).
+   * The scanner's members list is fetched ONCE per open (no polling): on
+   * failure an empty list — the §3.8 empty-membership semantics (the
+   * foreign check is skipped, the name falls back to the address).
    *
-   * Token rotation and the leave-room exit live on the /profile/settings
-   * sub-page (Concept §8.1.3, DESIGN §4.9.3); this page links to it via a
-   * settings button in the page header's TOP-RIGHT corner (Concept §9.1.2,
-   * DESIGN §4.10.2) — the body-level row from the relocation task is
-   * absorbed into that corner entry.
-   *
-   * Concept §10.1.4 / DESIGN §4.11.4: this page is READ-ONLY display —
-   * the persona-edit affordances (badge edit buttons + the inline editors)
-   * left /profile; ALL persona editing (name/bios, greeting, interests)
-   * lives on /profile/settings.
+   * Concept §10.1.4 / §42.3 / DESIGN §4.29.A: this page is READ-ONLY — no
+   * edit affordance exists on it (G.3); persona editing lives on
+   * /profile/edit, app settings on /profile/settings.
    *
    * Interests are the local mirror of the real interest endpoints
-   * (DESIGN §4.13.1 — the API has no interests GET).
+   * (DESIGN §4.13.1 — the API has no interests GET); the Interests tab is
+   * DISPLAY-ONLY over the mirror (§23.2 5.6, §4.29 I-rec 12).
    */
   import { get } from 'svelte/store';
   import { goto } from '$app/navigation';
@@ -44,10 +52,12 @@
     loadInterests
   } from '#lib/stores/interests';
   import { decideBadgeAction, registerFreshMutualCode } from '#lib/components/profile/liveQr';
-  import ProfileBadge from '#lib/components/profile/ProfileBadge.svelte';
+  import ProfileBadge, { type ProfileTab } from '#lib/components/profile/ProfileBadge.svelte';
+  import QrScanner from '#lib/components/QrScanner.svelte';
   import ErrorBanner from '#lib/components/ErrorBanner.svelte';
   import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
   import PixelAvatar from '#lib/components/PixelAvatar.svelte';
+  import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
 
   // Hard reload on /profile: the layout hydrates identity in its onMount,
   // which runs after this page's script — hydrate defensively (idempotent)
@@ -64,6 +74,35 @@
   let user = $state<User | null>(null);
   let handshakes = $state<readonly Handshake[]>([]);
   let chatCount = $state(0);
+
+  // The pill tabs (§4.29.A.6/A.7): the default tab on mount is About; the
+  // live rotation switches it from outside. The QR tab itself stays
+  // reachable through its tab-panel affordance (§43 A.2 carried).
+  let activeTab = $state<ProfileTab>('about');
+
+  // --- the §3.8 scanner (Concept §50) ----------------------------------------
+  // The header scan icon opens the shared QrScanner overlay (context
+  // persona). Members for the persona routine are fetched ONCE per open
+  // (`api.listRoomUsers`, gated, the room/+page pattern) — NEVER polled; a
+  // failure passes an empty list: the §3.8 empty-membership semantics (the
+  // foreign check is skipped, `memberName` falls back to the address).
+  let scanOpen = $state(false);
+  let scannerMembers = $state<readonly User[]>([]);
+
+  function openScanner(): void {
+    scanOpen = true;
+    const id = get(identity);
+    if (!id) return;
+    scannerMembers = [];
+    api
+      .listRoomUsers(id.roomAddress)
+      .then((users) => {
+        if (scanOpen) scannerMembers = users;
+      })
+      .catch(() => {
+        scannerMembers = [];
+      });
+  }
 
   // The raw one-time mutual code backing this persona's badge QR
   // (`bleak.mutualCode`, validated against the identity on load).
@@ -112,11 +151,13 @@
    * Badge action per the §3.6 table: register (no code yet), rotate
    * (flag false — a scan burned the code), keep. The registration body
    * carries the code's HASH only (§7.4); the raw code is stored client-side
-   * and re-rendered through the rotation micro-animation.
+   * and re-rendered through the rotation micro-animation. On a ROTATION the
+   * app switches to the QR tab first (§4.29.A.3) so the swap is visible.
    */
   async function ensureBadge(id: Identity, live: boolean | undefined): Promise<void> {
     const action = decideBadgeAction(badgeCode, live);
     if (action === 'keep' || registering) return;
+    if (action === 'rotate') activeTab = 'qr';
     registering = true;
     try {
       const code = await registerFreshMutualCode(id.roomAddress, id.userAddress, {}, {
@@ -195,7 +236,9 @@
     }
   }
 
-  // --- token rotation + leave room (moved to /profile/settings, §8.1.3) -------
+  // --- persona editing + token rotation + leave room (§4.29) ------------------
+  // Persona editing lives on /profile/edit (entered from the settings entry
+  // row); token rotation + the leave-room exit live on /profile/settings.
 
   function exitNotFound(): void {
     clearIdentity();
@@ -209,13 +252,29 @@
 </script>
 
 <main class="profile-page">
-  <!-- Settings corner entry (Concept §9.1.2, DESIGN §4.10.2): a real link
-       (§2.6) at the header level, top-right, above the content column. -->
+  <!-- Header (§4.29.A.1): the h1 left + the top-right cluster — the SCAN
+       affordance icon button (opens the §3.8 scanner, Concept §50) and the
+       settings gear (a real link styled as an icon button, §2.6), both 48px
+       touch targets. -->
   <header class="header">
     <h1>{translate($locale, 'profile.title')}</h1>
-    <a class="settings-corner" href={resolve('/profile/settings')}>
-      {translate($locale, 'profile.settings.title')}
-    </a>
+    <div class="corner">
+      <button
+        type="button"
+        class="icon-btn"
+        aria-label={translate($locale, 'profile.header.qr')}
+        onclick={openScanner}
+      >
+        <PixelIcon name="scan" size={16} />
+      </button>
+      <a
+        class="icon-btn"
+        href={resolve('/profile/settings')}
+        aria-label={translate($locale, 'profile.settings.title')}
+      >
+        <PixelIcon name="gear" size={16} />
+      </a>
+    </div>
   </header>
 
   {#if banner}
@@ -223,19 +282,23 @@
   {/if}
 
   {#if loading && user === null}
-    <div class="badge skeleton pixel-corners" aria-hidden="true">
-      <div class="identity-row">
-        <SkeletonBlock width="96px" height="96px" round />
-        <div class="bars">
-          <SkeletonBlock width="60%" height="24px" />
-          <SkeletonBlock width="40%" height="14px" />
-        </div>
+    <!-- §4.29.A.8: the skeleton adapted to the new shape — centered avatar
+         block + name bar + 3 stat-tile skeletons + the tab row. -->
+    <div class="skeleton" aria-hidden="true">
+      <div class="identity">
+        <SkeletonBlock width="96px" height="96px" />
+        <SkeletonBlock width="60%" height="24px" />
+        <SkeletonBlock width="40%" height="14px" />
       </div>
-      <SkeletonBlock width="100%" height="56px" />
-      <SkeletonBlock width="100%" height="40px" />
       <div class="stat-row">
         <SkeletonBlock width="100%" height="88px" />
         <SkeletonBlock width="100%" height="88px" />
+        <SkeletonBlock width="100%" height="88px" />
+      </div>
+      <div class="tab-row">
+        <SkeletonBlock width="100%" height="48px" />
+        <SkeletonBlock width="100%" height="48px" />
+        <SkeletonBlock width="100%" height="48px" />
       </div>
     </div>
   {:else if notFound}
@@ -250,6 +313,7 @@
     </div>
   {:else if user}
     <ProfileBadge
+      bind:activeTab
       {user}
       {interests}
       handshakes={handshakesTotal}
@@ -260,6 +324,15 @@
     />
   {/if}
 </main>
+
+<!-- The shared §3.8 scanner overlay (Concept §50): full-screen machine,
+     camera lifecycle and focus return untouched; context persona with the
+     once-per-open members list. -->
+<QrScanner
+  bind:open={scanOpen}
+  context="persona"
+  members={scannerMembers}
+/>
 
 <style>
   .profile-page {
@@ -276,58 +349,58 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    /* Wrapping keeps the corner entry clear of the title at phone widths. */
-    flex-wrap: wrap;
     gap: var(--space-3);
   }
   .header h1 {
     font-size: 32px;
   }
-  .settings-corner {
-    /* Compact labeled button in the header's top-right corner (§4.10.2):
-     * the rounded-square treatment of the other icon buttons, tokens
-     * only, full touch target. */
+  /* §4.29.A.1: the top-right cluster — two icon-only buttons, muted glyph,
+   * hover/active → --color-text, full touch targets, tokens only. */
+  .corner {
     display: inline-flex;
     align-items: center;
-    min-height: var(--touch-target);
-    padding: 0 var(--space-4);
-    border: 1px solid var(--color-text-disabled-strong);
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--color-text-muted);
-    font-family: var(--font-body);
-    font-size: 14px;
-    font-weight: 600;
-    white-space: nowrap;
-    transition:
-      border-color 120ms ease-out,
-      color 120ms ease-out;
+    gap: var(--space-2);
   }
-  .badge {
-    background: var(--color-surface);
-    border-radius: var(--radius-lg);
-    padding: var(--space-5);
+  .icon-btn {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    transition: color 120ms ease-out;
+  }
+  .icon-btn:hover,
+  .icon-btn:active {
+    color: var(--color-text);
   }
   .skeleton {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
   }
-  .identity-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-  }
-  .bars {
-    flex: 1;
+  .identity {
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: var(--space-2);
   }
   .stat-row {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: var(--space-3);
+  }
+  .tab-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-2);
+  }
+  .badge {
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
   }
   .not-found {
     display: flex;
@@ -358,19 +431,19 @@
     transition: opacity 120ms ease-out;
   }
   @media (min-width: 720px) {
-    /* Badge card max-width 560px centered (§3.6 responsive). */
-    .badge {
+    /* Content column max-width 560px centered (§4.29.A.9). */
+    .badge,
+    .skeleton {
       max-width: 560px;
       width: 100%;
       align-self: center;
     }
   }
-  /* v2.6 (Concept §12, DESIGN §4.12.1 item 5): phone (<720px) full-screen
-   * form — the badge card becomes the page: full width/height, no rounded
-   * floating chrome. The container drops its side padding; the header
-   * keeps its own gutter (spacing scale), the bottom tab-bar clearance
-   * stays (functional, not chrome), and the card's --space-5 padding is
-   * the content gutter. Desktop (min-width: 720px) is unchanged. */
+  /* §4.12.1 item 5 (carried, §4.29.G.6): phone (<720px) full-screen
+   * treatment — the container drops its side padding; the header keeps its
+   * own gutter; the tab-bar clearance stays (functional, not chrome); the
+   * panel cards lose the floating chrome. The ProfileBadge card drops ITS
+   * chrome in the component's own scoped styles (same 719px query). */
   @media (max-width: 719px) {
     .profile-page {
       padding: 0 0 calc(var(--bottom-tabbar-height) + var(--space-5));

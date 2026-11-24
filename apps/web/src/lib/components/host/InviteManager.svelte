@@ -1,27 +1,40 @@
 <script lang="ts">
   /**
-   * InviteManager (DESIGN rev. 3 §3.7 item 5): the invite-management block —
-   * sub-header + hint, the active-code list (revoked and expired codes never
-   * render), and the mint control: CTA «Выпустить код» opens an inline
-   * expiry chooser — preset pills 1 ч / 24 ч (pre-selected default) / 7 дней
-   * plus «Своё время…» revealing a compact `datetime-local` input
-   * (min = now). Minting calls back with the ISO expiry (omitted → the
-   * server-side 24 h default). Failures render inline with retry; the share
-   * kit is unaffected.
+   * InviteManager (DESIGN rev. 4 §3.7.3 / §4.2, reworked for the invite
+   * route by TZ13-04): the invite-page body — the active-code `<ul>` (one
+   * `InviteRow` per server code, newest first), the mint control (CTA
+   * «Выпустить код» → inline expiry chooser: presets 1 ч / 24 ч
+   * pre-selected default / 7 дней + «Своё время…» datetime-local, min =
+   * now), the rule-C history disclosure (ledger entries MISSING from the
+   * server list — expired/revoked text badges, non-interactive rows, the
+   * ledger caveat under the header; the section is omitted when empty),
+   * and the §3.7.3 states: skeletons on first arrival, EmptyState + mint
+   * CTA when nothing is active and nothing is known, inline errors with
+   * retry (the ledger section still renders — it is local), mint/revoke
+   * failures inline near the control. The legacy console call site keeps
+   * compiling: `history`/`actionError` default to no-section/no-line.
    */
   import { locale, translate } from '#lib/i18n/locale';
   import type { Invite } from '@bleak/api-client';
   import InviteRow from './InviteRow.svelte';
   import ErrorBanner from '#lib/components/ErrorBanner.svelte';
+  import EmptyState from '#lib/components/EmptyState.svelte';
   import SkeletonBlock from '#lib/components/SkeletonBlock.svelte';
   import { activeInvites, customExpiry, presetExpiry, type ExpiryPreset } from './hostLogic';
+  import type { LedgerHistoryEntry } from '#lib/stores/hostInviteLedger';
 
   interface Props {
     /** Active codes from the room-token `listInvites` (null = loading). */
     invites: Invite[] | null;
+    /** Rule-C history: ledger entries missing from the server list. */
+    history?: LedgerHistoryEntry[];
+    /** Room-address URL param — builds the per-code QR links (§3.7.3). */
+    roomAddress?: string;
     error: 'network' | 'api' | null;
     errorMessage: string | null;
     mintPending: boolean;
+    /** Inline mint/revoke failure near the control (invite route). */
+    actionError?: string | null;
     /** Transient «Код отозван.» note (page-owned timer). */
     revokedNote: boolean;
     /** Client-computed invite-link base ({INVITE_URL_BASE}, §10.9). */
@@ -35,9 +48,12 @@
 
   let {
     invites,
+    history = [],
+    roomAddress = '',
     error,
     errorMessage,
     mintPending,
+    actionError = null,
     revokedNote,
     baseUrl,
     now,
@@ -52,7 +68,6 @@
   let customInvalid = $state(false);
 
   const title = $derived(translate($locale, 'host.invites.title'));
-  const hint = $derived(translate($locale, 'host.invites.hint'));
   const mintLabel = $derived(translate($locale, 'host.invites.mint'));
   const preset1h = $derived(translate($locale, 'host.invites.preset.1h'));
   const preset24h = $derived(translate($locale, 'host.invites.preset.24h'));
@@ -60,7 +75,18 @@
   const presetCustom = $derived(translate($locale, 'host.invites.preset.custom'));
   const customLabel = $derived(translate($locale, 'host.invites.custom_label'));
   const revoked = $derived(translate($locale, 'host.invites.revoked'));
+  const emptyLabel = $derived(translate($locale, 'host.invites.empty'));
+  const historyTitle = $derived(translate($locale, 'host.invites.expired_title'));
+  const caveatLabel = $derived(translate($locale, 'host.invites.ledger_caveat'));
   const loading = $derived(translate($locale, 'common.loading'));
+
+  /** Deterministic muted badge date (the ISO day part). */
+  function dayOf(iso: string): string {
+    return iso.slice(0, 10);
+  }
+
+  const active = $derived((invites !== null ? activeInvites(invites, now) : []) as Invite[]);
+  const isEmpty = $derived(invites !== null && active.length === 0 && history.length === 0);
 
   /** datetime-local `min` — the current time in local minute precision. */
   const minLocal = $derived.by(() => {
@@ -104,33 +130,32 @@
 </script>
 
 <section class="invites" aria-label={title}>
-  <div class="head">
-    <h2>{title}</h2>
-    <p class="hint">{hint}</p>
-  </div>
-
   {#if error}
     <ErrorBanner kind={error} message={errorMessage} onretry={onretry} />
-  {:else if invites === null}
+  {/if}
+
+  {#if revokedNote}
+    <p class="revoked-note" aria-live="polite">{revoked}</p>
+  {/if}
+
+  {#if invites === null}
     <div class="skeletons" aria-hidden="true">
       <SkeletonBlock width="100%" height="64px" />
       <SkeletonBlock width="100%" height="64px" />
     </div>
     <p class="loading" role="status">{loading}</p>
+  {:else if isEmpty}
+    <!-- No active codes AND no ledger entries (§3.7.3 states): the
+         EmptyState mint CTA opens the chooser (no second mint control). -->
+    <EmptyState message={emptyLabel} icon="radar-dot" ctaLabel={mintLabel} oncta={toggleChooser} />
   {:else}
-    {#if revokedNote}
-      <p class="revoked-note" aria-live="polite">{revoked}</p>
-    {/if}
-    {#if activeInvites(invites, now).length === 0}
-      <p class="empty">{hint}</p>
-    {:else}
+    {#if active.length > 0}
       <ul class="rows">
-        {#each activeInvites(invites, now) as invite (invite.code)}
-          <InviteRow {invite} {baseUrl} {now} onrevoke={onrevoke} />
+        {#each active as invite (invite.code)}
+          <InviteRow {invite} {baseUrl} {now} roomAddress={roomAddress} onrevoke={onrevoke} />
         {/each}
       </ul>
     {/if}
-
     <button
       type="button"
       class="mint-toggle"
@@ -139,8 +164,14 @@
     >
       {mintLabel}
     </button>
+  {/if}
 
-    {#if chooserOpen}
+  {#if actionError}
+    <!-- Mint/revoke failure: inline near the control (§3.7.3 states). -->
+    <p class="action-error" role="alert" aria-live="polite">{actionError}</p>
+  {/if}
+
+  {#if invites !== null && chooserOpen}
       <div class="chooser">
         <div class="pills" role="group" aria-label={mintLabel}>
           <button type="button" class="pill" aria-pressed={ariaPressed('1h')} onclick={() => selectPreset('1h')}>{preset1h}</button>
@@ -171,6 +202,28 @@
         </button>
       </div>
     {/if}
+
+  {#if history.length > 0}
+    <!-- Rule-C history: ledger entries missing from the server list —
+         collapsed disclosure, non-interactive rows, ledger caveat. -->
+    <details class="history">
+      <summary>{historyTitle}</summary>
+      <p class="caveat">{caveatLabel}</p>
+      <ul class="history-rows">
+        {#each history as entry (entry.code)}
+          <li class="history-row">
+            <span class="code">{entry.code}</span>
+            <span class="badge">
+              {entry.classification === 'expired'
+                ? translate($locale, 'host.invites.expired_at', { date: dayOf(entry.expires_at) })
+                : translate($locale, 'host.invites.revoked_at', {
+                    date: dayOf(entry.revoked_at ?? entry.created_at)
+                  })}
+            </span>
+          </li>
+        {/each}
+      </ul>
+    </details>
   {/if}
 </section>
 
@@ -180,15 +233,6 @@
     flex-direction: column;
     gap: var(--space-3);
   }
-  .head h2 {
-    font-size: 24px;
-    margin: 0;
-  }
-  .hint {
-    margin: var(--space-1) 0 0;
-    font-size: 14px;
-    color: var(--color-text-muted);
-  }
   .rows {
     list-style: none;
     margin: 0;
@@ -197,15 +241,15 @@
     flex-direction: column;
     gap: var(--space-2);
   }
-  .empty {
-    margin: 0;
-    font-size: 14px;
-    color: var(--color-text-muted);
-  }
   .revoked-note {
     margin: 0;
     font-size: 14px;
     color: var(--color-accent);
+  }
+  .action-error {
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-text-muted);
   }
   .loading {
     margin: 0;
@@ -249,7 +293,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 40px;
+    min-height: var(--touch-target);
     padding: 0 var(--space-4);
     border: 1px solid var(--color-text-disabled-strong);
     background: transparent;
@@ -322,5 +366,57 @@
     to {
       transform: rotate(360deg);
     }
+  }
+  /* Rule-C history disclosure (§3.7.3 item 3): collapsed by default,
+     muted caveat directly under the header, non-interactive rows. */
+  .history {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+  }
+  .history summary {
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    min-height: var(--touch-target);
+    display: flex;
+    align-items: center;
+  }
+  .caveat {
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-text-muted);
+  }
+  .history-rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .history-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: var(--touch-target);
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-surface-elevated);
+    border-radius: var(--radius-md);
+  }
+  .history-row .code {
+    font-family: var(--font-pixel);
+    font-size: 24px;
+    letter-spacing: 0.2em;
+    color: var(--color-text-muted);
+  }
+  /* Expired/revoked badges are muted TEXT — never color-only (§3.7.3 a11y). */
+  .badge {
+    font-size: 14px;
+    color: var(--color-text-muted);
   }
 </style>
