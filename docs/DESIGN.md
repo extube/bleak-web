@@ -11070,6 +11070,13 @@ Tokens only; no new glyph, dependency or palette value.
 
 ### 4.37 feature amendment (2026-11-23, owner-approved Concept §51): "searching new contacts" badge on /people
 
+> **SUPERSEDED IN PART (2026-11-24) — see §4.38:** Inner content superseded
+> by §4.38 (2026-11-24) — placement (§4.37.B), condition/data-path (the
+> §4.37.A condition), footprint and states (§4.37.C) remain in force; the
+> spinner, the §4.37.E key value and the absolute non-interactivity
+> guarantee are superseded there. The text below is kept as the historical
+> record of the §4.37 decisions that §4.38 does not touch.
+
 Concept §51 (owner, 2026-11-23): on the `/people` page, add a **badge
 above all users**, styled in the **same style family and dimensions as a
 user item**, containing a **loading-circle (spinner) animation** and the
@@ -11317,6 +11324,311 @@ cross-cutting:
 5. **ADVICE NEEDED — none blocking:** the condition, data path,
    anatomy, placement, states and copy are fully specified above; no
    dependency, glyph or palette decision is open.
+
+### 4.38 feature amendment (2026-11-24, owner-approved Concept §52): searching-badge inner redesign — title, blinking bulb, settings link
+
+Concept §52 (owner, 2026-11-24): the §4.37 badge keeps its place, style,
+footprint and condition — only the INSIDE changes: (1) the title becomes
+RU **«Режим автоматического поиска контактов»** / EN **"Automatic contact
+search mode"** (concept-adopted wording, verbatim); (2) the loading
+spinner is replaced by a **blinking light-bulb icon** (a registry glyph
+with an opacity pulse — no loader; reduced motion = static bulb); (3) a
+secondary remark line links to **`/profile/settings`** — copy verbatim:
+RU «Изменить можно в настройках» / EN "Change it in settings".
+
+Grounded in the live code (read-only audit, 2026-11-24): the badge is
+implemented exactly per §4.37 —
+`apps/web/src/lib/components/people/SearchingBadge.svelte` (91 lines:
+`.loader` span line 33 + CSS 70–77, `loader-spin` keyframes 78–82,
+`.title` 85–90, the `people.searching` lookup line 25), rendered by
+`apps/web/src/routes/people/+page.svelte` (import line 35; the
+`searching` derived line 168 — self entry off the already-polled
+`listRoomUsers` roster with `active === true` and load completed;
+render site 303–309). Icon registry
+`apps/web/src/lib/components/icons/registry.ts` (275 lines: `IconName`
+union lines 6–33, `ICON_RECTS` from line 47; the `gear` glyph lines
+260–274 is the standing pattern — 16×16 grid, 2px weight,
+`currentColor`). `PixelIcon.svelte`: props lines 9–16 (`size` default
+16, `label` empty → decorative `aria-hidden`). Dictionaries:
+`people.searching` at `en.ts`/`ru.ts` line 166. Tests:
+`apps/web/tests/i18n.test.ts` §4.37.E describe lines 343–359 (the
+`people.searching*` key-set filter 347–352, verbatim-value assertions
+355–358); `apps/web/tests/people-page.test.ts` badge describe lines
+645–808 (AC-4 non-interactivity 747–765, footprint/loader source-level
+assertions 767–807). Reduced-motion catch-all: `base.css` lines 57–68.
+Global link defaults: `base.css` lines 37–40 (`a` →
+`--color-accent`, `text-decoration: none`) and `:focus-visible`
+outline lines 48–51; the muted-underlined inline-link precedent:
+`RoomPreview.svelte` lines 90–97. The `/profile/settings` route exists
+(`apps/web/src/routes/profile/settings/+page.svelte` — the §49/§4.35
+toggle page). The app's internal-link convention is a plain
+`<a href={resolve('/path')}>` with `resolve` from `$app/paths`
+(`HandshakeSheet.svelte` lines 146–150, `EmptyState.svelte` line 30,
+`routes/+page.svelte` line 87) — SvelteKit's router intercepts internal
+anchors; no click handler, no `goto`. Scope: the six files in
+§4.38.F.10; RU/EN parity; no new deps; existing suites green.
+
+#### 4.38.A Anatomy — same badge, new insides (DECIDED)
+
+Unchanged (supersession does NOT touch them): the §4.37.B placement
+(FIRST `<li>` of `ul.cards`); the §4.37.A condition and data-path (the
+route's `searching` derived, `+page.svelte` line 168, off the polled
+roster — no new fetch, no new poller); the PersonCard footprint
+(`li.searching-badge.pixel-corners`, `--color-surface` /
+`--radius-md` / `padding: var(--space-4)`, the 56px left slot, the
+`.row` gap); the §4.37.C state matrix. Same component file
+(`SearchingBadge.svelte`), same class names where sensible
+(`.searching-badge`, `.row`, `.slot`, `.title`).
+
+Changed inside the badge — the new markup skeleton:
+
+```svelte
+<li class="searching-badge pixel-corners">
+  <div class="row">
+    <div class="slot">
+      <span class="bulb" aria-hidden="true">
+        <PixelIcon name="bulb" size={32} />
+      </span>
+    </div>
+    <div class="main">
+      <p class="title">{title}</p>
+      <a class="remark" href={resolve('/profile/settings')}>{remark}</a>
+    </div>
+  </div>
+</li>
+```
+
+| Element | Spec |
+| --- | --- |
+| Left slot | the 56px slot is KEPT, but the 16px `.loader` spinner and its `loader-spin` keyframes are REMOVED. The slot now holds the **bulb**: a `span.bulb` wrapper (the animation hook, `aria-hidden="true"` — decorative) containing `<PixelIcon name="bulb" size={32} />` (§4.38.B). The wrapper is centered by the existing `.slot` inline-flex centering (lines 57–64) |
+| Main column | NEW wrapper `div.main` mirroring PersonCard's `.main` (`flex: 1; min-width: 0` — PersonCard lines 231–234). It is REQUIRED: the `.row` is `display: flex; align-items: center` — without the wrapper the title and remark would sit side-by-side instead of stacking |
+| Title | `.title` UNCHANGED: 16px/600 in `--color-text-muted` (the `.name` family values, PersonCard lines 235–240); text = `translate($locale, 'people.searching')` with the NEW §4.38 values (§4.38.D) |
+| Remark | `.remark` — the §4.38.C settings link, styled in the `.bio` family: `display: block; margin: 2px 0 0; font-size: 14px; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis` (the PersonCard `.bio` values, lines 241–248) **plus `text-decoration: underline`** (the RoomPreview muted-underlined link precedent, lines 90–97 — overrides the global `a { color: var(--color-accent); text-decoration: none }`, `base.css` lines 37–40) |
+
+The bulb color: `currentColor` via the registry (`PixelIcon` sets
+`fill="currentColor"`), inherited from the badge — the `.bulb` wrapper
+sets no color, so the glyph renders in the badge's muted text tone,
+matching the title's system-state tone (§4.37.A rationale). No new
+token, no palette value (flagged in §4.38.G.2).
+
+#### 4.38.B Bulb icon + blink spec (DECIDED)
+
+**Registry entry.** Append `'bulb'` to the `IconName` union
+(`registry.ts` line 33, after `'gear'` with a `§4.38 (Concept §52)`
+comment) and add the rect data to `ICON_RECTS` after the `gear` entry
+(line 274). Same construction rules as the whole set: 16×16 grid, 2px
+weight, `currentColor`, pixel-stepped outline (the `gear` pattern,
+lines 260–274). Exact geometry (8 rects — dome, filament, neck, base):
+
+```ts
+// SEARCHING BADGE (DESIGN §4.38.B): a classic pixel light bulb — dome
+// (top cap + side walls), a filament wire hanging into the glass, a
+// stepped neck and a two-bar screw base; currentColor.
+bulb: [
+  [5, 2, 6, 2],    // dome top cap        (x5..10,  y2..3)
+  [3, 4, 2, 4],    // dome left wall      (x3..4,   y4..7)
+  [11, 4, 2, 4],   // dome right wall     (x11..12, y4..7)
+  [7, 4, 2, 4],    // filament wire       (x7..8,   y4..7) — hangs from the cap
+  [5, 8, 2, 2],    // neck taper left     (x5..6,   y8..9)
+  [9, 8, 2, 2],    // neck taper right    (x9..10,  y8..9)
+  [5, 10, 6, 2],   // screw base bar      (x5..10,  y10..11)
+  [6, 12, 4, 2]    // base foot           (x6..9,   y12..13)
+]
+```
+
+Geometry rationale: the glyph spans x3..x12 / y2..y13 — span-centered
+at (7.5, 7.5), the `gear` entry's own centering convention; every wall
+is a 2-cell-thick stroke; the dome chamfers in from a 6-wide cap to
+10-wide walls, tapers 2 cells inward per side at the neck, and closes
+with a flush 6-wide base bar + a 4-wide foot — the classic bulb
+skeleton, legible as a silhouette, with the filament wire giving the
+"light" reading at small sizes.
+
+**Render size: 32px** (`size={32}`). Rationale: the 16-grid scales to
+32 as an exact 2× — each grid cell renders at exactly 2px, so
+`shape-rendering: crispEdges` lands on pixel boundaries with no
+half-cell fringing (24px would be 1.5px/cell; 16px — the spinner
+standard — is lifted by this amendment). 32px also fills the otherwise
+empty 56px slot (≈57%) in balance with the 16px/600 title — the
+§4.37.G.3 "larger slot-filling" alternative, now chosen by design.
+
+**Blink animation** — component-scoped keyframes on the `.bulb`
+wrapper in `SearchingBadge.svelte` (NOT global CSS):
+
+```css
+.bulb {
+  display: inline-flex;
+  animation: bulb-blink 1.2s ease-in-out infinite;
+}
+@keyframes bulb-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+```
+
+- Name `bulb-blink`; duration **1.2s**; timing **ease-in-out**;
+  infinite — a calm "thinking" pulse.
+- **Opacity-only** (§4.6): the "off" phase is **`opacity: 0.3`** — no
+  color swap, no glow, no box-shadow, no transform. The glyph tone
+  never changes; only its opacity breathes.
+
+**Reduced motion:** the standing `base.css` catch-all (lines 57–68:
+`animation-duration: 0.01ms !important; animation-iteration-count: 1
+!important`) completes the pulse instantly, and the keyframes declare
+no `animation-fill-mode` — so the element returns to its natural base
+state: **the bulb renders STATIC at full opacity (opacity: 1, the
+"on" state)**. No component-scoped `@media` block is added (the
+§4.37.D pattern); asserted source-level like §4.36.D.4 (the catch-all
+lines in `base.css` + the absence of `prefers-reduced-motion` in the
+badge's styles).
+
+#### 4.38.C Remark + settings link — DECIDED: the FULL line is one link
+
+**Pick: option (b).** The entire remark line is ONE anchor:
+
+```svelte
+<a class="remark" href={resolve('/profile/settings')}>{remark}</a>
+```
+
+with `remark = $derived(translate($locale, 'people.searching_settings'))`
+and `resolve` imported from `$app/paths` — the app's internal-link
+convention (HandshakeSheet lines 146–150, EmptyState line 30); the
+target is a static route (no params), and SvelteKit's router
+intercepts the anchor, so no `goto`, no click handler.
+
+**Justification (vs option (a), the two-key split):** the flat i18n
+tables are plain RU/EN string maps with no interpolation across keys —
+splitting one sentence into `before-part` + `link-part` couples two
+keys that must concatenate (a brittle anti-pattern if the owner ever
+rewords one half, and RU/EN word order would not survive a third
+locale anyway). Both target locales happen to end with the link word,
+but the full-line link needs only ONE key (the fewest-keys rule), and
+it gives pointer, touch and screen-reader users one larger, simpler
+target. The Concept explicitly allows the full line clickable
+(§52 item 3). Visual affordance comes from the underline, not from
+styling the link word differently.
+
+**Semantics and non-interactivity:** a real `<a>` with `href` —
+natively focusable and keyboard-activatable; the global
+`:focus-visible` outline (`base.css` lines 48–51) applies. This
+SUPERSEDES the §4.37.A guarantee to: **no interactive element EXCEPT
+the §4.38.C settings link** — no button, no `role="button"`, no
+`tabindex`, no other `<a>`, no tap handler on the row; the badge root
+carries **no `cursor: pointer`** (the link's own pointer cursor is the
+browser default for a real link and is fine); clicking anywhere on the
+badge outside the link does nothing.
+
+#### 4.38.D i18n delta — REPURPOSE `people.searching` + one new key (net +1 pair)
+
+**DECIDED: repurpose, not rename.** The key `people.searching` keeps
+its name (it still names the searching-badge feature; a rename would
+churn the component, both dictionaries and their tests for zero
+behavior gain) and takes the new concept-adopted values IN PLACE:
+
+| Key | RU (line 166, `ru.ts`) | EN (line 166, `en.ts`) |
+| --- | --- | --- |
+| `people.searching` *(repurposed — value edit only)* | «Режим автоматического поиска контактов» | "Automatic contact search mode" |
+| `people.searching_settings` *(NEW — slots in right after line 166)* | «Изменить можно в настройках» | "Change it in settings" |
+
+Both dictionaries' `people.*` blocks, each entry tagged with a
+`§4.38 (Concept §52)` comment (the `people.searching` comment is
+updated from §4.37 to §4.38). **Net delta: +1 pair per dictionary**
+(one in-place value edit, one new key; no retired keys, no orphans —
+the only prior consumer of `people.searching` is this same badge).
+The `ru`/`en` key-set equality test (`i18n.test.ts` lines 15–19)
+covers parity automatically; the §4.7 `DESIGN_4_7_KEYS` 94-key count
+(line 206) is NOT extended (the §4.35.E/§4.37.E dedicated-describe
+precedent).
+
+**Test updates (exact):** the §4.37.E describe (`i18n.test.ts` lines
+343–359) is renamed to reference §4.38.D/Concept §52, and its
+assertions become: the `people.searching*` key-set filter expects
+`['people.searching', 'people.searching_settings']` (insertion order —
+the new key lands directly after line 166), and the verbatim-value
+test asserts all four exact strings above.
+
+#### 4.38.F Acceptance criteria (checkable)
+
+web — `/people` badge:
+
+1. Placement/condition stay green UNCHANGED: via the established
+   mocked-fetch seam, a roster with the SELF entry `active: true`
+   renders the badge as the FIRST `<li>` of `ul.cards`; `active:
+   false`, self-entry-absent and initial-skeleton states render NO
+   badge (existing people-page assertions 645–745 stay green except
+   where they reference the loader/link, per items 3–7).
+2. The title reads exactly EN "Automatic contact search mode" / RU
+   «Режим автоматического поиска контактов» per locale — verbatim
+   assertions in the renamed i18n describe.
+3. The 56px slot holds the bulb: `'bulb'` exists in the `IconName`
+   union and `ICON_RECTS` (`registry.ts`), the badge renders
+   `<PixelIcon name="bulb" size={32} />` inside a `span.bulb`
+   (`aria-hidden="true"`); the `.loader` span, its 16px ring CSS and
+   the `loader-spin` keyframes are GONE from `SearchingBadge.svelte`
+   (source-level negative assertion); the DOM contains no `.loader`.
+4. Blink: the `.bulb` rule carries `animation: bulb-blink 1.2s
+   ease-in-out infinite`; `@keyframes bulb-blink` alternates opacity
+   1 → 0.3 → 1 and contains NOTHING but opacity (no box-shadow,
+   filter, transform or color — source-level).
+5. Reduced motion: NO component-scoped `prefers-reduced-motion` block
+   in the badge (stylesOnly assertion, §4.37.F.7 pattern); the
+   `base.css` catch-all (lines 57–68) freezes the pulse — the bulb
+   renders static at FULL opacity (no fill-mode; asserted source-level
+   like §4.36.D.4).
+6. Remark link: the badge contains EXACTLY ONE `<a>`, its `href` is
+   `resolve('/profile/settings')` (resolves to `/profile/settings`),
+   its visible text is the full `people.searching_settings` value per
+   locale (EN "Change it in settings" / RU «Изменить можно в
+   настройках» — verbatim); it is a real anchor (natively focusable)
+   styled 14px muted underlined (the `.bio` family + underline).
+7. Non-interactivity except the link: no button, no `role="button"`,
+   no `tabindex`, no second `<a>`; clicking the badge outside the
+   link does nothing (`goto` not called); the badge root styles
+   contain no `cursor: pointer` (source-level).
+8. Footprint kept: `--color-surface` / `--radius-md` / `padding:
+   var(--space-4)` / `pixel-corners`, the 56px slot, the 12px list
+   gap, ONE grid cell at `≥720px` — the §4.37.F.6 source assertions
+   stay green, updated only where they referenced the loader (now the
+   bulb) or the announced text (now title + remark, both keys).
+
+cross-cutting:
+
+9. Exactly the §4.38.D delta in BOTH dictionaries — `people.searching`
+   repurposed, `people.searching_settings` added, no orphaned keys
+   (the `people.searching*` key-set assertion proves both); the
+   `ru`/`en` key-set equality test and the §4.7 94-key count stay
+   green; `i18n`, `people-page`, `people-view` and `sweep` suites
+   stay green; `make lint && make test && make build` green.
+10. No new dependency, no new token/palette value; changes confined
+    to `apps/web/src/lib/components/people/SearchingBadge.svelte`,
+    `apps/web/src/lib/components/icons/registry.ts`,
+    `apps/web/src/lib/i18n/en.ts`, `apps/web/src/lib/i18n/ru.ts`,
+    `apps/web/tests/people-page.test.ts`,
+    `apps/web/tests/i18n.test.ts` — plus `docs/DESIGN.md`.
+
+#### 4.38.G Flags for the owner / concept (design report)
+
+1. **DESIGN NOTE — bulb size (§4.38.B):** 32px — the exact 2× of the
+   16-grid (crisp under `crispEdges`) and a ~57% fill of the 56px
+   slot; 24px (1.5px/cell) or 40px are one-prop changes if the owner
+   prefers smaller/larger.
+2. **DESIGN NOTE — bulb tone (§4.38.A):** the badge's muted text tone
+   via `currentColor` — matches the system-state title; a warmer
+   accent/amber "blinking light" is a one-token change on the `.bulb`
+   wrapper if the owner wants it.
+3. **DESIGN NOTE — link treatment (§4.38.C):** the full remark line is
+   the link (one key, one large target; affordance via underline) —
+   the Concept's acceptable alternative; if the owner later wants only
+   the word «настройках»/"settings" styled as the link, that is the
+   two-key split (net +1 more key) plus wrapping the link part in the
+   anchor.
+4. **DESIGN NOTE — blink rhythm (§4.38.B):** 1.2s ease-in-out with a
+   0.3 opacity floor — a calm ambient pulse in the §4.6 opacity-only
+   budget; 0.9s or a 0.2 floor are one-value changes.
+5. **ADVICE NEEDED — none blocking:** copy, link target, anatomy and
+   the animation budget are fixed by Concept §52; the design picks
+   (bulb size/geometry, rhythm, link treatment) are decided above and
+   flagged reversible.
 
 ## 5. Design-decision rationale (short)
 

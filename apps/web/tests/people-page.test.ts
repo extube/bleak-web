@@ -642,8 +642,8 @@ function source(relativePath: string): string {
   return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
 }
 
-describe('/people — §4.37 searching new contacts badge (Concept §51)', () => {
-  it('renders FIRST in ul.cards when the SELF roster entry is active=true — PersonCard footprint, spinner + muted title; absent when active=false (AC 1)', async () => {
+describe('/people — §4.38 searching new contacts badge, inner redesign (Concept §52; placement/footprint per §4.37)', () => {
+  it('renders FIRST in ul.cards when the SELF roster entry is active=true — PersonCard footprint, blinking bulb + muted title + settings link; absent when active=false (AC 1)', async () => {
     fixture.users = [person('0xa', 'Алиса', 10), { ...person(ME, 'Я', 20) }];
     await renderPage();
 
@@ -660,14 +660,24 @@ describe('/people — §4.37 searching new contacts badge (Concept §51)', () =>
     );
     // the §3.3 card family footprint marker; token-level CSS below
     expect(badge.classList.contains('pixel-corners')).toBe(true);
-    // content: the §4.13.4 loader (aria-hidden) + the muted title
-    const loader = badge.querySelector('.loader') as HTMLElement;
-    expect(loader).toBeTruthy();
-    expect(loader.getAttribute('aria-hidden')).toBe('true');
+    // content (§4.38): the blinking bulb (aria-hidden) + the muted title
+    const bulb = badge.querySelector('.bulb') as HTMLElement;
+    expect(bulb).toBeTruthy();
+    expect(bulb.getAttribute('aria-hidden')).toBe('true');
+    // the registry glyph rendered (§4.38.B — a PixelIcon SVG inside .bulb)
+    expect(bulb.querySelector('svg')).toBeTruthy();
     expect(badge.querySelector('.title')?.textContent).toBe(ru['people.searching']);
-    // NOT a user: the badge's ONLY text is the title — no self name, no
-    // real user data, no avatar
-    expect(badge.textContent?.trim()).toBe(ru['people.searching']);
+    // the §4.38.C settings remark — the FULL line is ONE anchor
+    const remark = badge.querySelector('a.remark') as HTMLAnchorElement;
+    expect(remark).toBeTruthy();
+    expect(remark.getAttribute('href')).toBe('/profile/settings');
+    expect(remark.textContent).toBe(ru['people.searching_settings']);
+    // the §4.38 spinner replacement is complete: no legacy ring in the DOM
+    expect(badge.querySelector('.loader')).toBeNull();
+    // NOT a user: the badge's ONLY text is title + remark — no self name,
+    // no real user data, no avatar
+    const text = (badge.textContent ?? '').replace(/\s+/g, ' ').trim();
+    expect(text).toBe(`${ru['people.searching']} ${ru['people.searching_settings']}`);
 
     // the same roster with active: false → NO badge; the card list itself
     // is untouched (§4.37.A: self entry absent or active: false → absent)
@@ -744,27 +754,36 @@ describe('/people — §4.37 searching new contacts badge (Concept §51)', () =>
     expect(document.querySelector('.searching-badge')).toBeNull();
   });
 
-  it('is NOT a user entry: no button/link/role=button/tabindex, no navigation on tap; the spinner is aria-hidden and the title is the only announced text (AC 4)', async () => {
+  it('is NOT a user entry: the ONLY interactive element is the §4.38.C settings link — no button/role=button/tabindex, no second anchor, no navigation on tap; the bulb is aria-hidden and title + remark are the only announced text (AC 7)', async () => {
     fixture.users = [person('0xa', 'Алиса', 10), { ...person(ME, 'Я', 20) }];
     await renderPage();
 
     const badge = document.querySelector('.searching-badge') as HTMLElement;
-    // non-interactive guarantees (§4.37.A): focus is never involved, it
-    // never navigates, no PersonCard behavior of any kind
-    expect(badge.querySelector('button, a, [role="button"], [tabindex]')).toBeNull();
+    // the §4.38.C link is the badge's ONLY interactive element: EXACTLY
+    // ONE anchor, href = /profile/settings, full-line remark text
+    const anchors = badge.querySelectorAll('a');
+    expect(anchors).toHaveLength(1);
+    const remark = anchors[0] as HTMLAnchorElement;
+    expect(remark.getAttribute('href')).toBe('/profile/settings');
+    expect(remark.textContent).toBe(ru['people.searching_settings']);
+    // non-interactive guarantees (§4.38.C supersedes §4.37.A everywhere
+    // else): no button, no role="button", no tabindex, no PersonCard
+    // behavior of any kind
+    expect(badge.querySelector('button, [role="button"], [tabindex]')).toBeNull();
     expect(badge.querySelector('.chip, .expanded-actions, .action')).toBeNull();
     expect(badge.querySelector('.row[role="button"]')).toBeNull();
-    // the spinner is decoration; the visible title is the only announced text
-    expect(badge.querySelector('.loader')?.getAttribute('aria-hidden')).toBe('true');
-    expect(badge.textContent?.trim()).toBe(ru['people.searching']);
+    // the bulb is decoration; the visible title + remark are the only
+    // announced text
+    expect(badge.querySelector('.bulb')?.getAttribute('aria-hidden')).toBe('true');
 
-    // tapping the full-width row does NOTHING (goto is the app-wide nav seam)
+    // tapping the full-width row (anywhere outside the link) does NOTHING
+    // (goto is the app-wide nav seam)
     await badge.click();
     await tick();
     expect(goto).not.toHaveBeenCalled();
   });
 
-  it('footprint + loader are token/source-level exact (§4.37.A, AC 6–7): PersonCard tokens, 56px slot, 16px §4.13.4 ring, transform-only rotation; reduced motion = the base.css catch-all, no cursor: pointer', () => {
+  it('footprint + bulb are token/source-level exact (§4.38.A–B, AC 3–8): PersonCard tokens, 56px slot, 32px registry glyph, opacity-only blink, .main stack, underlined .remark; reduced motion = the base.css catch-all static full-opacity, no cursor: pointer', () => {
     const css = source('src/lib/components/people/SearchingBadge.svelte');
 
     // the root is the first-<li> badge with pixel-corners (§4.37.B)
@@ -773,34 +792,66 @@ describe('/people — §4.37 searching new contacts badge (Concept §51)', () =>
     expect(css).toMatch(/\.searching-badge\s*\{[^}]*background:\s*var\(--color-surface\)/);
     expect(css).toMatch(/\.searching-badge\s*\{[^}]*border-radius:\s*var\(--radius-md\)/);
     expect(css).toMatch(/\.searching-badge\s*\{[^}]*padding:\s*var\(--space-4\)/);
-    // the 56px PixelAvatar slot — loader centered in it
+    // the 56px PixelAvatar slot — bulb centered in it (§4.38.A)
     expect(css).toMatch(/\.slot\s*\{[^}]*width:\s*56px/);
     expect(css).toMatch(/\.slot\s*\{[^}]*height:\s*56px/);
-    // the §4.13.4 construction at the §3.1 .spinner standard 16px (AC 7)
-    expect(css).toMatch(/<span class="loader" aria-hidden="true"><\/span>/);
-    expect(css).toMatch(/\.loader\s*\{[^}]*width:\s*16px/);
-    expect(css).toMatch(/\.loader\s*\{[^}]*height:\s*16px/);
-    expect(css).toMatch(/\.loader\s*\{[^}]*border-radius:\s*50%/);
-    expect(css).toMatch(/\.loader\s*\{[^}]*border:\s*2px solid var\(--color-text-muted\)/);
-    expect(css).toMatch(/\.loader\s*\{[^}]*border-top-color:\s*transparent/);
-    expect(css).toMatch(/\.loader\s*\{[^}]*animation:\s*loader-spin 0\.9s linear infinite/);
-    // transform-only rotation (§4.6)
-    expect(css).toMatch(/@keyframes loader-spin\s*\{[^@]*transform:\s*rotate\(360deg\)/);
+    // §4.38.A anatomy: the .main stack mirroring PersonCard (lines 231–234)
+    expect(css).toMatch(/\.main\s*\{[^}]*flex:\s*1/);
+    expect(css).toMatch(/\.main\s*\{[^}]*min-width:\s*0/);
+    // the §4.38.B bulb: span.bulb (aria-hidden) wrapping the registry glyph
+    // at the exact 2× of the 16-grid
+    expect(css).toMatch(/<span class="bulb" aria-hidden="true">/);
+    expect(css).toMatch(/<PixelIcon name="bulb" size=\{32\} \/>/);
+    // the superseded §4.37 spinner construction is GONE (source-level, AC 3)
+    expect(css).not.toMatch(/loader/);
+    expect(css).not.toMatch(/loader-spin/);
+    // the blink: component-scoped keyframes, opacity-only (§4.6) — the
+    // "off" phase dips to 0.3; no color swap, no glow, no transform
+    expect(css).toMatch(/\.bulb\s*\{[^}]*display:\s*inline-flex/);
+    expect(css).toMatch(/\.bulb\s*\{[^}]*animation:\s*bulb-blink 1\.2s ease-in-out infinite/);
+    const keyframes = css.match(/@keyframes bulb-blink\s*\{[\s\S]*?\n {2}\}/)?.[0] ?? '';
+    expect(keyframes).toBeTruthy();
+    expect(keyframes).toMatch(/opacity:\s*1/);
+    expect(keyframes).toMatch(/opacity:\s*0\.3/);
+    expect(keyframes.match(/opacity/g)?.length).toBe(2);
+    expect(keyframes).not.toMatch(/box-shadow|filter|transform|color|background|border/);
+    // §4.38.C: the FULL remark line is ONE anchor (resolve from $app/paths —
+    // the app's internal-link convention), styled in the .bio family
+    // (PersonCard lines 241–248) plus the RoomPreview underline precedent
+    // (lines 90–97) — 14px muted underlined
+    expect(css).toMatch(/import \{ resolve \} from '\$app\/paths'/);
+    expect(css).toMatch(/<a class="remark" href=\{resolve\('\/profile\/settings'\)\}>/);
+    expect(css).toMatch(/\.remark\s*\{[^}]*font-size:\s*14px/);
+    expect(css).toMatch(/\.remark\s*\{[^}]*color:\s*var\(--color-text-muted\)/);
+    expect(css).toMatch(/\.remark\s*\{[^}]*text-decoration:\s*underline/);
     // the muted title — the .name family in --color-text-muted (§4.37.A)
     expect(css).toMatch(/\.title\s*\{[^}]*font-size:\s*16px/);
     expect(css).toMatch(/\.title\s*\{[^}]*font-weight:\s*600/);
     expect(css).toMatch(/\.title\s*\{[^}]*color:\s*var\(--color-text-muted\)/);
 
-    // NOT clickable even though the row width equals a tappable PersonCard's;
-    // reduced motion: NO component-scoped @media — the base.css catch-all
-    // freezes the ring as a static circle (§4.37.D; asserted source-level
-    // like §4.36.D.4). Comments are excluded (the sweep precedent — naming
-    // a rule in prose is allowed; actual styles are not).
+    // the bulb glyph in the pixel-rect registry (§4.38.B): the IconName
+    // union entry + the 8-rect geometry (dome, filament, neck, base) —
+    // same construction rules as the `gear` pattern
+    const registry = source('src/lib/components/icons/registry.ts');
+    expect(registry).toMatch(/\| 'bulb';/);
+    const bulbRects = registry.match(/bulb: \[([\s\S]*?)\]\s*\n\};/)?.[1] ?? '';
+    expect(bulbRects).toBeTruthy();
+    expect(bulbRects.match(/\[\d+, \d+, \d+, \d+\]/g)).toHaveLength(8);
+
+    // NOT clickable on the root even though the row width equals a
+    // tappable PersonCard's (the link's own pointer cursor is the browser
+    // default, §4.38.C); reduced motion: NO component-scoped @media and NO
+    // animation-fill-mode — the base.css catch-all completes the pulse
+    // instantly and the bulb rests STATIC at full opacity (§4.38.B;
+    // asserted source-level like §4.36.D.4). Comments are excluded (the
+    // sweep precedent — naming a rule in prose is allowed; actual styles
+    // are not).
     const stylesOnly = css
       .slice(css.indexOf('<style>'))
       .replaceAll(/\/\*[\s\S]*?\*\//g, '');
     expect(stylesOnly).not.toMatch(/cursor:\s*pointer/);
     expect(stylesOnly).not.toMatch(/prefers-reduced-motion/);
+    expect(stylesOnly).not.toMatch(/animation-fill-mode/);
     const base = source('src/lib/styles/base.css');
     expect(base).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
     expect(base).toMatch(/animation-duration:\s*0\.01ms\s*!important/);

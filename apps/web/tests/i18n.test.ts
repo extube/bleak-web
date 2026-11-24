@@ -340,21 +340,26 @@ describe('§4.35.E auto-handshake keys (Concept §49, DESIGN §4.35.E)', () => {
   });
 });
 
-describe('§4.37.E searching-badge key (Concept §51, DESIGN §4.37.E)', () => {
-  it('exactly the one §4.37.E key exists in BOTH dictionaries (RU/EN parity)', () => {
-    // The only `people.searching*` key in either dictionary — no value edits,
-    // no retired keys, no reuse-of-convenience (net +1 per dictionary).
+describe('§4.38.D searching-badge keys (Concept §52, DESIGN §4.38.D)', () => {
+  it('exactly the two §4.38.D keys exist in BOTH dictionaries (RU/EN parity)', () => {
+    // The only `people.searching*` keys in either dictionary: the
+    // repurposed title + the new remark key (net +1 per dictionary — no
+    // retired keys, no reuse-of-convenience).
     for (const dict of [en, ru]) {
       expect(Object.keys(dict).filter((k) => k.startsWith('people.searching'))).toEqual([
-        'people.searching'
+        'people.searching',
+        'people.searching_settings'
       ]);
       expect(dict['people.searching']?.trim().length).toBeGreaterThan(0);
+      expect(dict['people.searching_settings']?.trim().length).toBeGreaterThan(0);
     }
   });
 
-  it('the key carries the verbatim concept-adopted copy (owner, 2026-11-23)', () => {
-    expect(en['people.searching']).toBe('Searching new contacts');
-    expect(ru['people.searching']).toBe('Поиск новых контактов');
+  it('the keys carry the verbatim concept-adopted copy (owner, 2026-11-24)', () => {
+    expect(en['people.searching']).toBe('Automatic contact search mode');
+    expect(ru['people.searching']).toBe('Режим автоматического поиска контактов');
+    expect(en['people.searching_settings']).toBe('Change it in settings');
+    expect(ru['people.searching_settings']).toBe('Изменить можно в настройках');
   });
 });
 

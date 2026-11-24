@@ -1,13 +1,14 @@
 <script lang="ts">
   /**
-   * SearchingBadge (DESIGN §4.37, Concept §51): the "searching new contacts"
+   * SearchingBadge (DESIGN §4.38, Concept §52): the "searching new contacts"
    * badge on /people — the FIRST <li> of the `.cards` list, styled in the
    * PersonCard footprint (§3.3 card family: surface card, pixel-corners,
    * 56px left slot, .row gap) but NOT a user: no navigation, no PersonCard
    * behavior, no relationship data, no real user fields. Content = the
-   * §4.13.4 circular loader (at the §3.1 .spinner standard 16px diameter)
-   * + the muted title (the .name family 16px/600 in --color-text-muted —
-   * the "muted/secondary styling" that reads as a system state).
+   * blinking light-bulb pixel glyph (§4.38.B — the §4.13.4 spinner was
+   * superseded) + the muted title (the .name family 16px/600 in
+   * --color-text-muted — the "muted/secondary styling" that reads as a
+   * system state) + the settings remark link (§4.38.C).
    *
    * Presentational: the route derives the §49 `active` flag from the
    * already-polled listRoomUsers roster (self entry) and conditionally
@@ -15,24 +16,34 @@
    * part of the `cards` derived array — pure markup as the first list child
    * (§4.37.B), never reordered, never filtered by the search (§4.37.C).
    *
-   * Non-interactive guarantees (§4.37.A): no button, no link, no
-   * role="button", no tabindex, no tap handler, no expand panel, no
-   * dismissal semantics — focus is never involved, it never navigates, no
-   * `cursor: pointer`.
+   * Interactivity guarantees (§4.38.C — supersedes the §4.37.A blanket):
+   * the badge's ONLY interactive element is the settings remark link (a
+   * real <a>, natively focusable, SvelteKit intercepts it) — no button, no
+   * role="button", no tabindex, no other anchor, no tap handler, no
+   * `cursor: pointer` on the root; clicking anywhere outside the link does
+   * nothing.
    */
+  import { resolve } from '$app/paths';
+  import PixelIcon from '#lib/components/icons/PixelIcon.svelte';
   import { locale, translate } from '#lib/i18n/locale';
 
   const title = $derived(translate($locale, 'people.searching'));
+  const remark = $derived(translate($locale, 'people.searching_settings'));
 </script>
 
 <li class="searching-badge pixel-corners">
   <div class="row">
     <!-- The 56px PixelAvatar slot — NO avatar, NO placeholder box; the
-         16px loader is centered in it (§4.37.A). -->
+         blinking bulb is centered in it (§4.38.A/B). -->
     <div class="slot">
-      <span class="loader" aria-hidden="true"></span>
+      <span class="bulb" aria-hidden="true">
+        <PixelIcon name="bulb" size={32} />
+      </span>
     </div>
-    <p class="title">{title}</p>
+    <div class="main">
+      <p class="title">{title}</p>
+      <a class="remark" href={resolve('/profile/settings')}>{remark}</a>
+    </div>
   </div>
 </li>
 
@@ -62,23 +73,29 @@
     align-items: center;
     justify-content: center;
   }
-  /* §4.13.4 construction (ChatCard lines 309–322) at the §3.1 .spinner
-   * standard 16px diameter: border ring with a transparent top arc,
-   * transform-only rotation (§4.6). Under prefers-reduced-motion: reduce
-   * the base.css catch-all completes the rotation instantly — the ring
-   * freezes as a static circle; no component-scoped @media block (§4.37.D). */
-  .loader {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    border: 2px solid var(--color-text-muted);
-    border-top-color: transparent;
-    animation: loader-spin 0.9s linear infinite;
+  /* §4.38.B: the blinking bulb — an opacity-only pulse (§4.6): the "off"
+   * phase dips to 0.3, the glyph tone never changes. No animation-fill-mode,
+   * so under prefers-reduced-motion: reduce the base.css catch-all completes
+   * the pulse instantly and the bulb rests STATIC at full opacity (the "on"
+   * state); no component-scoped @media block (§4.38.B). */
+  .bulb {
+    display: inline-flex;
+    animation: bulb-blink 1.2s ease-in-out infinite;
   }
-  @keyframes loader-spin {
-    to {
-      transform: rotate(360deg);
+  @keyframes bulb-blink {
+    0%,
+    100% {
+      opacity: 1;
     }
+    50% {
+      opacity: 0.3;
+    }
+  }
+  /* The PersonCard .main (PersonCard lines 231–234) — REQUIRED so the title
+   * and the remark stack instead of sitting side-by-side in the .row (§4.38.A). */
+  .main {
+    flex: 1;
+    min-width: 0;
   }
   /* The .name family (PersonCard lines 235–240) in the muted tone — a
    * system state, not a user (§4.37.A). */
@@ -87,5 +104,20 @@
     font-size: 16px;
     font-weight: 600;
     color: var(--color-text-muted);
+  }
+  /* §4.38.C: the settings remark — the FULL line is ONE anchor. The .bio
+   * family values (PersonCard lines 241–248) plus an underline (the
+   * RoomPreview muted-underlined link precedent, lines 90–97): the
+   * underline overrides the global `a` accent/no-underline defaults
+   * (base.css lines 37–40). The badge's ONLY interactive element. */
+  .remark {
+    display: block;
+    margin: 2px 0 0;
+    font-size: 14px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-decoration: underline;
   }
 </style>

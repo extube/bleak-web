@@ -161,9 +161,12 @@ export const en = {
   // "Open chat" button (navigates the way the removed icon did).
   'people.action.back': 'handshake!',
   'people.action.open_chat': 'Open chat',
-  // §4.37 (Concept §51): the /people "searching new contacts" system badge
-  // title (the auto-matchmaking worker state — not a user).
-  'people.searching': 'Searching new contacts',
+  // §4.38 (Concept §52): the /people "searching new contacts" system badge
+  // (the auto-matchmaking worker state — not a user): the badge title
+  // (repurposed from §4.37) + the settings remark (§4.38.C — the full line
+  // links to /profile/settings).
+  'people.searching': 'Automatic contact search mode',
+  'people.searching_settings': 'Change it in settings',
 
   /* --- chats (DESIGN §3.4/§3.5, §4.7) --- */
   'chats.title': 'Chats',

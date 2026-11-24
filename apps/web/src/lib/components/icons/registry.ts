@@ -30,7 +30,11 @@ export type IconName =
   // v3.23 (DESIGN §4.29.D.2): the settings gear — the one new glyph of the
   // profile redesign; same construction rules (16×16 grid, 2px weight,
   // currentColor). Fallback per the design was the `edit` glyph.
-  | 'gear';
+  | 'gear'
+  // §4.38 (Concept §52): the searching-badge light bulb — the spinner's
+  // replacement in the 56px slot; same construction rules (16×16 grid,
+  // 2px weight, currentColor).
+  | 'bulb';
 
 /** Tab glyphs (§1.2) reference the same set. */
 export const TAB_ICONS = {
@@ -271,5 +275,18 @@ export const ICON_RECTS: Record<IconName, readonly Rect[]> = {
     [5, 9, 2, 2],
     [9, 9, 2, 2],
     [7, 7, 2, 2]
+  ],
+  // SEARCHING BADGE (DESIGN §4.38.B): a classic pixel light bulb — dome
+  // (top cap + side walls), a filament wire hanging into the glass, a
+  // stepped neck and a two-bar screw base; currentColor.
+  bulb: [
+    [5, 2, 6, 2], // dome top cap        (x5..10,  y2..3)
+    [3, 4, 2, 4], // dome left wall      (x3..4,   y4..7)
+    [11, 4, 2, 4], // dome right wall     (x11..12, y4..7)
+    [7, 4, 2, 4], // filament wire       (x7..8,   y4..7) — hangs from the cap
+    [5, 8, 2, 2], // neck taper left     (x5..6,   y8..9)
+    [9, 8, 2, 2], // neck taper right    (x9..10,  y8..9)
+    [5, 10, 6, 2], // screw base bar      (x5..10,  y10..11)
+    [6, 12, 4, 2] // base foot           (x6..9,   y12..13)
   ]
 };
