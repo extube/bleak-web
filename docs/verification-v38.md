@@ -1,5 +1,72 @@
 # bleak-web v3.8 — Verification sweep (tz10-03, verification-only)
 
+> **v3.34 ROUND NOTE (Concept §52 owner batch — searching-badge INNER
+> redesign on `/people` — appended by the process 2026-11-24, post-round
+> three-gate run GREEN: lint clean · 1106 tests total (52 api-client +
+> 8 helper + 1046 web, 57 files) · svelte-check 0 errors (10
+> pre-existing `state_referenced_locally` warnings in untouched
+> TokenGate/JoinFlow files), dev `e4aa904`):**
+> **Delivered end-to-end** (task 143, worker `443fe644`, design
+> `dd6ea61e`, process `d963f0b1`; branch
+> `feature/443fe644-searching-badge-inner-redesign` — worker commits
+> `548883b` + `c46eebe` (session close) squashed to ONE landing commit
+> dev `e4aa904`; DESIGN-FIRST honored — the feature-scoped design pass
+> wrote the dated **DESIGN §4.38** amendment (2026-11-24) + the §4.37
+> supersession pointer BEFORE implementation; the uncommitted owner
+> edit to `docs/Concept.md` §49–52 and stray session/log records left
+> unstaged — landing staged by pathspec (the 9 branch files + the three
+> instance session records), not `git add -A`; concept's §52 brief
+> carried pre-approved landing — lean protocol per §22.2):
+> (1) **Scope guard held:** the §51 badge stays in place on `/people` —
+> same FIRST-`<li>` placement (§4.37.B), same §49 `active`-flag
+> condition/data path (§4.37.A — the poller/roster logic untouched, no
+> mocks), same PersonCard footprint; only the INSIDE changed (§4.38.A).
+> (2) **New title** (§4.38.D): `people.searching` REPURPOSED in place —
+> EN **"Automatic contact search mode"** / RU **«Режим автоматического
+> поиска контактов»** (verbatim, concept-adopted; grep-audited — no
+> orphaned key, the badge is the sole consumer).
+> (3) **Blinking bulb instead of the spinner** (§4.38.B): the §4.13.4
+> loader/`loader-spin` construction REMOVED; a new **`bulb`** pixel
+> glyph in the icon registry (8 rects, the `gear` pattern: 16×16 grid,
+> 2px weight, `currentColor`); the badge renders `<PixelIcon
+> name="bulb" size={32}/>` (exact 2× of the 16-grid — crisp cells) in
+> the kept empty 56px slot inside `span.bulb[aria-hidden]`; blink =
+> component-scoped `@keyframes bulb-blink` — 1.2s ease-in-out infinite,
+> **opacity 1 ↔ 0.3** (opacity-only, §4.6 allowances); reduced motion =
+> the standing `base.css` catch-all leaves a **STATIC full-opacity
+> bulb** (no component `@media`; asserted source-level, §4.36.D.4
+> style).
+> (4) **Settings remark + link** (§4.38.C): new `people.searching_settings`
+> = EN **"Change it in settings"** / RU **«Изменить можно в настройках»**
+> (verbatim, concept-adopted; net +1 pair per dictionary); the FULL
+> remark line is ONE anchor `a.remark` → `resolve('/profile/settings')`
+> (the §49 toggle page) — 14px muted underlined (the `.bio` family; the
+> RoomPreview link precedent); it is the badge's **ONLY** interactive
+> element (everything else stays non-interactive, no `cursor: pointer`
+> on the root — §4.37.A's absolute no-link guarantee superseded by
+> §4.38 exactly here).
+> **Tests:** i18n describe renamed §4.38.D (key-set
+> `['people.searching', 'people.searching_settings']` + 4 verbatim
+> strings; the ru/en key-set equality and the §4.7 94-key count stay
+> green); the people-page badge suite reworked — bulb/aria-hidden DOM
+> asserts, one-anchor href + remark text, DOM+source no-loader
+> negatives, keyframes opacity-only extraction, registry 8-rect assert,
+> stylesOnly no-cursor/no-media/no-fill-mode + base.css catch-all;
+> placement / both-active-states / footprint assertions kept green.
+> Manual checks for the owner: on `/people` with the §49 flag ON — the
+> first card (a grid cell, not a banner) shows the blinking bulb + the
+> new title in both locales + the underlined remark; clicking the
+> remark lands on `/profile/settings`; with reduced motion the bulb
+> stands static; flag OFF → no badge (unchanged).
+> Housekeeping: commits pathspec-scoped (the owner's Concept.md §49–52
+> batch + stray session/log files left unstaged); devops `-D`
+> branch-cleanup list adds
+> `feature/443fe644-searching-badge-inner-redesign` (19 branches total;
+> `git branch -d` refused on the squash-landed branch, `-D` mechanically
+> denied); pre-existing duplicate `## 5.` header in DESIGN.md untouched;
+> my process session-record close delta rides the next landing
+> (disclosed).
+
 > **v3.33 ROUND NOTE (Concept §51 owner batch — "searching new contacts"
 > badge on `/people` — appended by the process 2026-11-23, post-round
 > three-gate run GREEN: lint clean · 1106 tests total (52 api-client +
