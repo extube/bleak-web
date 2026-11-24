@@ -42,7 +42,7 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
       .filter((f) => !ROUTE_FILES.includes(f))
       .map(rel);
     expect(offenders, `new Poller outside route files: ${offenders.join(', ')}`).toEqual([]);
-    // The rule is not vacuous: the six polling pages really do instantiate it.
+    // The rule is not vacuous: the seven polling pages really do instantiate it.
     const pollingRoutes = ROUTE_FILES
       .filter((f) => /new\s+Poller\b/.test(readFileSync(f, 'utf8')))
       .map(rel)
@@ -51,11 +51,14 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
       'src/routes/chats/+page.svelte',
       'src/routes/chats/[address]/+page.svelte',
       'src/routes/contacts/+page.svelte',
+      // rev. 4 §2.2 row (TZ13-03): the admin panel polls members 5 s, and
+      // the statistics fan-out runs on every third tick of that Poller.
+      'src/routes/host/[room_address]/+page.svelte',
       'src/routes/people/+page.svelte',
       'src/routes/profile/+page.svelte',
       'src/routes/room/+page.svelte'
       // rev. 4 (TZ13-02): `/host` is the ENTRY route — no poller. The 5 s
-      // host panel poller moves to `src/routes/host/[room_address]/…`
+      // host panel poller moved to `src/routes/host/[room_address]/…`
       // (TZ13-03, §3.7.2); TZ13-05 re-verifies the §2.2 table.
     ]);
   });
@@ -81,8 +84,13 @@ describe('sweep: polling etiquette (DESIGN §2.2, ARCHITECTURE §5)', () => {
       // §4.14.2 row: /contacts polls the recipient-only listContactsSharedWith
       // (+ the roster for name resolution) at 4 s.
       'src/routes/contacts/+page.svelte': '4000',
-      // rev. 4 (TZ13-02): the 5 s host cadence moves with the panel to
-      // `src/routes/host/[room_address]/…` (TZ13-03) — the entry route polls.
+      // rev. 4 (TZ13-02 + TZ13-03): the 5 s host cadence lives on the
+      // admin panel route — members 5 s, the statistics fan-out on every
+      // third tick of the same Poller (⇒ 15 s; host-stats/host-panel
+      // tests). The entry route polls nothing (TZ13-02).
+      'src/routes/host/[room_address]/+page.svelte': '5000',
+      // rev. 3 §2.2 row: /profile polls the token-gated getRoomUser at 4 s
+      // for the badge live-QR liveness flag (TZ2-07 Part A).
       'src/routes/profile/+page.svelte': '4000'
     };
     for (const [file, ms] of Object.entries(expected)) {

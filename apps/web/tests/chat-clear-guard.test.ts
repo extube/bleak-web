@@ -263,8 +263,11 @@ describe('attendee chat clear guard (Concept §7.1.4 — no clear-history contro
     });
     await tick();
     // The clear control the owner kept exists ONLY here — in the host UI,
-    // behind its own confirm dialog.
-    const clearButton = screen.getByRole('button', { name: ru['host.drill.clear'] });
+    // behind its own confirm dialog. Rev. 4 (TZ13-03): the action carries
+    // the per-record aria-label («Очистить историю диалога {chat}»).
+    const clearButton = screen.getByRole('button', {
+      name: ru['host.drill.clear_aria'].replace('{chat}', '0xchat1')
+    });
     await clearButton.click();
     await tick();
     expect(screen.getByText(ru['host.drill.clear_confirm'])).toBeTruthy();
